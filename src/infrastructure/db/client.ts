@@ -1,4 +1,11 @@
 import { drizzle } from "drizzle-orm/mysql2";
+import { createPool } from "mysql2/promise";
 import { env } from "#/env";
 
-export const db = drizzle(env.DATABASE_URL, { casing: "snake_case" });
+const pool = createPool(env.DATABASE_URL);
+
+export const db = drizzle(pool, { casing: "snake_case" });
+
+export async function closeDbConnection(): Promise<void> {
+  await pool.end();
+}

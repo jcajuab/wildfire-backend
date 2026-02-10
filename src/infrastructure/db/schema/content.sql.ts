@@ -1,4 +1,5 @@
 import { int, mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { users } from "./rbac.sql";
 
 export const content = mysqlTable("content", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -11,6 +12,8 @@ export const content = mysqlTable("content", {
   width: int("width"),
   height: int("height"),
   duration: int("duration"),
-  createdById: varchar("created_by_id", { length: 36 }).notNull(),
+  createdById: varchar("created_by_id", { length: 36 })
+    .notNull()
+    .references(() => users.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

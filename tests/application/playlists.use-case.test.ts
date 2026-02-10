@@ -72,6 +72,8 @@ const makeDeps = () => {
   const contentRepository = {
     findById: async (id: string) =>
       contents.find((content) => content.id === id) ?? null,
+    findByIds: async (ids: string[]) =>
+      contents.filter((content) => ids.includes(content.id)),
     create: async () => {
       throw new Error("not used");
     },
@@ -146,6 +148,21 @@ describe("Playlists use cases", () => {
     expect(result.name).toBe("Morning");
   });
 
+  test("CreatePlaylistUseCase throws when creator is missing", async () => {
+    const deps = makeDeps();
+    const useCase = new CreatePlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      userRepository: deps.userRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Morning",
+        createdById: "missing-user",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
   test("GetPlaylistUseCase throws when missing", async () => {
     const deps = makeDeps();
     const useCase = new GetPlaylistUseCase({
@@ -181,6 +198,57 @@ describe("Playlists use cases", () => {
 
     const result = await useCase.execute({ id: playlist.id });
     expect(result.items).toHaveLength(1);
+  });
+
+  test("GetPlaylistUseCase batches content lookups", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+    await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-1",
+      sequence: 10,
+      duration: 5,
+    });
+    await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-1",
+      sequence: 20,
+      duration: 5,
+    });
+
+    let findByIdCalls = 0;
+    let findByIdsCalls = 0;
+    const contentRepository = {
+      findById: async (id: string) => {
+        findByIdCalls += 1;
+        return deps.contentRepository.findById(id);
+      },
+      findByIds: async (ids: string[]) => {
+        findByIdsCalls += 1;
+        return Promise.all(
+          ids.map(async (id) => deps.contentRepository.findById(id)),
+        ).then((rows) => rows.filter((row) => row != null));
+      },
+      create: async () => {
+        throw new Error("not used");
+      },
+      list: async () => ({ items: [], total: 0 }),
+      delete: async () => false,
+    };
+
+    const useCase = new GetPlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: contentRepository as never,
+      userRepository: deps.userRepository,
+    });
+
+    await useCase.execute({ id: playlist.id });
+    expect(findByIdsCalls).toBe(1);
+    expect(findByIdCalls).toBe(0);
   });
 
   test("AddPlaylistItemUseCase validates sequence", async () => {

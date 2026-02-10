@@ -43,6 +43,7 @@ export interface DevicesRouterDeps {
   jwtSecret: string;
   deviceApiKey: string;
   downloadUrlExpiresInSeconds: number;
+  scheduleTimeZone?: string;
   repositories: {
     deviceRepository: DeviceRepository;
     scheduleRepository: ScheduleRepository;
@@ -84,6 +85,7 @@ export const createDevicesRouter = (deps: DevicesRouterDeps) => {
     scheduleRepository: deps.repositories.scheduleRepository,
     playlistRepository: deps.repositories.playlistRepository,
     deviceRepository: deps.repositories.deviceRepository,
+    scheduleTimeZone: deps.scheduleTimeZone,
   });
   const getManifest = new GetDeviceManifestUseCase({
     scheduleRepository: deps.repositories.scheduleRepository,
@@ -92,6 +94,7 @@ export const createDevicesRouter = (deps: DevicesRouterDeps) => {
     contentStorage: deps.storage,
     deviceRepository: deps.repositories.deviceRepository,
     downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
+    scheduleTimeZone: deps.scheduleTimeZone,
   });
 
   router.post(

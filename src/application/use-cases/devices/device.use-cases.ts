@@ -62,6 +62,7 @@ export class GetDeviceActiveScheduleUseCase {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
       deviceRepository: DeviceRepository;
+      scheduleTimeZone?: string;
     },
   ) {}
 
@@ -72,7 +73,11 @@ export class GetDeviceActiveScheduleUseCase {
     const schedules = await this.deps.scheduleRepository.listByDevice(
       input.deviceId,
     );
-    const active = selectActiveSchedule(schedules, input.now);
+    const active = selectActiveSchedule(
+      schedules,
+      input.now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
 
     if (!active) return null;
 
@@ -108,6 +113,7 @@ export class GetDeviceManifestUseCase {
       contentStorage: ContentStorage;
       deviceRepository: DeviceRepository;
       downloadUrlExpiresInSeconds: number;
+      scheduleTimeZone?: string;
     },
   ) {}
 
@@ -118,7 +124,11 @@ export class GetDeviceManifestUseCase {
     const schedules = await this.deps.scheduleRepository.listByDevice(
       input.deviceId,
     );
-    const active = selectActiveSchedule(schedules, input.now);
+    const active = selectActiveSchedule(
+      schedules,
+      input.now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
 
     if (!active) {
       return {
@@ -135,6 +145,12 @@ export class GetDeviceManifestUseCase {
     if (!playlist) throw new NotFoundError("Playlist not found");
 
     const items = await this.deps.playlistRepository.listItems(playlist.id);
+    const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
+    const contents = await this.deps.contentRepository.findByIds(contentIds);
+    const contentsById = new Map(
+      contents.map((content) => [content.id, content]),
+    );
+
     const manifestItems = [] as Array<{
       id: string;
       sequence: number;
@@ -152,9 +168,7 @@ export class GetDeviceManifestUseCase {
     }>;
 
     for (const item of items) {
-      const content = await this.deps.contentRepository.findById(
-        item.contentId,
-      );
+      const content = contentsById.get(item.contentId);
       if (!content) throw new NotFoundError("Content not found");
 
       const downloadUrl =

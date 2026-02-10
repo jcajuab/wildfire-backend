@@ -1,13 +1,8 @@
-/**
- * Drops all application tables in the database.
- * Uses FOREIGN_KEY_CHECKS = 0 so drop order does not matter.
- * Run with: dotenvx run -- bun run src/infrastructure/db/drop-all-tables.ts
- * Or: bun run db:drop
- */
 import { sql } from "drizzle-orm";
 import { db } from "#/infrastructure/db/client";
 
 async function main(): Promise<void> {
+  // WARNING: This irreversibly drops all application tables in the current DB.
   await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
 
   await db.execute(sql`DROP TABLE IF EXISTS user_roles`);

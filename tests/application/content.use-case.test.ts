@@ -29,6 +29,7 @@ const makeContentRepository = () => {
       return record;
     },
     findById: async (id) => records.find((item) => item.id === id) ?? null,
+    findByIds: async (ids) => records.filter((item) => ids.includes(item.id)),
     list: async ({ offset, limit }) => ({
       items: records.slice(offset, offset + limit),
       total: records.length,

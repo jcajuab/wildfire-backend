@@ -188,13 +188,20 @@ export class DeleteScheduleUseCase {
 
 export class GetActiveScheduleForDeviceUseCase {
   constructor(
-    private readonly deps: { scheduleRepository: ScheduleRepository },
+    private readonly deps: {
+      scheduleRepository: ScheduleRepository;
+      scheduleTimeZone?: string;
+    },
   ) {}
 
   async execute(input: { deviceId: string; now: Date }) {
     const schedules = await this.deps.scheduleRepository.listByDevice(
       input.deviceId,
     );
-    return selectActiveSchedule(schedules, input.now);
+    return selectActiveSchedule(
+      schedules,
+      input.now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
   }
 }

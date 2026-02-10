@@ -140,13 +140,20 @@ export const createPlaylistsRouter = (deps: PlaylistsRouterDeps) => {
     }),
     async (c) => {
       const payload = createPlaylistSchema.parse(c.req.valid("json"));
-      const result = await createPlaylist.execute({
-        name: payload.name,
-        description: payload.description ?? null,
-        createdById: c.get("userId"),
-      });
-      c.set("resourceId", result.id);
-      return c.json(result, 201);
+      try {
+        const result = await createPlaylist.execute({
+          name: payload.name,
+          description: payload.description ?? null,
+          createdById: c.get("userId"),
+        });
+        c.set("resourceId", result.id);
+        return c.json(result, 201);
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return notFound(c, error.message);
+        }
+        throw error;
+      }
     },
   );
 

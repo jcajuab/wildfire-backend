@@ -18,6 +18,7 @@ export interface ContentRecord {
 export interface ContentRepository {
   create(input: Omit<ContentRecord, "createdAt">): Promise<ContentRecord>;
   findById(id: string): Promise<ContentRecord | null>;
+  findByIds(ids: string[]): Promise<ContentRecord[]>;
   list(input: {
     offset: number;
     limit: number;

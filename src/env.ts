@@ -8,16 +8,12 @@ export const env = createEnv({
       .enum(["development", "test", "production"])
       .default("development"),
     DATABASE_URL: z.string(),
-
-    // Ensures required database environment variables are present
     MYSQL_ROOT_PASSWORD: z.string(),
     MYSQL_HOST: z.string(),
     MYSQL_PORT: z.coerce.number().default(3306),
     MYSQL_DATABASE: z.string(),
     MYSQL_USER: z.string(),
     MYSQL_PASSWORD: z.string(),
-
-    // MinIO Configuration
     MINIO_ROOT_USER: z.string().default("minioadmin"),
     MINIO_ROOT_PASSWORD: z.string().default("minioadmin"),
     MINIO_ENDPOINT: z.string().default("localhost"),
@@ -27,13 +23,12 @@ export const env = createEnv({
     MINIO_BUCKET: z.string().default("content"),
     MINIO_REGION: z.string().default("us-east-1"),
     CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(100 * 1024 * 1024),
-
-    // Auth Configuration
     HTSHADOW_PATH: z.string().default("/etc/htshadow"),
     JWT_SECRET: z.string(),
     JWT_ISSUER: z.string().optional(),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.coerce.boolean().default(true),
+    SCHEDULE_TIMEZONE: z.string().default("UTC"),
     DEVICE_API_KEY: z.string().min(1),
     CORS_ORIGINS: z
       .string()

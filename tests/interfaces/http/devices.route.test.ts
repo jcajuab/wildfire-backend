@@ -135,6 +135,8 @@ const makeApp = async (permissions: string[] = []) => {
       contentRepository: {
         findById: async (id: string) =>
           contents.find((content) => content.id === id) ?? null,
+        findByIds: async (ids: string[]) =>
+          contents.filter((content) => ids.includes(content.id)),
         create: async () => {
           throw new Error("not used");
         },

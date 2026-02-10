@@ -1,11 +1,3 @@
-/**
- * Seeds 15 dummy users (DB + htshadow), ensures permissions and roles exist,
- * and assigns roles so the Users and Roles pages can be tested with real data.
- *
- * Prerequisites: Run `seed:permissions` and `seed:super-admin` first (or this script will run them).
- * Usage: HTSHADOW_PATH=/path/to/htshadow bun run src/infrastructure/db/seeds/seed-dummy-users-and-roles.ts
- * Default password for all seeded users: "password"
- */
 import { writeFile } from "node:fs/promises";
 import bcrypt from "bcryptjs";
 import {
@@ -51,14 +43,12 @@ const rolePermissionRepository = new RolePermissionDbRepository();
 const userRepository = new UserDbRepository();
 const userRoleRepository = new UserRoleDbRepository();
 
-// 1) Ensure standard permissions exist
 const seedPermissions = new SeedStandardPermissionsUseCase({
   permissionRepository,
 });
 const permResult = await seedPermissions.execute();
 console.log(`Permissions: ${permResult.created} new permissions created.`);
 
-// 2) Ensure Super Admin role exists
 const seedSuperAdmin = new SeedSuperAdminRoleUseCase({
   roleRepository,
   permissionRepository,
@@ -67,7 +57,6 @@ const seedSuperAdmin = new SeedSuperAdminRoleUseCase({
 await seedSuperAdmin.execute();
 console.log("Super Admin role ready.");
 
-// 3) Create Editor and Viewer roles if missing
 const allRoles = await roleRepository.list();
 let editorRole = allRoles.find((r) => r.name === EDITOR_ROLE_NAME);
 let viewerRole = allRoles.find((r) => r.name === VIEWER_ROLE_NAME);
@@ -120,11 +109,10 @@ const superAdminRole = (await roleRepository.list()).find(
   (r) => r.name === SUPER_ADMIN_ROLE_NAME,
 );
 if (!superAdminRole) {
-  console.error("Super Admin role not found. Run seed:super-admin first.");
+  console.error("Super Admin role not found. Run db:seed:super-admin first.");
   process.exit(1);
 }
 
-// 4) Create 15 users in DB and collect email:hash for htshadow
 const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, SALT_ROUNDS);
 const htshadowLines: string[] = [];
 const createdUsers: { id: string; email: string; name: string }[] = [];
@@ -144,12 +132,10 @@ console.log(
   `Users: ${createdUsers.length} new users created (${DUMMY_USERS.length} total entries for htshadow).`,
 );
 
-// 5) Write htshadow file
 const htshadowPath = env.HTSHADOW_PATH;
 await writeFile(htshadowPath, `${htshadowLines.join("\n")}\n`, "utf-8");
 console.log(`Wrote ${htshadowLines.length} entries to ${htshadowPath}.`);
 
-// 6) Assign roles: 1 Super Admin, 5 Editors, 9 Viewers (for the 15 users)
 const setUserRoles = new SetUserRolesUseCase({
   userRepository,
   roleRepository,

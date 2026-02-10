@@ -102,6 +102,7 @@ const devicesRouter = createDevicesRouter({
   jwtSecret: env.JWT_SECRET,
   deviceApiKey: env.DEVICE_API_KEY,
   downloadUrlExpiresInSeconds: 60 * 60,
+  scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   repositories: {
     deviceRepository: new DeviceDbRepository(),
     scheduleRepository: new ScheduleDbRepository(),

@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type ContentRecord,
   type ContentRepository,
@@ -65,6 +65,15 @@ export class ContentDbRepository implements ContentRepository {
       .limit(1);
     const row = result[0];
     return row ? toRecord(row) : null;
+  }
+
+  async findByIds(ids: string[]): Promise<ContentRecord[]> {
+    if (ids.length === 0) return [];
+    const rows = await db
+      .select()
+      .from(content)
+      .where(inArray(content.id, ids));
+    return rows.map(toRecord);
   }
 
   async list({

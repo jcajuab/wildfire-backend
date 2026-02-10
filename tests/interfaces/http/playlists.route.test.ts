@@ -10,7 +10,10 @@ const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 
-const makeApp = async (permissions: string[]) => {
+const makeApp = async (
+  permissions: string[],
+  options?: { missingUser?: boolean },
+) => {
   const app = new Hono();
   const playlists: Array<{
     id: string;
@@ -81,6 +84,8 @@ const makeApp = async (permissions: string[]) => {
       contentRepository: {
         findById: async (id: string) =>
           contents.find((content) => content.id === id) ?? null,
+        findByIds: async (ids: string[]) =>
+          contents.filter((content) => ids.includes(content.id)),
         create: async () => {
           throw new Error("not used");
         },
@@ -89,12 +94,15 @@ const makeApp = async (permissions: string[]) => {
       },
       userRepository: {
         list: async () => [],
-        findById: async () => ({
-          id: "user-1",
-          email: "user@example.com",
-          name: "User",
-          isActive: true,
-        }),
+        findById: async () =>
+          options?.missingUser
+            ? null
+            : {
+                id: "user-1",
+                email: "user@example.com",
+                name: "User",
+                isActive: true,
+              },
         findByIds: async () => [
           {
             id: "user-1",
@@ -160,6 +168,24 @@ describe("Playlists routes", () => {
     expect(response.status).toBe(201);
     const json = await parseJson<{ id: string }>(response);
     expect(json.id).toBeDefined();
+  });
+
+  test("POST /playlists returns 404 when creator is missing", async () => {
+    const { app, issueToken } = await makeApp(["playlists:create"], {
+      missingUser: true,
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/playlists", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Morning" }),
+    });
+
+    expect(response.status).toBe(404);
   });
 
   test("POST /playlists/:id/items adds item", async () => {

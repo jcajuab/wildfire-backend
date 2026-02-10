@@ -46,14 +46,17 @@ export class CreatePlaylistUseCase {
     description?: string | null;
     createdById: string;
   }) {
+    const creator = await this.deps.userRepository.findById(input.createdById);
+    if (!creator) {
+      throw new NotFoundError("User not found");
+    }
+
     const playlist = await this.deps.playlistRepository.create({
       name: input.name,
       description: input.description ?? null,
       createdById: input.createdById,
     });
-    const creator = await this.deps.userRepository.findById(input.createdById);
-
-    return toPlaylistView(playlist, creator?.name ?? null);
+    return toPlaylistView(playlist, creator.name);
   }
 }
 
@@ -83,11 +86,15 @@ export class GetPlaylistUseCase {
   }
 
   private async buildItems(items: PlaylistItemRecord[]) {
+    const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
+    const contents = await this.deps.contentRepository.findByIds(contentIds);
+    const contentById = new Map(
+      contents.map((content) => [content.id, content]),
+    );
+
     const views = [] as ReturnType<typeof toPlaylistItemView>[];
     for (const item of items) {
-      const content = await this.deps.contentRepository.findById(
-        item.contentId,
-      );
+      const content = contentById.get(item.contentId);
       if (!content) {
         throw new NotFoundError("Content not found");
       }

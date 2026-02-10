@@ -158,4 +158,45 @@ describe("Schedules use cases", () => {
     const result = await useCase.execute({ deviceId: "device-1", now });
     expect(result?.id).toBe("schedule-2");
   });
+
+  test("GetActiveScheduleForDeviceUseCase uses configured timezone", async () => {
+    const deps = makeDeps();
+    deps.schedules.push(
+      {
+        id: "schedule-manila",
+        name: "Manila Evening",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startTime: "17:00",
+        endTime: "18:00",
+        daysOfWeek: [1],
+        priority: 10,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "schedule-utc",
+        name: "UTC Morning",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startTime: "09:00",
+        endTime: "10:00",
+        daysOfWeek: [1],
+        priority: 5,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+
+    const useCase = new GetActiveScheduleForDeviceUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      scheduleTimeZone: "Asia/Manila",
+    });
+
+    const now = new Date("2025-01-06T09:30:00.000Z");
+    const result = await useCase.execute({ deviceId: "device-1", now });
+    expect(result?.id).toBe("schedule-manila");
+  });
 });

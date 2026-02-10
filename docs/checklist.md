@@ -1,6 +1,8 @@
 # Module Progress Checklist
 
-Date: 2026-01-23
+Date: 2026-02-10
+
+Integration test run command: `bun run test:integration`
 
 ## Auth
 
@@ -21,7 +23,7 @@ Date: 2026-01-23
 - [x] Adapters (HTTP routes/controllers)
 - [x] Infrastructure (repositories)
 - [x] Tests (unit + route)
-- [ ] Integration tests (DB-backed)
+- [x] Integration tests (DB-backed; via `test:integration`)
 - [ ] Observability per action (if needed beyond current request logging)
 
 ## Content
@@ -32,7 +34,7 @@ Date: 2026-01-23
 - [x] Adapters (HTTP routes/controllers)
 - [x] Infrastructure (DB + S3 storage)
 - [x] Tests (unit + route)
-- [ ] Integration tests (DB + S3; currently gated)
+- [x] Integration tests (DB + S3; via `test:integration`)
 - [ ] Observability per action (if needed beyond current request logging)
 
 ## Devices

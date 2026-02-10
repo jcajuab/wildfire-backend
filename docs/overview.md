@@ -363,25 +363,33 @@ A built-in seed exists (`src/application/use-cases/rbac/seed-super-admin.use-cas
 - Permission: `{ resource: "*", action: "manage" }`
 - Ensures the role has that permission assigned
 
-Run via: `bun run seed:super-admin` (script wiring is in repo tooling; this doc only specifies the behavior).
+Run via: `bun run db:seed:super-admin` (script entrypoint: `scripts/seed-super-admin.ts`).
 
 ### Seed: Standard Permissions
 
 A separate seed populates the `permissions` table with all standard `resource:action` pairs used by the app (content, playlists, schedules, devices, roles, users). Idempotent: skips any permission that already exists.
 
-Run via: `bun run seed:permissions`. Typical order: run `seed:permissions` first so `GET /permissions` returns the full list, then `seed:super-admin` to create the Super Admin role and assign `*:manage`.
+Run via: `bun run db:seed:permissions` (script entrypoint: `scripts/seed-standard-permissions.ts`). Typical order: run `db:seed:permissions` first so `GET /permissions` returns the full list, then `db:seed:super-admin` to create the Super Admin role and assign `*:manage`.
 
 ### Seed: Assign Super Admin to user by email
 
 Assigns the "Super Admin" role (all permissions) to a user by email so they can call RBAC endpoints. Default email: `test@example.com`. Optional env: `SEED_USER_EMAIL`.
 
-Run via: `bun run seed:assign-super-admin`. Requires the user to exist in the `users` table and the Super Admin role to exist (`seed:super-admin`).
+Run via: `bun run db:seed:assign-super-admin` (script entrypoint: `scripts/assign-super-admin-to-user.ts`). Requires the user to exist in the `users` table and the Super Admin role to exist (`db:seed:super-admin`).
 
 ### Seed: Dummy users and roles (for testing UI)
 
 Seeds 15 dummy users into the DB and the htshadow file so the Users and Roles pages can be tested with real data. Also ensures standard permissions and Super Admin role exist, creates "Editor" and "Viewer" roles with appropriate permissions, and assigns roles: 1 Super Admin, 5 Editors, 9 Viewers. All seeded users share password: `password`. Set `HTSHADOW_PATH` in `.env` to the path of your htshadow file (e.g. absolute path to `wildfire/htshadow`).
 
-Run via: `bun run seed:dummy-users`. Typical order: `seed:permissions` → `seed:super-admin` (or let this script run them), then `seed:dummy-users`.
+Run via: `bun run db:seed:dummy-users` (script entrypoint: `scripts/seed-dummy-users-and-roles.ts`). Typical order: `db:seed:permissions` → `db:seed:super-admin` (or let this script run them), then `db:seed:dummy-users`.
+
+### Database preflight (before constraint rollout)
+
+Run `bun run db:preflight` before applying schema hardening. It checks for:
+
+- orphan creator references (`content.created_by_id`, `playlists.created_by_id`)
+- orphan join-table references (`user_roles`, `role_permissions`)
+- duplicate values that violate unique constraints (`users.email`, `roles.name`, `permissions(resource,action)`, `devices.identifier`)
 
 ### Endpoints (JWT + permission required)
 
@@ -742,19 +750,16 @@ Selection is implemented in `src/domain/schedules/schedule.ts`:
 Given a device's schedules and a `now: Date`, the system:
 
 1. Filters to schedules with `isActive === true`
-2. Filters to schedules where `daysOfWeek` includes `now.getDay()`
-3. Filters to schedules where `now` is within the schedule's time window using `isWithinTimeWindow(...)`
-4. Sorts by `priority` descending and picks the first
+2. Resolves day/time in `SCHEDULE_TIMEZONE` (default `UTC`)
+3. Filters to schedules where `daysOfWeek` includes the resolved day
+4. Filters to schedules where resolved time is within the schedule's time window using `isWithinTimeWindow(...)`
+5. Sorts by `priority` descending and picks the first
 
 Time window behavior:
 
-- Time window is evaluated using:
-  - `time = now.toISOString().slice(11, 16)` (UTC "HH:mm")
 - If `startTime === endTime`, the schedule is never active.
 - If `startTime < endTime`, window is inclusive: `start <= time <= end`
 - If `startTime > endTime`, the window wraps across midnight: `time >= start OR time <= end`
-
-Note: day-of-week is taken from `now.getDay()` (runtime-local), while the time string is derived from UTC via `toISOString()`. If the server timezone is not UTC, this mismatch can affect schedule selection; this is the current behavior.
 
 ### Endpoints
 
@@ -1009,6 +1014,7 @@ JWT_ISSUER=...
 # Logging
 LOG_LEVEL=info
 LOG_PRETTY=true
+SCHEDULE_TIMEZONE=UTC
 
 # Devices
 DEVICE_API_KEY=...

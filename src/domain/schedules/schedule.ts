@@ -14,6 +14,41 @@ const toMinutes = (value: string) => {
   return hours * 60 + minutes;
 };
 
+const weekdayToNumber: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+const toZonedDayAndTime = (now: Date, timeZone: string) => {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now);
+  const weekday = parts.find((part) => part.type === "weekday")?.value;
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+
+  if (!weekday || !hour || !minute) {
+    throw new Error(`Unable to resolve zoned date parts for ${timeZone}`);
+  }
+
+  const day = weekdayToNumber[weekday];
+  if (day === undefined) {
+    throw new Error(`Unsupported weekday value: ${weekday}`);
+  }
+
+  return { day, time: `${hour}:${minute}` };
+};
+
 export const isWithinTimeWindow = (
   current: string,
   start: string,
@@ -49,9 +84,9 @@ export const selectActiveSchedule = <
 >(
   schedules: T[],
   now: Date,
+  timeZone = "UTC",
 ) => {
-  const day = now.getDay();
-  const time = now.toISOString().slice(11, 16);
+  const { day, time } = toZonedDayAndTime(now, timeZone);
 
   return (
     schedules

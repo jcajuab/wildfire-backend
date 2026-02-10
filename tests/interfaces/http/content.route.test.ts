@@ -25,6 +25,8 @@ const makeRepository = () => {
       },
       findById: async (id: string) =>
         records.find((item) => item.id === id) ?? null,
+      findByIds: async (ids: string[]) =>
+        records.filter((item) => ids.includes(item.id)),
       list: async ({ offset, limit }: { offset: number; limit: number }) => ({
         items: records.slice(offset, offset + limit),
         total: records.length,
