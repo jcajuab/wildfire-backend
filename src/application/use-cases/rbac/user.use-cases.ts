@@ -142,6 +142,16 @@ export class DeleteUserUseCase {
   }
 }
 
+/** Deletes the current user (self-deletion). Auth only; no permission check. */
+export class DeleteCurrentUserUseCase {
+  constructor(private readonly deps: { userRepository: UserRepository }) {}
+
+  async execute(input: { userId: string }) {
+    const deleted = await this.deps.userRepository.delete(input.userId);
+    if (!deleted) throw new NotFoundError("User not found");
+  }
+}
+
 export class SetUserRolesUseCase {
   constructor(
     private readonly deps: {

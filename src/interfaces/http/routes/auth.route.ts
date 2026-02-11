@@ -16,12 +16,18 @@ import {
   InvalidCredentialsError,
   RefreshSessionUseCase,
 } from "#/application/use-cases/auth";
+import { type DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
+import { NotFoundError } from "#/application/use-cases/rbac/errors";
 import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
 import {
   type JwtUserVariables,
   requireJwtUser,
 } from "#/interfaces/http/middleware/jwt-user";
-import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
+import {
+  errorResponseSchema,
+  notFound,
+  unauthorized,
+} from "#/interfaces/http/responses";
 import { authLoginSchema } from "#/interfaces/http/validators/auth.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 
@@ -35,6 +41,7 @@ export interface AuthRouterDeps {
   tokenTtlSeconds: number;
   issuer?: string;
   jwtSecret: string;
+  deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
 }
 
 const authResponseSchema = z.object({
@@ -199,6 +206,50 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
       },
     }),
     (c) => c.body(null, 204),
+  );
+
+  router.delete(
+    "/me",
+    jwtMiddleware,
+    requireJwtUser,
+    describeRoute({
+      description: "Delete current user account (self-deletion)",
+      tags: authTags,
+      responses: {
+        204: {
+          description: "Account deleted",
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "User not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      try {
+        await deps.deleteCurrentUserUseCase.execute({
+          userId: c.get("userId"),
+        });
+        return c.body(null, 204);
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return notFound(c, error.message);
+        }
+        throw error;
+      }
+    },
   );
 
   return router;

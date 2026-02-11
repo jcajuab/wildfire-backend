@@ -15,6 +15,7 @@ export { SeedStandardPermissionsUseCase } from "#/application/use-cases/rbac/see
 export { SeedSuperAdminRoleUseCase } from "#/application/use-cases/rbac/seed-super-admin.use-case";
 export {
   CreateUserUseCase,
+  DeleteCurrentUserUseCase,
   DeleteUserUseCase,
   GetUserRolesUseCase,
   GetUserUseCase,

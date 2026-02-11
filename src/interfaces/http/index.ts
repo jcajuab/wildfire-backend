@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type RequestIdVariables } from "hono/request-id";
 import { openAPIRouteHandler } from "hono-openapi";
+import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
@@ -48,6 +49,7 @@ app.use("*", requestId());
 app.use("*", requestLogger);
 
 const tokenTtlSeconds = 60 * 60;
+const userRepository = new UserDbRepository();
 const authRouter = createAuthRouter({
   credentialsRepository: new HtshadowCredentialsRepository({
     filePath: env.HTSHADOW_PATH,
@@ -58,11 +60,12 @@ const authRouter = createAuthRouter({
     issuer: env.JWT_ISSUER,
   }),
   clock: new SystemClock(),
-  userRepository: new UserDbRepository(),
+  userRepository,
   authorizationRepository: new AuthorizationDbRepository(),
   tokenTtlSeconds,
   issuer: env.JWT_ISSUER,
   jwtSecret: env.JWT_SECRET,
+  deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
 });
 
 app.route("/", healthRouter);
