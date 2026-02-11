@@ -376,7 +376,7 @@ Success 204, empty body.
 
 Error: 400 invalid request (e.g. new password too short), 401 current password incorrect or unauthorized, 404 user not found.
 
-#### POST `/auth/me/avatar` (JWT required)
+#### PUT `/auth/me/avatar` (JWT required)
 
 Upload or replace current user avatar. Accepts one image file (JPEG, PNG, WebP, GIF), max 2MB. Stored in MinIO at `avatars/<userId>`. Response includes full auth payload with updated `user.avatarUrl` (presigned).
 
@@ -506,7 +506,7 @@ All RBAC endpoints use `authorize("<permission>")`, which means:
 #### Users
 
 - GET `/users` requires `users:read`
-  - Response 200: `User[]`
+  - Response 200: `User[]`. Each user may include optional `avatarUrl` (presigned URL when the user has a profile picture in MinIO). `avatarKey` is never exposed.
 
 - POST `/users` requires `users:create`
   - Body:
@@ -516,7 +516,7 @@ All RBAC endpoints use `authorize("<permission>")`, which means:
   - Response 201: `User`
 
 - GET `/users/:id` requires `users:read`
-  - Response 200: `User`
+  - Response 200: `User`. May include optional `avatarUrl` (presigned URL when the user has a profile picture in MinIO). `avatarKey` is never exposed.
 
 - GET `/users/:id/roles` requires `users:read`
   - Response 200: `Role[]` (roles assigned to this user)

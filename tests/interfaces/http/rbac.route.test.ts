@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { type ContentStorage } from "#/application/ports/content";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
@@ -79,6 +80,7 @@ const makeStore = () => {
       email: string;
       name: string;
       isActive: boolean;
+      avatarKey?: string | null;
     }>,
     roles: [] as Array<{
       id: string;
@@ -145,7 +147,12 @@ const makeStore = () => {
       },
       update: async (
         id: string,
-        data: { email?: string; name?: string; isActive?: boolean },
+        data: {
+          email?: string;
+          name?: string;
+          isActive?: boolean;
+          avatarKey?: string | null;
+        },
       ) => {
         const user = store.users.find((item) => item.id === id);
         if (!user) return null;
@@ -307,6 +314,44 @@ const buildApp = (permissions: string[] = ["*:manage"]) => {
 
   return { app, issueToken };
 };
+
+/** Builds app with avatarStorage mock; store.users[0] is given avatarKey so GET /users and GET /users/:id return avatarUrl. */
+function buildAppWithAvatarStorage(): {
+  app: Hono;
+  issueToken: () => Promise<string>;
+  presignedUrl: string;
+} {
+  const { store, repositories } = makeStore();
+  const presignedUrl = "https://presigned.example/avatar";
+  (store.users[0] as { avatarKey?: string }).avatarKey = `avatars/${userId}`;
+
+  const avatarStorage: ContentStorage = {
+    upload: async () => {},
+    delete: async () => {},
+    getPresignedDownloadUrl: async () => presignedUrl,
+  };
+
+  const rbacRouter = createRbacRouter({
+    jwtSecret: "test-secret",
+    repositories,
+    avatarStorage,
+    avatarUrlExpiresInSeconds: 3600,
+  });
+  const app = new Hono();
+  app.route("/", rbacRouter);
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const issueToken = async () =>
+    tokenIssuer.issueToken({
+      subject: userId,
+      issuedAt: nowSeconds,
+      expiresAt: nowSeconds + 3600,
+      issuer: undefined,
+      email: "admin@example.com",
+    });
+
+  return { app, issueToken, presignedUrl };
+}
 
 describe("RBAC routes", () => {
   test("GET /roles returns roles when authorized", async () => {
@@ -567,6 +612,48 @@ describe("RBAC routes", () => {
     const body = await parseJson<Array<{ email: string }>>(response);
     expect(body.length).toBeGreaterThan(0);
     expect(body[0]?.email).toBe("admin@example.com");
+  });
+
+  test("GET /users returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
+    const { app, issueToken, presignedUrl } = buildAppWithAvatarStorage();
+    const token = await issueToken();
+
+    const response = await app.request("/users", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body =
+      await parseJson<
+        Array<{
+          id: string;
+          email: string;
+          avatarUrl?: string;
+          avatarKey?: string;
+        }>
+      >(response);
+    expect(body.length).toBeGreaterThan(0);
+    expect(body[0]?.avatarUrl).toBe(presignedUrl);
+    expect(body[0]).not.toHaveProperty("avatarKey");
+  });
+
+  test("GET /users/:id returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
+    const { app, issueToken, presignedUrl } = buildAppWithAvatarStorage();
+    const token = await issueToken();
+
+    const response = await app.request(`/users/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      id: string;
+      avatarUrl?: string;
+      avatarKey?: string;
+    }>(response);
+    expect(body.id).toBe(userId);
+    expect(body.avatarUrl).toBe(presignedUrl);
+    expect(body).not.toHaveProperty("avatarKey");
   });
 
   test("POST /users creates a user", async () => {

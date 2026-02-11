@@ -387,7 +387,7 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
     },
   );
 
-  router.post(
+  router.put(
     "/me/avatar",
     jwtMiddleware,
     requireJwtUser,
@@ -463,11 +463,21 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
-        logger.error({ err: error, userId }, "avatar upload failed");
-        return internalServerError(
-          c,
-          "Failed to upload profile picture. Please try again.",
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error(
+          {
+            err,
+            userId,
+            errorMessage: err.message,
+            errorName: err.name,
+          },
+          "avatar upload failed",
         );
+        const message =
+          process.env.NODE_ENV === "development"
+            ? `Failed to upload profile picture: ${err.message}`
+            : "Failed to upload profile picture. Please try again.";
+        return internalServerError(c, message);
       }
     },
   );

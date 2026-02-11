@@ -57,15 +57,34 @@ app.use("*", requestLogger);
 const tokenTtlSeconds = 60 * 60;
 const avatarUrlExpiresInSeconds = 60 * 60;
 const userRepository = new UserDbRepository();
+const minioEndpoint = `${env.MINIO_USE_SSL ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
 const contentStorage = new S3ContentStorage({
   bucket: env.MINIO_BUCKET,
   region: env.MINIO_REGION,
-  endpoint: `${env.MINIO_USE_SSL ? "https" : "http"}://${
-    env.MINIO_ENDPOINT
-  }:${env.MINIO_PORT}`,
+  endpoint: minioEndpoint,
   accessKeyId: env.MINIO_ROOT_USER,
   secretAccessKey: env.MINIO_ROOT_PASSWORD,
+  requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
 });
+logger.info(
+  { minioEndpoint, bucket: env.MINIO_BUCKET },
+  "MinIO storage configured",
+);
+if (env.NODE_ENV === "development") {
+  void contentStorage.checkConnectivity().then((r) => {
+    if (r.ok) {
+      logger.info(
+        "MinIO connectivity check OK. MinIO running at endpoint: " +
+          minioEndpoint,
+      );
+    } else {
+      logger.warn(
+        { minioEndpoint, bucket: env.MINIO_BUCKET, error: r.error },
+        "MinIO connectivity check failed — avatar/content uploads will fail. Please check which ports your MinIO is running at and ensure connectivity.",
+      );
+    }
+  });
+}
 const authRouter = createAuthRouter({
   credentialsRepository: new HtshadowCredentialsRepository({
     filePath: env.HTSHADOW_PATH,
@@ -167,6 +186,8 @@ const rbacRouter = createRbacRouter({
     rolePermissionRepository: new RolePermissionDbRepository(),
     authorizationRepository: new AuthorizationDbRepository(),
   },
+  avatarStorage: contentStorage,
+  avatarUrlExpiresInSeconds,
 });
 
 app.route("/", rbacRouter);

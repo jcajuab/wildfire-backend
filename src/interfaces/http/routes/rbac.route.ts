@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { ForbiddenError } from "#/application/errors/forbidden";
+import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
   type PermissionRepository,
@@ -28,6 +29,7 @@ import {
   UpdateRoleUseCase,
   UpdateUserUseCase,
 } from "#/application/use-cases/rbac";
+import { addAvatarUrlToUser } from "#/interfaces/http/lib/avatar-url";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import {
@@ -60,6 +62,9 @@ export interface RbacRouterDeps {
     rolePermissionRepository: RolePermissionRepository;
     authorizationRepository: AuthorizationRepository;
   };
+  /** When set, GET /users and GET /users/:id responses include presigned avatarUrl and omit avatarKey. */
+  avatarStorage?: ContentStorage;
+  avatarUrlExpiresInSeconds?: number;
 }
 
 export const createRbacRouter = (deps: RbacRouterDeps) => {
@@ -501,7 +506,16 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
     }),
     async (c) => {
       const users = await listUsers.execute();
-      return c.json(users);
+      const storage = deps.avatarStorage;
+      const expiresIn = deps.avatarUrlExpiresInSeconds;
+      if (storage != null && expiresIn != null && expiresIn > 0) {
+        const enriched = await Promise.all(
+          users.map((u) => addAvatarUrlToUser(u, storage, expiresIn)),
+        );
+        return c.json(enriched);
+      }
+      const sanitized = users.map(({ avatarKey: _k, ...rest }) => rest);
+      return c.json(sanitized);
     },
   );
 
@@ -554,7 +568,20 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
       const params = c.req.valid("param");
       try {
         const user = await getUser.execute({ id: params.id });
-        return c.json(user);
+        if (
+          deps.avatarStorage != null &&
+          deps.avatarUrlExpiresInSeconds != null &&
+          deps.avatarUrlExpiresInSeconds > 0
+        ) {
+          const enriched = await addAvatarUrlToUser(
+            user,
+            deps.avatarStorage,
+            deps.avatarUrlExpiresInSeconds,
+          );
+          return c.json(enriched);
+        }
+        const { avatarKey: _k, ...rest } = user;
+        return c.json(rest);
       } catch (error) {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
