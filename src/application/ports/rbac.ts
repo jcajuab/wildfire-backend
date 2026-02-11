@@ -5,6 +5,8 @@ export interface UserRecord {
   email: string;
   name: string;
   isActive: boolean;
+  timezone?: string | null;
+  avatarKey?: string | null;
 }
 
 export interface RoleRecord {
@@ -36,7 +38,13 @@ export interface UserRepository {
   }): Promise<UserRecord>;
   update(
     id: string,
-    input: { email?: string; name?: string; isActive?: boolean },
+    input: {
+      email?: string;
+      name?: string;
+      isActive?: boolean;
+      timezone?: string | null;
+      avatarKey?: string | null;
+    },
   ): Promise<UserRecord | null>;
   delete(id: string): Promise<boolean>;
 }

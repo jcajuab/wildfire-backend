@@ -209,7 +209,14 @@ type Device = {
 ### RBAC: User / Role / Permission
 
 ```ts
-type User = { id: string; email: string; name: string; isActive: boolean };
+type User = {
+  id: string;
+  email: string;
+  name: string;
+  isActive: boolean;
+  timezone?: string | null;
+  avatarKey?: string | null;
+};
 type Role = {
   id: string;
   name: string;
@@ -300,12 +307,18 @@ Success 200:
   "type": "bearer",
   "token": "<jwt>",
   "expiresAt": "2026-01-23T12:34:56.000Z",
-  "user": { "id": "<uuid>", "email": "user@example.com", "name": "..." },
+  "user": {
+    "id": "<uuid>",
+    "email": "user@example.com",
+    "name": "...",
+    "timezone": "Asia/Taipei",
+    "avatarUrl": "https://..."
+  },
   "permissions": ["content:read", "roles:create", "..."]
 }
 ```
 
-`permissions` is an array of `resource:action` strings for the current user (from their roles). Used by clients to gate UI; authorization is enforced on the API regardless.
+`user.timezone` is optional (nullable). `user.avatarUrl` is a short-lived presigned URL when the user has an avatar; omitted otherwise. `permissions` is an array of `resource:action` strings for the current user (from their roles). Used by clients to gate UI; authorization is enforced on the API regardless.
 
 Error:
 
@@ -325,11 +338,53 @@ Behavior:
 - Issues a fresh JWT (sliding session behavior)
 - Returns same shape as login, including `permissions`.
 
-Success 200: same shape as `/auth/login` (includes `permissions`).
+Success 200: same shape as `/auth/login` (includes `permissions`, and `user` includes `timezone` and `avatarUrl` when set).
 
 Error:
 
 - 401 invalid token / inactive user
+
+#### PATCH `/auth/me` (JWT required)
+
+Update current user profile (name, timezone). No RBAC permission required.
+
+Request body:
+
+```json
+{ "name": "...", "timezone": "Asia/Taipei" }
+```
+
+Both fields are optional. Validator: `name` non-empty, max 255; `timezone` max 64 chars, nullable.
+
+Success 200: full auth payload (same shape as GET `/auth/me`), so the client can refresh session in one round-trip.
+
+Error: 400 invalid request, 401 unauthorized, 404 user not found.
+
+#### POST `/auth/me/password` (JWT required)
+
+Change current user password. Verifies current password against htshadow, then updates the htshadow file with the new bcrypt hash.
+
+Request body:
+
+```json
+{ "currentPassword": "...", "newPassword": "..." }
+```
+
+Validation: `newPassword` must be at least 8 characters.
+
+Success 204, empty body.
+
+Error: 400 invalid request (e.g. new password too short), 401 current password incorrect or unauthorized, 404 user not found.
+
+#### POST `/auth/me/avatar` (JWT required)
+
+Upload or replace current user avatar. Accepts one image file (JPEG, PNG, WebP, GIF), max 2MB. Stored in MinIO at `avatars/<userId>`. Response includes full auth payload with updated `user.avatarUrl` (presigned).
+
+Request: `multipart/form-data` with field `file` (image file).
+
+Success 200: full auth payload (same shape as GET `/auth/me`).
+
+Error: 400 invalid request (e.g. not an image or too large), 401 unauthorized, 404 user not found.
 
 #### POST `/auth/logout` (JWT required)
 
@@ -1000,6 +1055,8 @@ MYSQL_USER=...
 MYSQL_PASSWORD=...
 
 # MinIO / S3-compatible storage
+# Ensure MinIO is running and reachable at MINIO_ENDPOINT:MINIO_PORT (protocol from MINIO_USE_SSL).
+# The bucket named in MINIO_BUCKET must exist (create it in MinIO console or via mc); it is used for both content and avatar uploads.
 MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=minioadmin
 MINIO_ENDPOINT=localhost

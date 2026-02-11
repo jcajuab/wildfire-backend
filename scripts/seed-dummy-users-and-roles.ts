@@ -151,10 +151,8 @@ for (let i = 0; i < orderedUsers.length; i += 1) {
   const user = orderedUsers[i];
   if (!user || !superAdminRole) continue;
   if (i === 0) {
-    await setUserRoles.execute({
-      userId: user.id,
-      roleIds: [superAdminRole.id],
-    });
+    // Assign Super Admin via repository so seed is allowed (use case forbids it for API)
+    await userRoleRepository.setUserRoles(user.id, [superAdminRole.id]);
   } else if (i >= 1 && i <= 5 && editorRole) {
     await setUserRoles.execute({ userId: user.id, roleIds: [editorRole.id] });
   } else if (viewerRole) {

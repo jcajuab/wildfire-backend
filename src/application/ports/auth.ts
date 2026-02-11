@@ -1,5 +1,10 @@
 export interface CredentialsRepository {
   findPasswordHash(username: string): Promise<string | null>;
+  updatePasswordHash(email: string, newPasswordHash: string): Promise<void>;
+}
+
+export interface PasswordHasher {
+  hash(plainPassword: string): Promise<string>;
 }
 
 export interface PasswordVerifier {

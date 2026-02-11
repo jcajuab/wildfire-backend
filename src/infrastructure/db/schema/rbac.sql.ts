@@ -15,6 +15,8 @@ export const users = mysqlTable(
     email: varchar("email", { length: 255 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    timezone: varchar("timezone", { length: 64 }),
+    avatarKey: varchar("avatar_key", { length: 255 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

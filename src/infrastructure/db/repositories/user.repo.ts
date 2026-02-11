@@ -56,7 +56,13 @@ export class UserDbRepository implements UserRepository {
 
   async update(
     id: string,
-    input: { email?: string; name?: string; isActive?: boolean },
+    input: {
+      email?: string;
+      name?: string;
+      isActive?: boolean;
+      timezone?: string | null;
+      avatarKey?: string | null;
+    },
   ): Promise<UserRecord | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
@@ -65,6 +71,10 @@ export class UserDbRepository implements UserRepository {
       email: input.email ?? existing.email,
       name: input.name ?? existing.name,
       isActive: input.isActive ?? existing.isActive,
+      timezone:
+        input.timezone !== undefined ? input.timezone : existing.timezone,
+      avatarKey:
+        input.avatarKey !== undefined ? input.avatarKey : existing.avatarKey,
     };
 
     await db
@@ -73,6 +83,8 @@ export class UserDbRepository implements UserRepository {
         email: next.email,
         name: next.name,
         isActive: next.isActive,
+        timezone: next.timezone,
+        avatarKey: next.avatarKey,
       })
       .where(eq(users.id, id));
 

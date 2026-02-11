@@ -4,8 +4,14 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type RequestIdVariables } from "hono/request-id";
 import { openAPIRouteHandler } from "hono-openapi";
+import {
+  ChangeCurrentUserPasswordUseCase,
+  SetCurrentUserAvatarUseCase,
+  UpdateCurrentUserProfileUseCase,
+} from "#/application/use-cases/auth";
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
+import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hasher";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
@@ -49,7 +55,17 @@ app.use("*", requestId());
 app.use("*", requestLogger);
 
 const tokenTtlSeconds = 60 * 60;
+const avatarUrlExpiresInSeconds = 60 * 60;
 const userRepository = new UserDbRepository();
+const contentStorage = new S3ContentStorage({
+  bucket: env.MINIO_BUCKET,
+  region: env.MINIO_REGION,
+  endpoint: `${env.MINIO_USE_SSL ? "https" : "http"}://${
+    env.MINIO_ENDPOINT
+  }:${env.MINIO_PORT}`,
+  accessKeyId: env.MINIO_ROOT_USER,
+  secretAccessKey: env.MINIO_ROOT_PASSWORD,
+});
 const authRouter = createAuthRouter({
   credentialsRepository: new HtshadowCredentialsRepository({
     filePath: env.HTSHADOW_PATH,
@@ -66,6 +82,23 @@ const authRouter = createAuthRouter({
   issuer: env.JWT_ISSUER,
   jwtSecret: env.JWT_SECRET,
   deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
+  updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
+    userRepository,
+  }),
+  changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
+    userRepository,
+    credentialsRepository: new HtshadowCredentialsRepository({
+      filePath: env.HTSHADOW_PATH,
+    }),
+    passwordVerifier: new BcryptPasswordVerifier(),
+    passwordHasher: new BcryptPasswordHasher(),
+  }),
+  setCurrentUserAvatarUseCase: new SetCurrentUserAvatarUseCase({
+    userRepository,
+    storage: contentStorage,
+  }),
+  avatarStorage: contentStorage,
+  avatarUrlExpiresInSeconds,
 });
 
 app.route("/", healthRouter);
@@ -91,15 +124,6 @@ const schedulesRouter = createSchedulesRouter({
 });
 
 app.route("/playlists", playlistsRouter);
-const contentStorage = new S3ContentStorage({
-  bucket: env.MINIO_BUCKET,
-  region: env.MINIO_REGION,
-  endpoint: `${env.MINIO_USE_SSL ? "https" : "http"}://${
-    env.MINIO_ENDPOINT
-  }:${env.MINIO_PORT}`,
-  accessKeyId: env.MINIO_ROOT_USER,
-  secretAccessKey: env.MINIO_ROOT_PASSWORD,
-});
 
 app.route("/schedules", schedulesRouter);
 const devicesRouter = createDevicesRouter({

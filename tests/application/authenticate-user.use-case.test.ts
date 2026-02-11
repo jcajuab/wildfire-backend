@@ -52,6 +52,7 @@ const makeDeps = () => {
     deps: {
       credentialsRepository: {
         findPasswordHash: async () => "hash",
+        updatePasswordHash: async () => {},
       },
       passwordVerifier: {
         verify: async () => true,
@@ -84,7 +85,13 @@ describe("AuthenticateUserUseCase", () => {
       expiresAt: new Date(
         1_700_000_000 * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
-      user: { id: "user-1", email: "test1@example.com", name: "Test One" },
+      user: {
+        id: "user-1",
+        email: "test1@example.com",
+        name: "Test One",
+        timezone: null,
+        avatarKey: null,
+      },
     });
     expect(issued).toEqual({
       subject: "user-1",
@@ -99,6 +106,7 @@ describe("AuthenticateUserUseCase", () => {
       ...deps,
       credentialsRepository: {
         findPasswordHash: async () => null,
+        updatePasswordHash: async () => {},
       },
     });
 

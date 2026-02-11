@@ -2,11 +2,19 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
+import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
+import {
+  ChangeCurrentUserPasswordUseCase,
+  SetCurrentUserAvatarUseCase,
+  UpdateCurrentUserProfileUseCase,
+} from "#/application/use-cases/auth";
+import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { Permission } from "#/domain/rbac/permission";
+import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hasher";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
@@ -22,7 +30,10 @@ const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const DEACTIVATED_MESSAGE =
   "Your account is currently deactivated. Please contact your administrator.";
 
-const buildApp = (opts?: { inactiveUserEmail?: string }) => {
+const buildApp = (opts?: {
+  inactiveUserEmail?: string;
+  avatarStorage?: ContentStorage;
+}) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const inactiveUserEmail = opts?.inactiveUserEmail;
   const credentialsRepository = new HtshadowCredentialsRepository({
@@ -40,6 +51,8 @@ const buildApp = (opts?: { inactiveUserEmail?: string }) => {
             email,
             name: "Test One",
             isActive: email !== inactiveUserEmail,
+            timezone: null,
+            avatarKey: null,
           }
         : null,
     findById: async (id: string) =>
@@ -49,6 +62,8 @@ const buildApp = (opts?: { inactiveUserEmail?: string }) => {
             email: "test1@example.com",
             name: "Test One",
             isActive: inactiveUserEmail !== "test1@example.com",
+            timezone: null,
+            avatarKey: null,
           }
         : null,
     findByIds: async () => [],
@@ -69,6 +84,13 @@ const buildApp = (opts?: { inactiveUserEmail?: string }) => {
         : [],
   };
 
+  const defaultAvatarStorage: ContentStorage = {
+    upload: async () => {},
+    delete: async () => {},
+    getPresignedDownloadUrl: async () => "https://example.com/avatar-presigned",
+  };
+  const avatarStorage = opts?.avatarStorage ?? defaultAvatarStorage;
+
   const authRouter = createAuthRouter({
     credentialsRepository,
     passwordVerifier,
@@ -78,6 +100,22 @@ const buildApp = (opts?: { inactiveUserEmail?: string }) => {
     userRepository,
     authorizationRepository,
     jwtSecret: "test-secret",
+    deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
+    updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
+      userRepository,
+    }),
+    changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
+      userRepository,
+      credentialsRepository,
+      passwordVerifier,
+      passwordHasher: new BcryptPasswordHasher(),
+    }),
+    setCurrentUserAvatarUseCase: new SetCurrentUserAvatarUseCase({
+      userRepository,
+      storage: avatarStorage,
+    }),
+    avatarStorage,
+    avatarUrlExpiresInSeconds: 3600,
   });
 
   const app = new Hono();
@@ -103,7 +141,12 @@ describe("Auth routes", () => {
       type: "bearer";
       token: string;
       expiresAt: string;
-      user: { id: string; email: string; name: string };
+      user: {
+        id: string;
+        email: string;
+        name: string;
+        timezone: string | null;
+      };
       permissions: string[];
     }>(response);
 
@@ -113,7 +156,12 @@ describe("Auth routes", () => {
       expiresAt: new Date(
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
-      user: { id: "user-1", email: "test1@example.com", name: "Test One" },
+      user: {
+        id: "user-1",
+        email: "test1@example.com",
+        name: "Test One",
+        timezone: null,
+      },
       permissions: ["roles:read", "roles:create"],
     });
   });
@@ -192,7 +240,12 @@ describe("Auth routes", () => {
       type: "bearer";
       token: string;
       expiresAt: string;
-      user: { id: string; email: string; name: string };
+      user: {
+        id: string;
+        email: string;
+        name: string;
+        timezone: string | null;
+      };
       permissions: string[];
     }>(response);
 
@@ -202,7 +255,12 @@ describe("Auth routes", () => {
       expiresAt: new Date(
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
-      user: { id: "user-1", email: "test1@example.com", name: "Test One" },
+      user: {
+        id: "user-1",
+        email: "test1@example.com",
+        name: "Test One",
+        timezone: null,
+      },
       permissions: ["roles:read", "roles:create"],
     });
   });

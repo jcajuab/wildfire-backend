@@ -16,7 +16,13 @@ export interface AuthResult {
   type: "bearer";
   token: string;
   expiresAt: string;
-  user: { id: string; email: string; name: string };
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    timezone?: string | null;
+    avatarKey?: string | null;
+  };
 }
 
 interface AuthenticateUserDeps {
@@ -74,7 +80,13 @@ export class AuthenticateUserUseCase {
       type: "bearer",
       token,
       expiresAt: new Date(expiresAt * 1000).toISOString(),
-      user: { id: user.id, email: user.email, name: user.name },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        timezone: user.timezone ?? null,
+        avatarKey: user.avatarKey ?? null,
+      },
     };
   }
 }

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import {
@@ -7,29 +8,45 @@ import {
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
+import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
   AuthenticateUserUseCase,
+  type ChangeCurrentUserPasswordUseCase,
   InvalidCredentialsError,
   RefreshSessionUseCase,
+  type SetCurrentUserAvatarUseCase,
+  type UpdateCurrentUserProfileUseCase,
 } from "#/application/use-cases/auth";
 import { type DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { NotFoundError } from "#/application/use-cases/rbac/errors";
 import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
+import { logger } from "#/infrastructure/observability/logger";
 import {
   type JwtUserVariables,
   requireJwtUser,
 } from "#/interfaces/http/middleware/jwt-user";
 import {
   errorResponseSchema,
+  internalServerError,
   notFound,
   unauthorized,
 } from "#/interfaces/http/responses";
-import { authLoginSchema } from "#/interfaces/http/validators/auth.schema";
-import { validateJson } from "#/interfaces/http/validators/standard-validator";
+import {
+  authLoginSchema,
+  avatarUploadSchema,
+  patchAuthMeSchema,
+  postAuthMePasswordSchema,
+} from "#/interfaces/http/validators/auth.schema";
+import {
+  validateForm,
+  validateJson,
+} from "#/interfaces/http/validators/standard-validator";
+
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 
 export interface AuthRouterDeps {
   credentialsRepository: CredentialsRepository;
@@ -42,6 +59,11 @@ export interface AuthRouterDeps {
   issuer?: string;
   jwtSecret: string;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
+  updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
+  changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
+  setCurrentUserAvatarUseCase: SetCurrentUserAvatarUseCase;
+  avatarStorage: ContentStorage;
+  avatarUrlExpiresInSeconds: number;
 }
 
 const authResponseSchema = z.object({
@@ -52,9 +74,42 @@ const authResponseSchema = z.object({
     id: z.string(),
     email: z.string().email(),
     name: z.string(),
+    timezone: z.string().nullable().optional(),
+    avatarUrl: z.string().url().optional(),
   }),
   permissions: z.array(z.string()),
 });
+
+async function enrichUserWithAvatarUrl(
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    timezone?: string | null;
+    avatarKey?: string | null;
+  },
+  storage: ContentStorage,
+  expiresInSeconds: number,
+): Promise<{
+  id: string;
+  email: string;
+  name: string;
+  timezone?: string | null;
+  avatarUrl?: string;
+}> {
+  const base = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    timezone: user.timezone ?? null,
+  };
+  if (!user.avatarKey) return base;
+  const avatarUrl = await storage.getPresignedDownloadUrl({
+    key: user.avatarKey,
+    expiresInSeconds,
+  });
+  return { ...base, avatarUrl };
+}
 
 export const createAuthRouter = (deps: AuthRouterDeps) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
@@ -79,6 +134,84 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
   });
 
   const jwtMiddleware = createJwtMiddleware(deps.jwtSecret);
+
+  router.patch(
+    "/me",
+    jwtMiddleware,
+    requireJwtUser,
+    validateJson(patchAuthMeSchema),
+    describeRoute({
+      description: "Update current user profile (e.g. name)",
+      tags: authTags,
+      responses: {
+        200: {
+          description: "Profile updated; returns full auth payload",
+          content: {
+            "application/json": {
+              schema: resolver(authResponseSchema),
+            },
+          },
+        },
+        400: {
+          description: "Invalid request",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "User not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const userId = c.get("userId");
+      const payload = c.req.valid("json");
+      try {
+        await deps.updateCurrentUserProfileUseCase.execute({
+          userId,
+          name: payload.name,
+          timezone: payload.timezone,
+        });
+        const result = await refreshSession.execute({ userId });
+        const permissions =
+          await deps.authorizationRepository.findPermissionsForUser(
+            result.user.id,
+          );
+        const permissionStrings = permissions.map(
+          (p) => `${p.resource}:${p.action}`,
+        );
+        const user = await enrichUserWithAvatarUrl(
+          result.user,
+          deps.avatarStorage,
+          deps.avatarUrlExpiresInSeconds,
+        );
+        return c.json({ ...result, user, permissions: permissionStrings });
+      } catch (error) {
+        if (error instanceof InvalidCredentialsError) {
+          return unauthorized(c, error.message);
+        }
+        if (error instanceof NotFoundError) {
+          return notFound(c, error.message);
+        }
+        throw error;
+      }
+    },
+  );
 
   router.post(
     "/login",
@@ -124,7 +257,12 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
         const permissionStrings = permissions.map(
           (p) => `${p.resource}:${p.action}`,
         );
-        return c.json({ ...result, permissions: permissionStrings });
+        const user = await enrichUserWithAvatarUrl(
+          result.user,
+          deps.avatarStorage,
+          deps.avatarUrlExpiresInSeconds,
+        );
+        return c.json({ ...result, user, permissions: permissionStrings });
       } catch (error) {
         if (error instanceof InvalidCredentialsError) {
           return unauthorized(c, error.message);
@@ -173,13 +311,163 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
         const permissionStrings = permissions.map(
           (p) => `${p.resource}:${p.action}`,
         );
-        return c.json({ ...result, permissions: permissionStrings });
+        const user = await enrichUserWithAvatarUrl(
+          result.user,
+          deps.avatarStorage,
+          deps.avatarUrlExpiresInSeconds,
+        );
+        return c.json({ ...result, user, permissions: permissionStrings });
       } catch (error) {
         if (error instanceof InvalidCredentialsError) {
           return unauthorized(c, error.message);
         }
 
         throw error;
+      }
+    },
+  );
+
+  router.post(
+    "/me/password",
+    jwtMiddleware,
+    requireJwtUser,
+    validateJson(postAuthMePasswordSchema),
+    describeRoute({
+      description: "Change current user password",
+      tags: authTags,
+      responses: {
+        204: {
+          description: "Password updated",
+        },
+        400: {
+          description: "Invalid request (e.g. new password too short)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized or current password incorrect",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "User not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const userId = c.get("userId");
+      const payload = c.req.valid("json");
+      try {
+        await deps.changeCurrentUserPasswordUseCase.execute({
+          userId,
+          currentPassword: payload.currentPassword,
+          newPassword: payload.newPassword,
+        });
+        return c.body(null, 204);
+      } catch (error) {
+        if (error instanceof InvalidCredentialsError) {
+          return unauthorized(c, error.message);
+        }
+        if (error instanceof NotFoundError) {
+          return notFound(c, error.message);
+        }
+        throw error;
+      }
+    },
+  );
+
+  router.post(
+    "/me/avatar",
+    jwtMiddleware,
+    requireJwtUser,
+    bodyLimit({ maxSize: AVATAR_MAX_BYTES }),
+    validateForm(avatarUploadSchema),
+    describeRoute({
+      description: "Upload or replace current user avatar",
+      tags: authTags,
+      responses: {
+        200: {
+          description: "Avatar updated; returns full auth payload",
+          content: {
+            "application/json": {
+              schema: resolver(authResponseSchema),
+            },
+          },
+        },
+        400: {
+          description: "Invalid request (e.g. not an image or too large)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "User not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const userId = c.get("userId");
+      const payload = c.req.valid("form");
+      logger.info({ userId }, "avatar upload start");
+      try {
+        const file = payload.file;
+        const buffer = await file.arrayBuffer();
+        await deps.setCurrentUserAvatarUseCase.execute({
+          userId,
+          body: new Uint8Array(buffer),
+          contentType: file.type,
+          contentLength: file.size,
+        });
+        logger.info({ userId }, "avatar upload done");
+        const result = await refreshSession.execute({ userId });
+        const permissions =
+          await deps.authorizationRepository.findPermissionsForUser(
+            result.user.id,
+          );
+        const permissionStrings = permissions.map(
+          (p) => `${p.resource}:${p.action}`,
+        );
+        const user = await enrichUserWithAvatarUrl(
+          result.user,
+          deps.avatarStorage,
+          deps.avatarUrlExpiresInSeconds,
+        );
+        return c.json({ ...result, user, permissions: permissionStrings });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          return notFound(c, error.message);
+        }
+        logger.error({ err: error, userId }, "avatar upload failed");
+        return internalServerError(
+          c,
+          "Failed to upload profile picture. Please try again.",
+        );
       }
     },
   );
