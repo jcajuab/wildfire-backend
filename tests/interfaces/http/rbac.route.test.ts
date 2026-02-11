@@ -7,7 +7,70 @@ import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const roleId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
+/** Second user (no roles) for tests that assign non-system roles. */
+const userIdNoRoles = "33333333-3333-4333-8333-333333333333";
+/** Editor role (non-system) for tests where caller has users:update but is not Super Admin. */
+const editorRoleId = "44444444-4444-4444-8444-444444444444";
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
+
+/** Builds app with a second user (userIdNoRoles) who has only users:update via Editor role. Use issueTokenForEditor() to get a token for that user. */
+function buildAppWithEditorUser(): {
+  app: Hono;
+  issueToken: () => Promise<string>;
+  issueTokenForEditor: () => Promise<string>;
+} {
+  const { store, repositories } = makeStore();
+  store.roles.push({
+    id: editorRoleId,
+    name: "Editor",
+    description: "Can edit",
+    isSystem: false,
+  });
+  const permUpdate = {
+    id: "perm-users-update",
+    resource: "users",
+    action: "update",
+  };
+  const permDelete = {
+    id: "perm-users-delete",
+    resource: "users",
+    action: "delete",
+  };
+  store.permissions.push(permUpdate, permDelete);
+  store.rolePermissions.push(
+    { roleId: editorRoleId, permissionId: permUpdate.id },
+    { roleId: editorRoleId, permissionId: permDelete.id },
+  );
+  store.userRoles.push({ userId: userIdNoRoles, roleId: editorRoleId });
+
+  const rbacRouter = createRbacRouter({
+    jwtSecret: "test-secret",
+    repositories,
+  });
+  const app = new Hono();
+  app.route("/", rbacRouter);
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return {
+    app,
+    issueToken: async () =>
+      tokenIssuer.issueToken({
+        subject: userId,
+        issuedAt: nowSeconds,
+        expiresAt: nowSeconds + 3600,
+        issuer: undefined,
+        email: "admin@example.com",
+      }),
+    issueTokenForEditor: async () =>
+      tokenIssuer.issueToken({
+        subject: userIdNoRoles,
+        issuedAt: nowSeconds,
+        expiresAt: nowSeconds + 3600,
+        issuer: undefined,
+        email: "noroles@example.com",
+      }),
+  };
+}
 
 const makeStore = () => {
   const store = {
@@ -36,6 +99,12 @@ const makeStore = () => {
     id: userId,
     email: "admin@example.com",
     name: "Admin",
+    isActive: true,
+  });
+  store.users.push({
+    id: userIdNoRoles,
+    email: "noroles@example.com",
+    name: "No Roles User",
     isActive: true,
   });
   store.roles.push({
@@ -296,11 +365,47 @@ describe("RBAC routes", () => {
     expect(response.status).toBe(400);
   });
 
-  test("PATCH /roles/:id updates role", async () => {
+  test("PATCH /roles/:id returns 403 for system role", async () => {
     const { app, issueToken } = buildApp(["roles:update"]);
     const token = await issueToken();
 
     const response = await app.request(`/roles/${roleId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ description: "Updated" }),
+    });
+
+    expect(response.status).toBe(403);
+    const body = await parseJson<{ error: { code: string; message: string } }>(
+      response,
+    );
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error.message).toContain("system role");
+  });
+
+  test("PATCH /roles/:id updates non-system role", async () => {
+    const { app, issueToken } = buildApp(["roles:update", "roles:create"]);
+    const token = await issueToken();
+
+    const createRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Custom Role",
+        description: "To update",
+      }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<{ id: string }>(createRes);
+    const customRoleId = created.id;
+
+    const response = await app.request(`/roles/${customRoleId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -368,7 +473,7 @@ describe("RBAC routes", () => {
     expect(body.length).toBeGreaterThan(0);
   });
 
-  test("PUT /roles/:id/permissions sets permissions", async () => {
+  test("PUT /roles/:id/permissions returns 403 for system role", async () => {
     const { app, issueToken } = buildApp(["roles:update"]);
     const token = await issueToken();
 
@@ -381,10 +486,46 @@ describe("RBAC routes", () => {
       body: JSON.stringify({ permissionIds: ["perm-1"] }),
     });
 
+    expect(response.status).toBe(403);
+    const body = await parseJson<{ error: { code: string; message: string } }>(
+      response,
+    );
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error.message).toContain("system role");
+  });
+
+  test("PUT /roles/:id/permissions sets permissions for non-system role", async () => {
+    const { app, issueToken } = buildApp(["roles:update", "roles:create"]);
+    const token = await issueToken();
+
+    const createRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Custom Role",
+        description: "To set permissions",
+      }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<{ id: string }>(createRes);
+    const customRoleId = created.id;
+
+    const response = await app.request(`/roles/${customRoleId}/permissions`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ permissionIds: ["perm-2"] }),
+    });
+
     expect(response.status).toBe(200);
     const body = await parseJson<Array<{ id: string }>>(response);
     expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.id).toBe("perm-1");
+    expect(body[0]?.id).toBe("perm-2");
   });
 
   test("GET /roles/:id/users returns users assigned to role", async () => {
@@ -494,6 +635,27 @@ describe("RBAC routes", () => {
     expect(body.name).toBe("Updated");
   });
 
+  test("PATCH /users/:id returns 403 when target is Super Admin and caller is not", async () => {
+    const { app, issueTokenForEditor } = buildAppWithEditorUser();
+    const token = await issueTokenForEditor();
+
+    const response = await app.request(`/users/${userId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Updated" }),
+    });
+
+    expect(response.status).toBe(403);
+    const body = await parseJson<{ error: { code: string; message: string } }>(
+      response,
+    );
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error.message).toContain("Super Admin");
+  });
+
   test("DELETE /users/:id removes user", async () => {
     const { app, issueToken } = buildApp(["users:delete"]);
     const token = await issueToken();
@@ -506,7 +668,24 @@ describe("RBAC routes", () => {
     expect(response.status).toBe(204);
   });
 
-  test("PUT /users/:id/roles assigns roles", async () => {
+  test("DELETE /users/:id returns 403 when target is Super Admin and caller is not", async () => {
+    const { app, issueTokenForEditor } = buildAppWithEditorUser();
+    const token = await issueTokenForEditor();
+
+    const response = await app.request(`/users/${userId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(403);
+    const body = await parseJson<{ error: { code: string; message: string } }>(
+      response,
+    );
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error.message).toContain("Super Admin");
+  });
+
+  test("PUT /users/:id/roles returns 403 when assigning Super Admin", async () => {
     const { app, issueToken } = buildApp(["users:update"]);
     const token = await issueToken();
 
@@ -519,10 +698,46 @@ describe("RBAC routes", () => {
       body: JSON.stringify({ roleIds: [roleId] }),
     });
 
+    expect(response.status).toBe(403);
+    const body = await parseJson<{ error: { code: string; message: string } }>(
+      response,
+    );
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error.message).toContain("Super Admin");
+  });
+
+  test("PUT /users/:id/roles assigns non-system roles", async () => {
+    const { app, issueToken } = buildApp(["users:update", "roles:create"]);
+    const token = await issueToken();
+
+    const createRoleRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Editor",
+        description: "Can edit",
+      }),
+    });
+    expect(createRoleRes.status).toBe(201);
+    const createdRole = await parseJson<{ id: string }>(createRoleRes);
+    const editorRoleId = createdRole.id;
+
+    const response = await app.request(`/users/${userIdNoRoles}/roles`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ roleIds: [editorRoleId] }),
+    });
+
     expect(response.status).toBe(200);
     const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.id).toBe(roleId);
+    expect(body.length).toBe(1);
+    expect(body[0]?.id).toBe(editorRoleId);
   });
 
   test("GET /roles returns 401 without token", async () => {

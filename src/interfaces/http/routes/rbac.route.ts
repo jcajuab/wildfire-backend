@@ -114,9 +114,13 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
   });
   const updateUser = new UpdateUserUseCase({
     userRepository: deps.repositories.userRepository,
+    userRoleRepository: deps.repositories.userRoleRepository,
+    roleRepository: deps.repositories.roleRepository,
   });
   const deleteUser = new DeleteUserUseCase({
     userRepository: deps.repositories.userRepository,
+    userRoleRepository: deps.repositories.userRoleRepository,
+    roleRepository: deps.repositories.roleRepository,
   });
   const setUserRoles = new SetUserRolesUseCase({
     userRepository: deps.repositories.userRepository,
@@ -261,6 +265,14 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
             },
           },
         },
+        403: {
+          description: "Forbidden (e.g. cannot modify system role)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
         404: {
           description: "Not found",
           content: {
@@ -281,6 +293,9 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
         });
         return c.json(role);
       } catch (error) {
+        if (error instanceof ForbiddenError) {
+          return forbidden(c, error.message);
+        }
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
@@ -419,6 +434,14 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
             },
           },
         },
+        403: {
+          description: "Forbidden (e.g. cannot modify system role)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
         404: {
           description: "Not found",
           content: {
@@ -439,6 +462,9 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
         });
         return c.json(permissions);
       } catch (error) {
+        if (error instanceof ForbiddenError) {
+          return forbidden(c, error.message);
+        }
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
@@ -589,6 +615,14 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
             },
           },
         },
+        403: {
+          description: "Forbidden (e.g. cannot modify a Super Admin user)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
         404: {
           description: "Not found",
           content: {
@@ -606,9 +640,13 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
         const user = await updateUser.execute({
           id: params.id,
           ...payload,
+          callerUserId: c.get("userId"),
         });
         return c.json(user);
       } catch (error) {
+        if (error instanceof ForbiddenError) {
+          return forbidden(c, error.message);
+        }
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
@@ -626,6 +664,14 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
       tags: userTags,
       responses: {
         204: { description: "Deleted" },
+        403: {
+          description: "Forbidden (e.g. cannot delete a Super Admin user)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
         404: {
           description: "Not found",
           content: {
@@ -639,9 +685,15 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
     async (c) => {
       const params = c.req.valid("param");
       try {
-        await deleteUser.execute({ id: params.id });
+        await deleteUser.execute({
+          id: params.id,
+          callerUserId: c.get("userId"),
+        });
         return c.body(null, 204);
       } catch (error) {
+        if (error instanceof ForbiddenError) {
+          return forbidden(c, error.message);
+        }
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
@@ -668,6 +720,15 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
             },
           },
         },
+        403: {
+          description:
+            "Forbidden (e.g. cannot assign or remove Super Admin role)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
         404: {
           description: "Not found",
           content: {
@@ -688,6 +749,9 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
         });
         return c.json(roles);
       } catch (error) {
+        if (error instanceof ForbiddenError) {
+          return forbidden(c, error.message);
+        }
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }

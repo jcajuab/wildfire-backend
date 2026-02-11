@@ -1,3 +1,4 @@
+import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   type RoleRepository,
   type UserRepository,
@@ -58,15 +59,57 @@ export class GetUserUseCase {
   }
 }
 
+async function ensureCallerCanModifySuperAdminUser(
+  deps: {
+    userRoleRepository: UserRoleRepository;
+    roleRepository: RoleRepository;
+  },
+  targetUserId: string,
+  callerUserId: string | undefined,
+  forbiddenMessage: string,
+): Promise<void> {
+  const allRoles = await deps.roleRepository.list();
+  const systemRole = allRoles.find((r) => r.isSystem);
+  if (!systemRole) return;
+
+  const targetAssignments =
+    await deps.userRoleRepository.listRolesByUserId(targetUserId);
+  const targetRoleIds = targetAssignments.map((a) => a.roleId);
+  if (!targetRoleIds.includes(systemRole.id)) return;
+
+  if (callerUserId === undefined) return;
+
+  const callerAssignments =
+    await deps.userRoleRepository.listRolesByUserId(callerUserId);
+  const callerRoleIds = callerAssignments.map((a) => a.roleId);
+  if (!callerRoleIds.includes(systemRole.id)) {
+    throw new ForbiddenError(forbiddenMessage);
+  }
+}
+
 export class UpdateUserUseCase {
-  constructor(private readonly deps: { userRepository: UserRepository }) {}
+  constructor(
+    private readonly deps: {
+      userRepository: UserRepository;
+      userRoleRepository: UserRoleRepository;
+      roleRepository: RoleRepository;
+    },
+  ) {}
 
   async execute(input: {
     id: string;
     email?: string;
     name?: string;
     isActive?: boolean;
+    callerUserId?: string;
   }) {
+    await ensureCallerCanModifySuperAdminUser(
+      this.deps,
+      input.id,
+      input.callerUserId,
+      "Cannot modify a Super Admin user",
+    );
+
     const user = await this.deps.userRepository.update(input.id, {
       email: input.email,
       name: input.name,
@@ -78,9 +121,22 @@ export class UpdateUserUseCase {
 }
 
 export class DeleteUserUseCase {
-  constructor(private readonly deps: { userRepository: UserRepository }) {}
+  constructor(
+    private readonly deps: {
+      userRepository: UserRepository;
+      userRoleRepository: UserRoleRepository;
+      roleRepository: RoleRepository;
+    },
+  ) {}
 
-  async execute(input: { id: string }) {
+  async execute(input: { id: string; callerUserId?: string }) {
+    await ensureCallerCanModifySuperAdminUser(
+      this.deps,
+      input.id,
+      input.callerUserId,
+      "Cannot delete a Super Admin user",
+    );
+
     const deleted = await this.deps.userRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("User not found");
   }
@@ -98,6 +154,27 @@ export class SetUserRolesUseCase {
   async execute(input: { userId: string; roleIds: string[] }) {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
+
+    const allRoles = await this.deps.roleRepository.list();
+    const systemRole = allRoles.find((r) => r.isSystem);
+    if (systemRole) {
+      if (input.roleIds.includes(systemRole.id)) {
+        throw new ForbiddenError(
+          "Cannot assign Super Admin role via the application. Use the provided script.",
+        );
+      }
+      const currentAssignments =
+        await this.deps.userRoleRepository.listRolesByUserId(input.userId);
+      const currentRoleIds = currentAssignments.map((a) => a.roleId);
+      if (
+        currentRoleIds.includes(systemRole.id) &&
+        !input.roleIds.includes(systemRole.id)
+      ) {
+        throw new ForbiddenError(
+          "Cannot remove Super Admin role via the application. Use the provided script.",
+        );
+      }
+    }
 
     await this.deps.userRoleRepository.setUserRoles(
       input.userId,

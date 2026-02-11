@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   CreateRoleUseCase,
   CreateUserUseCase,
@@ -73,6 +74,8 @@ describe("RBAC use cases", () => {
   test("UpdateUserUseCase throws when user missing", async () => {
     const useCase = new UpdateUserUseCase({
       userRepository: { update: async () => null } as never,
+      userRoleRepository: { listRolesByUserId: async () => [] } as never,
+      roleRepository: { list: async () => [] } as never,
     });
 
     await expect(useCase.execute({ id: "user-1" })).rejects.toBeInstanceOf(
@@ -80,14 +83,169 @@ describe("RBAC use cases", () => {
     );
   });
 
+  test("UpdateUserUseCase throws ForbiddenError when target is Super Admin and caller is not", async () => {
+    const systemRoleId = "role-sys";
+    const targetUserId = "user-super";
+    const callerUserId = "user-other";
+    const useCase = new UpdateUserUseCase({
+      userRepository: {
+        update: async () => ({
+          id: targetUserId,
+          email: "s@example.com",
+          name: "Super",
+          isActive: true,
+        }),
+      } as never,
+      userRoleRepository: {
+        listRolesByUserId: async (userId: string) =>
+          userId === targetUserId
+            ? [{ userId: targetUserId, roleId: systemRoleId }]
+            : userId === callerUserId
+              ? [{ userId: callerUserId, roleId: "role-other" }]
+              : [],
+      } as never,
+      roleRepository: {
+        list: async () => [
+          {
+            id: systemRoleId,
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+          {
+            id: "role-other",
+            name: "Editor",
+            description: null,
+            isSystem: false,
+          },
+        ],
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({
+        id: targetUserId,
+        name: "Updated",
+        callerUserId,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("UpdateUserUseCase succeeds when target is Super Admin and caller is Super Admin", async () => {
+    const systemRoleId = "role-sys";
+    const targetUserId = "user-super";
+    const callerUserId = "user-admin";
+    const updatedUser = {
+      id: targetUserId,
+      email: "s@example.com",
+      name: "Updated",
+      isActive: true,
+    };
+    const useCase = new UpdateUserUseCase({
+      userRepository: { update: async () => updatedUser } as never,
+      userRoleRepository: {
+        listRolesByUserId: async (userId: string) =>
+          userId === targetUserId || userId === callerUserId
+            ? [{ userId, roleId: systemRoleId }]
+            : [],
+      } as never,
+      roleRepository: {
+        list: async () => [
+          {
+            id: systemRoleId,
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+        ],
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({
+        id: targetUserId,
+        name: "Updated",
+        callerUserId,
+      }),
+    ).resolves.toEqual(updatedUser);
+  });
+
   test("DeleteUserUseCase throws when user missing", async () => {
     const useCase = new DeleteUserUseCase({
       userRepository: { delete: async () => false } as never,
+      userRoleRepository: { listRolesByUserId: async () => [] } as never,
+      roleRepository: { list: async () => [] } as never,
     });
 
     await expect(useCase.execute({ id: "user-1" })).rejects.toBeInstanceOf(
       NotFoundError,
     );
+  });
+
+  test("DeleteUserUseCase throws ForbiddenError when target is Super Admin and caller is not", async () => {
+    const systemRoleId = "role-sys";
+    const targetUserId = "user-super";
+    const callerUserId = "user-other";
+    const useCase = new DeleteUserUseCase({
+      userRepository: { delete: async () => true } as never,
+      userRoleRepository: {
+        listRolesByUserId: async (userId: string) =>
+          userId === targetUserId
+            ? [{ userId: targetUserId, roleId: systemRoleId }]
+            : userId === callerUserId
+              ? [{ userId: callerUserId, roleId: "role-other" }]
+              : [],
+      } as never,
+      roleRepository: {
+        list: async () => [
+          {
+            id: systemRoleId,
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+          {
+            id: "role-other",
+            name: "Editor",
+            description: null,
+            isSystem: false,
+          },
+        ],
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({ id: targetUserId, callerUserId }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("DeleteUserUseCase succeeds when target is Super Admin and caller is Super Admin", async () => {
+    const systemRoleId = "role-sys";
+    const targetUserId = "user-super";
+    const callerUserId = "user-admin";
+    const useCase = new DeleteUserUseCase({
+      userRepository: { delete: async () => true } as never,
+      userRoleRepository: {
+        listRolesByUserId: async (userId: string) =>
+          userId === targetUserId || userId === callerUserId
+            ? [{ userId, roleId: systemRoleId }]
+            : [],
+      } as never,
+      roleRepository: {
+        list: async () => [
+          {
+            id: systemRoleId,
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+        ],
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({ id: targetUserId, callerUserId }),
+    ).resolves.toBeUndefined();
   });
 
   test("SetUserRolesUseCase returns assigned roles", async () => {
@@ -180,7 +338,10 @@ describe("RBAC use cases", () => {
 
   test("UpdateRoleUseCase throws when role missing", async () => {
     const useCase = new UpdateRoleUseCase({
-      roleRepository: { update: async () => null } as never,
+      roleRepository: {
+        findById: async () => null,
+        update: async () => null,
+      } as never,
     });
 
     await expect(useCase.execute({ id: "role-1" })).rejects.toBeInstanceOf(
