@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
-import { type UserRepository } from "#/application/ports/rbac";
+import {
+  type AuthorizationRepository,
+  type UserRepository,
+} from "#/application/ports/rbac";
+import { Permission } from "#/domain/rbac/permission";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
@@ -58,6 +62,13 @@ const buildApp = (opts?: { inactiveUserEmail?: string }) => {
     delete: async () => false,
   };
 
+  const authorizationRepository: AuthorizationRepository = {
+    findPermissionsForUser: async (userId: string) =>
+      userId === "user-1"
+        ? [new Permission("roles", "read"), new Permission("roles", "create")]
+        : [],
+  };
+
   const authRouter = createAuthRouter({
     credentialsRepository,
     passwordVerifier,
@@ -65,6 +76,7 @@ const buildApp = (opts?: { inactiveUserEmail?: string }) => {
     clock,
     tokenTtlSeconds,
     userRepository,
+    authorizationRepository,
     jwtSecret: "test-secret",
   });
 
@@ -92,6 +104,7 @@ describe("Auth routes", () => {
       token: string;
       expiresAt: string;
       user: { id: string; email: string; name: string };
+      permissions: string[];
     }>(response);
 
     expect(body).toEqual({
@@ -101,6 +114,7 @@ describe("Auth routes", () => {
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
       user: { id: "user-1", email: "test1@example.com", name: "Test One" },
+      permissions: ["roles:read", "roles:create"],
     });
   });
 
@@ -179,6 +193,7 @@ describe("Auth routes", () => {
       token: string;
       expiresAt: string;
       user: { id: string; email: string; name: string };
+      permissions: string[];
     }>(response);
 
     expect(body).toEqual({
@@ -188,6 +203,7 @@ describe("Auth routes", () => {
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
       user: { id: "user-1", email: "test1@example.com", name: "Test One" },
+      permissions: ["roles:read", "roles:create"],
     });
   });
 

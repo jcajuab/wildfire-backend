@@ -59,6 +59,7 @@ const authRouter = createAuthRouter({
   }),
   clock: new SystemClock(),
   userRepository: new UserDbRepository(),
+  authorizationRepository: new AuthorizationDbRepository(),
   tokenTtlSeconds,
   issuer: env.JWT_ISSUER,
   jwtSecret: env.JWT_SECRET,

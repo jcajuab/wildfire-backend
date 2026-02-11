@@ -7,7 +7,10 @@ import {
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
-import { type UserRepository } from "#/application/ports/rbac";
+import {
+  type AuthorizationRepository,
+  type UserRepository,
+} from "#/application/ports/rbac";
 import {
   AuthenticateUserUseCase,
   InvalidCredentialsError,
@@ -27,6 +30,7 @@ export interface AuthRouterDeps {
   passwordVerifier: PasswordVerifier;
   tokenIssuer: TokenIssuer;
   userRepository: UserRepository;
+  authorizationRepository: AuthorizationRepository;
   clock: Clock;
   tokenTtlSeconds: number;
   issuer?: string;
@@ -42,6 +46,7 @@ const authResponseSchema = z.object({
     email: z.string().email(),
     name: z.string(),
   }),
+  permissions: z.array(z.string()),
 });
 
 export const createAuthRouter = (deps: AuthRouterDeps) => {
@@ -105,7 +110,14 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
       const payload = c.req.valid("json");
       try {
         const result = await authenticateUser.execute(payload);
-        return c.json(result);
+        const permissions =
+          await deps.authorizationRepository.findPermissionsForUser(
+            result.user.id,
+          );
+        const permissionStrings = permissions.map(
+          (p) => `${p.resource}:${p.action}`,
+        );
+        return c.json({ ...result, permissions: permissionStrings });
       } catch (error) {
         if (error instanceof InvalidCredentialsError) {
           return unauthorized(c, error.message);
@@ -147,7 +159,14 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
         const result = await refreshSession.execute({
           userId: c.get("userId"),
         });
-        return c.json(result);
+        const permissions =
+          await deps.authorizationRepository.findPermissionsForUser(
+            result.user.id,
+          );
+        const permissionStrings = permissions.map(
+          (p) => `${p.resource}:${p.action}`,
+        );
+        return c.json({ ...result, permissions: permissionStrings });
       } catch (error) {
         if (error instanceof InvalidCredentialsError) {
           return unauthorized(c, error.message);

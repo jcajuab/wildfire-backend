@@ -300,9 +300,12 @@ Success 200:
   "type": "bearer",
   "token": "<jwt>",
   "expiresAt": "2026-01-23T12:34:56.000Z",
-  "user": { "id": "<uuid>", "email": "user@example.com", "name": "..." }
+  "user": { "id": "<uuid>", "email": "user@example.com", "name": "..." },
+  "permissions": ["content:read", "roles:create", "..."]
 }
 ```
+
+`permissions` is an array of `resource:action` strings for the current user (from their roles). Used by clients to gate UI; authorization is enforced on the API regardless.
 
 Error:
 
@@ -320,8 +323,9 @@ Behavior:
 - Validates JWT
 - Loads user by `sub` and requires `isActive=true`
 - Issues a fresh JWT (sliding session behavior)
+- Returns same shape as login, including `permissions`.
 
-Success 200: same shape as `/auth/login`.
+Success 200: same shape as `/auth/login` (includes `permissions`).
 
 Error:
 
