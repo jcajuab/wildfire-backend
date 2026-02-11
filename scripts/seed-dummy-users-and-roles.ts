@@ -6,6 +6,7 @@ import {
   SetUserRolesUseCase,
 } from "#/application/use-cases/rbac";
 import { env } from "#/env";
+import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
@@ -37,6 +38,25 @@ const SUPER_ADMIN_ROLE_NAME = "Super Admin";
 const EDITOR_ROLE_NAME = "Editor";
 const VIEWER_ROLE_NAME = "Viewer";
 
+const DUMMY_DEVICES: ReadonlyArray<{
+  identifier: string;
+  name: string;
+  location: string | null;
+}> = [
+  { identifier: "display-446", name: "446", location: "Building A" },
+  {
+    identifier: "display-lobby",
+    name: "Lobby Display",
+    location: "Main Lobby",
+  },
+  {
+    identifier: "display-conference-a",
+    name: "Conference Room A",
+    location: "Building B",
+  },
+];
+
+const deviceRepository = new DeviceDbRepository();
 const permissionRepository = new PermissionDbRepository();
 const roleRepository = new RoleDbRepository();
 const rolePermissionRepository = new RolePermissionDbRepository();
@@ -163,6 +183,20 @@ for (let i = 0; i < orderedUsers.length; i += 1) {
 console.log(
   "Role assignments: 1 Super Admin, 5 Editors, 9 Viewers (for 15 users).",
 );
+
+let devicesCreated = 0;
+for (const { identifier, name, location } of DUMMY_DEVICES) {
+  const existing = await deviceRepository.findByIdentifier(identifier);
+  if (existing) continue;
+  await deviceRepository.create({ identifier, name, location });
+  devicesCreated += 1;
+}
+console.log(
+  devicesCreated > 0
+    ? `Devices: ${devicesCreated} dummy device(s) created.`
+    : "Devices: 0 new (already present).",
+);
+
 console.log(`Done. All seeded users have password: "${DEFAULT_PASSWORD}"`);
 console.log(
   "Login with any of the 15 emails and that password to test the app.",
