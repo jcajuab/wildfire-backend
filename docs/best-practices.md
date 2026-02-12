@@ -76,7 +76,7 @@ describe.each([
 });
 ```
 
-### TODO and skip
+### Todo and skip tests
 
 - `test.todo("name")` marks tests you plan to implement later
 - `bun test --todo` runs todo tests and reports any that unexpectedly pass

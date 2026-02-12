@@ -414,37 +414,34 @@ Matching rules (`src/domain/rbac/permission.ts`):
 - Action matches if equal, OR stored action is `"manage"` (wildcard for actions)
 - Example: `"*:manage"` grants all permissions
 
-### Seed: Super Admin Role
+### Seed Data (Canonical)
 
-A built-in seed exists (`src/application/use-cases/rbac/seed-super-admin.use-case.ts`):
+Seeding is consolidated into one command:
 
-- Role name: `"Super Admin"` (isSystem=true)
-- Permission: `{ resource: "*", action: "manage" }`
-- Ensures the role has that permission assigned
+- `bun run db:seed`
 
-Run via: `bun run db:seed:super-admin` (script entrypoint: `scripts/seed-super-admin.ts`).
+Modes:
 
-### Seed: Standard Permissions
+- `full` (default): seeds standard permissions, Super Admin role (`*:manage`), demo Editor/Viewer roles, 15 demo users, role assignments, and htshadow credentials.
+- `baseline`: seeds standard permissions + Super Admin role. Use `--email` to assign Super Admin to a specific user.
+- `super-admin-only`: only ensures the Super Admin role + wildcard permission; optionally assigns the role to `--email`.
 
-A separate seed populates the `permissions` table with all standard `resource:action` pairs used by the app (content, playlists, schedules, devices, roles, users). Idempotent: skips any permission that already exists.
+Flags:
 
-Run via: `bun run db:seed:permissions` (script entrypoint: `scripts/seed-standard-permissions.ts`). Typical order: run `db:seed:permissions` first so `GET /permissions` returns the full list, then `db:seed:super-admin` to create the Super Admin role and assign `*:manage`.
+- `--mode=full|baseline|super-admin-only`
+- `--email=user@example.com`
+- `--dry-run` (no writes)
+- `--strict` (fails on missing required data such as a target user)
 
-### Seed: Assign Super Admin to user by email
+Examples:
 
-Assigns the "Super Admin" role (all permissions) to a user by email so they can call RBAC endpoints. Default email: `test@example.com`. Optional env: `SEED_USER_EMAIL`.
+- `bun run db:seed`
+- `bun run db:seed -- --mode=baseline --email=admin@example.com`
+- `bun run db:seed -- --mode=super-admin-only --dry-run`
 
-Run via: `bun run db:seed:assign-super-admin` (script entrypoint: `scripts/assign-super-admin-to-user.ts`). Requires the user to exist in the `users` table and the Super Admin role to exist (`db:seed:super-admin`).
+### Database integrity check (before constraint rollout)
 
-### Seed: Dummy users and roles (for testing UI)
-
-Seeds 15 dummy users into the DB and the htshadow file so the Users and Roles pages can be tested with real data. Also ensures standard permissions and Super Admin role exist, creates "Editor" and "Viewer" roles with appropriate permissions, and assigns roles: 1 Super Admin, 5 Editors, 9 Viewers. All seeded users share password: `password`. Set `HTSHADOW_PATH` in `.env` to the path of your htshadow file (e.g. absolute path to `wildfire/htshadow`).
-
-Run via: `bun run db:seed:dummy-users` (script entrypoint: `scripts/seed-dummy-users-and-roles.ts`). Typical order: `db:seed:permissions` → `db:seed:super-admin` (or let this script run them), then `db:seed:dummy-users`.
-
-### Database preflight (before constraint rollout)
-
-Run `bun run db:preflight` before applying schema hardening. It checks for:
+Run `bun run db:integrity` before applying schema hardening. It checks for:
 
 - orphan creator references (`content.created_by_id`, `playlists.created_by_id`)
 - orphan join-table references (`user_roles`, `role_permissions`)

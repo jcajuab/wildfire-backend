@@ -146,11 +146,11 @@ const checks = await runChecks();
 const failed = checks.filter((check) => check.count > 0);
 
 if (failed.length > 0) {
-  console.error("Database preflight failed:");
+  console.error("Database integrity check failed:");
   for (const check of failed) {
     console.error(`- ${check.name}: ${check.count}`);
   }
   process.exit(1);
 }
 
-console.log("Database preflight passed: no integrity violations found.");
+console.log("Database integrity check passed: no integrity violations found.");
