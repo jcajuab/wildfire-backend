@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "#/infrastructure/db/client";
 
 const TABLES = [
+  "audit_events",
   "user_roles",
   "role_permissions",
   "playlist_items",

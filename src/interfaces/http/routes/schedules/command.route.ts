@@ -1,4 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { ValidationError } from "#/application/errors/validation";
 import { NotFoundError } from "#/application/use-cases/schedules";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -53,7 +54,7 @@ export const registerScheduleCommandRoutes = (args: {
       },
     }),
     async (c) => {
-      const payload = createScheduleSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.createSchedule.execute({
           name: payload.name,
@@ -71,7 +72,7 @@ export const registerScheduleCommandRoutes = (args: {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
-        if (error instanceof Error) {
+        if (error instanceof ValidationError) {
           return badRequest(c, error.message);
         }
         throw error;
@@ -105,7 +106,7 @@ export const registerScheduleCommandRoutes = (args: {
     async (c) => {
       const params = c.req.valid("param");
       c.set("resourceId", params.id);
-      const payload = updateScheduleSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.updateSchedule.execute({
           id: params.id,
@@ -123,7 +124,7 @@ export const registerScheduleCommandRoutes = (args: {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
-        if (error instanceof Error) {
+        if (error instanceof ValidationError) {
           return badRequest(c, error.message);
         }
         throw error;

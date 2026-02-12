@@ -9,6 +9,7 @@ export interface DeviceRecord {
 
 export interface DeviceRepository {
   list(): Promise<DeviceRecord[]>;
+  findByIds(ids: string[]): Promise<DeviceRecord[]>;
   findById(id: string): Promise<DeviceRecord | null>;
   findByIdentifier(identifier: string): Promise<DeviceRecord | null>;
   create(input: {

@@ -35,6 +35,8 @@ export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   { resource: "roles", action: "create" },
   { resource: "roles", action: "update" },
   { resource: "roles", action: "delete" },
+  { resource: "audit", action: "read" },
+  { resource: "audit", action: "export" },
 ];
 
 export const DUMMY_USERS: ReadonlyArray<{ email: string; name: string }> = [

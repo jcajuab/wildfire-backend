@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type RequestIdVariables } from "hono/request-id";
 import { openAPIRouteHandler } from "hono-openapi";
+import { RecordAuditEventUseCase } from "#/application/use-cases/audit";
 import {
   ChangeCurrentUserPasswordUseCase,
   SetCurrentUserAvatarUseCase,
@@ -12,12 +13,15 @@ import {
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { InMemoryAuditQueue } from "#/interfaces/http/audit/in-memory-audit-queue";
 import { createHttpContainer } from "#/interfaces/http/container";
+import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
 import {
   requestId,
   requestLogger,
 } from "#/interfaces/http/middleware/observability";
 import { internalServerError } from "#/interfaces/http/responses";
+import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
 import { createDevicesRouter } from "#/interfaces/http/routes/devices.route";
@@ -28,16 +32,6 @@ import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route"
 import packageJSON from "#/package.json" with { type: "json" };
 
 export const app = new Hono<{ Variables: RequestIdVariables }>();
-
-app.use(
-  "*",
-  cors({
-    origin: env.CORS_ORIGINS,
-    credentials: true,
-  }),
-);
-app.use("*", requestId());
-app.use("*", requestLogger);
 
 const tokenTtlSeconds = 60 * 60;
 const avatarUrlExpiresInSeconds = 60 * 60;
@@ -177,12 +171,48 @@ const rbacRouter = createRbacRouter({
   avatarUrlExpiresInSeconds,
 });
 
+const auditRouter = createAuditRouter({
+  jwtSecret: env.JWT_SECRET,
+  exportMaxRows: env.AUDIT_EXPORT_MAX_ROWS,
+  repositories: {
+    auditEventRepository: container.repositories.auditEventRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+});
+
+const recordAuditEvent = new RecordAuditEventUseCase({
+  auditEventRepository: container.repositories.auditEventRepository,
+});
+const auditQueue = new InMemoryAuditQueue(
+  {
+    enabled: env.AUDIT_QUEUE_ENABLED,
+    capacity: env.AUDIT_QUEUE_CAPACITY,
+    flushBatchSize: env.AUDIT_FLUSH_BATCH_SIZE,
+    flushIntervalMs: env.AUDIT_FLUSH_INTERVAL_MS,
+  },
+  {
+    recordAuditEvent,
+  },
+);
+
+app.use(
+  "*",
+  cors({
+    origin: env.CORS_ORIGINS,
+    credentials: true,
+  }),
+);
+app.use("*", requestId());
+app.use("*", createAuditTrailMiddleware({ auditQueue }));
+app.use("*", requestLogger);
+
 app.route("/", healthRouter);
 app.route("/auth", authRouter);
 app.route("/playlists", playlistsRouter);
 app.route("/schedules", schedulesRouter);
 app.route("/devices", devicesRouter);
 app.route("/content", contentRouter);
+app.route("/audit", auditRouter);
 app.route("/", rbacRouter);
 
 app.onError((err, c) => {
@@ -225,3 +255,7 @@ if (env.NODE_ENV !== "production") {
 
   app.get("/docs", Scalar({ url: "/openapi.json" }));
 }
+
+export const stopHttpBackgroundWorkers = async (): Promise<void> => {
+  await auditQueue.stop();
+};

@@ -12,7 +12,7 @@ const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 
 const makeApp = async (
   permissions: string[],
-  options?: { missingUser?: boolean },
+  options?: { missingUser?: boolean; addPlaylistItemError?: Error },
 ) => {
   const app = new Hono();
   const playlists: Array<{
@@ -52,6 +52,8 @@ const makeApp = async (
     repositories: {
       playlistRepository: {
         list: async () => [...playlists],
+        findByIds: async (ids: string[]) =>
+          playlists.filter((item) => ids.includes(item.id)),
         findById: async (id: string) =>
           playlists.find((item) => item.id === id) ?? null,
         create: async (input) => {
@@ -71,6 +73,9 @@ const makeApp = async (
         listItems: async (playlistId: string) =>
           items.filter((item) => item.playlistId === playlistId),
         addItem: async (input) => {
+          if (options?.addPlaylistItemError) {
+            throw options.addPlaylistItemError;
+          }
           const record = {
             id: `item-${items.length + 1}`,
             ...input,
@@ -253,5 +258,35 @@ describe("Playlists routes", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  test("POST /playlists/:id/items returns 500 on unexpected repository failure", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:update"], {
+      addPlaylistItemError: new Error("write failed"),
+    });
+    playlists.push({
+      id: playlistId,
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const token = await issueToken();
+
+    const response = await app.request(`/playlists/${playlistId}/items`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contentId,
+        sequence: 10,
+        duration: 5,
+      }),
+    });
+
+    expect(response.status).toBe(500);
   });
 });

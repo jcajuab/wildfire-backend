@@ -1,4 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { ValidationError } from "#/application/errors/validation";
 import { NotFoundError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -56,7 +57,7 @@ export const registerPlaylistItemRoutes = (args: {
     }),
     async (c) => {
       const params = c.req.valid("param");
-      const payload = addPlaylistItemSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.addPlaylistItem.execute({
           playlistId: params.id,
@@ -70,7 +71,7 @@ export const registerPlaylistItemRoutes = (args: {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
-        if (error instanceof Error) {
+        if (error instanceof ValidationError) {
           return badRequest(c, error.message);
         }
         throw error;
@@ -104,7 +105,7 @@ export const registerPlaylistItemRoutes = (args: {
     async (c) => {
       const params = c.req.valid("param");
       c.set("resourceId", params.itemId);
-      const payload = updatePlaylistItemSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.updatePlaylistItem.execute({
           id: params.itemId,
@@ -116,7 +117,7 @@ export const registerPlaylistItemRoutes = (args: {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }
-        if (error instanceof Error) {
+        if (error instanceof ValidationError) {
           return badRequest(c, error.message);
         }
         throw error;

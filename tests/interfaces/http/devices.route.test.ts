@@ -11,7 +11,7 @@ const deviceId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 
-const makeRepositories = () => {
+const makeRepositories = (options?: { registerDeviceError?: Error }) => {
   const devices = [] as Array<{
     id: string;
     name: string;
@@ -25,6 +25,8 @@ const makeRepositories = () => {
     devices,
     deviceRepository: {
       list: async () => [...devices],
+      findByIds: async (ids: string[]) =>
+        devices.filter((device) => ids.includes(device.id)),
       findById: async (id: string) =>
         devices.find((device) => device.id === id) ?? null,
       findByIdentifier: async (identifier: string) =>
@@ -34,6 +36,9 @@ const makeRepositories = () => {
         identifier: string;
         location: string | null;
       }) => {
+        if (options?.registerDeviceError) {
+          throw options.registerDeviceError;
+        }
         const record = {
           id: `device-${devices.length + 1}`,
           ...input,
@@ -58,9 +63,12 @@ const makeRepositories = () => {
   };
 };
 
-const makeApp = async (permissions: string[] = []) => {
+const makeApp = async (
+  permissions: string[] = [],
+  options?: { registerDeviceError?: Error },
+) => {
   const app = new Hono();
-  const { devices, deviceRepository } = makeRepositories();
+  const { devices, deviceRepository } = makeRepositories(options);
   const playlists = [
     {
       id: playlistId,
@@ -110,6 +118,8 @@ const makeApp = async (permissions: string[] = []) => {
       },
       playlistRepository: {
         list: async () => playlists,
+        findByIds: async (ids: string[]) =>
+          playlists.filter((playlist) => ids.includes(playlist.id)),
         findById: async (id: string) =>
           playlists.find((playlist) => playlist.id === id) ?? null,
         create: async () => {
@@ -197,6 +207,22 @@ describe("Devices routes", () => {
     });
 
     expect(response.status).toBe(401);
+  });
+
+  test("POST /devices returns 500 on unexpected repository failure", async () => {
+    const { app } = await makeApp([], {
+      registerDeviceError: new Error("db unavailable"),
+    });
+    const response = await app.request("/devices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "device-key",
+      },
+      body: JSON.stringify({ name: "Lobby", identifier: "AA:BB" }),
+    });
+
+    expect(response.status).toBe(500);
   });
 
   test("GET /devices/:id/manifest returns 401 without API key", async () => {

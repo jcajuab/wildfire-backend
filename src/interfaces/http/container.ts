@@ -2,6 +2,7 @@ import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hash
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
+import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
@@ -39,6 +40,7 @@ export interface HttpContainer {
     userRoleRepository: UserRoleDbRepository;
     rolePermissionRepository: RolePermissionDbRepository;
     authorizationRepository: AuthorizationDbRepository;
+    auditEventRepository: AuditEventDbRepository;
     contentRepository: ContentDbRepository;
     playlistRepository: PlaylistDbRepository;
     scheduleRepository: ScheduleDbRepository;
@@ -68,6 +70,7 @@ export const createHttpContainer = (
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
+  const auditEventRepository = new AuditEventDbRepository();
   const contentRepository = new ContentDbRepository();
   const playlistRepository = new PlaylistDbRepository();
   const scheduleRepository = new ScheduleDbRepository();
@@ -101,6 +104,7 @@ export const createHttpContainer = (
       userRoleRepository,
       rolePermissionRepository,
       authorizationRepository,
+      auditEventRepository,
       contentRepository,
       playlistRepository,
       scheduleRepository,

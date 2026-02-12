@@ -17,6 +17,7 @@ export interface PlaylistItemRecord {
 
 export interface PlaylistRepository {
   list(): Promise<PlaylistRecord[]>;
+  findByIds(ids: string[]): Promise<PlaylistRecord[]>;
   findById(id: string): Promise<PlaylistRecord | null>;
   create(input: {
     name: string;

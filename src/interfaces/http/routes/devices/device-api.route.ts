@@ -1,5 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { NotFoundError } from "#/application/use-cases/devices";
+import { DeviceValidationError } from "#/domain/devices/device";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   badRequest,
@@ -80,7 +81,7 @@ export const registerDeviceApiRoutes = (args: {
       },
     }),
     async (c) => {
-      const payload = registerDeviceSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.registerDevice.execute({
           name: payload.name,
@@ -91,7 +92,7 @@ export const registerDeviceApiRoutes = (args: {
         c.set("resourceId", result.id);
         return c.json(result);
       } catch (error) {
-        if (error instanceof Error) {
+        if (error instanceof DeviceValidationError) {
           return badRequest(c, error.message);
         }
         throw error;

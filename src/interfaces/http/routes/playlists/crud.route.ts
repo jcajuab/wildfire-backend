@@ -75,7 +75,7 @@ export const registerPlaylistCrudRoutes = (args: {
       },
     }),
     async (c) => {
-      const payload = createPlaylistSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.createPlaylist.execute({
           name: payload.name,
@@ -164,7 +164,7 @@ export const registerPlaylistCrudRoutes = (args: {
     async (c) => {
       const params = c.req.valid("param");
       c.set("resourceId", params.id);
-      const payload = updatePlaylistSchema.parse(c.req.valid("json"));
+      const payload = c.req.valid("json");
       try {
         const result = await useCases.updatePlaylist.execute({
           id: params.id,

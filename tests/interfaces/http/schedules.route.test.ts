@@ -9,7 +9,10 @@ const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const deviceId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 
-const makeApp = async (permissions: string[]) => {
+const makeApp = async (
+  permissions: string[],
+  options?: { createScheduleError?: Error },
+) => {
   const app = new Hono();
   const schedules: Array<{
     id: string;
@@ -54,6 +57,9 @@ const makeApp = async (permissions: string[]) => {
         findById: async (id: string) =>
           schedules.find((schedule) => schedule.id === id) ?? null,
         create: async (input) => {
+          if (options?.createScheduleError) {
+            throw options.createScheduleError;
+          }
           const record = {
             id: `schedule-${schedules.length + 1}`,
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -68,6 +74,8 @@ const makeApp = async (permissions: string[]) => {
       },
       playlistRepository: {
         list: async () => [...playlists],
+        findByIds: async (ids: string[]) =>
+          playlists.filter((playlist) => ids.includes(playlist.id)),
         findById: async (id: string) =>
           playlists.find((playlist) => playlist.id === id) ?? null,
         create: async () => {
@@ -84,6 +92,8 @@ const makeApp = async (permissions: string[]) => {
       },
       deviceRepository: {
         list: async () => [...devices],
+        findByIds: async (ids: string[]) =>
+          devices.filter((device) => ids.includes(device.id)),
         findById: async (id: string) =>
           devices.find((device) => device.id === id) ?? null,
         findByIdentifier: async () => null,
@@ -201,5 +211,32 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(400);
+  });
+
+  test("POST /schedules returns 500 when repository fails unexpectedly", async () => {
+    const { app, issueToken } = await makeApp(["schedules:create"], {
+      createScheduleError: new Error("db unavailable"),
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Morning",
+        playlistId,
+        deviceId,
+        startTime: "08:00",
+        endTime: "17:00",
+        daysOfWeek: [1, 2, 3],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+
+    expect(response.status).toBe(500);
   });
 });

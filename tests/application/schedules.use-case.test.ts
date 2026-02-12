@@ -5,6 +5,7 @@ import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   CreateScheduleUseCase,
   GetActiveScheduleForDeviceUseCase,
+  ListSchedulesUseCase,
   NotFoundError,
 } from "#/application/use-cases/schedules";
 
@@ -44,6 +45,21 @@ const makeDeps = () => {
 
   const playlistRepository: PlaylistRepository = {
     list: async () => [],
+    findByIds: async (ids: string[]) =>
+      ids
+        .map((id) =>
+          id === "playlist-1"
+            ? {
+                id,
+                name: "Morning",
+                description: null,
+                createdById: "user-1",
+                createdAt: "2025-01-01T00:00:00.000Z",
+                updatedAt: "2025-01-01T00:00:00.000Z",
+              }
+            : null,
+        )
+        .filter((row): row is NonNullable<typeof row> => row !== null),
     findById: async (id: string) =>
       id === "playlist-1"
         ? {
@@ -70,6 +86,21 @@ const makeDeps = () => {
 
   const deviceRepository: DeviceRepository = {
     list: async () => [],
+    findByIds: async (ids: string[]) =>
+      ids
+        .map((id) =>
+          id === "device-1"
+            ? {
+                id,
+                name: "Lobby",
+                identifier: "AA:BB",
+                location: null,
+                createdAt: "2025-01-01T00:00:00.000Z",
+                updatedAt: "2025-01-01T00:00:00.000Z",
+              }
+            : null,
+        )
+        .filter((row): row is NonNullable<typeof row> => row !== null),
     findById: async (id: string) =>
       id === "device-1"
         ? {
@@ -97,6 +128,109 @@ const makeDeps = () => {
 };
 
 describe("Schedules use cases", () => {
+  test("ListSchedulesUseCase hydrates schedules with targeted lookups", async () => {
+    let playlistListCalls = 0;
+    let playlistFindByIdsCalls = 0;
+    let deviceListCalls = 0;
+    let deviceFindByIdsCalls = 0;
+
+    const useCase = new ListSchedulesUseCase({
+      scheduleRepository: {
+        list: async () => [
+          {
+            id: "schedule-1",
+            name: "Morning",
+            playlistId: "playlist-1",
+            deviceId: "device-1",
+            startTime: "08:00",
+            endTime: "17:00",
+            daysOfWeek: [1, 2, 3],
+            priority: 10,
+            isActive: true,
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        listByDevice: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+      },
+      playlistRepository: {
+        list: async () => {
+          playlistListCalls += 1;
+          return [];
+        },
+        findByIds: async (ids: string[]) => {
+          playlistFindByIdsCalls += 1;
+          return ids.includes("playlist-1")
+            ? [
+                {
+                  id: "playlist-1",
+                  name: "Morning",
+                  description: null,
+                  createdById: "user-1",
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [];
+        },
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        listItems: async () => [],
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        deleteItem: async () => false,
+      },
+      deviceRepository: {
+        list: async () => {
+          deviceListCalls += 1;
+          return [];
+        },
+        findByIds: async (ids: string[]) => {
+          deviceFindByIdsCalls += 1;
+          return ids.includes("device-1")
+            ? [
+                {
+                  id: "device-1",
+                  name: "Lobby",
+                  identifier: "AA:BB",
+                  location: null,
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [];
+        },
+        findById: async () => null,
+        findByIdentifier: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+      },
+    });
+
+    const result = await useCase.execute();
+    expect(result).toHaveLength(1);
+    expect(result[0]?.playlist?.id).toBe("playlist-1");
+    expect(result[0]?.device?.id).toBe("device-1");
+    expect(playlistFindByIdsCalls).toBe(1);
+    expect(deviceFindByIdsCalls).toBe(1);
+    expect(playlistListCalls).toBe(0);
+    expect(deviceListCalls).toBe(0);
+  });
+
   test("CreateScheduleUseCase validates playlist/device", async () => {
     const deps = makeDeps();
     const useCase = new CreateScheduleUseCase({

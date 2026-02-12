@@ -217,6 +217,11 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - Keep observability concerns in interface/infrastructure layers
 - Use action naming convention: `<module>.<resource>.<operation>` (example: `rbac.user.update`)
 - Set explicit route templates in action metadata (example: `/users/:id`)
+- Persist audit events for mutating/security actions with immutable metadata-only records
+- Keep audit persistence off the request critical path (queue + background flush)
+- Never persist request bodies, passwords, API keys, JWTs, or secret headers in audit data
+- Protect audit query routes with explicit RBAC permissions (`audit:read`, `audit:export`)
+- If forwarded IP headers are trusted, document deployment assumptions and spoofing risk
 
 ### Local Gate Order
 

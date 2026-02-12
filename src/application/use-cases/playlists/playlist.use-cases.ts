@@ -1,3 +1,4 @@
+import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
 import {
   type PlaylistItemRecord,
@@ -156,10 +157,10 @@ export class AddPlaylistItemUseCase {
     duration: number;
   }) {
     if (!isValidSequence(input.sequence)) {
-      throw new Error("Invalid sequence");
+      throw new ValidationError("Invalid sequence");
     }
     if (!isValidDuration(input.duration)) {
-      throw new Error("Invalid duration");
+      throw new ValidationError("Invalid duration");
     }
 
     const playlist = await this.deps.playlistRepository.findById(
@@ -191,10 +192,10 @@ export class UpdatePlaylistItemUseCase {
 
   async execute(input: { id: string; sequence?: number; duration?: number }) {
     if (input.sequence !== undefined && !isValidSequence(input.sequence)) {
-      throw new Error("Invalid sequence");
+      throw new ValidationError("Invalid sequence");
     }
     if (input.duration !== undefined && !isValidDuration(input.duration)) {
-      throw new Error("Invalid duration");
+      throw new ValidationError("Invalid duration");
     }
 
     const item = await this.deps.playlistRepository.updateItem(input.id, {
