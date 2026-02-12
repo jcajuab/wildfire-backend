@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { logger } from "#/infrastructure/observability/logger";
 import {
+  type ObservabilityVariables,
   requestId,
   requestLogger,
   setAction,
@@ -15,7 +16,7 @@ const bootstrap = async () => {
 };
 
 const makeActionApp = () => {
-  const app = new Hono();
+  const app = new Hono<{ Variables: ObservabilityVariables }>();
   app.use("*", requestId());
   app.use("*", requestLogger);
 

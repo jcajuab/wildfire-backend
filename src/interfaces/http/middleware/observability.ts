@@ -24,7 +24,7 @@ export const setAction =
       resourceId?: string;
       resourceType?: string;
     },
-  ): MiddlewareHandler<{ Variables: ObservabilityVariables }> =>
+  ): MiddlewareHandler =>
   async (c, next) => {
     c.set("action", action);
     if (meta?.route) c.set("route", meta.route);

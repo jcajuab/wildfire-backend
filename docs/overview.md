@@ -3,7 +3,7 @@
 This document is a module-by-module specification of the Wildfire backend, derived from the current code in:
 
 - `src/interfaces/http/index.ts`
-- `src/interfaces/http/routes/*.ts`
+- `src/interfaces/http/routes/**`
 - `src/interfaces/http/validators/*.ts`
 - `src/application/use-cases/**`
 - `src/domain/**`

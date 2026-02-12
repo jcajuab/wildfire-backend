@@ -188,6 +188,8 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - **Docs updated** when interfaces change
 - **Hono docs source of truth**: always query https://hono.dev/llms-full.txt for Hono documentation
 - **DRY**: avoid duplication; prefer shared abstractions over copy-paste
+- **Architecture boundary check**: run `bun run check:architecture` to block forbidden inward dependency violations
+- **Thin routes**: keep route modules focused and split by subresource when handlers grow
 
 ---
 
@@ -213,3 +215,13 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - Use structured JSON logs at the interface boundary
 - Log error codes and statuses, not secrets or PII
 - Keep observability concerns in interface/infrastructure layers
+- Use action naming convention: `<module>.<resource>.<operation>` (example: `rbac.user.update`)
+- Set explicit route templates in action metadata (example: `/users/:id`)
+
+### Local Gate Order
+
+Run local gates in this order:
+
+1. `bun test`
+2. `bun run check`
+3. `bun run build`

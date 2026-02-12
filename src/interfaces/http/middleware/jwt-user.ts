@@ -5,6 +5,12 @@ import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 export type JwtUserVariables = {
   userId: string;
   userEmail?: string;
+  action?: string;
+  route?: string;
+  actorId?: string;
+  actorType?: "user" | "device";
+  resourceId?: string;
+  resourceType?: string;
 };
 
 export const requireJwtUser: MiddlewareHandler<{
