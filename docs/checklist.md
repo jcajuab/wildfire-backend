@@ -69,3 +69,15 @@ Integration test run command: `bun run test:integration`
 - [x] Tests (unit + route)
 - [x] Integration tests (gated)
 - [x] Observability per action
+
+## Audit
+
+- [x] Domain entities/value objects (N/A; metadata event model at port/use-case level)
+- [x] Use cases
+- [x] Ports (interfaces)
+- [x] Adapters (HTTP routes/controllers + middleware capture)
+- [x] Infrastructure (DB repository)
+- [x] Tests (unit + route + middleware + queue)
+- [x] Integration tests (gated)
+- [x] Observability per action
+- [x] Export endpoint (`audit:export`) with cap

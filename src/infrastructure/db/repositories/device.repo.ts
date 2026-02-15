@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import {
   type DeviceRecord,
   type DeviceRepository,
@@ -23,6 +23,17 @@ export class DeviceDbRepository implements DeviceRepository {
       .select()
       .from(devices)
       .orderBy(desc(devices.createdAt));
+    return rows.map(toRecord);
+  }
+
+  async findByIds(ids: string[]): Promise<DeviceRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await db
+      .select()
+      .from(devices)
+      .where(inArray(devices.id, ids));
     return rows.map(toRecord);
   }
 

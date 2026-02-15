@@ -36,6 +36,8 @@ const makeDeps = () => {
 
   const playlistRepository: PlaylistRepository = {
     list: async () => [...playlists],
+    findByIds: async (ids: string[]) =>
+      playlists.filter((playlist) => ids.includes(playlist.id)),
     findById: async (id: string) =>
       playlists.find((playlist) => playlist.id === id) ?? null,
     create: async (input) => {

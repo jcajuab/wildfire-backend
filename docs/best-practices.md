@@ -76,7 +76,7 @@ describe.each([
 });
 ```
 
-### TODO and skip
+### Todo and skip tests
 
 - `test.todo("name")` marks tests you plan to implement later
 - `bun test --todo` runs todo tests and reports any that unexpectedly pass
@@ -188,6 +188,8 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - **Docs updated** when interfaces change
 - **Hono docs source of truth**: always query https://hono.dev/llms-full.txt for Hono documentation
 - **DRY**: avoid duplication; prefer shared abstractions over copy-paste
+- **Architecture boundary check**: run `bun run check:architecture` to block forbidden inward dependency violations
+- **Thin routes**: keep route modules focused and split by subresource when handlers grow
 
 ---
 
@@ -213,3 +215,18 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - Use structured JSON logs at the interface boundary
 - Log error codes and statuses, not secrets or PII
 - Keep observability concerns in interface/infrastructure layers
+- Use action naming convention: `<module>.<resource>.<operation>` (example: `rbac.user.update`)
+- Set explicit route templates in action metadata (example: `/users/:id`)
+- Persist audit events for mutating/security actions with immutable metadata-only records
+- Keep audit persistence off the request critical path (queue + background flush)
+- Never persist request bodies, passwords, API keys, JWTs, or secret headers in audit data
+- Protect audit query routes with explicit RBAC permissions (`audit:read`, `audit:export`)
+- If forwarded IP headers are trusted, document deployment assumptions and spoofing risk
+
+### Local Gate Order
+
+Run local gates in this order:
+
+1. `bun test`
+2. `bun run check`
+3. `bun run build`

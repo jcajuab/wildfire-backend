@@ -10,6 +10,41 @@ import { createDeviceProps, type DeviceInput } from "#/domain/devices/device";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 
+const mapWithConcurrency = async <T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> => {
+  if (items.length === 0) return [];
+
+  const workerCount = Math.max(
+    1,
+    Math.min(Math.trunc(concurrency), items.length),
+  );
+  const result = new Array<R>(items.length);
+  let index = 0;
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentIndex = index;
+        index += 1;
+        if (currentIndex >= items.length) {
+          return;
+        }
+
+        const item = items[currentIndex];
+        if (!item) {
+          continue;
+        }
+        result[currentIndex] = await mapper(item, currentIndex);
+      }
+    }),
+  );
+
+  return result;
+};
+
 export class ListDevicesUseCase {
   constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
 
@@ -151,23 +186,7 @@ export class GetDeviceManifestUseCase {
       contents.map((content) => [content.id, content]),
     );
 
-    const manifestItems = [] as Array<{
-      id: string;
-      sequence: number;
-      duration: number;
-      content: {
-        id: string;
-        type: "IMAGE" | "VIDEO" | "PDF";
-        checksum: string;
-        downloadUrl: string;
-        mimeType: string;
-        width: number | null;
-        height: number | null;
-        duration: number | null;
-      };
-    }>;
-
-    for (const item of items) {
+    const manifestItems = await mapWithConcurrency(items, 8, async (item) => {
       const content = contentsById.get(item.contentId);
       if (!content) throw new NotFoundError("Content not found");
 
@@ -177,7 +196,7 @@ export class GetDeviceManifestUseCase {
           expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
         });
 
-      manifestItems.push({
+      return {
         id: item.id,
         sequence: item.sequence,
         duration: item.duration,
@@ -191,8 +210,8 @@ export class GetDeviceManifestUseCase {
           height: content.height,
           duration: content.duration,
         },
-      });
-    }
+      };
+    });
 
     const versionPayload = JSON.stringify({
       playlistId: playlist.id,

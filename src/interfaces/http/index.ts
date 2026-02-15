@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type RequestIdVariables } from "hono/request-id";
 import { openAPIRouteHandler } from "hono-openapi";
+import { RecordAuditEventUseCase } from "#/application/use-cases/audit";
 import {
   ChangeCurrentUserPasswordUseCase,
   SetCurrentUserAvatarUseCase,
@@ -11,28 +12,16 @@ import {
 } from "#/application/use-cases/auth";
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
-import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hasher";
-import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
-import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
-import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
-import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
-import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
-import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
-import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
-import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
-import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
-import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
-import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
-import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { logger } from "#/infrastructure/observability/logger";
-import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
-import { SystemClock } from "#/infrastructure/time/system.clock";
+import { InMemoryAuditQueue } from "#/interfaces/http/audit/in-memory-audit-queue";
+import { createHttpContainer } from "#/interfaces/http/container";
+import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
 import {
   requestId,
   requestLogger,
 } from "#/interfaces/http/middleware/observability";
 import { internalServerError } from "#/interfaces/http/responses";
+import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
 import { createDevicesRouter } from "#/interfaces/http/routes/devices.route";
@@ -44,6 +33,168 @@ import packageJSON from "#/package.json" with { type: "json" };
 
 export const app = new Hono<{ Variables: RequestIdVariables }>();
 
+const tokenTtlSeconds = 60 * 60;
+const avatarUrlExpiresInSeconds = 60 * 60;
+
+const container = createHttpContainer({
+  jwtSecret: env.JWT_SECRET,
+  jwtIssuer: env.JWT_ISSUER,
+  htshadowPath: env.HTSHADOW_PATH,
+  minio: {
+    endpoint: env.MINIO_ENDPOINT,
+    port: env.MINIO_PORT,
+    useSsl: env.MINIO_USE_SSL,
+    bucket: env.MINIO_BUCKET,
+    region: env.MINIO_REGION,
+    rootUser: env.MINIO_ROOT_USER,
+    rootPassword: env.MINIO_ROOT_PASSWORD,
+    requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
+  },
+});
+
+logger.info(
+  {
+    minioEndpoint: container.storage.minioEndpoint,
+    bucket: env.MINIO_BUCKET,
+  },
+  "MinIO storage configured",
+);
+
+if (env.NODE_ENV === "development") {
+  void container.storage.contentStorage.checkConnectivity().then((result) => {
+    if (result.ok) {
+      logger.info(
+        "MinIO connectivity check OK. MinIO running at endpoint: " +
+          container.storage.minioEndpoint,
+      );
+    } else {
+      logger.warn(
+        {
+          minioEndpoint: container.storage.minioEndpoint,
+          bucket: env.MINIO_BUCKET,
+          error: result.error,
+        },
+        "MinIO connectivity check failed — avatar/content uploads will fail. Please check which ports your MinIO is running at and ensure connectivity.",
+      );
+    }
+  });
+}
+
+const authRouter = createAuthRouter({
+  credentialsRepository: container.auth.credentialsRepository,
+  passwordVerifier: container.auth.passwordVerifier,
+  tokenIssuer: container.auth.tokenIssuer,
+  clock: container.auth.clock,
+  tokenTtlSeconds,
+  userRepository: container.repositories.userRepository,
+  authorizationRepository: container.repositories.authorizationRepository,
+  jwtSecret: env.JWT_SECRET,
+  issuer: env.JWT_ISSUER,
+  deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({
+    userRepository: container.repositories.userRepository,
+  }),
+  updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
+    userRepository: container.repositories.userRepository,
+  }),
+  changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
+    userRepository: container.repositories.userRepository,
+    credentialsRepository: container.auth.credentialsRepository,
+    passwordVerifier: container.auth.passwordVerifier,
+    passwordHasher: container.auth.passwordHasher,
+  }),
+  setCurrentUserAvatarUseCase: new SetCurrentUserAvatarUseCase({
+    userRepository: container.repositories.userRepository,
+    storage: container.storage.contentStorage,
+  }),
+  avatarStorage: container.storage.contentStorage,
+  avatarUrlExpiresInSeconds,
+});
+
+const playlistsRouter = createPlaylistsRouter({
+  jwtSecret: env.JWT_SECRET,
+  repositories: {
+    playlistRepository: container.repositories.playlistRepository,
+    contentRepository: container.repositories.contentRepository,
+    userRepository: container.repositories.userRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+});
+
+const schedulesRouter = createSchedulesRouter({
+  jwtSecret: env.JWT_SECRET,
+  repositories: {
+    scheduleRepository: container.repositories.scheduleRepository,
+    playlistRepository: container.repositories.playlistRepository,
+    deviceRepository: container.repositories.deviceRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+});
+
+const devicesRouter = createDevicesRouter({
+  jwtSecret: env.JWT_SECRET,
+  deviceApiKey: env.DEVICE_API_KEY,
+  downloadUrlExpiresInSeconds: 60 * 60,
+  scheduleTimeZone: env.SCHEDULE_TIMEZONE,
+  repositories: {
+    deviceRepository: container.repositories.deviceRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
+    playlistRepository: container.repositories.playlistRepository,
+    contentRepository: container.repositories.contentRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+  storage: container.storage.contentStorage,
+});
+
+const contentRouter = createContentRouter({
+  jwtSecret: env.JWT_SECRET,
+  maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
+  downloadUrlExpiresInSeconds: 60 * 60,
+  repositories: {
+    contentRepository: container.repositories.contentRepository,
+    userRepository: container.repositories.userRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+  storage: container.storage.contentStorage,
+});
+
+const rbacRouter = createRbacRouter({
+  jwtSecret: env.JWT_SECRET,
+  repositories: {
+    userRepository: container.repositories.userRepository,
+    roleRepository: container.repositories.roleRepository,
+    permissionRepository: container.repositories.permissionRepository,
+    userRoleRepository: container.repositories.userRoleRepository,
+    rolePermissionRepository: container.repositories.rolePermissionRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+  avatarStorage: container.storage.contentStorage,
+  avatarUrlExpiresInSeconds,
+});
+
+const auditRouter = createAuditRouter({
+  jwtSecret: env.JWT_SECRET,
+  exportMaxRows: env.AUDIT_EXPORT_MAX_ROWS,
+  repositories: {
+    auditEventRepository: container.repositories.auditEventRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+});
+
+const recordAuditEvent = new RecordAuditEventUseCase({
+  auditEventRepository: container.repositories.auditEventRepository,
+});
+const auditQueue = new InMemoryAuditQueue(
+  {
+    enabled: env.AUDIT_QUEUE_ENABLED,
+    capacity: env.AUDIT_QUEUE_CAPACITY,
+    flushBatchSize: env.AUDIT_FLUSH_BATCH_SIZE,
+    flushIntervalMs: env.AUDIT_FLUSH_INTERVAL_MS,
+  },
+  {
+    recordAuditEvent,
+  },
+);
+
 app.use(
   "*",
   cors({
@@ -52,144 +203,16 @@ app.use(
   }),
 );
 app.use("*", requestId());
+app.use("*", createAuditTrailMiddleware({ auditQueue }));
 app.use("*", requestLogger);
-
-const tokenTtlSeconds = 60 * 60;
-const avatarUrlExpiresInSeconds = 60 * 60;
-const userRepository = new UserDbRepository();
-const minioEndpoint = `${env.MINIO_USE_SSL ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
-const contentStorage = new S3ContentStorage({
-  bucket: env.MINIO_BUCKET,
-  region: env.MINIO_REGION,
-  endpoint: minioEndpoint,
-  accessKeyId: env.MINIO_ROOT_USER,
-  secretAccessKey: env.MINIO_ROOT_PASSWORD,
-  requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
-});
-logger.info(
-  { minioEndpoint, bucket: env.MINIO_BUCKET },
-  "MinIO storage configured",
-);
-if (env.NODE_ENV === "development") {
-  void contentStorage.checkConnectivity().then((r) => {
-    if (r.ok) {
-      logger.info(
-        "MinIO connectivity check OK. MinIO running at endpoint: " +
-          minioEndpoint,
-      );
-    } else {
-      logger.warn(
-        { minioEndpoint, bucket: env.MINIO_BUCKET, error: r.error },
-        "MinIO connectivity check failed — avatar/content uploads will fail. Please check which ports your MinIO is running at and ensure connectivity.",
-      );
-    }
-  });
-}
-const authRouter = createAuthRouter({
-  credentialsRepository: new HtshadowCredentialsRepository({
-    filePath: env.HTSHADOW_PATH,
-  }),
-  passwordVerifier: new BcryptPasswordVerifier(),
-  tokenIssuer: new JwtTokenIssuer({
-    secret: env.JWT_SECRET,
-    issuer: env.JWT_ISSUER,
-  }),
-  clock: new SystemClock(),
-  userRepository,
-  authorizationRepository: new AuthorizationDbRepository(),
-  tokenTtlSeconds,
-  issuer: env.JWT_ISSUER,
-  jwtSecret: env.JWT_SECRET,
-  deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
-  updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
-    userRepository,
-  }),
-  changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
-    userRepository,
-    credentialsRepository: new HtshadowCredentialsRepository({
-      filePath: env.HTSHADOW_PATH,
-    }),
-    passwordVerifier: new BcryptPasswordVerifier(),
-    passwordHasher: new BcryptPasswordHasher(),
-  }),
-  setCurrentUserAvatarUseCase: new SetCurrentUserAvatarUseCase({
-    userRepository,
-    storage: contentStorage,
-  }),
-  avatarStorage: contentStorage,
-  avatarUrlExpiresInSeconds,
-});
 
 app.route("/", healthRouter);
 app.route("/auth", authRouter);
-const playlistsRouter = createPlaylistsRouter({
-  jwtSecret: env.JWT_SECRET,
-  repositories: {
-    playlistRepository: new PlaylistDbRepository(),
-    contentRepository: new ContentDbRepository(),
-    userRepository: new UserDbRepository(),
-    authorizationRepository: new AuthorizationDbRepository(),
-  },
-});
-
-const schedulesRouter = createSchedulesRouter({
-  jwtSecret: env.JWT_SECRET,
-  repositories: {
-    scheduleRepository: new ScheduleDbRepository(),
-    playlistRepository: new PlaylistDbRepository(),
-    deviceRepository: new DeviceDbRepository(),
-    authorizationRepository: new AuthorizationDbRepository(),
-  },
-});
-
 app.route("/playlists", playlistsRouter);
-
 app.route("/schedules", schedulesRouter);
-const devicesRouter = createDevicesRouter({
-  jwtSecret: env.JWT_SECRET,
-  deviceApiKey: env.DEVICE_API_KEY,
-  downloadUrlExpiresInSeconds: 60 * 60,
-  scheduleTimeZone: env.SCHEDULE_TIMEZONE,
-  repositories: {
-    deviceRepository: new DeviceDbRepository(),
-    scheduleRepository: new ScheduleDbRepository(),
-    playlistRepository: new PlaylistDbRepository(),
-    contentRepository: new ContentDbRepository(),
-    authorizationRepository: new AuthorizationDbRepository(),
-  },
-  storage: contentStorage,
-});
-
 app.route("/devices", devicesRouter);
-
-const contentRouter = createContentRouter({
-  jwtSecret: env.JWT_SECRET,
-  maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
-  downloadUrlExpiresInSeconds: 60 * 60,
-  repositories: {
-    contentRepository: new ContentDbRepository(),
-    userRepository: new UserDbRepository(),
-    authorizationRepository: new AuthorizationDbRepository(),
-  },
-  storage: contentStorage,
-});
-
 app.route("/content", contentRouter);
-
-const rbacRouter = createRbacRouter({
-  jwtSecret: env.JWT_SECRET,
-  repositories: {
-    userRepository: new UserDbRepository(),
-    roleRepository: new RoleDbRepository(),
-    permissionRepository: new PermissionDbRepository(),
-    userRoleRepository: new UserRoleDbRepository(),
-    rolePermissionRepository: new RolePermissionDbRepository(),
-    authorizationRepository: new AuthorizationDbRepository(),
-  },
-  avatarStorage: contentStorage,
-  avatarUrlExpiresInSeconds,
-});
-
+app.route("/audit", auditRouter);
 app.route("/", rbacRouter);
 
 app.onError((err, c) => {
@@ -232,3 +255,7 @@ if (env.NODE_ENV !== "production") {
 
   app.get("/docs", Scalar({ url: "/openapi.json" }));
 }
+
+export const stopHttpBackgroundWorkers = async (): Promise<void> => {
+  await auditQueue.stop();
+};

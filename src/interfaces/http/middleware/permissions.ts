@@ -46,7 +46,10 @@ export const createPermissionMiddleware = (deps: {
   };
 
   const authorize = (permission: string) =>
-    [jwtMiddleware, requirePermission(permission)] as const;
+    [jwtMiddleware, requirePermission(permission)] as const satisfies readonly [
+      MiddlewareHandler,
+      MiddlewareHandler<{ Variables: JwtUserVariables }>,
+    ];
 
   return { jwtMiddleware, requirePermission, requireJwtUser, authorize };
 };

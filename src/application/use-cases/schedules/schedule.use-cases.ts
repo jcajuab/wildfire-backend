@@ -1,3 +1,4 @@
+import { ValidationError } from "#/application/errors/validation";
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -20,15 +21,18 @@ export class ListSchedulesUseCase {
 
   async execute() {
     const schedules = await this.deps.scheduleRepository.list();
-    const playlistMap = new Map(
-      (await this.deps.playlistRepository.list()).map((item) => [
-        item.id,
-        item,
-      ]),
-    );
-    const deviceMap = new Map(
-      (await this.deps.deviceRepository.list()).map((item) => [item.id, item]),
-    );
+    const playlistIds = [
+      ...new Set(schedules.map((schedule) => schedule.playlistId)),
+    ];
+    const deviceIds = [
+      ...new Set(schedules.map((schedule) => schedule.deviceId)),
+    ];
+    const [playlists, devices] = await Promise.all([
+      this.deps.playlistRepository.findByIds(playlistIds),
+      this.deps.deviceRepository.findByIds(deviceIds),
+    ]);
+    const playlistMap = new Map(playlists.map((item) => [item.id, item]));
+    const deviceMap = new Map(devices.map((item) => [item.id, item]));
 
     return schedules.map((schedule) =>
       toScheduleView(
@@ -60,10 +64,10 @@ export class CreateScheduleUseCase {
     isActive: boolean;
   }) {
     if (!isValidTime(input.startTime) || !isValidTime(input.endTime)) {
-      throw new Error("Invalid time range");
+      throw new ValidationError("Invalid time range");
     }
     if (!isValidDaysOfWeek(input.daysOfWeek)) {
-      throw new Error("Invalid days of week");
+      throw new ValidationError("Invalid days of week");
     }
 
     const playlist = await this.deps.playlistRepository.findById(
@@ -135,10 +139,10 @@ export class UpdateScheduleUseCase {
       (input.startTime && !isValidTime(input.startTime)) ||
       (input.endTime && !isValidTime(input.endTime))
     ) {
-      throw new Error("Invalid time range");
+      throw new ValidationError("Invalid time range");
     }
     if (input.daysOfWeek && !isValidDaysOfWeek(input.daysOfWeek)) {
-      throw new Error("Invalid days of week");
+      throw new ValidationError("Invalid days of week");
     }
 
     if (input.playlistId) {

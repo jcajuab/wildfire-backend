@@ -3,7 +3,7 @@
 This document is a module-by-module specification of the Wildfire backend, derived from the current code in:
 
 - `src/interfaces/http/index.ts`
-- `src/interfaces/http/routes/*.ts`
+- `src/interfaces/http/routes/**`
 - `src/interfaces/http/validators/*.ts`
 - `src/application/use-cases/**`
 - `src/domain/**`
@@ -102,7 +102,13 @@ Device endpoints require the shared API key header:
 Global middleware in `src/interfaces/http/index.ts`:
 
 - `requestId()` sets `requestId`
+- `auditTrailMiddleware` enqueues selected mutation/security metadata for async persistence to `audit_events`
 - `requestLogger` logs on completion
+
+Background worker lifecycle:
+
+- Audit persistence uses an in-memory queue (`InMemoryAuditQueue`) and flush timer.
+- On process shutdown (`SIGINT`, `SIGTERM`), `stopHttpBackgroundWorkers()` drains in-flight audit flushes before exit.
 
 Log payload always includes:
 
@@ -119,6 +125,9 @@ Error handling (`app.onError`) logs:
 
 - `logger.error(...)` for status >= 500
 - `logger.warn(...)` for status < 500
+
+Audit records are metadata-only and do not include request bodies, credentials, JWTs, or API keys.
+Client IP currently trusts `x-forwarded-for` / `x-real-ip` headers as provided by upstream.
 
 ---
 
@@ -270,6 +279,72 @@ Response 200:
 
 ---
 
+## Audit Module
+
+Router: `src/interfaces/http/routes/audit.route.ts` mounted at `/audit`.
+
+### Purpose
+
+Provide traceable "who did what and when" history for mutation/security actions.
+
+### Endpoint
+
+#### GET `/audit/events` (JWT + `audit:read`)
+
+Returns paginated audit events.
+
+Query parameters:
+
+- `page`, `pageSize`
+- `from`, `to` (ISO datetime range)
+- `actorId`, `actorType`
+- `action`
+- `resourceType`, `resourceId`
+- `status`
+- `requestId`
+
+Response 200:
+
+```json
+{
+  "items": [
+    {
+      "id": "<uuid>",
+      "occurredAt": "2026-02-12T20:00:00.000Z",
+      "requestId": "req-...",
+      "action": "rbac.user.update",
+      "route": "/users/:id",
+      "method": "PATCH",
+      "path": "/users/...",
+      "status": 200,
+      "actorId": "<uuid>",
+      "actorType": "user",
+      "resourceId": "<uuid>",
+      "resourceType": "user",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "Mozilla/5.0",
+      "metadataJson": null
+    }
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "total": 1
+}
+```
+
+#### GET `/audit/events/export` (JWT + `audit:export`)
+
+Returns `text/csv` attachment with the same filter fields as `/audit/events` (excluding pagination).
+
+Safety behavior:
+
+- export is capped by `AUDIT_EXPORT_MAX_ROWS` (default 100000)
+- when matched rows exceed cap, API returns 400 (`INVALID_REQUEST`)
+- export rows are fetched in chunks (not loaded all at once) before CSV write
+- invalid normalized filters (for example `from > to`) return 400 (`INVALID_REQUEST`)
+
+---
+
 ## Auth Module
 
 Router: `src/interfaces/http/routes/auth.route.ts` mounted at `/auth`.
@@ -414,37 +489,34 @@ Matching rules (`src/domain/rbac/permission.ts`):
 - Action matches if equal, OR stored action is `"manage"` (wildcard for actions)
 - Example: `"*:manage"` grants all permissions
 
-### Seed: Super Admin Role
+### Seed Data (Canonical)
 
-A built-in seed exists (`src/application/use-cases/rbac/seed-super-admin.use-case.ts`):
+Seeding is consolidated into one command:
 
-- Role name: `"Super Admin"` (isSystem=true)
-- Permission: `{ resource: "*", action: "manage" }`
-- Ensures the role has that permission assigned
+- `bun run db:seed`
 
-Run via: `bun run db:seed:super-admin` (script entrypoint: `scripts/seed-super-admin.ts`).
+Modes:
 
-### Seed: Standard Permissions
+- `full` (default): seeds standard permissions, Super Admin role (`*:manage`), demo Editor/Viewer roles, 15 demo users, role assignments, and htshadow credentials.
+- `baseline`: seeds standard permissions + Super Admin role. Use `--email` to assign Super Admin to a specific user.
+- `super-admin-only`: only ensures the Super Admin role + wildcard permission; optionally assigns the role to `--email`.
 
-A separate seed populates the `permissions` table with all standard `resource:action` pairs used by the app (content, playlists, schedules, devices, roles, users). Idempotent: skips any permission that already exists.
+Flags:
 
-Run via: `bun run db:seed:permissions` (script entrypoint: `scripts/seed-standard-permissions.ts`). Typical order: run `db:seed:permissions` first so `GET /permissions` returns the full list, then `db:seed:super-admin` to create the Super Admin role and assign `*:manage`.
+- `--mode=full|baseline|super-admin-only`
+- `--email=user@example.com`
+- `--dry-run` (no writes)
+- `--strict` (fails on missing required data such as a target user)
 
-### Seed: Assign Super Admin to user by email
+Examples:
 
-Assigns the "Super Admin" role (all permissions) to a user by email so they can call RBAC endpoints. Default email: `test@example.com`. Optional env: `SEED_USER_EMAIL`.
+- `bun run db:seed`
+- `bun run db:seed -- --mode=baseline --email=admin@example.com`
+- `bun run db:seed -- --mode=super-admin-only --dry-run`
 
-Run via: `bun run db:seed:assign-super-admin` (script entrypoint: `scripts/assign-super-admin-to-user.ts`). Requires the user to exist in the `users` table and the Super Admin role to exist (`db:seed:super-admin`).
+### Database integrity check (before constraint rollout)
 
-### Seed: Dummy users and roles (for testing UI)
-
-Seeds 15 dummy users into the DB and the htshadow file so the Users and Roles pages can be tested with real data. Also ensures standard permissions and Super Admin role exist, creates "Editor" and "Viewer" roles with appropriate permissions, and assigns roles: 1 Super Admin, 5 Editors, 9 Viewers. All seeded users share password: `password`. Set `HTSHADOW_PATH` in `.env` to the path of your htshadow file (e.g. absolute path to `wildfire/htshadow`).
-
-Run via: `bun run db:seed:dummy-users` (script entrypoint: `scripts/seed-dummy-users-and-roles.ts`). Typical order: `db:seed:permissions` → `db:seed:super-admin` (or let this script run them), then `db:seed:dummy-users`.
-
-### Database preflight (before constraint rollout)
-
-Run `bun run db:preflight` before applying schema hardening. It checks for:
+Run `bun run db:integrity` before applying schema hardening. It checks for:
 
 - orphan creator references (`content.created_by_id`, `playlists.created_by_id`)
 - orphan join-table references (`user_roles`, `role_permissions`)
@@ -680,12 +752,12 @@ JWT + permission required:
 
 These endpoints set `action`:
 
-- `playlists.list`
-- `playlists.create`
-- `playlists.get`
-- `playlists.update`
-- `playlists.delete`
-- `playlists.item.add`
+- `playlists.playlist.list`
+- `playlists.playlist.create`
+- `playlists.playlist.get`
+- `playlists.playlist.update`
+- `playlists.playlist.delete`
+- `playlists.item.create`
 - `playlists.item.update`
 - `playlists.item.delete`
 
@@ -785,11 +857,11 @@ JWT + permission required:
 
 ### Observability Actions
 
-- `schedules.list`
-- `schedules.create`
-- `schedules.get`
-- `schedules.update`
-- `schedules.delete`
+- `schedules.schedule.list`
+- `schedules.schedule.create`
+- `schedules.schedule.get`
+- `schedules.schedule.update`
+- `schedules.schedule.delete`
 
 ### Schedule Validation
 
@@ -798,7 +870,7 @@ Use case validation (`src/application/use-cases/schedules/schedule.use-cases.ts`
 - `startTime` and `endTime` must match `HH:mm` (24h clock)
 - `daysOfWeek` must be non-empty and each element must be an integer `0..6`
 
-If invalid, the use case throws an `Error("Invalid time range")` or `Error("Invalid days of week")`, and the route maps it to:
+If invalid, the use case throws a `ValidationError` (`"Invalid time range"` / `"Invalid days of week"`), and the route maps it to:
 
 - 400 `INVALID_REQUEST` with the thrown message
 
@@ -895,10 +967,10 @@ There are two access modes:
 
 ### Observability Actions
 
-- `devices.register`
-- `devices.list`
-- `devices.get`
-- `devices.activeSchedule.read`
+- `devices.device.register`
+- `devices.device.list`
+- `devices.device.get`
+- `devices.schedule.read`
 - `devices.manifest.read`
 
 These actions also set `actorType` to `"device"` for device-authenticated endpoints.
@@ -1004,7 +1076,7 @@ Manifest generation (`src/application/use-cases/devices/device.use-cases.ts`):
 - Else:
   - Loads playlist items ordered by `sequence` ascending
   - Loads each referenced content record
-  - Generates a presigned download URL per content (`expiresInSeconds = 60*60` from `src/interfaces/http/index.ts`)
+  - Generates presigned download URLs with bounded concurrency (8 workers) (`expiresInSeconds = 60*60` from `src/interfaces/http/index.ts`)
   - Computes `playlistVersion` as sha256 hex of this JSON payload:
 
 ```json
@@ -1044,6 +1116,7 @@ Enabled when `NODE_ENV !== "production"` (`src/interfaces/http/index.ts`):
 # Server
 PORT=3000
 NODE_ENV=development
+CORS_ORIGINS=http://localhost:3000
 
 # Database
 DATABASE_URL=...
@@ -1065,6 +1138,7 @@ MINIO_CONSOLE_PORT=9001
 MINIO_USE_SSL=false
 MINIO_BUCKET=content
 MINIO_REGION=us-east-1
+MINIO_REQUEST_TIMEOUT_MS=15000
 CONTENT_MAX_UPLOAD_BYTES=104857600
 
 # Auth (staff)
@@ -1075,8 +1149,15 @@ JWT_ISSUER=...
 # Logging
 LOG_LEVEL=info
 LOG_PRETTY=true
-SCHEDULE_TIMEZONE=UTC
+
+# Audit
+AUDIT_QUEUE_ENABLED=true
+AUDIT_QUEUE_CAPACITY=5000
+AUDIT_FLUSH_BATCH_SIZE=100
+AUDIT_FLUSH_INTERVAL_MS=250
+AUDIT_EXPORT_MAX_ROWS=100000
 
 # Devices
+SCHEDULE_TIMEZONE=UTC
 DEVICE_API_KEY=...
 ```

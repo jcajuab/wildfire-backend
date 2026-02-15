@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import {
   type PlaylistItemRecord,
   type PlaylistRecord,
@@ -37,6 +37,17 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .select()
       .from(playlists)
       .orderBy(desc(playlists.createdAt));
+    return rows.map(toPlaylistRecord);
+  }
+
+  async findByIds(ids: string[]): Promise<PlaylistRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await db
+      .select()
+      .from(playlists)
+      .where(inArray(playlists.id, ids));
     return rows.map(toPlaylistRecord);
   }
 

@@ -1,6 +1,12 @@
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+export const parseCorsOrigins = (value: string): string[] =>
+  value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
 export const env = createEnv({
   server: {
     PORT: z.coerce.number().default(3000),
@@ -29,12 +35,21 @@ export const env = createEnv({
     JWT_ISSUER: z.string().optional(),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.string().optional().default("true").pipe(z.stringbool()),
+    AUDIT_QUEUE_ENABLED: z
+      .string()
+      .optional()
+      .default("true")
+      .pipe(z.stringbool()),
+    AUDIT_QUEUE_CAPACITY: z.coerce.number().default(5000),
+    AUDIT_FLUSH_BATCH_SIZE: z.coerce.number().default(100),
+    AUDIT_FLUSH_INTERVAL_MS: z.coerce.number().default(250),
+    AUDIT_EXPORT_MAX_ROWS: z.coerce.number().default(100000),
     SCHEDULE_TIMEZONE: z.string().default("UTC"),
     DEVICE_API_KEY: z.string().min(1),
     CORS_ORIGINS: z
       .string()
       .default("http://localhost:3000")
-      .transform((val) => val.split(",")),
+      .transform(parseCorsOrigins),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

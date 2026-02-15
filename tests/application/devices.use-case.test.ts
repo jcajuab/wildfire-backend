@@ -16,6 +16,10 @@ const makeRepository = () => {
 
   const repo: DeviceRepository = {
     list: async () => [...records],
+    findByIds: async (ids: string[]) =>
+      ids
+        .map((id) => records.find((record) => record.id === id) ?? null)
+        .filter((record): record is DeviceRecord => record !== null),
     findById: async (id: string) =>
       records.find((record) => record.id === id) ?? null,
     findByIdentifier: async (identifier: string) =>
@@ -128,6 +132,7 @@ describe("Devices use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        findByIds: async () => [],
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
@@ -248,6 +253,19 @@ describe("Devices use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        findByIds: async (ids: string[]) =>
+          ids.includes("playlist-1")
+            ? [
+                {
+                  id: "playlist-1",
+                  name: "Morning",
+                  description: null,
+                  createdById: "user-1",
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -300,5 +318,169 @@ describe("Devices use cases", () => {
 
     expect(findByIdsCalls).toBe(1);
     expect(findByIdCalls).toBe(0);
+  });
+
+  test("GetDeviceManifestUseCase presigns content URLs concurrently", async () => {
+    const { repo } = makeRepository();
+    const created = await repo.create({
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+    });
+
+    let resolveFirst!: () => void;
+    let resolveSecondStarted!: () => void;
+    const firstCanComplete = new Promise<void>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondStarted = new Promise<void>((resolve) => {
+      resolveSecondStarted = resolve;
+    });
+
+    const useCase = new GetDeviceManifestUseCase({
+      scheduleRepository: {
+        listByDevice: async () => [
+          {
+            id: "schedule-1",
+            name: "Morning",
+            playlistId: "playlist-1",
+            deviceId: created.id,
+            startTime: "00:00",
+            endTime: "23:59",
+            daysOfWeek: [1],
+            priority: 10,
+            isActive: true,
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        list: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+      },
+      playlistRepository: {
+        list: async () => [],
+        findByIds: async (ids: string[]) =>
+          ids.includes("playlist-1")
+            ? [
+                {
+                  id: "playlist-1",
+                  name: "Morning",
+                  description: null,
+                  createdById: "user-1",
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [],
+        findById: async () => ({
+          id: "playlist-1",
+          name: "Morning",
+          description: null,
+          createdById: "user-1",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        listItems: async () => [
+          {
+            id: "item-1",
+            playlistId: "playlist-1",
+            contentId: "content-1",
+            sequence: 10,
+            duration: 5,
+          },
+          {
+            id: "item-2",
+            playlistId: "playlist-1",
+            contentId: "content-2",
+            sequence: 20,
+            duration: 5,
+          },
+        ],
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        deleteItem: async () => false,
+      },
+      contentRepository: {
+        findById: async () => null,
+        findByIds: async () => [
+          {
+            id: "content-1",
+            title: "Welcome",
+            type: "IMAGE",
+            fileKey: "content/images/a.png",
+            checksum: "abc",
+            mimeType: "image/png",
+            fileSize: 100,
+            width: 10,
+            height: 10,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "content-2",
+            title: "Rules",
+            type: "PDF",
+            fileKey: "content/documents/b.pdf",
+            checksum: "def",
+            mimeType: "application/pdf",
+            fileSize: 100,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        create: async () => {
+          throw new Error("not used");
+        },
+        list: async () => ({ items: [], total: 0 }),
+        delete: async () => false,
+      },
+      contentStorage: {
+        upload: async () => {},
+        delete: async () => {},
+        getPresignedDownloadUrl: async ({ key }) => {
+          if (key === "content/images/a.png") {
+            await firstCanComplete;
+            return "https://example.com/a.png";
+          }
+
+          resolveSecondStarted();
+          return "https://example.com/b.pdf";
+        },
+      },
+      deviceRepository: repo,
+      downloadUrlExpiresInSeconds: 3600,
+    });
+
+    const executePromise = useCase.execute({
+      deviceId: created.id,
+      now: new Date("2025-01-06T00:00:00.000Z"),
+    });
+
+    const startedConcurrently = await Promise.race([
+      secondStarted.then(() => true),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), 50);
+      }),
+    ]);
+    resolveFirst();
+    expect(startedConcurrently).toBe(true);
+    const result = await executePromise;
+    expect(result.items).toHaveLength(2);
   });
 });
