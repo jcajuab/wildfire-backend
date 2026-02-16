@@ -63,6 +63,8 @@ export const registerAuthLoginRoute = (args: {
         const result = await useCases.authenticateUser.execute(payload);
         const body = await buildAuthResponse(deps, result);
         c.set("resourceId", body.user.id);
+        c.set("actorId", body.user.id);
+        c.set("actorType", "user");
         return c.json(body);
       } catch (error) {
         if (error instanceof InvalidCredentialsError) {
