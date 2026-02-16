@@ -1,6 +1,10 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuditEventRepository } from "#/application/ports/audit";
-import { type AuthorizationRepository } from "#/application/ports/rbac";
+import { type DeviceRepository } from "#/application/ports/devices";
+import {
+  type AuthorizationRepository,
+  type UserRepository,
+} from "#/application/ports/rbac";
 import {
   ExportAuditEventsUseCase,
   ListAuditEventsUseCase,
@@ -13,6 +17,8 @@ export interface AuditRouterDeps {
   repositories: {
     auditEventRepository: AuditEventRepository;
     authorizationRepository: AuthorizationRepository;
+    userRepository: UserRepository;
+    deviceRepository: DeviceRepository;
   };
 }
 

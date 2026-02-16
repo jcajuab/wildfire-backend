@@ -177,6 +177,8 @@ const auditRouter = createAuditRouter({
   repositories: {
     auditEventRepository: container.repositories.auditEventRepository,
     authorizationRepository: container.repositories.authorizationRepository,
+    userRepository: container.repositories.userRepository,
+    deviceRepository: container.repositories.deviceRepository,
   },
 });
 

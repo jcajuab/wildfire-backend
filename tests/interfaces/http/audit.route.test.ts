@@ -43,6 +43,50 @@ const buildAuditEvent = (
   ...overrides,
 });
 
+const mockUserRepository = {
+  findByIds: async (ids: string[]) =>
+    ids
+      .filter((id) => id === "user-1")
+      .map((id) => ({
+        id,
+        email: "admin@example.com",
+        name: "Admin User",
+        isActive: true,
+      })),
+  list: async () => [],
+  findById: async () => null,
+  findByEmail: async () => null,
+  create: async () => ({ id: "", email: "", name: "", isActive: true }),
+  update: async () => null,
+  delete: async () => false,
+};
+
+const mockDeviceRepository = {
+  findByIds: async (ids: string[]) =>
+    ids
+      .filter((id) => id === "device-1")
+      .map((id) => ({
+        id,
+        name: "Lobby Display",
+        identifier: "lobby-1",
+        location: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })),
+  list: async () => [],
+  findById: async () => null,
+  findByIdentifier: async () => null,
+  create: async () => ({
+    id: "",
+    name: "",
+    identifier: "",
+    location: null,
+    createdAt: "",
+    updatedAt: "",
+  }),
+  update: async () => null,
+};
+
 const makeApp = async (permissions: string[]) => {
   const listCalls: unknown[] = [];
   const countCalls: unknown[] = [];
@@ -69,6 +113,8 @@ const makeApp = async (permissions: string[]) => {
     repositories: {
       auditEventRepository,
       authorizationRepository,
+      userRepository: mockUserRepository,
+      deviceRepository: mockDeviceRepository,
     },
   });
 
@@ -194,7 +240,51 @@ describe("Audit routes", () => {
     );
     const body = await response.text();
     expect(body).toContain("occurredAt,requestId,action,route,method,path");
+    expect(body).toContain("actorId,actorType,name,");
     expect(body).toContain("rbac.user.update");
+    expect(body).toContain('"Admin User"');
+  });
+
+  test("GET /audit/events/export resolves unknown actor to fallback name", async () => {
+    const auditEventRepository = {
+      create: async () => buildAuditEvent("event-created"),
+      list: async () => [
+        buildAuditEvent("event-1", {
+          actorId: "deleted-user",
+          actorType: "user",
+        }),
+      ],
+      count: async () => 1,
+    };
+    const authorizationRepository = {
+      findPermissionsForUser: async () => [Permission.parse("audit:export")],
+    };
+    const router = createAuditRouter({
+      jwtSecret: "test-secret",
+      exportMaxRows: 2,
+      repositories: {
+        auditEventRepository,
+        authorizationRepository,
+        userRepository: mockUserRepository,
+        deviceRepository: mockDeviceRepository,
+      },
+    });
+    const app = new Hono();
+    app.route("/audit", router);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const token = await tokenIssuer.issueToken({
+      subject: "user-1",
+      email: "admin@example.com",
+      issuedAt: nowSeconds,
+      expiresAt: nowSeconds + 3600,
+      issuer: "wildfire",
+    });
+    const response = await app.request("/audit/events/export", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain('"Unknown user"');
   });
 
   test("GET /audit/events/export returns 401 without token", async () => {
@@ -227,6 +317,8 @@ describe("Audit routes", () => {
       repositories: {
         auditEventRepository,
         authorizationRepository,
+        userRepository: mockUserRepository,
+        deviceRepository: mockDeviceRepository,
       },
     });
 
@@ -280,6 +372,8 @@ describe("Audit routes", () => {
       repositories: {
         auditEventRepository,
         authorizationRepository,
+        userRepository: mockUserRepository,
+        deviceRepository: mockDeviceRepository,
       },
     });
 
@@ -322,6 +416,8 @@ describe("Audit routes", () => {
       repositories: {
         auditEventRepository,
         authorizationRepository,
+        userRepository: mockUserRepository,
+        deviceRepository: mockDeviceRepository,
       },
     });
 

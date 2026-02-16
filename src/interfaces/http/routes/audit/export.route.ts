@@ -1,5 +1,8 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { ValidationError } from "#/application/errors/validation";
+import { type AuditEventRecord } from "#/application/ports/audit";
+import { type DeviceRepository } from "#/application/ports/devices";
+import { type UserRepository } from "#/application/ports/rbac";
 import { ExportLimitExceededError } from "#/application/use-cases/audit";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { badRequest, errorResponseSchema } from "#/interfaces/http/responses";
@@ -38,27 +41,31 @@ const CSV_HEADERS = [
   "status",
   "actorId",
   "actorType",
+  "name",
   "resourceId",
   "resourceType",
   "ipAddress",
   "userAgent",
 ] as const;
 
-const toCsvRow = (event: {
-  occurredAt: string;
-  requestId: string | null;
-  action: string;
-  route: string | null;
-  method: string;
-  path: string;
-  status: number;
-  actorId: string | null;
-  actorType: string | null;
-  resourceId: string | null;
-  resourceType: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-}) =>
+const toCsvRow = (
+  event: {
+    occurredAt: string;
+    requestId: string | null;
+    action: string;
+    route: string | null;
+    method: string;
+    path: string;
+    status: number;
+    actorId: string | null;
+    actorType: string | null;
+    resourceId: string | null;
+    resourceType: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+  },
+  name: string,
+) =>
   [
     event.occurredAt,
     event.requestId,
@@ -69,6 +76,7 @@ const toCsvRow = (event: {
     event.status,
     event.actorId,
     event.actorType,
+    name,
     event.resourceId,
     event.resourceType,
     event.ipAddress,
@@ -76,6 +84,65 @@ const toCsvRow = (event: {
   ]
     .map(csvEscape)
     .join(",");
+
+function getActorNameFallback(actorType: string | null): string {
+  if (actorType === "device") return "Device";
+  return "Unknown user";
+}
+
+async function buildActorNameMap(
+  events: AuditEventRecord[],
+  userRepository: UserRepository,
+  deviceRepository: DeviceRepository,
+): Promise<Map<string, string>> {
+  const userIds = [
+    ...new Set(
+      events
+        .filter((e) => e.actorType === "user" && e.actorId != null)
+        .map((e) => e.actorId as string),
+    ),
+  ];
+  const deviceIds = [
+    ...new Set(
+      events
+        .filter((e) => e.actorType === "device" && e.actorId != null)
+        .map((e) => e.actorId as string),
+    ),
+  ];
+
+  const [users, devices] = await Promise.all([
+    userIds.length > 0
+      ? userRepository.findByIds(userIds)
+      : Promise.resolve([]),
+    deviceIds.length > 0
+      ? deviceRepository.findByIds(deviceIds)
+      : Promise.resolve([]),
+  ]);
+
+  const map = new Map<string, string>();
+  for (const u of users) {
+    map.set(`user:${u.id}`, u.name);
+  }
+  for (const d of devices) {
+    map.set(`device:${d.id}`, d.name || d.identifier);
+  }
+  return map;
+}
+
+function getActorName(
+  event: AuditEventRecord,
+  nameMap: Map<string, string>,
+): string {
+  const key =
+    event.actorId != null && event.actorType != null
+      ? `${event.actorType}:${event.actorId}`
+      : null;
+  if (key != null) {
+    const resolved = nameMap.get(key);
+    if (resolved != null) return resolved;
+  }
+  return getActorNameFallback(event.actorType);
+}
 
 const toExportFilename = (now: Date) => {
   const timestamp = now.toISOString().replaceAll(":", "-").replaceAll(".", "-");
@@ -86,8 +153,13 @@ export const registerAuditExportRoute = (args: {
   router: AuditRouter;
   useCases: AuditRouterUseCases;
   authorize: AuthorizePermission;
+  repositories: {
+    userRepository: UserRepository;
+    deviceRepository: DeviceRepository;
+  };
 }) => {
-  const { router, useCases, authorize } = args;
+  const { router, useCases, authorize, repositories } = args;
+  const { userRepository, deviceRepository } = repositories;
 
   router.get(
     "/events/export",
@@ -149,16 +221,32 @@ export const registerAuditExportRoute = (args: {
             try {
               controller.enqueue(encoder.encode(`${CSV_HEADERS.join(",")}\n`));
               if (!firstChunk.done) {
+                const nameMap = await buildActorNameMap(
+                  firstChunk.value,
+                  userRepository,
+                  deviceRepository,
+                );
                 for (const event of firstChunk.value) {
-                  controller.enqueue(encoder.encode(`${toCsvRow(event)}\n`));
+                  const name = getActorName(event, nameMap);
+                  controller.enqueue(
+                    encoder.encode(`${toCsvRow(event, name)}\n`),
+                  );
                 }
               }
 
               while (true) {
                 const nextChunk = await iterator.next();
                 if (nextChunk.done) break;
+                const nameMap = await buildActorNameMap(
+                  nextChunk.value,
+                  userRepository,
+                  deviceRepository,
+                );
                 for (const event of nextChunk.value) {
-                  controller.enqueue(encoder.encode(`${toCsvRow(event)}\n`));
+                  const name = getActorName(event, nameMap);
+                  controller.enqueue(
+                    encoder.encode(`${toCsvRow(event, name)}\n`),
+                  );
                 }
               }
 

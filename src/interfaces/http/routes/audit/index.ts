@@ -16,7 +16,15 @@ export const createAuditRouter = (deps: AuditRouterDeps) => {
   const useCases = createAuditUseCases(deps);
 
   registerAuditQueryRoutes({ router, useCases, authorize });
-  registerAuditExportRoute({ router, useCases, authorize });
+  registerAuditExportRoute({
+    router,
+    useCases,
+    authorize,
+    repositories: {
+      userRepository: deps.repositories.userRepository,
+      deviceRepository: deps.repositories.deviceRepository,
+    },
+  });
 
   return router;
 };
