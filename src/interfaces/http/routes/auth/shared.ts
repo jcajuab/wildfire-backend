@@ -1,8 +1,10 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
 import {
+  type AuthSessionRepository,
   type Clock,
   type CredentialsRepository,
+  type PasswordHasher,
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
@@ -20,10 +22,12 @@ import {
 } from "#/application/use-cases/auth";
 import { type DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { type InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
 
 export interface AuthRouterDeps {
   credentialsRepository: CredentialsRepository;
   passwordVerifier: PasswordVerifier;
+  passwordHasher: PasswordHasher;
   tokenIssuer: TokenIssuer;
   userRepository: UserRepository;
   authorizationRepository: AuthorizationRepository;
@@ -31,6 +35,14 @@ export interface AuthRouterDeps {
   tokenTtlSeconds: number;
   issuer?: string;
   jwtSecret: string;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
+  authSessionDualMode: boolean;
+  authSecurityStore: InMemoryAuthSecurityStore;
+  authLoginRateLimitMaxAttempts: number;
+  authLoginRateLimitWindowSeconds: number;
+  authLoginLockoutThreshold: number;
+  authLoginLockoutSeconds: number;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
   updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
@@ -91,6 +103,7 @@ export const createAuthUseCases = (
     clock: deps.clock,
     tokenTtlSeconds: deps.tokenTtlSeconds,
     issuer: deps.issuer,
+    authSessionRepository: deps.authSessionRepository,
   }),
   refreshSession: new RefreshSessionUseCase({
     tokenIssuer: deps.tokenIssuer,
@@ -98,6 +111,7 @@ export const createAuthUseCases = (
     clock: deps.clock,
     tokenTtlSeconds: deps.tokenTtlSeconds,
     issuer: deps.issuer,
+    authSessionRepository: deps.authSessionRepository,
   }),
 });
 

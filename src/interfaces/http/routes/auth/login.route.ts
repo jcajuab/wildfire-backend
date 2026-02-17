@@ -1,3 +1,4 @@
+import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -16,6 +17,15 @@ import {
   authTags,
   buildAuthResponse,
 } from "./shared";
+
+const resolveClientIp = (headers: {
+  forwardedFor?: string;
+  realIp?: string;
+}): string => {
+  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  return headers.realIp?.trim() || "unknown";
+};
 
 export const registerAuthLoginRoute = (args: {
   router: AuthRouter;
@@ -64,8 +74,71 @@ export const registerAuthLoginRoute = (args: {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const result = await useCases.authenticateUser.execute(payload);
-        const body = await buildAuthResponse(deps, result);
+        const nowMs = Date.now();
+        const loginKey = `${payload.email.toLowerCase()}|${resolveClientIp({
+          forwardedFor: c.req.header("x-forwarded-for"),
+          realIp: c.req.header("x-real-ip"),
+        })}`;
+        const allowed = deps.authSecurityStore.checkLoginAllowed(
+          loginKey,
+          nowMs,
+        );
+        if (!allowed.allowed) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message: "Too many failed login attempts. Try again later.",
+              },
+            },
+            429,
+          );
+        }
+        if (
+          !deps.authSecurityStore.consumeEndpointAttempt({
+            key: `login-window|${resolveClientIp({
+              forwardedFor: c.req.header("x-forwarded-for"),
+              realIp: c.req.header("x-real-ip"),
+            })}`,
+            nowMs,
+            windowSeconds: deps.authLoginRateLimitWindowSeconds,
+            maxAttempts: deps.authLoginRateLimitMaxAttempts,
+          })
+        ) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message: "Too many login requests. Try again later.",
+              },
+            },
+            429,
+          );
+        }
+        let body: Awaited<ReturnType<typeof buildAuthResponse>>;
+        try {
+          const result = await useCases.authenticateUser.execute(payload);
+          body = await buildAuthResponse(deps, result);
+          deps.authSecurityStore.clearLoginFailures(loginKey);
+        } catch (error) {
+          if (error instanceof InvalidCredentialsError) {
+            deps.authSecurityStore.registerLoginFailure({
+              key: loginKey,
+              nowMs,
+              windowSeconds: deps.authLoginRateLimitWindowSeconds,
+              lockoutThreshold: deps.authLoginLockoutThreshold,
+              lockoutSeconds: deps.authLoginLockoutSeconds,
+            });
+          }
+          throw error;
+        }
+        setCookie(c, deps.authSessionCookieName, body.token, {
+          httpOnly: true,
+          secure: c.req.url.startsWith("https://"),
+          sameSite: "Lax",
+          path: "/",
+          expires: new Date(body.expiresAt),
+        });
         c.set("resourceId", body.user.id);
         c.set("actorId", body.user.id);
         c.set("actorType", "user");

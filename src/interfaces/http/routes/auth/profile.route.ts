@@ -1,3 +1,4 @@
+import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
@@ -87,6 +88,13 @@ export const registerAuthProfileRoute = (args: {
         });
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);
+        setCookie(c, deps.authSessionCookieName, body.token, {
+          httpOnly: true,
+          secure: c.req.url.startsWith("https://"),
+          sameSite: "Lax",
+          path: "/",
+          expires: new Date(body.expiresAt),
+        });
         return c.json(body);
       },
       ...applicationErrorMappers,

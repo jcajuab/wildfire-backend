@@ -1,4 +1,5 @@
 import { type Hono, type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import {
   type ContentRepository,
   type ContentStorage,
@@ -19,6 +20,9 @@ import { unauthorized } from "#/interfaces/http/responses";
 
 export interface DevicesRouterDeps {
   jwtSecret: string;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
   deviceApiKey: string;
   downloadUrlExpiresInSeconds: number;
   scheduleTimeZone?: string;

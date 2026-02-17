@@ -65,6 +65,12 @@ const makeDeps = () => {
         nowSeconds: () => 1_700_000_000,
       },
       tokenTtlSeconds,
+      authSessionRepository: {
+        create: async () => {},
+        revokeById: async () => {},
+        revokeAllForUser: async () => {},
+        isActive: async () => true,
+      },
     },
   };
 };

@@ -14,6 +14,8 @@ export type ObservabilityVariables = RequestIdVariables & {
   userId?: string;
   sessionId?: string;
   fileId?: string;
+  rbacPolicyVersion?: string;
+  rbacTargetCount?: string;
 };
 
 export const setAction =

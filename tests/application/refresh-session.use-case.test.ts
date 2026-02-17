@@ -56,6 +56,12 @@ describe("RefreshSessionUseCase", () => {
         nowSeconds: () => 1_700_000_000,
       },
       tokenTtlSeconds,
+      authSessionRepository: {
+        create: async () => {},
+        revokeById: async () => {},
+        revokeAllForUser: async () => {},
+        isActive: async () => true,
+      },
     });
 
     const result = await useCase.execute({ userId: "user-1" });

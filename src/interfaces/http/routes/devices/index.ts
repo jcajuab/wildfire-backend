@@ -16,6 +16,9 @@ export const createDevicesRouter = (deps: DevicesRouterDeps) => {
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
     authorizationRepository: deps.repositories.authorizationRepository,
+    authSessionRepository: deps.authSessionRepository,
+    authSessionCookieName: deps.authSessionCookieName,
+    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createDevicesUseCases(deps);
   const requireDeviceApiKey = createRequireDeviceApiKey(deps.deviceApiKey);

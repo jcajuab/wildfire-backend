@@ -1,5 +1,6 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuditEventRepository } from "#/application/ports/audit";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type DeviceRepository } from "#/application/ports/devices";
 import {
   type AuthorizationRepository,
@@ -13,6 +14,9 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface AuditRouterDeps {
   jwtSecret: string;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
   exportMaxRows: number;
   repositories: {
     auditEventRepository: AuditEventRepository;

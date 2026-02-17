@@ -13,6 +13,9 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
     authorizationRepository: deps.repositories.authorizationRepository,
+    authSessionRepository: deps.authSessionRepository,
+    authSessionCookieName: deps.authSessionCookieName,
+    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createRbacUseCases(deps);
 

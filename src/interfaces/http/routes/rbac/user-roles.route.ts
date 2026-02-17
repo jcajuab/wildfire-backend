@@ -109,6 +109,25 @@ export const registerRbacUserRoleRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const payload = c.req.valid("json");
+        if (
+          payload.roleIds.length > 20 &&
+          payload.policyVersion === undefined
+        ) {
+          return c.json(
+            {
+              error: {
+                code: "INVALID_REQUEST",
+                message:
+                  "policyVersion is required when changing many role assignments at once.",
+              },
+            },
+            400,
+          );
+        }
+        if (payload.policyVersion !== undefined) {
+          c.set("rbacPolicyVersion", String(payload.policyVersion));
+        }
+        c.set("rbacTargetCount", String(payload.roleIds.length));
         const roles = await useCases.setUserRoles.execute({
           userId: params.id,
           roleIds: payload.roleIds,

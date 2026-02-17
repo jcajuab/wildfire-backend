@@ -1,4 +1,5 @@
 import { type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
@@ -12,8 +13,16 @@ import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 export const createPermissionMiddleware = (deps: {
   jwtSecret: string;
   authorizationRepository: AuthorizationRepository;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
 }) => {
-  const jwtMiddleware = createJwtMiddleware(deps.jwtSecret);
+  const jwtMiddleware = createJwtMiddleware({
+    secret: deps.jwtSecret,
+    authSessionRepository: deps.authSessionRepository,
+    authSessionCookieName: deps.authSessionCookieName,
+    allowBearerFallback: deps.authSessionDualMode ?? true,
+  });
   const checkPermission = new CheckPermissionUseCase({
     authorizationRepository: deps.authorizationRepository,
   });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type PermissionRecord } from "#/application/ports/rbac";
 import {
   ChangeCurrentUserPasswordUseCase,
@@ -17,6 +18,7 @@ import {
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
+import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
 
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 
@@ -75,10 +77,17 @@ const buildAuthActionApp = () => {
     update: async () => userRecord,
     delete: async () => true,
   };
+  const authSessionRepository: AuthSessionRepository = {
+    create: async () => {},
+    revokeById: async () => {},
+    revokeAllForUser: async () => {},
+    isActive: async () => true,
+  };
 
   const authRouter = createAuthRouter({
     credentialsRepository,
     passwordVerifier,
+    passwordHasher,
     tokenIssuer: {
       issueToken: async () => "token-value",
     },
@@ -92,6 +101,14 @@ const buildAuthActionApp = () => {
     tokenTtlSeconds: 3600,
     issuer: "wildfire",
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session_token",
+    authSessionDualMode: true,
+    authSecurityStore: new InMemoryAuthSecurityStore(),
+    authLoginRateLimitMaxAttempts: 20,
+    authLoginRateLimitWindowSeconds: 60,
+    authLoginLockoutThreshold: 10,
+    authLoginLockoutSeconds: 60,
     deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository,

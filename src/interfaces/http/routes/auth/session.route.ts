@@ -1,3 +1,4 @@
+import { deleteCookie, setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
@@ -60,8 +61,18 @@ export const registerAuthSessionRoutes = (args: {
       async (c) => {
         const userId = c.get("userId");
         c.set("resourceId", userId);
-        const result = await useCases.refreshSession.execute({ userId });
+        const result = await useCases.refreshSession.execute({
+          userId,
+          currentSessionId: c.get("sessionId"),
+        });
         const body = await buildAuthResponse(deps, result);
+        setCookie(c, deps.authSessionCookieName, body.token, {
+          httpOnly: true,
+          secure: c.req.url.startsWith("https://"),
+          sameSite: "Lax",
+          path: "/",
+          expires: new Date(body.expiresAt),
+        });
         return c.json(body);
       },
       ...applicationErrorMappers,
@@ -96,6 +107,11 @@ export const registerAuthSessionRoutes = (args: {
     }),
     (c) => {
       c.set("resourceId", c.get("userId"));
+      const sessionId = c.get("sessionId");
+      if (sessionId) {
+        void deps.authSessionRepository.revokeById(sessionId);
+      }
+      deleteCookie(c, deps.authSessionCookieName, { path: "/" });
       return c.body(null, 204);
     },
   );
@@ -137,6 +153,8 @@ export const registerAuthSessionRoutes = (args: {
       async (c) => {
         const userId = c.get("userId");
         c.set("resourceId", userId);
+        await deps.authSessionRepository.revokeAllForUser(userId);
+        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
         await deps.deleteCurrentUserUseCase.execute({ userId });
         return c.body(null, 204);
       },

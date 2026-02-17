@@ -15,6 +15,15 @@ export const postAuthMePasswordSchema = z.object({
   newPassword: z.string().min(8, "New password must be at least 8 characters"),
 });
 
+export const postAuthForgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const postAuthResetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 const AVATAR_IMAGE_MIMES = [
   "image/jpeg",

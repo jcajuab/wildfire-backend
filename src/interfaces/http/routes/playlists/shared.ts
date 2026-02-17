@@ -1,4 +1,5 @@
 import { type Hono, type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type ContentRepository } from "#/application/ports/content";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
@@ -19,6 +20,9 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface PlaylistsRouterDeps {
   jwtSecret: string;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
   repositories: {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;

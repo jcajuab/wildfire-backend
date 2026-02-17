@@ -61,6 +61,8 @@ const resolveIpAddress = (headers: {
 const buildSafeAuditMetadata = (input: {
   sessionId?: string;
   fileId?: string;
+  rbacPolicyVersion?: string;
+  rbacTargetCount?: string;
 }): string | undefined => {
   const metadata: Record<string, string> = {};
   if (input.sessionId) {
@@ -68,6 +70,12 @@ const buildSafeAuditMetadata = (input: {
   }
   if (input.fileId) {
     metadata.fileId = input.fileId;
+  }
+  if (input.rbacPolicyVersion) {
+    metadata.rbacPolicyVersion = input.rbacPolicyVersion;
+  }
+  if (input.rbacTargetCount) {
+    metadata.rbacTargetCount = input.rbacTargetCount;
   }
   return Object.keys(metadata).length > 0
     ? JSON.stringify(metadata)
@@ -94,6 +102,8 @@ export const createAuditTrailMiddleware = (deps: {
     const resourceType = c.get("resourceType");
     const sessionId = c.get("sessionId");
     const fileId = c.get("fileId");
+    const rbacPolicyVersion = c.get("rbacPolicyVersion");
+    const rbacTargetCount = c.get("rbacTargetCount");
     const ipAddress = resolveIpAddress({
       forwardedFor: c.req.header("x-forwarded-for"),
       realIp: c.req.header("x-real-ip"),
@@ -113,7 +123,12 @@ export const createAuditTrailMiddleware = (deps: {
       resourceType,
       ipAddress,
       userAgent,
-      metadataJson: buildSafeAuditMetadata({ sessionId, fileId }),
+      metadataJson: buildSafeAuditMetadata({
+        sessionId,
+        fileId,
+        rbacPolicyVersion,
+        rbacTargetCount,
+      }),
     });
 
     if (!result.accepted && result.reason === "overflow") {

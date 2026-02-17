@@ -1,4 +1,5 @@
 import { type Hono, type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
@@ -14,6 +15,9 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface SchedulesRouterDeps {
   jwtSecret: string;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
   repositories: {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;

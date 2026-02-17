@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
-import { type CredentialsRepository } from "#/application/ports/auth";
+import {
+  type AuthSessionRepository,
+  type CredentialsRepository,
+} from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
@@ -20,6 +23,7 @@ import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.ve
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
+import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
 
 const fixturePath = path.join(
   import.meta.dir,
@@ -117,16 +121,49 @@ const buildApp = (opts?: {
     getPresignedDownloadUrl: async () => "https://example.com/avatar-presigned",
   };
   const avatarStorage = opts?.avatarStorage ?? defaultAvatarStorage;
+  const sessions = new Map<string, { userId: string; expiresAt: Date }>();
+  const revoked = new Set<string>();
+  const authSessionRepository: AuthSessionRepository = {
+    create: async ({ id, userId, expiresAt }) => {
+      sessions.set(id, { userId, expiresAt });
+      revoked.delete(id);
+    },
+    revokeById: async (sessionId) => {
+      revoked.add(sessionId);
+    },
+    revokeAllForUser: async (userId) => {
+      for (const [id, session] of sessions.entries()) {
+        if (session.userId === userId) {
+          revoked.add(id);
+        }
+      }
+    },
+    isActive: async (sessionId, now) => {
+      const session = sessions.get(sessionId);
+      if (!session) return false;
+      if (revoked.has(sessionId)) return false;
+      return session.expiresAt.getTime() > now.getTime();
+    },
+  };
 
   const authRouter = createAuthRouter({
     credentialsRepository,
     passwordVerifier,
+    passwordHasher: new BcryptPasswordHasher(),
     tokenIssuer,
     clock,
     tokenTtlSeconds,
     userRepository,
     authorizationRepository,
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session_token",
+    authSessionDualMode: true,
+    authSecurityStore: new InMemoryAuthSecurityStore(),
+    authLoginRateLimitMaxAttempts: 20,
+    authLoginRateLimitWindowSeconds: 60,
+    authLoginLockoutThreshold: 10,
+    authLoginLockoutSeconds: 60,
     deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository,

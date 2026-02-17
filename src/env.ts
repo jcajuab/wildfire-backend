@@ -33,6 +33,16 @@ export const env = createEnv({
     HTSHADOW_PATH: z.string().default("/etc/htshadow"),
     JWT_SECRET: z.string(),
     JWT_ISSUER: z.string().optional(),
+    AUTH_SESSION_COOKIE_NAME: z.string().default("wildfire_session_token"),
+    AUTH_SESSION_DUAL_MODE: z
+      .string()
+      .optional()
+      .default("true")
+      .pipe(z.stringbool()),
+    AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().default(10),
+    AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
+    AUTH_LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().default(5),
+    AUTH_LOGIN_LOCKOUT_SECONDS: z.coerce.number().default(300),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.string().optional().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_ENABLED: z

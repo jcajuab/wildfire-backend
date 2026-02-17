@@ -1,3 +1,4 @@
+import { deleteCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
@@ -16,6 +17,15 @@ import {
   type AuthRouterDeps,
   authTags,
 } from "./shared";
+
+const resolveClientIp = (headers: {
+  forwardedFor?: string;
+  realIp?: string;
+}): string => {
+  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  return headers.realIp?.trim() || "unknown";
+};
 
 export const registerAuthPasswordRoute = (args: {
   router: AuthRouter;
@@ -69,6 +79,26 @@ export const registerAuthPasswordRoute = (args: {
     withRouteErrorHandling(
       async (c) => {
         const userId = c.get("userId");
+        const allowed = deps.authSecurityStore.consumeEndpointAttempt({
+          key: `password-change|${userId}|${resolveClientIp({
+            forwardedFor: c.req.header("x-forwarded-for"),
+            realIp: c.req.header("x-real-ip"),
+          })}`,
+          nowMs: Date.now(),
+          windowSeconds: deps.authLoginRateLimitWindowSeconds,
+          maxAttempts: deps.authLoginRateLimitMaxAttempts,
+        });
+        if (!allowed) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message: "Too many password change attempts. Try again later.",
+              },
+            },
+            429,
+          );
+        }
         c.set("resourceId", userId);
         const payload = c.req.valid("json");
         await deps.changeCurrentUserPasswordUseCase.execute({
@@ -76,6 +106,8 @@ export const registerAuthPasswordRoute = (args: {
           currentPassword: payload.currentPassword,
           newPassword: payload.newPassword,
         });
+        await deps.authSessionRepository.revokeAllForUser(userId);
+        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

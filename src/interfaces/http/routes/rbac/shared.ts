@@ -1,4 +1,5 @@
 import { type Hono, type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
@@ -31,6 +32,9 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface RbacRouterDeps {
   jwtSecret: string;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
   repositories: {
     userRepository: UserRepository;
     roleRepository: RoleRepository;

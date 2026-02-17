@@ -12,6 +12,9 @@ export const createSchedulesRouter = (deps: SchedulesRouterDeps) => {
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
     authorizationRepository: deps.repositories.authorizationRepository,
+    authSessionRepository: deps.authSessionRepository,
+    authSessionCookieName: deps.authSessionCookieName,
+    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createSchedulesUseCases(deps);
 

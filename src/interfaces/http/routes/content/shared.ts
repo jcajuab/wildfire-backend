@@ -1,4 +1,5 @@
 import { type Hono, type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
 import {
   type ContentRepository,
   type ContentStorage,
@@ -19,6 +20,9 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface ContentRouterDeps {
   jwtSecret: string;
+  authSessionRepository?: AuthSessionRepository;
+  authSessionCookieName?: string;
+  authSessionDualMode?: boolean;
   maxUploadBytes: number;
   downloadUrlExpiresInSeconds: number;
   repositories: {

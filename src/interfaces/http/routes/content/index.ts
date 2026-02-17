@@ -12,6 +12,9 @@ export const createContentRouter = (deps: ContentRouterDeps) => {
   const { jwtMiddleware, requirePermission } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
     authorizationRepository: deps.repositories.authorizationRepository,
+    authSessionRepository: deps.authSessionRepository,
+    authSessionCookieName: deps.authSessionCookieName,
+    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createContentUseCases(deps);
 

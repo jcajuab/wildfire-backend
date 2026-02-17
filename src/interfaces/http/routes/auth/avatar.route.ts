@@ -1,4 +1,5 @@
 import { bodyLimit } from "hono/body-limit";
+import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { NotFoundError } from "#/application/use-cases/rbac/errors";
 import { logger } from "#/infrastructure/observability/logger";
@@ -99,6 +100,13 @@ export const registerAuthAvatarRoute = (args: {
 
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);
+        setCookie(c, deps.authSessionCookieName, body.token, {
+          httpOnly: true,
+          secure: c.req.url.startsWith("https://"),
+          sameSite: "Lax",
+          path: "/",
+          expires: new Date(body.expiresAt),
+        });
         return c.json(body);
       } catch (error) {
         if (error instanceof NotFoundError) {

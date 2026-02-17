@@ -16,6 +16,7 @@ export const updateRoleSchema = z.object({
 
 export const setRolePermissionsSchema = z.object({
   permissionIds: z.array(z.string()).default([]),
+  policyVersion: z.number().int().positive().optional(),
 });
 
 export const createUserSchema = z.object({
@@ -36,4 +37,5 @@ export const updateUserSchema = z.object({
 
 export const setUserRolesSchema = z.object({
   roleIds: z.array(z.string()).default([]),
+  policyVersion: z.number().int().positive().optional(),
 });
