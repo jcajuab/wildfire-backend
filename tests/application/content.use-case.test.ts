@@ -35,6 +35,7 @@ const makeContentRepository = () => {
       items: records.slice(offset, offset + limit),
       total: records.length,
     }),
+    countPlaylistReferences: async () => 0,
     delete: async (id) => {
       const index = records.findIndex((item) => item.id === id);
       if (index === -1) return false;
@@ -138,6 +139,7 @@ describe("Content use cases", () => {
 
     expect(result.title).toBe("Welcome");
     expect(result.type).toBe("IMAGE");
+    expect(result.status).toBe("DRAFT");
     expect(result.checksum).toBe(checksum);
     expect(result.createdBy).toEqual({ id: "user-1", name: "Ada" });
     expect(storage.lastUpload?.contentType).toBe("image/png");
@@ -193,6 +195,7 @@ describe("Content use cases", () => {
         id: "11111111-1111-4111-8111-111111111111",
         title: "One",
         type: "IMAGE",
+        status: "DRAFT",
         fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
         checksum: "abc",
         mimeType: "image/png",
@@ -207,6 +210,7 @@ describe("Content use cases", () => {
         id: "22222222-2222-4222-8222-222222222222",
         title: "Two",
         type: "PDF",
+        status: "DRAFT",
         fileKey: "content/documents/22222222-2222-4222-8222-222222222222.pdf",
         checksum: "def",
         mimeType: "application/pdf",
@@ -246,6 +250,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -289,6 +294,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -319,6 +325,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -350,6 +357,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Old Title",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",

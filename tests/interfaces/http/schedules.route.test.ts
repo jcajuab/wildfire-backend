@@ -84,6 +84,8 @@ const makeApp = async (
         update: async () => null,
         delete: async () => false,
         listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
         addItem: async () => {
           throw new Error("not used");
         },

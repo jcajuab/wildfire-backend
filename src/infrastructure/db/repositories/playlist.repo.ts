@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type PlaylistItemRecord,
   type PlaylistRecord,
@@ -120,6 +120,23 @@ export class PlaylistDbRepository implements PlaylistRepository {
     return rows.map(toItemRecord);
   }
 
+  async findItemById(id: string): Promise<PlaylistItemRecord | null> {
+    const rows = await db
+      .select()
+      .from(playlistItems)
+      .where(eq(playlistItems.id, id))
+      .limit(1);
+    return rows[0] ? toItemRecord(rows[0]) : null;
+  }
+
+  async countItemsByContentId(contentId: string): Promise<number> {
+    const result = await db
+      .select({ value: sql<number>`count(*)` })
+      .from(playlistItems)
+      .where(eq(playlistItems.contentId, contentId));
+    return result[0]?.value ?? 0;
+  }
+
   async addItem(input: {
     playlistId: string;
     contentId: string;
@@ -148,12 +165,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
     id: string,
     input: { sequence?: number; duration?: number },
   ): Promise<PlaylistItemRecord | null> {
-    const rows = await db
-      .select()
-      .from(playlistItems)
-      .where(eq(playlistItems.id, id))
-      .limit(1);
-    const existing = rows[0];
+    const existing = await this.findItemById(id);
     if (!existing) return null;
 
     await db
@@ -164,13 +176,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       })
       .where(eq(playlistItems.id, id));
 
-    const updatedRows = await db
-      .select()
-      .from(playlistItems)
-      .where(eq(playlistItems.id, id))
-      .limit(1);
-    if (!updatedRows[0]) return null;
-    return toItemRecord(updatedRows[0]);
+    return this.findItemById(id);
   }
 
   async deleteItem(id: string): Promise<boolean> {

@@ -65,6 +65,17 @@ export const notFound = (c: Context, message: string) =>
     404,
   );
 
+export const conflict = (c: Context, message: string) =>
+  c.json<ErrorResponse>(
+    {
+      error: {
+        code: "CONFLICT",
+        message,
+      },
+    },
+    409,
+  );
+
 export const internalServerError = (c: Context, message: string) =>
   c.json<ErrorResponse>(
     {

@@ -22,6 +22,7 @@ const makeDeps = () => {
       id: "content-1",
       title: "Welcome",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/a.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -56,6 +57,10 @@ const makeDeps = () => {
     delete: async () => false,
     listItems: async (playlistId: string) =>
       items.filter((item) => item.playlistId === playlistId),
+    findItemById: async (id: string) =>
+      items.find((item) => item.id === id) ?? null,
+    countItemsByContentId: async (contentId: string) =>
+      items.filter((item) => item.contentId === contentId).length,
     addItem: async (input) => {
       const record: PlaylistItemRecord = {
         id: `item-${items.length + 1}`,
@@ -80,6 +85,7 @@ const makeDeps = () => {
       throw new Error("not used");
     },
     list: async () => ({ items: [], total: 0 }),
+    countPlaylistReferences: async () => 0,
     delete: async () => false,
     update: async () => null,
   };
@@ -240,6 +246,7 @@ describe("Playlists use cases", () => {
         throw new Error("not used");
       },
       list: async () => ({ items: [], total: 0 }),
+      countPlaylistReferences: async () => 0,
       delete: async () => false,
     };
 

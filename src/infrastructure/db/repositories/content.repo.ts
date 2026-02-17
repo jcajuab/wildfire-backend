@@ -1,22 +1,28 @@
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import {
   type ContentRecord,
   type ContentRepository,
 } from "#/application/ports/content";
-import { parseContentType } from "#/domain/content/content";
+import { parseContentStatus, parseContentType } from "#/domain/content/content";
 import { db } from "#/infrastructure/db/client";
 import { content } from "#/infrastructure/db/schema/content.sql";
+import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 
 const toRecord = (row: typeof content.$inferSelect): ContentRecord => {
   const parsedType = parseContentType(row.type);
   if (!parsedType) {
     throw new Error(`Invalid content type: ${row.type}`);
   }
+  const parsedStatus = parseContentStatus(row.status);
+  if (!parsedStatus) {
+    throw new Error(`Invalid content status: ${row.status}`);
+  }
 
   return {
     id: row.id,
     title: row.title,
     type: parsedType,
+    status: parsedStatus,
     fileKey: row.fileKey,
     checksum: row.checksum,
     mimeType: row.mimeType,
@@ -40,6 +46,7 @@ export class ContentDbRepository implements ContentRepository {
       id: input.id,
       title: input.title,
       type: input.type,
+      status: input.status,
       fileKey: input.fileKey,
       checksum: input.checksum,
       mimeType: input.mimeType,
@@ -79,19 +86,53 @@ export class ContentDbRepository implements ContentRepository {
   async list({
     offset,
     limit,
+    status,
+    type,
+    search,
+    sortBy = "createdAt",
+    sortDirection = "desc",
   }: {
     offset: number;
     limit: number;
+    status?: ContentRecord["status"];
+    type?: ContentRecord["type"];
+    search?: string;
+    sortBy?: "createdAt" | "title" | "fileSize" | "type";
+    sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }> {
+    const conditions = [
+      status ? eq(content.status, status) : undefined,
+      type ? eq(content.type, type) : undefined,
+      search && search.length > 0
+        ? like(content.title, `%${search.replaceAll("%", "\\%")}%`)
+        : undefined,
+    ].filter((value) => value !== undefined);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const orderColumn =
+      sortBy === "title"
+        ? content.title
+        : sortBy === "fileSize"
+          ? content.fileSize
+          : sortBy === "type"
+            ? content.type
+            : content.createdAt;
+    const orderBy =
+      sortDirection === "asc" ? asc(orderColumn) : desc(orderColumn);
+
     const items = await db
       .select()
       .from(content)
-      .orderBy(desc(content.createdAt))
+      .where(whereClause)
+      .orderBy(orderBy)
       .limit(limit)
       .offset(offset);
-    const totalResult = await db
+    const totalQuery = db
       .select({ value: sql<number>`count(*)` })
       .from(content);
+    const totalResult =
+      whereClause === undefined
+        ? await totalQuery
+        : await totalQuery.where(whereClause);
 
     return {
       items: items.map(toRecord),
@@ -101,10 +142,18 @@ export class ContentDbRepository implements ContentRepository {
 
   async update(
     id: string,
-    input: Partial<Pick<ContentRecord, "title">>,
+    input: Partial<Pick<ContentRecord, "title" | "status">>,
   ): Promise<ContentRecord | null> {
     await db.update(content).set(input).where(eq(content.id, id));
     return this.findById(id);
+  }
+
+  async countPlaylistReferences(contentId: string): Promise<number> {
+    const result = await db
+      .select({ value: sql<number>`count(*)` })
+      .from(playlistItems)
+      .where(eq(playlistItems.contentId, contentId));
+    return result[0]?.value ?? 0;
   }
 
   async delete(id: string): Promise<boolean> {

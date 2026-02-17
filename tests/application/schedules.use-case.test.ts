@@ -77,6 +77,8 @@ const makeDeps = () => {
     update: async () => null,
     delete: async () => false,
     listItems: async () => [],
+    findItemById: async () => null,
+    countItemsByContentId: async () => 0,
     addItem: async () => {
       throw new Error("not used");
     },
@@ -186,6 +188,8 @@ describe("Schedules use cases", () => {
         update: async () => null,
         delete: async () => false,
         listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
         addItem: async () => {
           throw new Error("not used");
         },

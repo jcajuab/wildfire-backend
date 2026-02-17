@@ -35,6 +35,7 @@ const makeApp = async (
       id: contentId,
       title: "Welcome",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/a.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -72,6 +73,10 @@ const makeApp = async (
         delete: async () => false,
         listItems: async (playlistId: string) =>
           items.filter((item) => item.playlistId === playlistId),
+        findItemById: async (id: string) =>
+          items.find((item) => item.id === id) ?? null,
+        countItemsByContentId: async (contentId: string) =>
+          items.filter((item) => item.contentId === contentId).length,
         addItem: async (input) => {
           if (options?.addPlaylistItemError) {
             throw options.addPlaylistItemError;
@@ -95,6 +100,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        countPlaylistReferences: async () => 0,
         delete: async () => false,
         update: async () => null,
       },

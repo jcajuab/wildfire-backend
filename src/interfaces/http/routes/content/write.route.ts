@@ -1,8 +1,15 @@
 import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
-import { InvalidContentTypeError } from "#/application/use-cases/content";
+import {
+  ContentInUseError,
+  InvalidContentTypeError,
+} from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { badRequest, errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  badRequest,
+  conflict,
+  errorResponseSchema,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -104,6 +111,7 @@ export const registerContentWriteRoutes = (args: {
         return c.json(result, 201);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(ContentInUseError, conflict),
       mapErrorToResponse(InvalidContentTypeError, badRequest),
     ),
   );
@@ -139,6 +147,14 @@ export const registerContentWriteRoutes = (args: {
         },
         404: {
           description: "Not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        409: {
+          description: "Conflict (content is currently referenced)",
           content: {
             "application/json": {
               schema: resolver(errorResponseSchema),

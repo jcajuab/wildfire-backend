@@ -1,10 +1,11 @@
 import { type ContentRecord } from "#/application/ports/content";
-import { type ContentType } from "#/domain/content/content";
+import { type ContentStatus, type ContentType } from "#/domain/content/content";
 
 export interface ContentView {
   id: string;
   title: string;
   type: ContentType;
+  status: ContentStatus;
   mimeType: string;
   fileSize: number;
   checksum: string;
@@ -25,6 +26,7 @@ export const toContentView = (
   id: record.id,
   title: record.title,
   type: record.type,
+  status: record.status,
   mimeType: record.mimeType,
   fileSize: record.fileSize,
   checksum: record.checksum,

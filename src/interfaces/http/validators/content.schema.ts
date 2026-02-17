@@ -3,11 +3,13 @@ import { z } from "zod";
 import { isSupportedMimeType } from "#/domain/content/content";
 
 export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF"]);
+export const contentStatusSchema = z.enum(["DRAFT", "IN_USE"]);
 
 export const contentSchema = z.object({
   id: z.string(),
   title: z.string(),
   type: contentTypeSchema,
+  status: contentStatusSchema,
   mimeType: z.string(),
   fileSize: z.number().int(),
   checksum: z.string(),
@@ -35,6 +37,13 @@ export const contentIdParamSchema = z.object({
 export const contentListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: contentStatusSchema.optional(),
+  type: contentTypeSchema.optional(),
+  search: z.string().trim().min(1).max(255).optional(),
+  sortBy: z
+    .enum(["createdAt", "title", "fileSize", "type"])
+    .default("createdAt"),
+  sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
 
 export const createUploadContentSchema = (maxBytes: number) =>

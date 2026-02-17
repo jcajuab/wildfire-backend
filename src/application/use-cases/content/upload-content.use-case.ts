@@ -48,6 +48,7 @@ export class UploadContentUseCase {
       id,
       title: input.title,
       type,
+      status: "DRAFT",
       fileKey,
       checksum,
       mimeType,

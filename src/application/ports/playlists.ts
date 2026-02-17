@@ -30,6 +30,8 @@ export interface PlaylistRepository {
   ): Promise<PlaylistRecord | null>;
   delete(id: string): Promise<boolean>;
   listItems(playlistId: string): Promise<PlaylistItemRecord[]>;
+  findItemById(id: string): Promise<PlaylistItemRecord | null>;
+  countItemsByContentId(contentId: string): Promise<number>;
   addItem(input: {
     playlistId: string;
     contentId: string;

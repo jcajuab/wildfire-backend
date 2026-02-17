@@ -6,3 +6,10 @@ export class InvalidContentTypeError extends Error {
     this.name = "InvalidContentTypeError";
   }
 }
+
+export class ContentInUseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ContentInUseError";
+  }
+}

@@ -31,6 +31,7 @@ const makeRepository = () => {
         items: records.slice(offset, offset + limit),
         total: records.length,
       }),
+      countPlaylistReferences: async () => 0,
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
         if (index === -1) return false;
@@ -143,6 +144,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -170,6 +172,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -230,6 +233,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Old Title",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",

@@ -84,6 +84,7 @@ const makeApp = async (
       id: contentId,
       title: "Welcome",
       type: "IMAGE",
+      status: "DRAFT",
       fileKey: "content/images/a.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -136,6 +137,8 @@ const makeApp = async (
             duration: 5,
           },
         ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
         addItem: async () => {
           throw new Error("not used");
         },
@@ -151,6 +154,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        countPlaylistReferences: async () => 0,
         delete: async () => false,
         update: async () => null,
       },

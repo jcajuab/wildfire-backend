@@ -75,6 +75,7 @@ export const createPlaylistsUseCases = (
   }),
   deletePlaylist: new DeletePlaylistUseCase({
     playlistRepository: deps.repositories.playlistRepository,
+    contentRepository: deps.repositories.contentRepository,
   }),
   addPlaylistItem: new AddPlaylistItemUseCase({
     playlistRepository: deps.repositories.playlistRepository,
@@ -86,5 +87,6 @@ export const createPlaylistsUseCases = (
   }),
   deletePlaylistItem: new DeletePlaylistItemUseCase({
     playlistRepository: deps.repositories.playlistRepository,
+    contentRepository: deps.repositories.contentRepository,
   }),
 });

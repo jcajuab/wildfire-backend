@@ -1,9 +1,10 @@
-import { type ContentType } from "#/domain/content/content";
+import { type ContentStatus, type ContentType } from "#/domain/content/content";
 
 export interface ContentRecord {
   id: string;
   title: string;
   type: ContentType;
+  status: ContentStatus;
   fileKey: string;
   checksum: string;
   mimeType: string;
@@ -22,11 +23,17 @@ export interface ContentRepository {
   list(input: {
     offset: number;
     limit: number;
+    status?: ContentStatus;
+    type?: ContentType;
+    search?: string;
+    sortBy?: "createdAt" | "title" | "fileSize" | "type";
+    sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }>;
   update(
     id: string,
-    input: Partial<Pick<ContentRecord, "title">>,
+    input: Partial<Pick<ContentRecord, "title" | "status">>,
   ): Promise<ContentRecord | null>;
+  countPlaylistReferences(contentId: string): Promise<number>;
   delete(id: string): Promise<boolean>;
 }
 

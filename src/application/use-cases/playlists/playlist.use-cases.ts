@@ -133,12 +133,33 @@ export class UpdatePlaylistUseCase {
 
 export class DeletePlaylistUseCase {
   constructor(
-    private readonly deps: { playlistRepository: PlaylistRepository },
+    private readonly deps: {
+      playlistRepository: PlaylistRepository;
+      contentRepository: ContentRepository;
+    },
   ) {}
 
   async execute(input: { id: string }) {
+    const playlistItems = await this.deps.playlistRepository.listItems(
+      input.id,
+    );
     const deleted = await this.deps.playlistRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Playlist not found");
+
+    const affectedContentIds = Array.from(
+      new Set(playlistItems.map((item) => item.contentId)),
+    );
+    await Promise.all(
+      affectedContentIds.map(async (contentId) => {
+        const references =
+          await this.deps.playlistRepository.countItemsByContentId(contentId);
+        if (references === 0) {
+          await this.deps.contentRepository.update(contentId, {
+            status: "DRAFT",
+          });
+        }
+      }),
+    );
   }
 }
 
@@ -177,6 +198,9 @@ export class AddPlaylistItemUseCase {
       sequence: input.sequence,
       duration: input.duration,
     });
+    await this.deps.contentRepository.update(input.contentId, {
+      status: "IN_USE",
+    });
 
     return toPlaylistItemView(item, content);
   }
@@ -213,11 +237,26 @@ export class UpdatePlaylistItemUseCase {
 
 export class DeletePlaylistItemUseCase {
   constructor(
-    private readonly deps: { playlistRepository: PlaylistRepository },
+    private readonly deps: {
+      playlistRepository: PlaylistRepository;
+      contentRepository: ContentRepository;
+    },
   ) {}
 
   async execute(input: { id: string }) {
+    const existing = await this.deps.playlistRepository.findItemById(input.id);
+    if (!existing) throw new NotFoundError("Playlist item not found");
+
     const deleted = await this.deps.playlistRepository.deleteItem(input.id);
     if (!deleted) throw new NotFoundError("Playlist item not found");
+
+    const references = await this.deps.playlistRepository.countItemsByContentId(
+      existing.contentId,
+    );
+    if (references === 0) {
+      await this.deps.contentRepository.update(existing.contentId, {
+        status: "DRAFT",
+      });
+    }
   }
 }

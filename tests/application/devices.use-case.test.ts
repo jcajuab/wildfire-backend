@@ -140,6 +140,8 @@ describe("Devices use cases", () => {
         update: async () => null,
         delete: async () => false,
         listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
         addItem: async () => {
           throw new Error("not used");
         },
@@ -153,6 +155,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        countPlaylistReferences: async () => 0,
         delete: async () => false,
         update: async () => null,
       },
@@ -192,6 +195,7 @@ describe("Devices use cases", () => {
           id: "content-1",
           title: "Welcome",
           type: "IMAGE" as const,
+          status: "DRAFT" as const,
           fileKey: "content/images/a.png",
           checksum: "abc",
           mimeType: "image/png",
@@ -209,6 +213,7 @@ describe("Devices use cases", () => {
           id,
           title: "Welcome",
           type: "IMAGE" as const,
+          status: "DRAFT" as const,
           fileKey: "content/images/a.png",
           checksum: "abc",
           mimeType: "image/png",
@@ -224,6 +229,7 @@ describe("Devices use cases", () => {
         throw new Error("not used");
       },
       list: async () => ({ items: [], total: 0 }),
+      countPlaylistReferences: async () => 0,
       delete: async () => false,
     };
 
@@ -296,6 +302,8 @@ describe("Devices use cases", () => {
             duration: 5,
           },
         ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
         addItem: async () => {
           throw new Error("not used");
         },
@@ -407,6 +415,8 @@ describe("Devices use cases", () => {
             duration: 5,
           },
         ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
         addItem: async () => {
           throw new Error("not used");
         },
@@ -420,6 +430,7 @@ describe("Devices use cases", () => {
             id: "content-1",
             title: "Welcome",
             type: "IMAGE",
+            status: "DRAFT",
             fileKey: "content/images/a.png",
             checksum: "abc",
             mimeType: "image/png",
@@ -434,6 +445,7 @@ describe("Devices use cases", () => {
             id: "content-2",
             title: "Rules",
             type: "PDF",
+            status: "DRAFT",
             fileKey: "content/documents/b.pdf",
             checksum: "def",
             mimeType: "application/pdf",
@@ -449,6 +461,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        countPlaylistReferences: async () => 0,
         delete: async () => false,
         update: async () => null,
       },
