@@ -15,9 +15,11 @@ import {
   contentSchema,
   contentUploadRequestBodySchema,
   createUploadContentSchema,
+  updateContentSchema,
 } from "#/interfaces/http/validators/content.schema";
 import {
   validateForm,
+  validateJson,
   validateParams,
 } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -105,6 +107,64 @@ export const registerContentWriteRoutes = (args: {
         if (error instanceof InvalidContentTypeError) {
           return badRequest(c, error.message);
         }
+        if (error instanceof NotFoundError) {
+          return notFound(c, error.message);
+        }
+        throw error;
+      }
+    },
+  );
+
+  router.patch(
+    "/:id",
+    setAction("content.content.update", {
+      route: "/content/:id",
+      resourceType: "content",
+    }),
+    requirePermission("content:update"),
+    validateParams(contentIdParamSchema),
+    validateJson(updateContentSchema),
+    describeRoute({
+      description: "Update content metadata",
+      tags: contentTags,
+      responses: {
+        200: {
+          description: "Content updated",
+          content: {
+            "application/json": {
+              schema: resolver(contentSchema),
+            },
+          },
+        },
+        400: {
+          description: "Invalid request",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const params = c.req.valid("param");
+      const body = c.req.valid("json");
+      c.set("resourceId", params.id);
+      try {
+        const result = await useCases.updateContent.execute({
+          id: params.id,
+          title: body.title,
+        });
+        return c.json(result, 200);
+      } catch (error) {
         if (error instanceof NotFoundError) {
           return notFound(c, error.message);
         }

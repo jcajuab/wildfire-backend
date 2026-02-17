@@ -99,6 +99,14 @@ export class ContentDbRepository implements ContentRepository {
     };
   }
 
+  async update(
+    id: string,
+    input: Partial<Pick<ContentRecord, "title">>,
+  ): Promise<ContentRecord | null> {
+    await db.update(content).set(input).where(eq(content.id, id));
+    return this.findById(id);
+  }
+
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(content).where(eq(content.id, id));
     return result[0]?.affectedRows > 0;

@@ -12,6 +12,7 @@ import {
   GetContentDownloadUrlUseCase,
   GetContentUseCase,
   ListContentUseCase,
+  UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
@@ -32,6 +33,7 @@ export interface ContentRouterUseCases {
   uploadContent: UploadContentUseCase;
   listContent: ListContentUseCase;
   getContent: GetContentUseCase;
+  updateContent: UpdateContentUseCase;
   deleteContent: DeleteContentUseCase;
   getDownloadUrl: GetContentDownloadUrlUseCase;
 }
@@ -57,6 +59,10 @@ export const createContentUseCases = (
     userRepository: deps.repositories.userRepository,
   }),
   getContent: new GetContentUseCase({
+    contentRepository: deps.repositories.contentRepository,
+    userRepository: deps.repositories.userRepository,
+  }),
+  updateContent: new UpdateContentUseCase({
     contentRepository: deps.repositories.contentRepository,
     userRepository: deps.repositories.userRepository,
   }),

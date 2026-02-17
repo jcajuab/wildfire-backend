@@ -37,6 +37,15 @@ const makeRepository = () => {
         records.splice(index, 1);
         return true;
       },
+      update: async (
+        id: string,
+        input: Partial<Pick<ContentRecord, "title">>,
+      ) => {
+        const record = records.find((item) => item.id === id);
+        if (!record) return null;
+        Object.assign(record, input);
+        return record;
+      },
     },
   };
 };
@@ -211,6 +220,79 @@ describe("Content routes", () => {
     const response = await app.request("/content", {
       headers: { Authorization: `Bearer ${token}` },
     });
+    expect(response.status).toBe(403);
+  });
+
+  test("PATCH /content/:id updates content title", async () => {
+    const { app, issueToken, records } = await makeApp(["content:update"]);
+    const token = await issueToken();
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Old Title",
+      type: "IMAGE",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const response = await app.request(
+      "/content/11111111-1111-4111-8111-111111111111",
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: "New Title" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ id: string; title: string }>(response);
+    expect(body.title).toBe("New Title");
+  });
+
+  test("PATCH /content/:id returns 404 for missing content", async () => {
+    const { app, issueToken } = await makeApp(["content:update"]);
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/content/11111111-1111-4111-8111-111111111111",
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: "New Title" }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  test("PATCH /content/:id returns 403 without permission", async () => {
+    const { app, issueToken } = await makeApp([]);
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/content/11111111-1111-4111-8111-111111111111",
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: "New Title" }),
+      },
+    );
+
     expect(response.status).toBe(403);
   });
 });

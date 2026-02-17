@@ -81,6 +81,7 @@ const makeDeps = () => {
     },
     list: async () => ({ items: [], total: 0 }),
     delete: async () => false,
+    update: async () => null,
   };
 
   const userRepository: UserRepository = {

@@ -12,6 +12,7 @@ import {
   InvalidContentTypeError,
   ListContentUseCase,
   NotFoundError,
+  UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
 import { sha256Hex } from "#/domain/content/checksum";
@@ -39,6 +40,12 @@ const makeContentRepository = () => {
       if (index === -1) return false;
       records.splice(index, 1);
       return true;
+    },
+    update: async (id, input) => {
+      const record = records.find((item) => item.id === id);
+      if (!record) return null;
+      Object.assign(record, input);
+      return record;
     },
   };
 
@@ -329,5 +336,50 @@ describe("Content use cases", () => {
     expect(result.downloadUrl).toBe(
       "https://example.com/content/images/11111111-1111-4111-8111-111111111111.png",
     );
+  });
+
+  test("updates content title", async () => {
+    const { repository, records } = makeContentRepository();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new UpdateContentUseCase({
+      contentRepository: repository,
+      userRepository,
+    });
+
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Old Title",
+      type: "IMAGE",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const result = await useCase.execute({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "New Title",
+    });
+
+    expect(result.title).toBe("New Title");
+    expect(result.createdBy).toEqual({ id: "user-1", name: "Ada" });
+  });
+
+  test("throws when updating non-existent content", async () => {
+    const { repository } = makeContentRepository();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new UpdateContentUseCase({
+      contentRepository: repository,
+      userRepository,
+    });
+
+    await expect(
+      useCase.execute({ id: "missing-id", title: "New Title" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

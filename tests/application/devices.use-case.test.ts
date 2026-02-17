@@ -154,6 +154,7 @@ describe("Devices use cases", () => {
         },
         list: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        update: async () => null,
       },
       contentStorage: {
         upload: async () => {},
@@ -449,6 +450,7 @@ describe("Devices use cases", () => {
         },
         list: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        update: async () => null,
       },
       contentStorage: {
         upload: async () => {},

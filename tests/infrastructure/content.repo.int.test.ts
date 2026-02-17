@@ -67,6 +67,14 @@ describe("ContentDbRepository (integration)", () => {
     const list = await repo.list({ offset: 0, limit: 10 });
     expect(list.total).toBe(1);
 
+    const updated = await repo.update(id, { title: "Updated Poster" });
+    expect(updated?.title).toBe("Updated Poster");
+
+    const notUpdated = await repo.update(crypto.randomUUID(), {
+      title: "No-op",
+    });
+    expect(notUpdated).toBeNull();
+
     const deleted = await repo.delete(id);
     expect(deleted).toBe(true);
   });

@@ -136,6 +136,7 @@ const buildContentActionApp = async () => {
         findByIds: async () => [],
         list: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        update: async () => null,
       },
       userRepository: {
         list: async () => [],

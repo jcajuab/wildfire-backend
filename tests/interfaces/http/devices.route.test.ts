@@ -152,6 +152,7 @@ const makeApp = async (
         },
         list: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        update: async () => null,
       },
       authorizationRepository,
     },

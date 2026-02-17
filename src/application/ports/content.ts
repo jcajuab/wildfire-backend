@@ -23,6 +23,10 @@ export interface ContentRepository {
     offset: number;
     limit: number;
   }): Promise<{ items: ContentRecord[]; total: number }>;
+  update(
+    id: string,
+    input: Partial<Pick<ContentRecord, "title">>,
+  ): Promise<ContentRecord | null>;
   delete(id: string): Promise<boolean>;
 }
 

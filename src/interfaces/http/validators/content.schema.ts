@@ -54,6 +54,10 @@ export const downloadUrlResponseSchema = z.object({
   downloadUrl: z.string().url(),
 });
 
+export const updateContentSchema = z.object({
+  title: z.string().min(1),
+});
+
 export const contentUploadRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
