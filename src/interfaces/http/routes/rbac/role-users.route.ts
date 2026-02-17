@@ -9,17 +9,20 @@ import { roleIdParamSchema } from "#/interfaces/http/validators/rbac.schema";
 import { validateParams } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
+  maybeEnrichUsersForResponse,
   type RbacRouter,
+  type RbacRouterDeps,
   type RbacRouterUseCases,
   roleTags,
 } from "./shared";
 
 export const registerRbacRoleUserRoutes = (args: {
   router: RbacRouter;
+  deps: RbacRouterDeps;
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
-  const { router, useCases, authorize } = args;
+  const { router, deps, useCases, authorize } = args;
 
   router.get(
     "/roles/:id/users",
@@ -51,7 +54,8 @@ export const registerRbacRoleUserRoutes = (args: {
         const users = await useCases.getRoleUsers.execute({
           roleId: params.id,
         });
-        return c.json(users);
+        const enriched = await maybeEnrichUsersForResponse(users, deps);
+        return c.json(enriched);
       },
       ...applicationErrorMappers,
     ),

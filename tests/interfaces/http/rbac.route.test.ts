@@ -590,6 +590,28 @@ describe("RBAC routes", () => {
     expect(body[0]?.id).toBe(userId);
   });
 
+  test("GET /roles/:id/users returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
+    const { app, issueToken, presignedUrl } = buildAppWithAvatarStorage();
+    const token = await issueToken();
+
+    const response = await app.request(`/roles/${roleId}/users`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body =
+      await parseJson<
+        Array<{
+          id: string;
+          avatarUrl?: string;
+          avatarKey?: string;
+        }>
+      >(response);
+    expect(body.length).toBeGreaterThan(0);
+    expect(body[0]?.avatarUrl).toBe(presignedUrl);
+    expect(body[0]).not.toHaveProperty("avatarKey");
+  });
+
   test("GET /permissions returns permissions", async () => {
     const { app, issueToken } = buildApp(["roles:read"]);
     const token = await issueToken();

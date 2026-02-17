@@ -269,8 +269,16 @@ describe("Devices routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const json = await parseJson<{ items: Array<{ id: string }> }>(response);
+    const json = await parseJson<{
+      items: Array<{ id: string }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(response);
     expect(json.items).toHaveLength(1);
+    expect(json.total).toBe(1);
+    expect(json.page).toBe(1);
+    expect(json.pageSize).toBe(50);
   });
 
   test("GET /devices/:id returns device", async () => {

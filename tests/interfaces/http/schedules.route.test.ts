@@ -136,6 +136,16 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(200);
+    const body = await parseJson<{
+      items: Array<{ id: string }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(response);
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(typeof body.total).toBe("number");
+    expect(body.page).toBe(1);
+    expect(body.pageSize).toBe(50);
   });
 
   test("POST /schedules creates schedule", async () => {

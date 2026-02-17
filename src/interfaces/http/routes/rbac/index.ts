@@ -19,7 +19,7 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
   });
   const useCases = createRbacUseCases(deps);
 
-  registerRbacRoleRoutes({ router, useCases, authorize });
+  registerRbacRoleRoutes({ router, deps, useCases, authorize });
   registerRbacPermissionRoutes({ router, useCases, authorize });
   registerRbacUserRoutes({ router, useCases, deps, authorize });
 
