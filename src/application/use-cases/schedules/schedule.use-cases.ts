@@ -70,12 +70,11 @@ export class CreateScheduleUseCase {
       throw new ValidationError("Invalid days of week");
     }
 
-    const playlist = await this.deps.playlistRepository.findById(
-      input.playlistId,
-    );
+    const [playlist, device] = await Promise.all([
+      this.deps.playlistRepository.findById(input.playlistId),
+      this.deps.deviceRepository.findById(input.deviceId),
+    ]);
     if (!playlist) throw new NotFoundError("Playlist not found");
-
-    const device = await this.deps.deviceRepository.findById(input.deviceId);
     if (!device) throw new NotFoundError("Device not found");
 
     const schedule = await this.deps.scheduleRepository.create({
@@ -106,10 +105,10 @@ export class GetScheduleUseCase {
     const schedule = await this.deps.scheduleRepository.findById(input.id);
     if (!schedule) throw new NotFoundError("Schedule not found");
 
-    const playlist = await this.deps.playlistRepository.findById(
-      schedule.playlistId,
-    );
-    const device = await this.deps.deviceRepository.findById(schedule.deviceId);
+    const [playlist, device] = await Promise.all([
+      this.deps.playlistRepository.findById(schedule.playlistId),
+      this.deps.deviceRepository.findById(schedule.deviceId),
+    ]);
 
     return toScheduleView(schedule, playlist, device);
   }
@@ -145,16 +144,19 @@ export class UpdateScheduleUseCase {
       throw new ValidationError("Invalid days of week");
     }
 
-    if (input.playlistId) {
-      const playlist = await this.deps.playlistRepository.findById(
-        input.playlistId,
-      );
-      if (!playlist) throw new NotFoundError("Playlist not found");
+    const [playlistForUpdate, deviceForUpdate] = await Promise.all([
+      input.playlistId
+        ? this.deps.playlistRepository.findById(input.playlistId)
+        : Promise.resolve(undefined),
+      input.deviceId
+        ? this.deps.deviceRepository.findById(input.deviceId)
+        : Promise.resolve(undefined),
+    ]);
+    if (input.playlistId && !playlistForUpdate) {
+      throw new NotFoundError("Playlist not found");
     }
-
-    if (input.deviceId) {
-      const device = await this.deps.deviceRepository.findById(input.deviceId);
-      if (!device) throw new NotFoundError("Device not found");
+    if (input.deviceId && !deviceForUpdate) {
+      throw new NotFoundError("Device not found");
     }
 
     const schedule = await this.deps.scheduleRepository.update(input.id, {
@@ -170,10 +172,10 @@ export class UpdateScheduleUseCase {
 
     if (!schedule) throw new NotFoundError("Schedule not found");
 
-    const playlist = await this.deps.playlistRepository.findById(
-      schedule.playlistId,
-    );
-    const device = await this.deps.deviceRepository.findById(schedule.deviceId);
+    const [playlist, device] = await Promise.all([
+      this.deps.playlistRepository.findById(schedule.playlistId),
+      this.deps.deviceRepository.findById(schedule.deviceId),
+    ]);
 
     return toScheduleView(schedule, playlist, device);
   }

@@ -1,7 +1,14 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ValidationError } from "#/application/errors/validation";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { badRequest, errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
+import {
+  forbiddenResponse,
+  invalidRequestResponse,
+  unauthorizedResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   auditEventListQuerySchema,
   auditEventListResponseSchema,
@@ -42,42 +49,23 @@ export const registerAuditQueryRoutes = (args: {
           },
         },
         400: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...invalidRequestResponse,
         },
         401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
       },
     }),
-    async (c) => {
-      const query = c.req.valid("query");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
         const result = await useCases.listAuditEvents.execute(query);
         return c.json(result);
-      } catch (error) {
-        if (error instanceof ValidationError) {
-          return badRequest(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

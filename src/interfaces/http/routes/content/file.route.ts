@@ -1,7 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { NotFoundError } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, notFound } from "#/interfaces/http/responses";
+import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   contentIdParamSchema,
   downloadUrlResponseSchema,
@@ -59,18 +62,15 @@ export const registerContentFileRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        c.set("fileId", params.id);
         const result = await useCases.getDownloadUrl.execute({ id: params.id });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

@@ -1,12 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ValidationError } from "#/application/errors/validation";
-import { NotFoundError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  badRequest,
-  errorResponseSchema,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   addPlaylistItemSchema,
   playlistIdParamSchema,
@@ -55,10 +53,10 @@ export const registerPlaylistItemRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
         const result = await useCases.addPlaylistItem.execute({
           playlistId: params.id,
           contentId: payload.contentId,
@@ -67,16 +65,9 @@ export const registerPlaylistItemRoutes = (args: {
         });
         c.set("resourceId", result.id);
         return c.json(result, 201);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        if (error instanceof ValidationError) {
-          return badRequest(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.patch(
@@ -102,27 +93,20 @@ export const registerPlaylistItemRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.itemId);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.itemId);
+        const payload = c.req.valid("json");
         const result = await useCases.updatePlaylistItem.execute({
           id: params.itemId,
           sequence: payload.sequence,
           duration: payload.duration,
         });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        if (error instanceof ValidationError) {
-          return badRequest(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.delete(
@@ -148,18 +132,14 @@ export const registerPlaylistItemRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.itemId);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.itemId);
         await useCases.deletePlaylistItem.execute({ id: params.itemId });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

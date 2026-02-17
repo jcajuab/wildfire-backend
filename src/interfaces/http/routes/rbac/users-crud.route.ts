@@ -1,12 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ForbiddenError } from "#/application/errors/forbidden";
-import { NotFoundError } from "#/application/use-cases/rbac";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  errorResponseSchema,
-  forbidden,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   createUserSchema,
   updateUserSchema,
@@ -106,20 +104,16 @@ export const registerRbacUserCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         const user = await useCases.getUser.execute({ id: params.id });
         const enriched = await maybeEnrichUserForResponse(user, deps);
         return c.json(enriched);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.patch(
@@ -162,27 +156,20 @@ export const registerRbacUserCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        const payload = c.req.valid("json");
         const user = await useCases.updateUser.execute({
           id: params.id,
           ...payload,
           callerUserId: c.get("userId"),
         });
         return c.json(user);
-      } catch (error) {
-        if (error instanceof ForbiddenError) {
-          return forbidden(c, error.message);
-        }
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.delete(
@@ -216,24 +203,17 @@ export const registerRbacUserCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         await useCases.deleteUser.execute({
           id: params.id,
           callerUserId: c.get("userId"),
         });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof ForbiddenError) {
-          return forbidden(c, error.message);
-        }
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

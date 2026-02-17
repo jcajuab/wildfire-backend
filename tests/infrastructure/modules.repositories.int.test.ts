@@ -108,6 +108,13 @@ describe("Module repositories (integration)", () => {
 
     const list = await repo.list();
     expect(list.length).toBe(1);
+
+    const updated = await repo.update(created.id, {
+      name: "Lobby Updated",
+      location: "Main Hall",
+    });
+    expect(updated?.name).toBe("Lobby Updated");
+    expect(updated?.location).toBe("Main Hall");
   });
 
   maybeTest("PlaylistDbRepository creates playlist items", async () => {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
+import { type CredentialsRepository } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
@@ -33,39 +34,42 @@ const DEACTIVATED_MESSAGE =
 const buildApp = (opts?: {
   inactiveUserEmail?: string;
   avatarStorage?: ContentStorage;
+  credentialsRepository?: CredentialsRepository;
 }) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const inactiveUserEmail = opts?.inactiveUserEmail;
-  const credentialsRepository = new HtshadowCredentialsRepository({
-    filePath: fixturePath,
-  });
+  const credentialsRepository =
+    opts?.credentialsRepository ??
+    new HtshadowCredentialsRepository({
+      filePath: fixturePath,
+    });
   const passwordVerifier = new BcryptPasswordVerifier();
   const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
   const clock = { nowSeconds: () => nowSeconds };
+  let currentUser: {
+    id: string;
+    email: string;
+    name: string;
+    isActive: boolean;
+    timezone: string | null;
+    avatarKey: string | null;
+  } | null = {
+    id: "user-1",
+    email: "test1@example.com",
+    name: "Test One",
+    isActive: inactiveUserEmail !== "test1@example.com",
+    timezone: null,
+    avatarKey: null,
+  };
+
   const userRepository: UserRepository = {
     list: async () => [],
     findByEmail: async (email: string) =>
-      email === "test1@example.com"
-        ? {
-            id: "user-1",
-            email,
-            name: "Test One",
-            isActive: email !== inactiveUserEmail,
-            timezone: null,
-            avatarKey: null,
-          }
+      currentUser != null && email === currentUser.email
+        ? { ...currentUser }
         : null,
     findById: async (id: string) =>
-      id === "user-1"
-        ? {
-            id: "user-1",
-            email: "test1@example.com",
-            name: "Test One",
-            isActive: inactiveUserEmail !== "test1@example.com",
-            timezone: null,
-            avatarKey: null,
-          }
-        : null,
+      currentUser != null && id === currentUser.id ? { ...currentUser } : null,
     findByIds: async () => [],
     create: async ({ email, name, isActive }) => ({
       id: "user-1",
@@ -73,8 +77,31 @@ const buildApp = (opts?: {
       name,
       isActive: isActive ?? true,
     }),
-    update: async () => null,
-    delete: async () => false,
+    update: async (id, input) => {
+      if (currentUser == null || id !== currentUser.id) {
+        return null;
+      }
+      currentUser = {
+        ...currentUser,
+        email: input.email ?? currentUser.email,
+        name: input.name ?? currentUser.name,
+        isActive: input.isActive ?? currentUser.isActive,
+        timezone:
+          input.timezone === undefined ? currentUser.timezone : input.timezone,
+        avatarKey:
+          input.avatarKey === undefined
+            ? currentUser.avatarKey
+            : input.avatarKey,
+      };
+      return { ...currentUser };
+    },
+    delete: async (id) => {
+      if (currentUser == null || id !== currentUser.id) {
+        return false;
+      }
+      currentUser = null;
+      return true;
+    },
   };
 
   const authorizationRepository: AuthorizationRepository = {
@@ -124,6 +151,20 @@ const buildApp = (opts?: {
 };
 
 describe("Auth routes", () => {
+  const issueToken = async (): Promise<string> => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return sign(
+      {
+        sub: "user-1",
+        email: "test1@example.com",
+        iat: nowSeconds,
+        exp: nowSeconds + 3600,
+        iss: "wildfire",
+      },
+      "test-secret",
+    );
+  };
+
   test("POST /auth/login returns token for valid credentials", async () => {
     const { app, nowSeconds } = buildApp();
 
@@ -300,6 +341,104 @@ describe("Auth routes", () => {
 
     const response = await app.request("/auth/logout", {
       method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(204);
+  });
+
+  test("PATCH /auth/me updates profile and returns refreshed payload", async () => {
+    const { app } = buildApp();
+    const token = await issueToken();
+
+    const response = await app.request("/auth/me", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Updated Name",
+        timezone: "Asia/Taipei",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      user: {
+        name: string;
+        timezone: string | null;
+      };
+    }>(response);
+    expect(body.user.name).toBe("Updated Name");
+    expect(body.user.timezone).toBe("Asia/Taipei");
+  });
+
+  test("POST /auth/me/password returns 204 when current password is valid", async () => {
+    const hasher = new BcryptPasswordHasher();
+    let passwordHash = await hasher.hash("old-password");
+    const { app } = buildApp({
+      credentialsRepository: {
+        findPasswordHash: async () => passwordHash,
+        updatePasswordHash: async (_email, nextHash) => {
+          passwordHash = nextHash;
+        },
+      },
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/auth/me/password", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        currentPassword: "old-password",
+        newPassword: "new-password-123",
+      }),
+    });
+
+    expect(response.status).toBe(204);
+  });
+
+  test("PUT /auth/me/avatar uploads avatar and returns refreshed payload", async () => {
+    const uploads: string[] = [];
+    const avatarStorage: ContentStorage = {
+      upload: async ({ key }) => {
+        uploads.push(key);
+      },
+      delete: async () => {},
+      getPresignedDownloadUrl: async ({ key }) =>
+        `https://example.com/download/${key}`,
+    };
+
+    const { app } = buildApp({ avatarStorage });
+    const token = await issueToken();
+    const form = new FormData();
+    form.set(
+      "file",
+      new File([new Uint8Array([137, 80, 78, 71])], "avatar.png", {
+        type: "image/png",
+      }),
+    );
+
+    const response = await app.request("/auth/me/avatar", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+
+    expect(response.status).toBe(200);
+    expect(uploads).toEqual(["avatars/user-1"]);
+  });
+
+  test("DELETE /auth/me deletes current user", async () => {
+    const { app } = buildApp();
+    const token = await issueToken();
+
+    const response = await app.request("/auth/me", {
+      method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
 

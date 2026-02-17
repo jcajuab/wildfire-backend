@@ -219,12 +219,31 @@ app.route("/", rbacRouter);
 
 app.onError((err, c) => {
   const status = err instanceof HTTPException ? err.status : 500;
+  const getVar = <T = unknown>(key: string): T | undefined =>
+    (c as { get: (name: string) => T | undefined }).get(key);
+  const route = getVar<string>("route") ?? c.req.path;
+  const actorId = getVar<string>("actorId") ?? getVar<string>("userId");
+  const actorType =
+    getVar<string>("actorType") ?? (actorId ? "user" : undefined);
+  const resourceId = getVar<string>("resourceId");
+  const resourceType = getVar<string>("resourceType");
+  const sessionId = getVar<string>("sessionId");
+  const fileId =
+    getVar<string>("fileId") ??
+    (resourceType === "content" && resourceId != null ? resourceId : undefined);
   const logPayload = {
     err,
     requestId: c.get("requestId"),
     method: c.req.method,
     path: c.req.path,
+    route,
     status,
+    actorId,
+    actorType,
+    resourceId,
+    resourceType,
+    sessionId,
+    fileId,
   };
 
   if (status >= 500) {

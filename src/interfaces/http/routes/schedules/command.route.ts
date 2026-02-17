@@ -1,12 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ValidationError } from "#/application/errors/validation";
-import { NotFoundError } from "#/application/use-cases/schedules";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  badRequest,
-  errorResponseSchema,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   createScheduleSchema,
   scheduleIdParamSchema,
@@ -53,9 +51,9 @@ export const registerScheduleCommandRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
         const result = await useCases.createSchedule.execute({
           name: payload.name,
           playlistId: payload.playlistId,
@@ -68,16 +66,9 @@ export const registerScheduleCommandRoutes = (args: {
         });
         c.set("resourceId", result.id);
         return c.json(result, 201);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        if (error instanceof ValidationError) {
-          return badRequest(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.patch(
@@ -103,11 +94,11 @@ export const registerScheduleCommandRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        const payload = c.req.valid("json");
         const result = await useCases.updateSchedule.execute({
           id: params.id,
           name: payload.name,
@@ -120,16 +111,9 @@ export const registerScheduleCommandRoutes = (args: {
           isActive: payload.isActive,
         });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        if (error instanceof ValidationError) {
-          return badRequest(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.delete(
@@ -155,18 +139,14 @@ export const registerScheduleCommandRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         await useCases.deleteSchedule.execute({ id: params.id });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

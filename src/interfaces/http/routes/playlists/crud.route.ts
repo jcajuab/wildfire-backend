@@ -1,7 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { NotFoundError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, notFound } from "#/interfaces/http/responses";
+import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   createPlaylistSchema,
   playlistIdParamSchema,
@@ -74,9 +77,9 @@ export const registerPlaylistCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
         const result = await useCases.createPlaylist.execute({
           name: payload.name,
           description: payload.description ?? null,
@@ -84,13 +87,9 @@ export const registerPlaylistCrudRoutes = (args: {
         });
         c.set("resourceId", result.id);
         return c.json(result, 201);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(
@@ -123,19 +122,15 @@ export const registerPlaylistCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         const result = await useCases.getPlaylist.execute({ id: params.id });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.patch(
@@ -161,24 +156,20 @@ export const registerPlaylistCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        const payload = c.req.valid("json");
         const result = await useCases.updatePlaylist.execute({
           id: params.id,
           name: payload.name,
           description: payload.description,
         });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.delete(
@@ -204,18 +195,14 @@ export const registerPlaylistCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         await useCases.deletePlaylist.execute({ id: params.id });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

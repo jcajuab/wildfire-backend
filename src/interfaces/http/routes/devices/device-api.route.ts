@@ -1,12 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { NotFoundError } from "#/application/use-cases/devices";
-import { DeviceValidationError } from "#/domain/devices/device";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  badRequest,
-  errorResponseSchema,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   deviceIdParamSchema,
   deviceManifestSchema,
@@ -80,9 +78,9 @@ export const registerDeviceApiRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
         const result = await useCases.registerDevice.execute({
           name: payload.name,
           identifier: payload.identifier,
@@ -91,13 +89,9 @@ export const registerDeviceApiRoutes = (args: {
         c.set("actorId", result.id);
         c.set("resourceId", result.id);
         return c.json(result);
-      } catch (error) {
-        if (error instanceof DeviceValidationError) {
-          return badRequest(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(
@@ -139,23 +133,19 @@ export const registerDeviceApiRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("actorId", params.id);
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("actorId", params.id);
+        c.set("resourceId", params.id);
         const result = await useCases.getActiveSchedule.execute({
           deviceId: params.id,
           now: new Date(),
         });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(
@@ -197,22 +187,18 @@ export const registerDeviceApiRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("actorId", params.id);
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("actorId", params.id);
+        c.set("resourceId", params.id);
         const result = await useCases.getManifest.execute({
           deviceId: params.id,
           now: new Date(),
         });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

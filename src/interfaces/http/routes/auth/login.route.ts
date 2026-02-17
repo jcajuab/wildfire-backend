@@ -2,6 +2,10 @@ import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
+import {
+  mapErrorToResponse,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import { authLoginSchema } from "#/interfaces/http/validators/auth.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -57,21 +61,17 @@ export const registerAuthLoginRoute = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
         const result = await useCases.authenticateUser.execute(payload);
         const body = await buildAuthResponse(deps, result);
         c.set("resourceId", body.user.id);
         c.set("actorId", body.user.id);
         c.set("actorType", "user");
         return c.json(body);
-      } catch (error) {
-        if (error instanceof InvalidCredentialsError) {
-          return unauthorized(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      mapErrorToResponse(InvalidCredentialsError, unauthorized),
+    ),
   );
 };

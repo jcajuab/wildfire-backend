@@ -120,6 +120,8 @@ It may also include:
 - `route` (template if available, else actual path)
 - `actorId`, `actorType` (`"user"` or `"device"`)
 - `resourceId`, `resourceType`
+- `sessionId` (derived from JWT claims when available)
+- `fileId` (for content/file-oriented requests when available)
 
 Error handling (`app.onError`) logs:
 

@@ -1,15 +1,13 @@
 import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
-import {
-  InvalidContentTypeError,
-  NotFoundError,
-} from "#/application/use-cases/content";
+import { InvalidContentTypeError } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { badRequest, errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  badRequest,
-  errorResponseSchema,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  mapErrorToResponse,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   contentIdParamSchema,
   contentSchema,
@@ -93,26 +91,21 @@ export const registerContentWriteRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("form");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("form");
         const result = await useCases.uploadContent.execute({
           title: payload.title,
           file: payload.file,
           createdById: c.get("userId"),
         });
         c.set("resourceId", result.id);
+        c.set("fileId", result.id);
         return c.json(result, 201);
-      } catch (error) {
-        if (error instanceof InvalidContentTypeError) {
-          return badRequest(c, error.message);
-        }
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+      mapErrorToResponse(InvalidContentTypeError, badRequest),
+    ),
   );
 
   router.patch(
@@ -154,23 +147,20 @@ export const registerContentWriteRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      const body = c.req.valid("json");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const body = c.req.valid("json");
+        c.set("resourceId", params.id);
+        c.set("fileId", params.id);
         const result = await useCases.updateContent.execute({
           id: params.id,
           title: body.title,
         });
         return c.json(result, 200);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.delete(
@@ -204,18 +194,15 @@ export const registerContentWriteRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        c.set("fileId", params.id);
         await useCases.deleteContent.execute({ id: params.id });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

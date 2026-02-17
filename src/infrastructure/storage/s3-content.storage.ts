@@ -7,6 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { type ContentStorage } from "#/application/ports/content";
+import { logger } from "#/infrastructure/observability/logger";
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -62,58 +63,151 @@ export class S3ContentStorage implements ContentStorage {
     contentType: string;
     contentLength: number;
   }): Promise<void> {
-    await withTimeout(
-      this.client.send(
-        new PutObjectCommand({
-          Bucket: this.config.bucket,
-          Key: input.key,
-          Body: input.body,
-          ContentType: input.contentType,
-          ContentLength: input.contentLength,
-        }),
-      ),
-      this.requestTimeoutMs,
-      "upload",
-    );
+    const operation = "s3.upload";
+    const start = Date.now();
+    try {
+      await withTimeout(
+        this.client.send(
+          new PutObjectCommand({
+            Bucket: this.config.bucket,
+            Key: input.key,
+            Body: input.body,
+            ContentType: input.contentType,
+            ContentLength: input.contentLength,
+          }),
+        ),
+        this.requestTimeoutMs,
+        "upload",
+      );
+      logger.info(
+        {
+          operation,
+          bucket: this.config.bucket,
+          key: input.key,
+          durationMs: Date.now() - start,
+          success: true,
+        },
+        "storage operation completed",
+      );
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          operation,
+          bucket: this.config.bucket,
+          key: input.key,
+          durationMs: Date.now() - start,
+          success: false,
+        },
+        "storage operation failed",
+      );
+      throw error;
+    }
   }
 
   async delete(key: string): Promise<void> {
-    await withTimeout(
-      this.client.send(
-        new DeleteObjectCommand({
-          Bucket: this.config.bucket,
-          Key: key,
-        }),
-      ),
-      this.requestTimeoutMs,
-      "delete",
-    );
+    const operation = "s3.delete";
+    const start = Date.now();
+    try {
+      await withTimeout(
+        this.client.send(
+          new DeleteObjectCommand({
+            Bucket: this.config.bucket,
+            Key: key,
+          }),
+        ),
+        this.requestTimeoutMs,
+        "delete",
+      );
+      logger.info(
+        {
+          operation,
+          bucket: this.config.bucket,
+          key,
+          durationMs: Date.now() - start,
+          success: true,
+        },
+        "storage operation completed",
+      );
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          operation,
+          bucket: this.config.bucket,
+          key,
+          durationMs: Date.now() - start,
+          success: false,
+        },
+        "storage operation failed",
+      );
+      throw error;
+    }
   }
 
   async getPresignedDownloadUrl(input: {
     key: string;
     expiresInSeconds: number;
   }): Promise<string> {
+    const operation = "s3.presignDownload";
+    const start = Date.now();
     const command = new GetObjectCommand({
       Bucket: this.config.bucket,
       Key: input.key,
     });
-    return withTimeout(
-      getSignedUrl(this.client, command, {
-        expiresIn: input.expiresInSeconds,
-      }),
-      this.requestTimeoutMs,
-      "getPresignedDownloadUrl",
-    );
+    try {
+      const url = await withTimeout(
+        getSignedUrl(this.client, command, {
+          expiresIn: input.expiresInSeconds,
+        }),
+        this.requestTimeoutMs,
+        "getPresignedDownloadUrl",
+      );
+      logger.info(
+        {
+          operation,
+          bucket: this.config.bucket,
+          key: input.key,
+          durationMs: Date.now() - start,
+          success: true,
+        },
+        "storage operation completed",
+      );
+      return url;
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          operation,
+          bucket: this.config.bucket,
+          key: input.key,
+          durationMs: Date.now() - start,
+          success: false,
+        },
+        "storage operation failed",
+      );
+      throw error;
+    }
   }
 
   /** Check if MinIO is reachable (e.g. for startup logging). Does not throw. */
   async checkConnectivity(): Promise<{ ok: boolean; error?: string }> {
+    const operation = "s3.checkConnectivity";
+    const start = Date.now();
     try {
       await withTimeout(
         this.client.send(new HeadBucketCommand({ Bucket: this.config.bucket })),
         this.requestTimeoutMs,
         "HeadBucket",
+      );
+      logger.info(
+        {
+          operation,
+          bucket: this.config.bucket,
+          durationMs: Date.now() - start,
+          success: true,
+        },
+        "storage operation completed",
       );
       return { ok: true };
     } catch (e) {
@@ -122,6 +216,16 @@ export class S3ContentStorage implements ContentStorage {
         "code" in err
           ? `${err.message} (${(err as { code?: string }).code})`
           : err.message;
+      logger.warn(
+        {
+          err,
+          operation,
+          bucket: this.config.bucket,
+          durationMs: Date.now() - start,
+          success: false,
+        },
+        "storage operation failed",
+      );
       return { ok: false, error: message };
     }
   }

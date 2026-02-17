@@ -12,6 +12,8 @@ export type ObservabilityVariables = RequestIdVariables & {
   resourceId?: string;
   resourceType?: string;
   userId?: string;
+  sessionId?: string;
+  fileId?: string;
 };
 
 export const setAction =
@@ -54,6 +56,10 @@ export const requestLogger: MiddlewareHandler<{
   const actorType = c.get("actorType") ?? (actorId ? "user" : undefined);
   const resourceId = c.get("resourceId");
   const resourceType = c.get("resourceType");
+  const sessionId = c.get("sessionId");
+  const fileId =
+    c.get("fileId") ??
+    (resourceType === "content" && resourceId != null ? resourceId : undefined);
   const durationMs = Date.now() - start;
   const status = c.res.status;
   const method = c.req.method;
@@ -73,6 +79,8 @@ export const requestLogger: MiddlewareHandler<{
   if (actorType) logPayload.actorType = actorType;
   if (resourceId) logPayload.resourceId = resourceId;
   if (resourceType) logPayload.resourceType = resourceType;
+  if (sessionId) logPayload.sessionId = sessionId;
+  if (fileId) logPayload.fileId = fileId;
 
   logger.info(logPayload, "request completed");
 };

@@ -1,9 +1,16 @@
 import { type MiddlewareHandler } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
-import { NotFoundError } from "#/application/use-cases/devices";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, notFound } from "#/interfaces/http/responses";
+import {
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
+import {
+  forbiddenResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   deviceIdParamSchema,
   deviceListResponseSchema,
@@ -47,20 +54,10 @@ export const registerDeviceStaffRoutes = (args: {
           },
         },
         401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
       },
     }),
@@ -91,27 +88,18 @@ export const registerDeviceStaffRoutes = (args: {
           },
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         const result = await useCases.getDevice.execute({ id: params.id });
         return c.json(result);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

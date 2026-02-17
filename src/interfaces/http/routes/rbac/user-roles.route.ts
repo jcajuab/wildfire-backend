@@ -1,12 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ForbiddenError } from "#/application/errors/forbidden";
-import { NotFoundError } from "#/application/use-cases/rbac";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  errorResponseSchema,
-  forbidden,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   setUserRolesSchema,
   userIdParamSchema,
@@ -52,21 +50,17 @@ export const registerRbacUserRoleRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         const roles = await useCases.getUserRoles.execute({
           userId: params.id,
         });
         return c.json(roles);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.put(
@@ -110,25 +104,18 @@ export const registerRbacUserRoleRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        const payload = c.req.valid("json");
         const roles = await useCases.setUserRoles.execute({
           userId: params.id,
           roleIds: payload.roleIds,
         });
         return c.json(roles);
-      } catch (error) {
-        if (error instanceof ForbiddenError) {
-          return forbidden(c, error.message);
-        }
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

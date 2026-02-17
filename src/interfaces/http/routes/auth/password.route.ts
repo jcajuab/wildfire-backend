@@ -1,13 +1,13 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
 import {
-  errorResponseSchema,
-  notFound,
-  unauthorized,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  mapErrorToResponse,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import { postAuthMePasswordSchema } from "#/interfaces/http/validators/auth.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -66,26 +66,20 @@ export const registerAuthPasswordRoute = (args: {
         },
       },
     }),
-    async (c) => {
-      const userId = c.get("userId");
-      c.set("resourceId", userId);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const userId = c.get("userId");
+        c.set("resourceId", userId);
+        const payload = c.req.valid("json");
         await deps.changeCurrentUserPasswordUseCase.execute({
           userId,
           currentPassword: payload.currentPassword,
           newPassword: payload.newPassword,
         });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof InvalidCredentialsError) {
-          return unauthorized(c, error.message);
-        }
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+      mapErrorToResponse(InvalidCredentialsError, unauthorized),
+    ),
   );
 };

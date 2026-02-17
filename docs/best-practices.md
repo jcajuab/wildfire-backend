@@ -190,6 +190,7 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - **DRY**: avoid duplication; prefer shared abstractions over copy-paste
 - **Architecture boundary check**: run `bun run check:architecture` to block forbidden inward dependency violations
 - **Thin routes**: keep route modules focused and split by subresource when handlers grow
+- **Route errors**: map use-case errors through shared route error handlers/mappers instead of repeating inline `try/catch` blocks in each route
 
 ---
 
@@ -215,6 +216,7 @@ Dependencies point **inward**. Outer layers can depend on inner layers, but not 
 - Use structured JSON logs at the interface boundary
 - Log error codes and statuses, not secrets or PII
 - Keep observability concerns in interface/infrastructure layers
+- Include `sessionId` and `fileId` when available to improve traceability across auth/content flows
 - Use action naming convention: `<module>.<resource>.<operation>` (example: `rbac.user.update`)
 - Set explicit route templates in action metadata (example: `/users/:id`)
 - Persist audit events for mutating/security actions with immutable metadata-only records

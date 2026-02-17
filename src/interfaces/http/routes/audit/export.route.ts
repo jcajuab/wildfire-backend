@@ -90,15 +90,17 @@ function getActorNameFallback(actorType: string | null): string {
   return "Unknown user";
 }
 
-async function buildActorNameMap(
+async function warmActorNameCache(
   events: AuditEventRecord[],
+  cache: Map<string, string>,
   userRepository: UserRepository,
   deviceRepository: DeviceRepository,
-): Promise<Map<string, string>> {
+): Promise<void> {
   const userIds = [
     ...new Set(
       events
         .filter((e) => e.actorType === "user" && e.actorId != null)
+        .filter((e) => !cache.has(`user:${e.actorId as string}`))
         .map((e) => e.actorId as string),
     ),
   ];
@@ -106,9 +108,14 @@ async function buildActorNameMap(
     ...new Set(
       events
         .filter((e) => e.actorType === "device" && e.actorId != null)
+        .filter((e) => !cache.has(`device:${e.actorId as string}`))
         .map((e) => e.actorId as string),
     ),
   ];
+
+  if (userIds.length === 0 && deviceIds.length === 0) {
+    return;
+  }
 
   const [users, devices] = await Promise.all([
     userIds.length > 0
@@ -119,26 +126,24 @@ async function buildActorNameMap(
       : Promise.resolve([]),
   ]);
 
-  const map = new Map<string, string>();
   for (const u of users) {
-    map.set(`user:${u.id}`, u.name);
+    cache.set(`user:${u.id}`, u.name);
   }
   for (const d of devices) {
-    map.set(`device:${d.id}`, d.name || d.identifier);
+    cache.set(`device:${d.id}`, d.name || d.identifier);
   }
-  return map;
 }
 
 function getActorName(
   event: AuditEventRecord,
-  nameMap: Map<string, string>,
+  cache: Map<string, string>,
 ): string {
   const key =
     event.actorId != null && event.actorType != null
       ? `${event.actorType}:${event.actorId}`
       : null;
   if (key != null) {
-    const resolved = nameMap.get(key);
+    const resolved = cache.get(key);
     if (resolved != null) return resolved;
   }
   return getActorNameFallback(event.actorType);
@@ -219,15 +224,17 @@ export const registerAuditExportRoute = (args: {
         const stream = new ReadableStream<Uint8Array>({
           async start(controller) {
             try {
+              const nameCache = new Map<string, string>();
               controller.enqueue(encoder.encode(`${CSV_HEADERS.join(",")}\n`));
               if (!firstChunk.done) {
-                const nameMap = await buildActorNameMap(
+                await warmActorNameCache(
                   firstChunk.value,
+                  nameCache,
                   userRepository,
                   deviceRepository,
                 );
                 for (const event of firstChunk.value) {
-                  const name = getActorName(event, nameMap);
+                  const name = getActorName(event, nameCache);
                   controller.enqueue(
                     encoder.encode(`${toCsvRow(event, name)}\n`),
                   );
@@ -237,13 +244,14 @@ export const registerAuditExportRoute = (args: {
               while (true) {
                 const nextChunk = await iterator.next();
                 if (nextChunk.done) break;
-                const nameMap = await buildActorNameMap(
+                await warmActorNameCache(
                   nextChunk.value,
+                  nameCache,
                   userRepository,
                   deviceRepository,
                 );
                 for (const event of nextChunk.value) {
-                  const name = getActorName(event, nameMap);
+                  const name = getActorName(event, nameCache);
                   controller.enqueue(
                     encoder.encode(`${toCsvRow(event, name)}\n`),
                   );

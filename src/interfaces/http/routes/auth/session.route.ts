@@ -1,13 +1,13 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
 import {
-  errorResponseSchema,
-  notFound,
-  unauthorized,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  mapErrorToResponse,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   type AuthMiddleware,
   type AuthRouter,
@@ -56,20 +56,17 @@ export const registerAuthSessionRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const userId = c.get("userId");
-      c.set("resourceId", userId);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const userId = c.get("userId");
+        c.set("resourceId", userId);
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);
         return c.json(body);
-      } catch (error) {
-        if (error instanceof InvalidCredentialsError) {
-          return unauthorized(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+      mapErrorToResponse(InvalidCredentialsError, unauthorized),
+    ),
   );
 
   router.post(
@@ -136,18 +133,14 @@ export const registerAuthSessionRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const userId = c.get("userId");
-      c.set("resourceId", userId);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const userId = c.get("userId");
+        c.set("resourceId", userId);
         await deps.deleteCurrentUserUseCase.execute({ userId });
         return c.body(null, 204);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

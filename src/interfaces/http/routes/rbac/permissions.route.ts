@@ -1,12 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ForbiddenError } from "#/application/errors/forbidden";
-import { NotFoundError } from "#/application/use-cases/rbac";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  errorResponseSchema,
-  forbidden,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import {
   roleIdParamSchema,
   setRolePermissionsSchema,
@@ -53,21 +51,17 @@ export const registerRbacPermissionRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         const permissions = await useCases.getRolePermissions.execute({
           roleId: params.id,
         });
         return c.json(permissions);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.put(
@@ -110,26 +104,19 @@ export const registerRbacPermissionRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      const payload = c.req.valid("json");
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        const payload = c.req.valid("json");
         const permissions = await useCases.setRolePermissions.execute({
           roleId: params.id,
           permissionIds: payload.permissionIds,
         });
         return c.json(permissions);
-      } catch (error) {
-        if (error instanceof ForbiddenError) {
-          return forbidden(c, error.message);
-        }
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(

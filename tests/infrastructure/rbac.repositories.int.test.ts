@@ -240,5 +240,8 @@ describe("RBAC repositories (integration)", () => {
 
     const values = result.map((item) => `${item.resource}:${item.action}`);
     expect(values).toEqual(["content:read"]);
+
+    const missing = await repo.findPermissionsForUser("missing-user");
+    expect(missing).toEqual([]);
   });
 });

@@ -1,7 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { NotFoundError } from "#/application/use-cases/rbac";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, notFound } from "#/interfaces/http/responses";
+import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import { roleIdParamSchema } from "#/interfaces/http/validators/rbac.schema";
 import { validateParams } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -41,20 +44,16 @@ export const registerRbacRoleUserRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const params = c.req.valid("param");
-      c.set("resourceId", params.id);
-      try {
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
         const users = await useCases.getRoleUsers.execute({
           roleId: params.id,
         });
         return c.json(users);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-        throw error;
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

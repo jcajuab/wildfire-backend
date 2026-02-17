@@ -1,3 +1,4 @@
+import { ValidationError } from "#/application/errors/validation";
 import {
   type ContentRepository,
   type ContentStorage,
@@ -6,7 +7,11 @@ import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { sha256Hex } from "#/domain/content/checksum";
-import { createDeviceProps, type DeviceInput } from "#/domain/devices/device";
+import {
+  createDeviceProps,
+  type DeviceInput,
+  DeviceValidationError,
+} from "#/domain/devices/device";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 
@@ -67,7 +72,15 @@ export class RegisterDeviceUseCase {
   constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
 
   async execute(input: DeviceInput) {
-    const props = createDeviceProps(input);
+    let props: ReturnType<typeof createDeviceProps>;
+    try {
+      props = createDeviceProps(input);
+    } catch (error) {
+      if (error instanceof DeviceValidationError) {
+        throw new ValidationError(error.message);
+      }
+      throw error;
+    }
     const existing = await this.deps.deviceRepository.findByIdentifier(
       props.identifier,
     );
@@ -102,12 +115,11 @@ export class GetDeviceActiveScheduleUseCase {
   ) {}
 
   async execute(input: { deviceId: string; now: Date }) {
-    const device = await this.deps.deviceRepository.findById(input.deviceId);
+    const [device, schedules] = await Promise.all([
+      this.deps.deviceRepository.findById(input.deviceId),
+      this.deps.scheduleRepository.listByDevice(input.deviceId),
+    ]);
     if (!device) throw new NotFoundError("Device not found");
-
-    const schedules = await this.deps.scheduleRepository.listByDevice(
-      input.deviceId,
-    );
     const active = selectActiveSchedule(
       schedules,
       input.now,
@@ -153,12 +165,11 @@ export class GetDeviceManifestUseCase {
   ) {}
 
   async execute(input: { deviceId: string; now: Date }) {
-    const device = await this.deps.deviceRepository.findById(input.deviceId);
+    const [device, schedules] = await Promise.all([
+      this.deps.deviceRepository.findById(input.deviceId),
+      this.deps.scheduleRepository.listByDevice(input.deviceId),
+    ]);
     if (!device) throw new NotFoundError("Device not found");
-
-    const schedules = await this.deps.scheduleRepository.listByDevice(
-      input.deviceId,
-    );
     const active = selectActiveSchedule(
       schedules,
       input.now,

@@ -47,6 +47,8 @@ const resolveIpAddress = (headers: {
   forwardedFor?: string;
   realIp?: string;
 }): string | undefined => {
+  // Deployment assumes these headers are set by trusted upstream proxies.
+  // If requests can bypass the proxy, these values can be spoofed.
   const forwardedFor = headers.forwardedFor?.split(",")[0]?.trim();
   if (forwardedFor) return forwardedFor;
 
