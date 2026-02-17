@@ -48,10 +48,15 @@ export const registerRbacRoleQueryRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const roles = await useCases.listRoles.execute();
-      return c.json(roles);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
+        const result = await useCases.listRoles.execute({ page, pageSize });
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(

@@ -4,15 +4,20 @@ import { NotFoundError } from "#/application/errors/not-found";
 import { ValidationError } from "#/application/errors/validation";
 import { badRequest, forbidden, notFound } from "#/interfaces/http/responses";
 
+// Hono Context is heavily generic (Context<E, P, I>). Using bare `Context`
+// breaks type inference for handlers with validated params/body. The `any`
+// here is deliberate type erasure so the wrapper is compatible with all
+// route handler signatures.
+// biome-ignore lint/suspicious/noExplicitAny: generic handler wrapper requires type erasure
 type RouteHandler = (c: any) => Response | Promise<Response>;
-type ErrorMapper = (c: any, error: unknown) => Response | null;
+type ErrorMapper = (c: Context, error: unknown) => Response | null;
 
-interface ErrorConstructor {
-  new (...args: any[]): Error;
-}
+// Constructor args need `any` to match Error subclasses with varying signatures.
+// biome-ignore lint/suspicious/noExplicitAny: generic Error class discriminator pattern
+type ErrorClass = new (...args: any[]) => Error;
 
 export const mapErrorToResponse = (
-  ErrorType: ErrorConstructor,
+  ErrorType: ErrorClass,
   responder: (c: Context, message: string) => Response,
 ): ErrorMapper => {
   return (c, error) => {

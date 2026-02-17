@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { Permission } from "#/domain/rbac/permission";
 import { db } from "#/infrastructure/db/client";
@@ -10,29 +10,16 @@ import {
 
 export class AuthorizationDbRepository implements AuthorizationRepository {
   async findPermissionsForUser(userId: string): Promise<Permission[]> {
-    const userRoleRows = await db
-      .select()
+    const rows = await db
+      .selectDistinct({
+        resource: permissions.resource,
+        action: permissions.action,
+      })
       .from(userRoles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
       .where(eq(userRoles.userId, userId));
 
-    const roleIds = userRoleRows.map((row) => row.roleId);
-    if (roleIds.length === 0) return [];
-
-    const rolePermissionRows = await db
-      .select()
-      .from(rolePermissions)
-      .where(inArray(rolePermissions.roleId, roleIds));
-
-    const permissionIds = rolePermissionRows.map((row) => row.permissionId);
-    if (permissionIds.length === 0) return [];
-
-    const permissionRows = await db
-      .select()
-      .from(permissions)
-      .where(inArray(permissions.id, permissionIds));
-
-    return permissionRows.map((permission) =>
-      Permission.parse(`${permission.resource}:${permission.action}`),
-    );
+    return rows.map((row) => Permission.parse(`${row.resource}:${row.action}`));
   }
 }

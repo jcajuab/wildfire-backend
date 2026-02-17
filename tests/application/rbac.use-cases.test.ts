@@ -35,14 +35,17 @@ describe("RBAC use cases", () => {
       } as never,
     });
 
-    await expect(useCase.execute()).resolves.toEqual([
+    const result = await useCase.execute();
+    expect(result.items).toEqual([
       { id: "user-1", email: "user@example.com", name: "User", isActive: true },
     ]);
+    expect(result.total).toBe(1);
   });
 
   test("CreateUserUseCase delegates to repository", async () => {
     const useCase = new CreateUserUseCase({
       userRepository: {
+        findByEmail: async () => null,
         create: async (input: {
           email: string;
           name: string;
@@ -292,7 +295,8 @@ describe("RBAC use cases", () => {
       } as never,
     });
 
-    await expect(useCase.execute()).resolves.toEqual([
+    const result = await useCase.execute();
+    expect(result.items).toEqual([
       {
         id: "role-1",
         name: "Admin",
@@ -301,6 +305,7 @@ describe("RBAC use cases", () => {
         usersCount: 2,
       },
     ]);
+    expect(result.total).toBe(1);
   });
 
   test("CreateRoleUseCase uses null description default", async () => {
@@ -409,9 +414,11 @@ describe("RBAC use cases", () => {
       } as never,
     });
 
-    await expect(useCase.execute()).resolves.toEqual([
+    const result = await useCase.execute();
+    expect(result.items).toEqual([
       { id: "perm-1", resource: "content", action: "read" },
     ]);
+    expect(result.total).toBe(1);
   });
 
   test("GetUserRolesUseCase returns roles for user", async () => {

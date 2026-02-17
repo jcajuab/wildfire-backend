@@ -6,6 +6,7 @@ import {
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { paginate } from "#/application/use-cases/shared/pagination";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
   createDeviceProps,
@@ -53,8 +54,9 @@ const mapWithConcurrency = async <T, R>(
 export class ListDevicesUseCase {
   constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
 
-  execute() {
-    return this.deps.deviceRepository.list();
+  async execute(input?: { page?: number; pageSize?: number }) {
+    const all = await this.deps.deviceRepository.list();
+    return paginate(all, input);
   }
 }
 

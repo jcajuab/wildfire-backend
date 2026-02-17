@@ -5,6 +5,7 @@ import {
   type PlaylistRepository,
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
+import { paginate } from "#/application/use-cases/shared/pagination";
 import { isValidDuration, isValidSequence } from "#/domain/playlists/playlist";
 import { NotFoundError } from "./errors";
 import { toPlaylistItemView, toPlaylistView } from "./playlist-view";
@@ -17,7 +18,7 @@ export class ListPlaylistsUseCase {
     },
   ) {}
 
-  async execute() {
+  async execute(input?: { page?: number; pageSize?: number }) {
     const playlists = await this.deps.playlistRepository.list();
     const creatorIds = Array.from(
       new Set(playlists.map((item) => item.createdById)),
@@ -25,12 +26,13 @@ export class ListPlaylistsUseCase {
     const creators = await this.deps.userRepository.findByIds(creatorIds);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
-    return playlists.map((playlist) =>
+    const views = playlists.map((playlist) =>
       toPlaylistView(
         playlist,
         creatorsById.get(playlist.createdById)?.name ?? null,
       ),
     );
+    return paginate(views, input);
   }
 }
 

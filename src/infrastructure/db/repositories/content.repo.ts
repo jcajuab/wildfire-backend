@@ -42,6 +42,7 @@ export class ContentDbRepository implements ContentRepository {
   async create(
     input: Omit<ContentRecord, "createdAt">,
   ): Promise<ContentRecord> {
+    const now = new Date();
     await db.insert(content).values({
       id: input.id,
       title: input.title,
@@ -55,13 +56,13 @@ export class ContentDbRepository implements ContentRepository {
       height: input.height,
       duration: input.duration,
       createdById: input.createdById,
+      createdAt: now,
     });
 
-    const record = await this.findById(input.id);
-    if (!record) {
-      throw new Error("Failed to load created content record");
-    }
-    return record;
+    return {
+      ...input,
+      createdAt: now.toISOString(),
+    };
   }
 
   async findById(id: string): Promise<ContentRecord | null> {

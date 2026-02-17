@@ -1,4 +1,5 @@
 import {
+  type ContentRecord,
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
@@ -44,20 +45,27 @@ export class UploadContentUseCase {
       contentLength: input.file.size,
     });
 
-    const record = await this.deps.contentRepository.create({
-      id,
-      title: input.title,
-      type,
-      status: "DRAFT",
-      fileKey,
-      checksum,
-      mimeType,
-      fileSize: input.file.size,
-      width: null,
-      height: null,
-      duration: null,
-      createdById: user.id,
-    });
+    let record: ContentRecord;
+    try {
+      record = await this.deps.contentRepository.create({
+        id,
+        title: input.title,
+        type,
+        status: "DRAFT",
+        fileKey,
+        checksum,
+        mimeType,
+        fileSize: input.file.size,
+        width: null,
+        height: null,
+        duration: null,
+        createdById: user.id,
+      });
+    } catch (error) {
+      // Clean up orphan storage file if DB insert fails
+      await this.deps.contentStorage.delete(fileKey).catch(() => {});
+      throw error;
+    }
 
     return toContentView(record, user.name);
   }

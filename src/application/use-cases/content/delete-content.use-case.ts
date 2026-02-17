@@ -26,10 +26,12 @@ export class DeleteContentUseCase {
       );
     }
 
-    await this.deps.contentStorage.delete(record.fileKey);
     const deleted = await this.deps.contentRepository.delete(input.id);
     if (!deleted) {
       throw new NotFoundError("Content not found");
     }
+    // Storage deletion after DB commit: orphan files are recoverable,
+    // ghost DB records pointing to missing files are not.
+    await this.deps.contentStorage.delete(record.fileKey).catch(() => {});
   }
 }

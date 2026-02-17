@@ -40,6 +40,14 @@ export const createPermissionMiddleware = (deps: {
       if (parsed.data.email) {
         c.set("userEmail", parsed.data.email);
       }
+      // Extract sessionId matching requireJwtUser pattern
+      if (parsed.data.sid) {
+        c.set("sessionId", parsed.data.sid);
+      } else if (parsed.data.jti) {
+        c.set("sessionId", parsed.data.jti);
+      } else if (parsed.data.iat) {
+        c.set("sessionId", `${parsed.data.sub}:${parsed.data.iat}`);
+      }
 
       const allowed = await checkPermission.execute({
         userId: parsed.data.sub,

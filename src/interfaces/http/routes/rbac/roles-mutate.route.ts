@@ -64,12 +64,15 @@ export const registerRbacRoleMutateRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      const role = await useCases.createRole.execute(payload);
-      c.set("resourceId", role.id);
-      return c.json(role, 201);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const role = await useCases.createRole.execute(payload);
+        c.set("resourceId", role.id);
+        return c.json(role, 201);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.patch(

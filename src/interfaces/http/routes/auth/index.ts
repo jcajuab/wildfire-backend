@@ -25,7 +25,7 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
   registerAuthLoginRoute({ router, deps, useCases });
   registerAuthSessionRoutes({ router, deps, useCases, jwtMiddleware });
   registerAuthPasswordRoute({ router, deps, jwtMiddleware });
-  registerAuthPasswordResetRoutes({ router, deps });
+  registerAuthPasswordResetRoutes({ router, deps, useCases });
   registerAuthAvatarRoute({ router, deps, useCases, jwtMiddleware });
 
   return router;

@@ -61,7 +61,7 @@ describe("Devices use cases", () => {
     });
 
     const result = await listDevices.execute();
-    expect(result).toHaveLength(1);
+    expect(result.items).toHaveLength(1);
   });
 
   test("GetDeviceUseCase throws when missing", async () => {

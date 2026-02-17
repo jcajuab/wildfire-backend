@@ -32,3 +32,17 @@ export interface AuthSessionRepository {
   revokeAllForUser(userId: string): Promise<void>;
   isActive(sessionId: string, now: Date): Promise<boolean>;
 }
+
+export interface PasswordResetTokenRepository {
+  store(input: {
+    hashedToken: string;
+    email: string;
+    expiresAt: Date;
+  }): Promise<void>;
+  findByHashedToken(
+    hashedToken: string,
+    now: Date,
+  ): Promise<{ email: string } | null>;
+  consumeByHashedToken(hashedToken: string): Promise<void>;
+  deleteExpired(now: Date): Promise<void>;
+}

@@ -7,6 +7,42 @@ interface AttemptState {
 export class InMemoryAuthSecurityStore {
   private readonly loginAttempts = new Map<string, AttemptState>();
   private readonly endpointAttempts = new Map<string, AttemptState>();
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Start periodic sweep of expired entries (default: every 5 minutes). */
+  startCleanup(intervalMs = 5 * 60 * 1000): void {
+    if (this.cleanupTimer) return;
+    this.cleanupTimer = setInterval(() => this.sweep(Date.now()), intervalMs);
+    // Allow the process to exit without waiting for the timer
+    if (typeof this.cleanupTimer === "object" && "unref" in this.cleanupTimer) {
+      this.cleanupTimer.unref();
+    }
+  }
+
+  stopCleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+  }
+
+  /** Remove entries whose window has expired. */
+  private sweep(nowMs: number): void {
+    // Max window we track is 15 minutes; sweep anything older than 30 min
+    const staleThresholdMs = 30 * 60 * 1000;
+    for (const [key, state] of this.loginAttempts) {
+      const age = nowMs - state.firstAttemptAtMs;
+      const pastLockout = !state.lockedUntilMs || state.lockedUntilMs <= nowMs;
+      if (age > staleThresholdMs && pastLockout) {
+        this.loginAttempts.delete(key);
+      }
+    }
+    for (const [key, state] of this.endpointAttempts) {
+      if (nowMs - state.firstAttemptAtMs > staleThresholdMs) {
+        this.endpointAttempts.delete(key);
+      }
+    }
+  }
 
   checkLoginAllowed(
     key: string,

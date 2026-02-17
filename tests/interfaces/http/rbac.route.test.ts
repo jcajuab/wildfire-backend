@@ -363,9 +363,12 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ name: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.name).toBe("Super Admin");
+    const body = await parseJson<{
+      items: Array<{ name: string }>;
+      total: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]?.name).toBe("Super Admin");
   });
 
   test("POST /roles creates a role", async () => {
@@ -596,8 +599,11 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
+    const body = await parseJson<{
+      items: Array<{ id: string }>;
+      total: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
   });
 
   test("GET /users returns users", async () => {
@@ -609,9 +615,12 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ email: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.email).toBe("admin@example.com");
+    const body = await parseJson<{
+      items: Array<{ email: string }>;
+      total: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]?.email).toBe("admin@example.com");
   });
 
   test("GET /users returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
@@ -623,18 +632,18 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body =
-      await parseJson<
-        Array<{
-          id: string;
-          email: string;
-          avatarUrl?: string;
-          avatarKey?: string;
-        }>
-      >(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.avatarUrl).toBe(presignedUrl);
-    expect(body[0]).not.toHaveProperty("avatarKey");
+    const body = await parseJson<{
+      items: Array<{
+        id: string;
+        email: string;
+        avatarUrl?: string;
+        avatarKey?: string;
+      }>;
+      total: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]?.avatarUrl).toBe(presignedUrl);
+    expect(body.items[0]).not.toHaveProperty("avatarKey");
   });
 
   test("GET /users/:id returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {

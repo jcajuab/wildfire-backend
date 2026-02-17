@@ -226,9 +226,9 @@ describe("Schedules use cases", () => {
     });
 
     const result = await useCase.execute();
-    expect(result).toHaveLength(1);
-    expect(result[0]?.playlist?.id).toBe("playlist-1");
-    expect(result[0]?.device?.id).toBe("device-1");
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.playlist?.id).toBe("playlist-1");
+    expect(result.items[0]?.device?.id).toBe("device-1");
     expect(playlistFindByIdsCalls).toBe(1);
     expect(deviceFindByIdsCalls).toBe(1);
     expect(playlistListCalls).toBe(0);

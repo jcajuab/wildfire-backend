@@ -109,6 +109,12 @@ const buildAuthActionApp = () => {
     authLoginRateLimitWindowSeconds: 60,
     authLoginLockoutThreshold: 10,
     authLoginLockoutSeconds: 60,
+    passwordResetTokenRepository: {
+      store: async () => {},
+      findByHashedToken: async () => null,
+      consumeByHashedToken: async () => {},
+      deleteExpired: async () => {},
+    },
     deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository,

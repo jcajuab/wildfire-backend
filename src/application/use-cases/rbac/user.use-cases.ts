@@ -4,7 +4,11 @@ import {
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
+import {
+  DuplicateEmailError,
+  NotFoundError,
+} from "#/application/use-cases/rbac/errors";
+import { paginate } from "#/application/use-cases/shared/pagination";
 
 export class GetUserRolesUseCase {
   constructor(
@@ -32,15 +36,20 @@ export class GetUserRolesUseCase {
 export class ListUsersUseCase {
   constructor(private readonly deps: { userRepository: UserRepository }) {}
 
-  execute() {
-    return this.deps.userRepository.list();
+  async execute(input?: { page?: number; pageSize?: number }) {
+    const all = await this.deps.userRepository.list();
+    return paginate(all, input);
   }
 }
 
 export class CreateUserUseCase {
   constructor(private readonly deps: { userRepository: UserRepository }) {}
 
-  execute(input: { email: string; name: string; isActive?: boolean }) {
+  async execute(input: { email: string; name: string; isActive?: boolean }) {
+    const existing = await this.deps.userRepository.findByEmail(input.email);
+    if (existing) {
+      throw new DuplicateEmailError();
+    }
     return this.deps.userRepository.create({
       email: input.email,
       name: input.name,
@@ -77,7 +86,9 @@ async function ensureCallerCanModifySuperAdminUser(
   const targetRoleIds = targetAssignments.map((a) => a.roleId);
   if (!targetRoleIds.includes(systemRole.id)) return;
 
-  if (callerUserId === undefined) return;
+  if (callerUserId === undefined) {
+    throw new ForbiddenError(forbiddenMessage);
+  }
 
   const callerAssignments =
     await deps.userRoleRepository.listRolesByUserId(callerUserId);

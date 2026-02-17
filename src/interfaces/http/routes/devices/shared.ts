@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import {
@@ -81,12 +82,17 @@ export const createDevicesUseCases = (
   }),
 });
 
+const safeCompare = (a: string, b: string): boolean => {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+};
+
 export const createRequireDeviceApiKey = (
   apiKey: string,
 ): DeviceAuthMiddleware => {
   return async (c, next) => {
     const header = c.req.header("x-api-key");
-    if (!header || header !== apiKey) {
+    if (!header || !safeCompare(header, apiKey)) {
       return unauthorized(c, "Invalid API key");
     }
     await next();

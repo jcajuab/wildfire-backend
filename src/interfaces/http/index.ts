@@ -37,6 +37,7 @@ export const app = new Hono<{ Variables: RequestIdVariables }>();
 const tokenTtlSeconds = 60 * 60;
 const avatarUrlExpiresInSeconds = 60 * 60;
 const authSecurityStore = new InMemoryAuthSecurityStore();
+authSecurityStore.startCleanup();
 
 const container = createHttpContainer({
   jwtSecret: env.JWT_SECRET,
@@ -101,6 +102,8 @@ const authRouter = createAuthRouter({
   authLoginRateLimitWindowSeconds: env.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
   authLoginLockoutThreshold: env.AUTH_LOGIN_LOCKOUT_THRESHOLD,
   authLoginLockoutSeconds: env.AUTH_LOGIN_LOCKOUT_SECONDS,
+  passwordResetTokenRepository:
+    container.repositories.passwordResetTokenRepository,
   deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({
     userRepository: container.repositories.userRepository,
   }),

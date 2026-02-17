@@ -2,6 +2,7 @@ import { ValidationError } from "#/application/errors/validation";
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { paginate } from "#/application/use-cases/shared/pagination";
 import {
   isValidDaysOfWeek,
   isValidTime,
@@ -19,7 +20,7 @@ export class ListSchedulesUseCase {
     },
   ) {}
 
-  async execute() {
+  async execute(input?: { page?: number; pageSize?: number }) {
     const schedules = await this.deps.scheduleRepository.list();
     const playlistIds = [
       ...new Set(schedules.map((schedule) => schedule.playlistId)),
@@ -34,13 +35,14 @@ export class ListSchedulesUseCase {
     const playlistMap = new Map(playlists.map((item) => [item.id, item]));
     const deviceMap = new Map(devices.map((item) => [item.id, item]));
 
-    return schedules.map((schedule) =>
+    const views = schedules.map((schedule) =>
       toScheduleView(
         schedule,
         playlistMap.get(schedule.playlistId) ?? null,
         deviceMap.get(schedule.deviceId) ?? null,
       ),
     );
+    return paginate(views, input);
   }
 }
 

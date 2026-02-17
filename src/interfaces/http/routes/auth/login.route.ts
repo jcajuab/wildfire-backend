@@ -75,10 +75,12 @@ export const registerAuthLoginRoute = (args: {
       async (c) => {
         const payload = c.req.valid("json");
         const nowMs = Date.now();
-        const loginKey = `${payload.email.toLowerCase()}|${resolveClientIp({
+        const emailLower = payload.email.toLowerCase();
+        const ip = resolveClientIp({
           forwardedFor: c.req.header("x-forwarded-for"),
           realIp: c.req.header("x-real-ip"),
-        })}`;
+        });
+        const loginKey = `${emailLower}|${ip}`;
         const allowed = deps.authSecurityStore.checkLoginAllowed(
           loginKey,
           nowMs,
@@ -94,12 +96,30 @@ export const registerAuthLoginRoute = (args: {
             429,
           );
         }
+        // Per-email-only rate limit: prevents brute-force even with IP rotation
         if (
           !deps.authSecurityStore.consumeEndpointAttempt({
-            key: `login-window|${resolveClientIp({
-              forwardedFor: c.req.header("x-forwarded-for"),
-              realIp: c.req.header("x-real-ip"),
-            })}`,
+            key: `login-email|${emailLower}`,
+            nowMs,
+            windowSeconds: deps.authLoginRateLimitWindowSeconds,
+            maxAttempts: 10,
+          })
+        ) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message:
+                  "Too many login attempts for this account. Try again later.",
+              },
+            },
+            429,
+          );
+        }
+        // Per-IP rate limit: secondary layer
+        if (
+          !deps.authSecurityStore.consumeEndpointAttempt({
+            key: `login-window|${ip}`,
             nowMs,
             windowSeconds: deps.authLoginRateLimitWindowSeconds,
             maxAttempts: deps.authLoginRateLimitMaxAttempts,

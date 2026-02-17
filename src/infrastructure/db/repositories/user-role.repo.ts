@@ -38,10 +38,12 @@ export class UserRoleDbRepository implements UserRoleRepository {
   }
 
   async setUserRoles(userId: string, roleIds: string[]): Promise<void> {
-    await db.delete(userRoles).where(eq(userRoles.userId, userId));
-    if (roleIds.length === 0) return;
-    await db
-      .insert(userRoles)
-      .values(roleIds.map((roleId) => ({ userId, roleId })));
+    await db.transaction(async (tx) => {
+      await tx.delete(userRoles).where(eq(userRoles.userId, userId));
+      if (roleIds.length === 0) return;
+      await tx
+        .insert(userRoles)
+        .values(roleIds.map((roleId) => ({ userId, roleId })));
+    });
   }
 }

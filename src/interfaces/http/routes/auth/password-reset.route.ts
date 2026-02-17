@@ -2,25 +2,36 @@ import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
+import {
   postAuthForgotPasswordSchema,
   postAuthResetPasswordSchema,
 } from "#/interfaces/http/validators/auth.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
-import { type AuthRouter, type AuthRouterDeps, authTags } from "./shared";
+import {
+  type AuthRouter,
+  type AuthRouterDeps,
+  type AuthRouterUseCases,
+  authTags,
+} from "./shared";
 
-interface PasswordResetRequest {
-  readonly email: string;
-  readonly expiresAtMs: number;
-}
-
-const passwordResetRequests = new Map<string, PasswordResetRequest>();
-const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
+const resolveClientIp = (headers: {
+  forwardedFor?: string;
+  realIp?: string;
+}): string => {
+  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  return headers.realIp?.trim() || "unknown";
+};
 
 export const registerAuthPasswordResetRoutes = (args: {
   router: AuthRouter;
   deps: AuthRouterDeps;
+  useCases: AuthRouterUseCases;
 }) => {
-  const { router, deps } = args;
+  const { router, deps, useCases } = args;
 
   router.post(
     "/forgot-password",
@@ -34,20 +45,46 @@ export const registerAuthPasswordResetRoutes = (args: {
       tags: authTags,
       responses: {
         204: { description: "Reset request accepted" },
+        429: {
+          description: "Too many requests",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      const user = await deps.userRepository.findByEmail(payload.email);
-      if (user) {
-        const token = crypto.randomUUID();
-        passwordResetRequests.set(token, {
-          email: payload.email,
-          expiresAtMs: Date.now() + PASSWORD_RESET_TTL_MS,
+    withRouteErrorHandling(
+      async (c) => {
+        const ip = resolveClientIp({
+          forwardedFor: c.req.header("x-forwarded-for"),
+          realIp: c.req.header("x-real-ip"),
         });
-      }
-      return c.body(null, 204);
-    },
+        const allowed = deps.authSecurityStore.consumeEndpointAttempt({
+          key: `forgot-password|${ip}`,
+          nowMs: Date.now(),
+          windowSeconds: deps.authLoginRateLimitWindowSeconds,
+          maxAttempts: 5,
+        });
+        if (!allowed) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message: "Too many password reset requests. Try again later.",
+              },
+            },
+            429,
+          );
+        }
+
+        const payload = c.req.valid("json");
+        await useCases.forgotPassword.execute({ email: payload.email });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.post(
@@ -70,34 +107,48 @@ export const registerAuthPasswordResetRoutes = (args: {
             },
           },
         },
-      },
-    }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      const reset = passwordResetRequests.get(payload.token);
-      if (!reset || reset.expiresAtMs <= Date.now()) {
-        return c.json(
-          {
-            error: {
-              code: "INVALID_TOKEN",
-              message: "Reset token is invalid or expired.",
+        429: {
+          description: "Too many requests",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
             },
           },
-          400,
-        );
-      }
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const ip = resolveClientIp({
+          forwardedFor: c.req.header("x-forwarded-for"),
+          realIp: c.req.header("x-real-ip"),
+        });
+        const allowed = deps.authSecurityStore.consumeEndpointAttempt({
+          key: `reset-password|${ip}`,
+          nowMs: Date.now(),
+          windowSeconds: deps.authLoginRateLimitWindowSeconds,
+          maxAttempts: 10,
+        });
+        if (!allowed) {
+          return c.json(
+            {
+              error: {
+                code: "TOO_MANY_REQUESTS",
+                message: "Too many reset attempts. Try again later.",
+              },
+            },
+            429,
+          );
+        }
 
-      const passwordHash = await deps.passwordHasher.hash(payload.newPassword);
-      await deps.credentialsRepository.updatePasswordHash(
-        reset.email,
-        passwordHash,
-      );
-      const user = await deps.userRepository.findByEmail(reset.email);
-      if (user) {
-        await deps.authSessionRepository.revokeAllForUser(user.id);
-      }
-      passwordResetRequests.delete(payload.token);
-      return c.body(null, 204);
-    },
+        const payload = c.req.valid("json");
+        await useCases.resetPassword.execute({
+          token: payload.token,
+          newPassword: payload.newPassword,
+        });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

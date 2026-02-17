@@ -1,8 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { DuplicateEmailError } from "#/application/use-cases/rbac/errors";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import { conflict, errorResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
+  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
@@ -43,11 +45,24 @@ export const registerRbacUserCrudRoutes = (args: {
         200: { description: "Users" },
       },
     }),
-    async (c) => {
-      const users = await useCases.listUsers.execute();
-      const enriched = await maybeEnrichUsersForResponse(users, deps);
-      return c.json(enriched);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
+        const result = await useCases.listUsers.execute({ page, pageSize });
+        const enrichedItems = await maybeEnrichUsersForResponse(
+          result.items,
+          deps,
+        );
+        return c.json({
+          items: enrichedItems,
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize,
+        });
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.post(
@@ -73,12 +88,16 @@ export const registerRbacUserCrudRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const payload = c.req.valid("json");
-      const user = await useCases.createUser.execute(payload);
-      c.set("resourceId", user.id);
-      return c.json(user, 201);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const user = await useCases.createUser.execute(payload);
+        c.set("resourceId", user.id);
+        return c.json(user, 201);
+      },
+      mapErrorToResponse(DuplicateEmailError, conflict),
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(

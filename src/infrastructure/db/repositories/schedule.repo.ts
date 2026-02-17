@@ -60,6 +60,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
     isActive: boolean;
   }): Promise<ScheduleRecord> {
     const id = crypto.randomUUID();
+    const now = new Date();
     await db.insert(schedules).values({
       id,
       name: input.name,
@@ -70,11 +71,16 @@ export class ScheduleDbRepository implements ScheduleRepository {
       daysOfWeek: input.daysOfWeek,
       priority: input.priority,
       isActive: input.isActive,
+      createdAt: now,
+      updatedAt: now,
     });
 
-    const record = await this.findById(id);
-    if (!record) throw new Error("Failed to load created schedule record");
-    return record;
+    return {
+      id,
+      ...input,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
   }
 
   async update(
@@ -104,16 +110,20 @@ export class ScheduleDbRepository implements ScheduleRepository {
       isActive: input.isActive ?? existing.isActive,
     };
 
+    const now = new Date();
     await db
       .update(schedules)
       .set({
         ...next,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(schedules.id, id));
 
-    const updated = await this.findById(id);
-    return updated ?? { ...existing, ...next, updatedAt: existing.updatedAt };
+    return {
+      ...existing,
+      ...next,
+      updatedAt: now.toISOString(),
+    };
   }
 
   async delete(id: string): Promise<boolean> {

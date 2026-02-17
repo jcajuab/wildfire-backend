@@ -17,10 +17,16 @@ export class RolePermissionDbRepository implements RolePermissionRepository {
     roleId: string,
     permissionIds: string[],
   ): Promise<void> {
-    await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
-    if (permissionIds.length === 0) return;
-    await db
-      .insert(rolePermissions)
-      .values(permissionIds.map((permissionId) => ({ roleId, permissionId })));
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(rolePermissions)
+        .where(eq(rolePermissions.roleId, roleId));
+      if (permissionIds.length === 0) return;
+      await tx
+        .insert(rolePermissions)
+        .values(
+          permissionIds.map((permissionId) => ({ roleId, permissionId })),
+        );
+    });
   }
 }

@@ -43,10 +43,15 @@ export const registerScheduleQueryRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const items = await useCases.listSchedules.execute();
-      return c.json({ items });
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
+        const result = await useCases.listSchedules.execute({ page, pageSize });
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(

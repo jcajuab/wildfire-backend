@@ -1,15 +1,14 @@
 import { bodyLimit } from "hono/body-limit";
 import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
 import { logger } from "#/infrastructure/observability/logger";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
-  errorResponseSchema,
-  internalServerError,
-  notFound,
-} from "#/interfaces/http/responses";
+  applicationErrorMappers,
+  withRouteErrorHandling,
+} from "#/interfaces/http/routes/shared/error-handling";
 import { avatarUploadSchema } from "#/interfaces/http/validators/auth.schema";
 import { validateForm } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -79,13 +78,13 @@ export const registerAuthAvatarRoute = (args: {
         },
       },
     }),
-    async (c) => {
-      const userId = c.get("userId");
-      c.set("resourceId", userId);
-      const payload = c.req.valid("form");
-      logger.info({ userId }, "avatar upload start");
+    withRouteErrorHandling(
+      async (c) => {
+        const userId = c.get("userId");
+        c.set("resourceId", userId);
+        const payload = c.req.valid("form");
+        logger.info({ userId }, "avatar upload start");
 
-      try {
         const file = payload.file;
         const buffer = await file.arrayBuffer();
 
@@ -108,29 +107,8 @@ export const registerAuthAvatarRoute = (args: {
           expires: new Date(body.expiresAt),
         });
         return c.json(body);
-      } catch (error) {
-        if (error instanceof NotFoundError) {
-          return notFound(c, error.message);
-        }
-
-        const err = error instanceof Error ? error : new Error(String(error));
-        logger.error(
-          {
-            err,
-            userId,
-            errorMessage: err.message,
-            errorName: err.name,
-          },
-          "avatar upload failed",
-        );
-
-        const message =
-          process.env.NODE_ENV === "development"
-            ? `Failed to upload profile picture: ${err.message}`
-            : "Failed to upload profile picture. Please try again.";
-
-        return internalServerError(c, message);
-      }
-    },
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

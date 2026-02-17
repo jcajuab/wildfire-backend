@@ -26,11 +26,9 @@ export class SetCurrentUserAvatarUseCase {
     if (!user) throw new NotFoundError("User not found");
 
     const key = `${AVATAR_KEY_PREFIX}${input.userId}`;
+    const oldKey = user.avatarKey;
 
-    if (user.avatarKey) {
-      await this.deps.storage.delete(user.avatarKey);
-    }
-
+    // Upload new avatar first; if this fails the old avatar stays intact
     await this.deps.storage.upload({
       key,
       body: input.body,
@@ -39,6 +37,12 @@ export class SetCurrentUserAvatarUseCase {
     });
 
     await this.deps.userRepository.update(input.userId, { avatarKey: key });
+
+    // Delete old avatar only after new one is persisted
+    if (oldKey && oldKey !== key) {
+      await this.deps.storage.delete(oldKey).catch(() => {});
+    }
+
     return { avatarKey: key };
   }
 }

@@ -5,6 +5,7 @@ import {
   type Clock,
   type CredentialsRepository,
   type PasswordHasher,
+  type PasswordResetTokenRepository,
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
@@ -16,7 +17,9 @@ import {
 import {
   AuthenticateUserUseCase,
   type ChangeCurrentUserPasswordUseCase,
+  ForgotPasswordUseCase,
   RefreshSessionUseCase,
+  ResetPasswordUseCase,
   type SetCurrentUserAvatarUseCase,
   type UpdateCurrentUserProfileUseCase,
 } from "#/application/use-cases/auth";
@@ -43,6 +46,7 @@ export interface AuthRouterDeps {
   authLoginRateLimitWindowSeconds: number;
   authLoginLockoutThreshold: number;
   authLoginLockoutSeconds: number;
+  passwordResetTokenRepository: PasswordResetTokenRepository;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
   updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
@@ -54,6 +58,8 @@ export interface AuthRouterDeps {
 export interface AuthRouterUseCases {
   authenticateUser: AuthenticateUserUseCase;
   refreshSession: RefreshSessionUseCase;
+  forgotPassword: ForgotPasswordUseCase;
+  resetPassword: ResetPasswordUseCase;
 }
 
 export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -111,6 +117,17 @@ export const createAuthUseCases = (
     clock: deps.clock,
     tokenTtlSeconds: deps.tokenTtlSeconds,
     issuer: deps.issuer,
+    authSessionRepository: deps.authSessionRepository,
+  }),
+  forgotPassword: new ForgotPasswordUseCase({
+    userRepository: deps.userRepository,
+    passwordResetTokenRepository: deps.passwordResetTokenRepository,
+  }),
+  resetPassword: new ResetPasswordUseCase({
+    passwordResetTokenRepository: deps.passwordResetTokenRepository,
+    credentialsRepository: deps.credentialsRepository,
+    passwordHasher: deps.passwordHasher,
+    userRepository: deps.userRepository,
     authSessionRepository: deps.authSessionRepository,
   }),
 });

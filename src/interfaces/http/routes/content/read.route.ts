@@ -65,11 +65,14 @@ export const registerContentReadRoutes = (args: {
         },
       },
     }),
-    async (c) => {
-      const query = c.req.valid("query");
-      const result = await useCases.listContent.execute(query);
-      return c.json(result);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listContent.execute(query);
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.get(

@@ -139,7 +139,7 @@ describe("Playlists use cases", () => {
     });
 
     const result = await useCase.execute();
-    expect(result[0]?.createdBy.name).toBe("User");
+    expect(result.items[0]?.createdBy.name).toBe("User");
   });
 
   test("CreatePlaylistUseCase returns playlist", async () => {

@@ -152,9 +152,17 @@ export const registerRbacPermissionRoutes = (args: {
         200: { description: "Permissions" },
       },
     }),
-    async (c) => {
-      const permissions = await useCases.listPermissions.execute();
-      return c.json(permissions);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
+        const result = await useCases.listPermissions.execute({
+          page,
+          pageSize,
+        });
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 };

@@ -61,18 +61,24 @@ export class DeviceDbRepository implements DeviceRepository {
     location: string | null;
   }): Promise<DeviceRecord> {
     const id = crypto.randomUUID();
+    const now = new Date();
     await db.insert(devices).values({
       id,
       name: input.name,
       identifier: input.identifier,
       location: input.location,
+      createdAt: now,
+      updatedAt: now,
     });
 
-    const record = await this.findById(id);
-    if (!record) {
-      throw new Error("Failed to load created device record");
-    }
-    return record;
+    return {
+      id,
+      name: input.name,
+      identifier: input.identifier,
+      location: input.location,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
   }
 
   async update(
@@ -84,19 +90,24 @@ export class DeviceDbRepository implements DeviceRepository {
 
     const next = {
       name: input.name ?? existing.name,
-      location: input.location ?? existing.location,
+      location:
+        input.location !== undefined ? input.location : existing.location,
     };
 
+    const now = new Date();
     await db
       .update(devices)
       .set({
         name: next.name,
         location: next.location,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(devices.id, id));
 
-    const updated = await this.findById(id);
-    return updated ?? { ...existing, ...next, updatedAt: existing.updatedAt };
+    return {
+      ...existing,
+      ...next,
+      updatedAt: now.toISOString(),
+    };
   }
 }

@@ -105,15 +105,18 @@ export const registerAuthSessionRoutes = (args: {
         },
       },
     }),
-    (c) => {
-      c.set("resourceId", c.get("userId"));
-      const sessionId = c.get("sessionId");
-      if (sessionId) {
-        void deps.authSessionRepository.revokeById(sessionId);
-      }
-      deleteCookie(c, deps.authSessionCookieName, { path: "/" });
-      return c.body(null, 204);
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        c.set("resourceId", c.get("userId"));
+        const sessionId = c.get("sessionId");
+        if (sessionId) {
+          await deps.authSessionRepository.revokeById(sessionId);
+        }
+        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.delete(

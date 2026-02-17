@@ -66,16 +66,24 @@ export class PlaylistDbRepository implements PlaylistRepository {
     createdById: string;
   }): Promise<PlaylistRecord> {
     const id = crypto.randomUUID();
+    const now = new Date();
     await db.insert(playlists).values({
       id,
       name: input.name,
       description: input.description,
       createdById: input.createdById,
+      createdAt: now,
+      updatedAt: now,
     });
 
-    const record = await this.findById(id);
-    if (!record) throw new Error("Failed to load created playlist record");
-    return record;
+    return {
+      id,
+      name: input.name,
+      description: input.description,
+      createdById: input.createdById,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
   }
 
   async update(
@@ -93,17 +101,21 @@ export class PlaylistDbRepository implements PlaylistRepository {
           : existing.description,
     };
 
+    const now = new Date();
     await db
       .update(playlists)
       .set({
         name: next.name,
         description: next.description,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(playlists.id, id));
 
-    const updated = await this.findById(id);
-    return updated ?? { ...existing, ...next, updatedAt: existing.updatedAt };
+    return {
+      ...existing,
+      ...next,
+      updatedAt: now.toISOString(),
+    };
   }
 
   async delete(id: string): Promise<boolean> {
@@ -152,13 +164,13 @@ export class PlaylistDbRepository implements PlaylistRepository {
       duration: input.duration,
     });
 
-    const rows = await db
-      .select()
-      .from(playlistItems)
-      .where(eq(playlistItems.id, id))
-      .limit(1);
-    if (!rows[0]) throw new Error("Failed to load playlist item");
-    return toItemRecord(rows[0]);
+    return {
+      id,
+      playlistId: input.playlistId,
+      contentId: input.contentId,
+      sequence: input.sequence,
+      duration: input.duration,
+    };
   }
 
   async updateItem(

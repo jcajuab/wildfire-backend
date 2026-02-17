@@ -8,6 +8,10 @@ import {
   type UserRoleRepository,
 } from "#/application/ports/rbac";
 import { NotFoundError } from "#/application/use-cases/rbac/errors";
+import {
+  type PaginatedResult,
+  paginate,
+} from "#/application/use-cases/shared/pagination";
 
 export class ListRolesUseCase {
   constructor(
@@ -17,15 +21,19 @@ export class ListRolesUseCase {
     },
   ) {}
 
-  async execute(): Promise<RoleWithUserCount[]> {
+  async execute(input?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<PaginatedResult<RoleWithUserCount>> {
     const roles = await this.deps.roleRepository.list();
     const roleIds = roles.map((r) => r.id);
     const counts =
       await this.deps.userRoleRepository.listUserCountByRoleIds(roleIds);
-    return roles.map((r) => ({
+    const enriched = roles.map((r) => ({
       ...r,
       usersCount: counts[r.id] ?? 0,
     }));
+    return paginate(enriched, input);
   }
 }
 
