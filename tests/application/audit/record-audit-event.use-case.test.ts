@@ -72,9 +72,26 @@ describe("RecordAuditEventUseCase", () => {
       resourceType: "user",
       ipAddress: "127.0.0.1",
       userAgent: "Mozilla",
-      metadataJson: undefined,
+      metadataJson: '{"secret":"[REDACTED]"}',
       occurredAt: undefined,
     });
+  });
+
+  test("throws when metadataJson is not valid JSON", async () => {
+    const { repository } = makeRepository();
+    const useCase = new RecordAuditEventUseCase({
+      auditEventRepository: repository,
+    });
+
+    await expect(
+      useCase.execute({
+        action: "rbac.user.update",
+        method: "PATCH",
+        path: "/users/1",
+        status: 200,
+        metadataJson: "{not-json}",
+      }),
+    ).rejects.toThrow("metadataJson must be valid JSON");
   });
 
   test("throws when action is empty", async () => {

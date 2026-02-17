@@ -16,6 +16,8 @@ export interface AuditEventRecord {
   ipAddress: string | null;
   userAgent: string | null;
   metadataJson: string | null;
+  actorName?: string | null;
+  actorEmail?: string | null;
 }
 
 export interface CreateAuditEventInput {

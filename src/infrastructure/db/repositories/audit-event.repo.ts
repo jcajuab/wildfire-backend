@@ -7,8 +7,15 @@ import {
 } from "#/application/ports/audit";
 import { db } from "#/infrastructure/db/client";
 import { auditEvents } from "#/infrastructure/db/schema/audit.sql";
+import { devices } from "#/infrastructure/db/schema/device.sql";
+import { users } from "#/infrastructure/db/schema/rbac.sql";
 
-const toRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({
+const toRecord = (
+  row: typeof auditEvents.$inferSelect & {
+    actorName?: string | null;
+    actorEmail?: string | null;
+  },
+): AuditEventRecord => ({
   id: row.id,
   occurredAt:
     row.occurredAt instanceof Date
@@ -27,6 +34,8 @@ const toRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({
   ipAddress: row.ipAddress ?? null,
   userAgent: row.userAgent ?? null,
   metadataJson: row.metadataJson ?? null,
+  actorName: row.actorName ?? null,
+  actorEmail: row.actorEmail ?? null,
 });
 
 const buildWhere = (query: ListAuditEventsQuery): SQL | undefined => {
@@ -101,14 +110,47 @@ export class AuditEventDbRepository implements AuditEventRepository {
   async list(query: ListAuditEventsQuery): Promise<AuditEventRecord[]> {
     const where = buildWhere(query);
     const rows = await db
-      .select()
+      .select({
+        id: auditEvents.id,
+        occurredAt: auditEvents.occurredAt,
+        requestId: auditEvents.requestId,
+        action: auditEvents.action,
+        route: auditEvents.route,
+        method: auditEvents.method,
+        path: auditEvents.path,
+        status: auditEvents.status,
+        actorId: auditEvents.actorId,
+        actorType: auditEvents.actorType,
+        resourceId: auditEvents.resourceId,
+        resourceType: auditEvents.resourceType,
+        ipAddress: auditEvents.ipAddress,
+        userAgent: auditEvents.userAgent,
+        metadataJson: auditEvents.metadataJson,
+        userName: users.name,
+        userEmail: users.email,
+        deviceName: devices.name,
+        deviceIdentifier: devices.identifier,
+      })
       .from(auditEvents)
+      .leftJoin(users, eq(users.id, auditEvents.actorId))
+      .leftJoin(devices, eq(devices.id, auditEvents.actorId))
       .where(where)
       .orderBy(desc(auditEvents.occurredAt), desc(auditEvents.id))
       .limit(query.limit)
       .offset(query.offset);
 
-    return rows.map(toRecord);
+    return rows.map((row) =>
+      toRecord({
+        ...row,
+        actorName:
+          row.actorType === "user"
+            ? row.userName
+            : row.actorType === "device"
+              ? (row.deviceName ?? row.deviceIdentifier)
+              : null,
+        actorEmail: row.actorType === "user" ? row.userEmail : null,
+      }),
+    );
   }
 
   async count(query: ListAuditEventsQuery): Promise<number> {

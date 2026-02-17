@@ -35,6 +35,49 @@ const normalizeStatus = (status: number) => {
   return value;
 };
 
+const SENSITIVE_METADATA_KEY =
+  /(password|token|secret|authorization|api[-_]?key|cookie)/i;
+
+const redactSensitiveValues = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(redactSensitiveValues);
+  }
+
+  if (value != null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).map(
+      ([key, childValue]) => [
+        key,
+        SENSITIVE_METADATA_KEY.test(key)
+          ? "[REDACTED]"
+          : redactSensitiveValues(childValue),
+      ],
+    );
+    return Object.fromEntries(entries);
+  }
+
+  return value;
+};
+
+const normalizeMetadataJson = (raw: string | undefined): string | undefined => {
+  const trimmed = trimToUndefined(raw, 16_384);
+  if (!trimmed) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new ValidationError("metadataJson must be valid JSON");
+  }
+
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ValidationError("metadataJson must be a JSON object");
+  }
+
+  return JSON.stringify(redactSensitiveValues(parsed));
+};
+
 export class RecordAuditEventUseCase {
   constructor(
     private readonly deps: {
@@ -72,7 +115,7 @@ export class RecordAuditEventUseCase {
       resourceType: trimToUndefined(input.resourceType, 120),
       ipAddress: trimToUndefined(input.ipAddress, 64),
       userAgent: trimToUndefined(input.userAgent, 255),
-      metadataJson: undefined,
+      metadataJson: normalizeMetadataJson(input.metadataJson),
     };
 
     return this.deps.auditEventRepository.create(sanitized);

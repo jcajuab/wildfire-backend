@@ -23,6 +23,8 @@ const buildAuditEvent = (
     resourceType: string | null;
     ipAddress: string | null;
     userAgent: string | null;
+    actorName: string | null;
+    actorEmail: string | null;
   }> = {},
 ) => ({
   id,
@@ -40,6 +42,8 @@ const buildAuditEvent = (
   ipAddress: "127.0.0.1",
   userAgent: "test-agent",
   metadataJson: null,
+  actorName: "Admin User",
+  actorEmail: "admin@example.com",
   ...overrides,
 });
 

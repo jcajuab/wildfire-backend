@@ -58,6 +58,22 @@ const resolveIpAddress = (headers: {
   return undefined;
 };
 
+const buildSafeAuditMetadata = (input: {
+  sessionId?: string;
+  fileId?: string;
+}): string | undefined => {
+  const metadata: Record<string, string> = {};
+  if (input.sessionId) {
+    metadata.sessionId = input.sessionId;
+  }
+  if (input.fileId) {
+    metadata.fileId = input.fileId;
+  }
+  return Object.keys(metadata).length > 0
+    ? JSON.stringify(metadata)
+    : undefined;
+};
+
 export const createAuditTrailMiddleware = (deps: {
   auditQueue: AuditEventQueue;
 }): MiddlewareHandler<{ Variables: ObservabilityVariables }> => {
@@ -76,6 +92,8 @@ export const createAuditTrailMiddleware = (deps: {
     const route = c.get("route");
     const resourceId = c.get("resourceId");
     const resourceType = c.get("resourceType");
+    const sessionId = c.get("sessionId");
+    const fileId = c.get("fileId");
     const ipAddress = resolveIpAddress({
       forwardedFor: c.req.header("x-forwarded-for"),
       realIp: c.req.header("x-real-ip"),
@@ -95,6 +113,7 @@ export const createAuditTrailMiddleware = (deps: {
       resourceType,
       ipAddress,
       userAgent,
+      metadataJson: buildSafeAuditMetadata({ sessionId, fileId }),
     });
 
     if (!result.accepted && result.reason === "overflow") {

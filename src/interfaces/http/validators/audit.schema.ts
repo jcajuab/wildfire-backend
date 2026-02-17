@@ -18,6 +18,8 @@ export const auditEventSchema = z.object({
   ipAddress: z.string().nullable(),
   userAgent: z.string().nullable(),
   metadataJson: z.string().nullable(),
+  actorName: z.string().nullable().optional(),
+  actorEmail: z.string().nullable().optional(),
 });
 
 export const auditEventListQuerySchema = z.object({
