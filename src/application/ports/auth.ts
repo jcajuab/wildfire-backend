@@ -1,6 +1,7 @@
 export interface CredentialsRepository {
   findPasswordHash(username: string): Promise<string | null>;
   updatePasswordHash(email: string, newPasswordHash: string): Promise<void>;
+  createPasswordHash?(email: string, passwordHash: string): Promise<void>;
 }
 
 export interface PasswordHasher {
@@ -49,5 +50,23 @@ export interface PasswordResetTokenRepository {
     now: Date,
   ): Promise<{ email: string } | null>;
   consumeByHashedToken(hashedToken: string): Promise<void>;
+  deleteExpired(now: Date): Promise<void>;
+}
+
+export interface InvitationRepository {
+  create(input: {
+    id: string;
+    hashedToken: string;
+    email: string;
+    name: string | null;
+    invitedByUserId: string;
+    expiresAt: Date;
+  }): Promise<void>;
+  findActiveByHashedToken(
+    hashedToken: string,
+    now: Date,
+  ): Promise<{ id: string; email: string; name: string | null } | null>;
+  revokeActiveByEmail(email: string, now: Date): Promise<void>;
+  markAccepted(id: string, acceptedAt: Date): Promise<void>;
   deleteExpired(now: Date): Promise<void>;
 }

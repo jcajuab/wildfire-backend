@@ -45,4 +45,23 @@ export class HtshadowCredentialsRepository implements CredentialsRepository {
     await writeFile(tmpPath, newLines.join("\n"), "utf-8");
     await rename(tmpPath, this.deps.filePath);
   }
+
+  async createPasswordHash(email: string, passwordHash: string): Promise<void> {
+    const data = await readFile(this.deps.filePath, "utf-8");
+    const lines = data
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const hasEntry = lines.some(
+      (line) => line.split(":", 2)[0]?.trim() === email,
+    );
+    if (hasEntry) {
+      throw new Error(`User already exists in credentials file: ${email}`);
+    }
+
+    const next = [...lines, `${email}:${passwordHash}`];
+    const tmpPath = `${this.deps.filePath}.tmp.${Date.now()}`;
+    await writeFile(tmpPath, `${next.join("\n")}\n`, "utf-8");
+    await rename(tmpPath, this.deps.filePath);
+  }
 }

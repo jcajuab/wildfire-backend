@@ -5,6 +5,7 @@ import { sign } from "hono/jwt";
 import {
   type AuthSessionRepository,
   type CredentialsRepository,
+  type InvitationRepository,
 } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
 import {
@@ -39,6 +40,7 @@ const buildApp = (opts?: {
   inactiveUserEmail?: string;
   avatarStorage?: ContentStorage;
   credentialsRepository?: CredentialsRepository;
+  permissions?: Permission[];
 }) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const inactiveUserEmail = opts?.inactiveUserEmail;
@@ -65,22 +67,41 @@ const buildApp = (opts?: {
     timezone: null,
     avatarKey: null,
   };
+  const invitedUsers = new Map<
+    string,
+    {
+      id: string;
+      email: string;
+      name: string;
+      isActive: boolean;
+      timezone: string | null;
+      avatarKey: string | null;
+    }
+  >();
 
   const userRepository: UserRepository = {
     list: async () => [],
     findByEmail: async (email: string) =>
       currentUser != null && email === currentUser.email
         ? { ...currentUser }
-        : null,
+        : (invitedUsers.get(email) ?? null),
     findById: async (id: string) =>
-      currentUser != null && id === currentUser.id ? { ...currentUser } : null,
+      currentUser != null && id === currentUser.id
+        ? { ...currentUser }
+        : ([...invitedUsers.values()].find((user) => user.id === id) ?? null),
     findByIds: async () => [],
-    create: async ({ email, name, isActive }) => ({
-      id: "user-1",
-      email,
-      name,
-      isActive: isActive ?? true,
-    }),
+    create: async ({ email, name, isActive }) => {
+      const user = {
+        id: `user-${invitedUsers.size + 2}`,
+        email,
+        name,
+        isActive: isActive ?? true,
+        timezone: null,
+        avatarKey: null,
+      };
+      invitedUsers.set(email, user);
+      return user;
+    },
     update: async (id, input) => {
       if (currentUser == null || id !== currentUser.id) {
         return null;
@@ -101,6 +122,12 @@ const buildApp = (opts?: {
     },
     delete: async (id) => {
       if (currentUser == null || id !== currentUser.id) {
+        for (const [email, user] of invitedUsers.entries()) {
+          if (user.id === id) {
+            invitedUsers.delete(email);
+            return true;
+          }
+        }
         return false;
       }
       currentUser = null;
@@ -111,8 +138,76 @@ const buildApp = (opts?: {
   const authorizationRepository: AuthorizationRepository = {
     findPermissionsForUser: async (userId: string) =>
       userId === "user-1"
-        ? [new Permission("roles", "read"), new Permission("roles", "create")]
+        ? (opts?.permissions ?? [
+            new Permission("roles", "read"),
+            new Permission("roles", "create"),
+          ])
         : [],
+  };
+
+  const invitations = new Map<
+    string,
+    {
+      id: string;
+      hashedToken: string;
+      email: string;
+      name: string | null;
+      invitedByUserId: string;
+      expiresAt: Date;
+      acceptedAt: Date | null;
+      revokedAt: Date | null;
+    }
+  >();
+  const invitationRepository: InvitationRepository = {
+    create: async (input) => {
+      invitations.set(input.hashedToken, {
+        id: input.id,
+        hashedToken: input.hashedToken,
+        email: input.email,
+        name: input.name,
+        invitedByUserId: input.invitedByUserId,
+        expiresAt: input.expiresAt,
+        acceptedAt: null,
+        revokedAt: null,
+      });
+    },
+    findActiveByHashedToken: async (hashedToken, now) => {
+      const record = invitations.get(hashedToken);
+      if (!record) return null;
+      if (record.acceptedAt || record.revokedAt) return null;
+      if (record.expiresAt.getTime() <= now.getTime()) return null;
+      return {
+        id: record.id,
+        email: record.email,
+        name: record.name,
+      };
+    },
+    revokeActiveByEmail: async (email, now) => {
+      for (const invitation of invitations.values()) {
+        if (
+          invitation.email === email &&
+          invitation.acceptedAt == null &&
+          invitation.revokedAt == null &&
+          invitation.expiresAt.getTime() > now.getTime()
+        ) {
+          invitation.revokedAt = now;
+        }
+      }
+    },
+    markAccepted: async (id, acceptedAt) => {
+      for (const invitation of invitations.values()) {
+        if (invitation.id === id) {
+          invitation.acceptedAt = acceptedAt;
+        }
+      }
+    },
+    deleteExpired: async (now) => {
+      for (const [hashedToken, invitation] of invitations.entries()) {
+        if (invitation.expiresAt.getTime() <= now.getTime()) {
+          invitations.delete(hashedToken);
+        }
+      }
+    },
   };
 
   const defaultAvatarStorage: ContentStorage = {
@@ -170,6 +265,12 @@ const buildApp = (opts?: {
       consumeByHashedToken: async () => {},
       deleteExpired: async () => {},
     },
+    invitationRepository,
+    invitationEmailSender: {
+      sendInvite: async () => {},
+    },
+    inviteTokenTtlSeconds: 3600,
+    inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
     deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository,
@@ -486,5 +587,113 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(204);
+  });
+
+  test("POST /auth/invitations requires users:create permission", async () => {
+    const { app } = buildApp();
+    const token = await issueToken();
+
+    const response = await app.request("/auth/invitations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: "invited@example.com" }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  test("POST /auth/invitations returns 201 with metadata", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+
+      const response = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: "invited@example.com",
+          name: "Invited User",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const body = await parseJson<{
+        id: string;
+        expiresAt: string;
+        inviteUrl?: string;
+      }>(response);
+      expect(body.id).toEqual(expect.any(String));
+      expect(body.expiresAt).toEqual(expect.any(String));
+      expect(body.inviteUrl).toContain("token=");
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  test("POST /auth/invitations/accept accepts a valid invitation", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      const credentials = new Map<string, string>([
+        ["test1@example.com", "hash"],
+      ]);
+      const credentialsRepository: CredentialsRepository = {
+        findPasswordHash: async (username) => credentials.get(username) ?? null,
+        updatePasswordHash: async (email, newPasswordHash) => {
+          credentials.set(email, newPasswordHash);
+        },
+        createPasswordHash: async (email, passwordHash) => {
+          credentials.set(email, passwordHash);
+        },
+      };
+
+      const { app } = buildApp({
+        credentialsRepository,
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "new.invite@example.com" }),
+      });
+      const createBody = await parseJson<{ inviteUrl?: string }>(
+        createResponse,
+      );
+      const inviteUrl = createBody.inviteUrl;
+      expect(inviteUrl).toBeDefined();
+      const parsedUrl = new URL(inviteUrl ?? "http://localhost/invalid");
+      const inviteToken = parsedUrl.searchParams.get("token") ?? "";
+
+      const acceptResponse = await app.request("/auth/invitations/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: inviteToken,
+          password: "new-password-123",
+          name: "Brand New User",
+        }),
+      });
+
+      expect(acceptResponse.status).toBe(204);
+      expect(credentials.get("new.invite@example.com")).toEqual(
+        expect.any(String),
+      );
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 });

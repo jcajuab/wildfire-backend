@@ -24,11 +24,13 @@ describe("createHttpContainer", () => {
     expect(container.repositories.authSessionRepository).toBeDefined();
     expect(container.repositories.auditEventRepository).toBeDefined();
     expect(container.repositories.contentRepository).toBeDefined();
+    expect(container.repositories.invitationRepository).toBeDefined();
     expect(container.auth.credentialsRepository).toBeDefined();
     expect(container.auth.passwordVerifier).toBeDefined();
     expect(container.auth.passwordHasher).toBeDefined();
     expect(container.auth.tokenIssuer).toBeDefined();
     expect(container.auth.clock).toBeDefined();
+    expect(container.auth.invitationEmailSender).toBeDefined();
     expect(container.storage.contentStorage).toBeDefined();
     expect(container.storage.minioEndpoint).toBe("http://localhost:9000");
   });

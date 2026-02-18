@@ -53,6 +53,7 @@ const buildAuthActionApp = () => {
     findPasswordHash: async (email: string) =>
       email === userRecord.email ? "hash" : null,
     updatePasswordHash: async () => {},
+    createPasswordHash: async () => {},
   };
   const passwordVerifier = {
     verify: async (input: { password: string; passwordHash: string }) =>
@@ -115,6 +116,18 @@ const buildAuthActionApp = () => {
       consumeByHashedToken: async () => {},
       deleteExpired: async () => {},
     },
+    invitationRepository: {
+      create: async () => {},
+      findActiveByHashedToken: async () => null,
+      revokeActiveByEmail: async () => {},
+      markAccepted: async () => {},
+      deleteExpired: async () => {},
+    },
+    invitationEmailSender: {
+      sendInvite: async () => {},
+    },
+    inviteTokenTtlSeconds: 3600,
+    inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
     deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository,

@@ -24,6 +24,17 @@ export const postAuthResetPasswordSchema = z.object({
   newPassword: z.string().min(8, "New password must be at least 8 characters"),
 });
 
+export const postAuthCreateInvitationSchema = z.object({
+  email: z.string().email(),
+  name: z.string().trim().min(1).max(255).optional().nullable(),
+});
+
+export const postAuthAcceptInvitationSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  name: z.string().trim().min(1).max(255).optional().nullable(),
+});
+
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 const AVATAR_IMAGE_MIMES = [
   "image/jpeg",

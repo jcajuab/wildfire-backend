@@ -43,6 +43,10 @@ export const env = createEnv({
     AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     AUTH_LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().default(5),
     AUTH_LOGIN_LOCKOUT_SECONDS: z.coerce.number().default(300),
+    INVITE_TOKEN_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24),
+    INVITE_ACCEPT_BASE_URL: z
+      .string()
+      .default("http://localhost:3000/accept-invite"),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.string().optional().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_ENABLED: z

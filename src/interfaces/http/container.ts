@@ -8,6 +8,7 @@ import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/auth
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
 import { DeviceGroupDbRepository } from "#/infrastructure/db/repositories/device-group.repo";
+import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
@@ -16,6 +17,7 @@ import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/rol
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
+import { LogInvitationEmailSender } from "#/infrastructure/notifications/log-invitation-email.sender";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { SystemClock } from "#/infrastructure/time/system.clock";
 
@@ -51,6 +53,7 @@ export interface HttpContainer {
     deviceRepository: DeviceDbRepository;
     deviceGroupRepository: DeviceGroupDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
+    invitationRepository: InvitationDbRepository;
   };
   auth: {
     credentialsRepository: HtshadowCredentialsRepository;
@@ -58,6 +61,7 @@ export interface HttpContainer {
     passwordHasher: BcryptPasswordHasher;
     tokenIssuer: JwtTokenIssuer;
     clock: SystemClock;
+    invitationEmailSender: LogInvitationEmailSender;
   };
   storage: {
     contentStorage: S3ContentStorage;
@@ -84,6 +88,7 @@ export const createHttpContainer = (
   const deviceRepository = new DeviceDbRepository();
   const deviceGroupRepository = new DeviceGroupDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
+  const invitationRepository = new InvitationDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
@@ -95,6 +100,7 @@ export const createHttpContainer = (
     issuer: config.jwtIssuer,
   });
   const clock = new SystemClock();
+  const invitationEmailSender = new LogInvitationEmailSender();
 
   const contentStorage = new S3ContentStorage({
     bucket: config.minio.bucket,
@@ -121,6 +127,7 @@ export const createHttpContainer = (
       deviceRepository,
       deviceGroupRepository,
       passwordResetTokenRepository,
+      invitationRepository,
     },
     auth: {
       credentialsRepository,
@@ -128,6 +135,7 @@ export const createHttpContainer = (
       passwordHasher,
       tokenIssuer,
       clock,
+      invitationEmailSender,
     },
     storage: {
       contentStorage,

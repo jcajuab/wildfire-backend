@@ -4,19 +4,23 @@ import {
   type AuthSessionRepository,
   type Clock,
   type CredentialsRepository,
+  type InvitationRepository,
   type PasswordHasher,
   type PasswordResetTokenRepository,
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
+import { type InvitationEmailSender } from "#/application/ports/notifications";
 import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
+  AcceptInvitationUseCase,
   AuthenticateUserUseCase,
   type ChangeCurrentUserPasswordUseCase,
+  CreateInvitationUseCase,
   ForgotPasswordUseCase,
   RefreshSessionUseCase,
   ResetPasswordUseCase,
@@ -47,6 +51,10 @@ export interface AuthRouterDeps {
   authLoginLockoutThreshold: number;
   authLoginLockoutSeconds: number;
   passwordResetTokenRepository: PasswordResetTokenRepository;
+  invitationRepository: InvitationRepository;
+  invitationEmailSender: InvitationEmailSender;
+  inviteTokenTtlSeconds: number;
+  inviteAcceptBaseUrl: string;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
   updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
@@ -60,6 +68,8 @@ export interface AuthRouterUseCases {
   refreshSession: RefreshSessionUseCase;
   forgotPassword: ForgotPasswordUseCase;
   resetPassword: ResetPasswordUseCase;
+  createInvitation: CreateInvitationUseCase;
+  acceptInvitation: AcceptInvitationUseCase;
 }
 
 export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -129,6 +139,19 @@ export const createAuthUseCases = (
     passwordHasher: deps.passwordHasher,
     userRepository: deps.userRepository,
     authSessionRepository: deps.authSessionRepository,
+  }),
+  createInvitation: new CreateInvitationUseCase({
+    userRepository: deps.userRepository,
+    invitationRepository: deps.invitationRepository,
+    invitationEmailSender: deps.invitationEmailSender,
+    inviteTokenTtlSeconds: deps.inviteTokenTtlSeconds,
+    inviteAcceptBaseUrl: deps.inviteAcceptBaseUrl,
+  }),
+  acceptInvitation: new AcceptInvitationUseCase({
+    invitationRepository: deps.invitationRepository,
+    userRepository: deps.userRepository,
+    passwordHasher: deps.passwordHasher,
+    credentialsRepository: deps.credentialsRepository,
   }),
 });
 

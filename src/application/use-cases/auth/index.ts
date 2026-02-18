@@ -1,6 +1,8 @@
+export { AcceptInvitationUseCase } from "#/application/use-cases/auth/accept-invitation.use-case";
 export type { AuthResult } from "#/application/use-cases/auth/authenticate-user.use-case";
 export { AuthenticateUserUseCase } from "#/application/use-cases/auth/authenticate-user.use-case";
 export { ChangeCurrentUserPasswordUseCase } from "#/application/use-cases/auth/change-current-user-password.use-case";
+export { CreateInvitationUseCase } from "#/application/use-cases/auth/create-invitation.use-case";
 export { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 export { ForgotPasswordUseCase } from "#/application/use-cases/auth/forgot-password.use-case";
 export type { RefreshSessionResult } from "#/application/use-cases/auth/refresh-session.use-case";
