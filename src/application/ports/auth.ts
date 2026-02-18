@@ -31,6 +31,11 @@ export interface AuthSessionRepository {
   revokeById(sessionId: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
   isActive(sessionId: string, now: Date): Promise<boolean>;
+  isOwnedByUser?(
+    sessionId: string,
+    userId: string,
+    now: Date,
+  ): Promise<boolean>;
 }
 
 export interface PasswordResetTokenRepository {

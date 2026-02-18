@@ -110,6 +110,16 @@ export const registerAuthSessionRoutes = (args: {
         c.set("resourceId", c.get("userId"));
         const sessionId = c.get("sessionId");
         if (sessionId) {
+          const isOwnedByUser = deps.authSessionRepository.isOwnedByUser
+            ? await deps.authSessionRepository.isOwnedByUser(
+                sessionId,
+                c.get("userId"),
+                new Date(),
+              )
+            : true;
+          if (!isOwnedByUser) {
+            return unauthorized(c, "Unauthorized");
+          }
           await deps.authSessionRepository.revokeById(sessionId);
         }
         deleteCookie(c, deps.authSessionCookieName, { path: "/" });

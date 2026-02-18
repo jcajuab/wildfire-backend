@@ -44,4 +44,24 @@ export class AuthSessionDbRepository implements AuthSessionRepository {
       .limit(1);
     return rows.length > 0;
   }
+
+  async isOwnedByUser(
+    sessionId: string,
+    userId: string,
+    now: Date,
+  ): Promise<boolean> {
+    const rows = await db
+      .select({ id: authSessions.id })
+      .from(authSessions)
+      .where(
+        and(
+          eq(authSessions.id, sessionId),
+          eq(authSessions.userId, userId),
+          isNull(authSessions.revokedAt),
+          gt(authSessions.expiresAt, now),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  }
 }

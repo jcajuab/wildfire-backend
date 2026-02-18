@@ -50,6 +50,16 @@ export class RefreshSessionUseCase {
     const issuedAt = this.deps.clock.nowSeconds();
     const expiresAt = issuedAt + this.deps.tokenTtlSeconds;
     if (input.currentSessionId) {
+      const isOwnedByUser = this.deps.authSessionRepository.isOwnedByUser
+        ? await this.deps.authSessionRepository.isOwnedByUser(
+            input.currentSessionId,
+            input.userId,
+            new Date(issuedAt * 1000),
+          )
+        : true;
+      if (!isOwnedByUser) {
+        throw new InvalidCredentialsError();
+      }
       await this.deps.authSessionRepository.revokeById(input.currentSessionId);
     }
     const sessionId = crypto.randomUUID();
