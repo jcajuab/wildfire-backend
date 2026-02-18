@@ -20,6 +20,7 @@ import {
   contentSchema,
   contentUploadRequestBodySchema,
   createUploadContentSchema,
+  updateContentRequestBodySchema,
   updateContentSchema,
 } from "#/interfaces/http/validators/content.schema";
 import {
@@ -128,6 +129,14 @@ export const registerContentWriteRoutes = (args: {
     describeRoute({
       description: "Update content metadata",
       tags: contentTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: updateContentRequestBodySchema,
+          },
+        },
+        required: true,
+      },
       responses: {
         200: {
           description: "Content updated",
@@ -172,10 +181,12 @@ export const registerContentWriteRoutes = (args: {
         const result = await useCases.updateContent.execute({
           id: params.id,
           title: body.title,
+          status: body.status,
         });
         return c.json(result, 200);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(ContentInUseError, conflict),
     ),
   );
 

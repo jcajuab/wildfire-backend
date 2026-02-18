@@ -40,7 +40,7 @@ const makeRepository = () => {
       },
       update: async (
         id: string,
-        input: Partial<Pick<ContentRecord, "title">>,
+        input: Partial<Pick<ContentRecord, "title" | "status">>,
       ) => {
         const record = records.find((item) => item.id === id);
         if (!record) return null;
@@ -57,8 +57,20 @@ const makeApp = async (permissions: string[]) => {
   const storage = {
     upload: async () => {},
     delete: async () => {},
-    getPresignedDownloadUrl: async ({ key }: { key: string }) =>
-      `https://example.com/${key}`,
+    getPresignedDownloadUrl: async ({
+      key,
+      responseContentDisposition,
+    }: {
+      key: string;
+      responseContentDisposition?: string;
+    }) =>
+      `https://example.com/${key}${
+        responseContentDisposition
+          ? `?response-content-disposition=${encodeURIComponent(
+              responseContentDisposition,
+            )}`
+          : ""
+      }`,
   };
   const userRepository = {
     list: async () => [],
@@ -196,6 +208,7 @@ describe("Content routes", () => {
     expect(body.downloadUrl).toContain(
       "content/images/11111111-1111-4111-8111-111111111111.png",
     );
+    expect(body.downloadUrl).toContain("response-content-disposition=");
   });
 
   test("returns 401 without token", async () => {
@@ -260,6 +273,42 @@ describe("Content routes", () => {
     expect(response.status).toBe(200);
     const body = await parseJson<{ id: string; title: string }>(response);
     expect(body.title).toBe("New Title");
+  });
+
+  test("PATCH /content/:id updates content status", async () => {
+    const { app, issueToken, records } = await makeApp(["content:update"]);
+    const token = await issueToken();
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Status Test",
+      type: "IMAGE",
+      status: "DRAFT",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const response = await app.request(
+      "/content/11111111-1111-4111-8111-111111111111",
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "IN_USE" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ status: string }>(response);
+    expect(body.status).toBe("IN_USE");
   });
 
   test("PATCH /content/:id returns 404 for missing content", async () => {

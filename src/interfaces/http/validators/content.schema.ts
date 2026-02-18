@@ -63,9 +63,23 @@ export const downloadUrlResponseSchema = z.object({
   downloadUrl: z.string().url(),
 });
 
-export const updateContentSchema = z.object({
-  title: z.string().min(1),
-});
+export const updateContentSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    status: contentStatusSchema.optional(),
+  })
+  .refine((value) => value.title !== undefined || value.status !== undefined, {
+    message: "At least one field must be provided",
+  });
+
+export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    title: { type: "string", minLength: 1 },
+    status: { type: "string", enum: ["DRAFT", "IN_USE"] },
+  },
+  additionalProperties: false,
+};
 
 export const contentUploadRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",

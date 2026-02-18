@@ -148,12 +148,14 @@ export class S3ContentStorage implements ContentStorage {
   async getPresignedDownloadUrl(input: {
     key: string;
     expiresInSeconds: number;
+    responseContentDisposition?: string;
   }): Promise<string> {
     const operation = "s3.presignDownload";
     const start = Date.now();
     const command = new GetObjectCommand({
       Bucket: this.config.bucket,
       Key: input.key,
+      ResponseContentDisposition: input.responseContentDisposition,
     });
     try {
       const url = await withTimeout(

@@ -48,5 +48,6 @@ export interface ContentStorage {
   getPresignedDownloadUrl(input: {
     key: string;
     expiresInSeconds: number;
+    responseContentDisposition?: string;
   }): Promise<string>;
 }
