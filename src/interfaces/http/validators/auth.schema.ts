@@ -35,6 +35,10 @@ export const postAuthAcceptInvitationSchema = z.object({
   name: z.string().trim().min(1).max(255).optional().nullable(),
 });
 
+export const invitationIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 const AVATAR_IMAGE_MIMES = [
   "image/jpeg",

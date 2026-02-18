@@ -66,6 +66,20 @@ export interface InvitationRepository {
     hashedToken: string,
     now: Date,
   ): Promise<{ id: string; email: string; name: string | null } | null>;
+  findById(input: {
+    id: string;
+  }): Promise<{ id: string; email: string; name: string | null } | null>;
+  listRecent(input: { limit: number }): Promise<
+    {
+      id: string;
+      email: string;
+      name: string | null;
+      expiresAt: Date;
+      acceptedAt: Date | null;
+      revokedAt: Date | null;
+      createdAt: Date;
+    }[]
+  >;
   revokeActiveByEmail(email: string, now: Date): Promise<void>;
   markAccepted(id: string, acceptedAt: Date): Promise<void>;
   deleteExpired(now: Date): Promise<void>;

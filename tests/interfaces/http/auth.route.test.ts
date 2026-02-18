@@ -182,6 +182,31 @@ const buildApp = (opts?: {
         name: record.name,
       };
     },
+    findById: async ({ id }) => {
+      for (const invitation of invitations.values()) {
+        if (invitation.id === id) {
+          return {
+            id: invitation.id,
+            email: invitation.email,
+            name: invitation.name,
+          };
+        }
+      }
+      return null;
+    },
+    listRecent: async ({ limit }) =>
+      [...invitations.values()]
+        .sort((a, b) => b.expiresAt.getTime() - a.expiresAt.getTime())
+        .slice(0, limit)
+        .map((invitation) => ({
+          id: invitation.id,
+          email: invitation.email,
+          name: invitation.name,
+          expiresAt: invitation.expiresAt,
+          acceptedAt: invitation.acceptedAt,
+          revokedAt: invitation.revokedAt,
+          createdAt: new Date(invitation.expiresAt.getTime() - 1000),
+        })),
     revokeActiveByEmail: async (email, now) => {
       for (const invitation of invitations.values()) {
         if (
@@ -635,6 +660,94 @@ describe("Auth routes", () => {
       expect(body.id).toEqual(expect.any(String));
       expect(body.expiresAt).toEqual(expect.any(String));
       expect(body.inviteUrl).toContain("token=");
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  test("GET /auth/invitations returns invitation statuses", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "list.invite@example.com" }),
+      });
+      expect(createResponse.status).toBe(201);
+
+      const response = await app.request("/auth/invitations", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const body =
+        await parseJson<
+          {
+            id: string;
+            email: string;
+            status: string;
+            expiresAt: string;
+          }[]
+        >(response);
+      expect(
+        body.some((item) => item.email === "list.invite@example.com"),
+      ).toBe(true);
+      const listed = body.find(
+        (item) => item.email === "list.invite@example.com",
+      );
+      expect(listed?.status).toBe("pending");
+      expect(listed?.expiresAt).toEqual(expect.any(String));
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  test("POST /auth/invitations/:id/resend creates new invite", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "resend.invite@example.com" }),
+      });
+      const created = await parseJson<{ id: string }>(createResponse);
+
+      const resendResponse = await app.request(
+        `/auth/invitations/${created.id}/resend`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      expect(resendResponse.status).toBe(201);
+      const resent = await parseJson<{ id: string; inviteUrl?: string }>(
+        resendResponse,
+      );
+      expect(resent.id).not.toBe(created.id);
+      expect(resent.inviteUrl).toContain("token=");
     } finally {
       process.env.NODE_ENV = previousNodeEnv;
     }

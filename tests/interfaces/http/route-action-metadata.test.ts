@@ -119,6 +119,8 @@ const buildAuthActionApp = () => {
     invitationRepository: {
       create: async () => {},
       findActiveByHashedToken: async () => null,
+      findById: async () => null,
+      listRecent: async () => [],
       revokeActiveByEmail: async () => {},
       markAccepted: async () => {},
       deleteExpired: async () => {},

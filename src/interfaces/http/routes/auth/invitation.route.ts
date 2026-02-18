@@ -8,10 +8,14 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  invitationIdParamSchema,
   postAuthAcceptInvitationSchema,
   postAuthCreateInvitationSchema,
 } from "#/interfaces/http/validators/auth.schema";
-import { validateJson } from "#/interfaces/http/validators/standard-validator";
+import {
+  validateJson,
+  validateParams,
+} from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthRouter,
   type AuthRouterDeps,
@@ -23,6 +27,22 @@ const inviteCreatedSchema = z.object({
   id: z.string().uuid(),
   expiresAt: z.string(),
   inviteUrl: z.string().optional(),
+});
+
+const inviteStatusSchema = z.enum([
+  "pending",
+  "accepted",
+  "revoked",
+  "expired",
+]);
+
+const inviteListItemSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().nullable(),
+  status: inviteStatusSchema,
+  expiresAt: z.string(),
+  createdAt: z.string(),
 });
 
 export const registerAuthInvitationRoutes = (args: {
@@ -75,6 +95,87 @@ export const registerAuthInvitationRoutes = (args: {
         const result = await useCases.createInvitation.execute({
           email: payload.email,
           name: payload.name,
+          invitedByUserId: c.get("userId"),
+        });
+        c.set("resourceId", result.id);
+
+        return c.json(
+          {
+            id: result.id,
+            expiresAt: result.expiresAt,
+            ...(process.env.NODE_ENV === "development"
+              ? { inviteUrl: result.inviteUrl }
+              : {}),
+          },
+          201,
+        );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/invitations",
+    setAction("auth.invitation.list", {
+      route: "/auth/invitations",
+      resourceType: "invitation",
+    }),
+    ...authorize("users:create"),
+    describeRoute({
+      description: "List recent invitation records",
+      tags: authTags,
+      responses: {
+        200: {
+          description: "Invitation records",
+          content: {
+            "application/json": {
+              schema: resolver(z.array(inviteListItemSchema)),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const invitations = await useCases.listInvitations.execute();
+      return c.json(invitations, 200);
+    },
+  );
+
+  router.post(
+    "/invitations/:id/resend",
+    setAction("auth.invitation.resend", {
+      route: "/auth/invitations/:id/resend",
+      resourceType: "invitation",
+    }),
+    ...authorize("users:create"),
+    validateParams(invitationIdParamSchema),
+    describeRoute({
+      description: "Resend an invitation by creating a new active token",
+      tags: authTags,
+      responses: {
+        201: {
+          description: "Invitation resent",
+          content: {
+            "application/json": {
+              schema: resolver(inviteCreatedSchema),
+            },
+          },
+        },
+        404: {
+          description: "Invitation not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const result = await useCases.resendInvitation.execute({
+          id: params.id,
           invitedByUserId: c.get("userId"),
         });
         c.set("resourceId", result.id);

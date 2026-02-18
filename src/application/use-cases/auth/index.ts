@@ -5,8 +5,10 @@ export { ChangeCurrentUserPasswordUseCase } from "#/application/use-cases/auth/c
 export { CreateInvitationUseCase } from "#/application/use-cases/auth/create-invitation.use-case";
 export { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 export { ForgotPasswordUseCase } from "#/application/use-cases/auth/forgot-password.use-case";
+export { ListInvitationsUseCase } from "#/application/use-cases/auth/list-invitations.use-case";
 export type { RefreshSessionResult } from "#/application/use-cases/auth/refresh-session.use-case";
 export { RefreshSessionUseCase } from "#/application/use-cases/auth/refresh-session.use-case";
+export { ResendInvitationUseCase } from "#/application/use-cases/auth/resend-invitation.use-case";
 export { ResetPasswordUseCase } from "#/application/use-cases/auth/reset-password.use-case";
 export { SetCurrentUserAvatarUseCase } from "#/application/use-cases/auth/set-current-user-avatar.use-case";
 export { UpdateCurrentUserProfileUseCase } from "#/application/use-cases/auth/update-current-user-profile.use-case";

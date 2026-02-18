@@ -22,7 +22,9 @@ import {
   type ChangeCurrentUserPasswordUseCase,
   CreateInvitationUseCase,
   ForgotPasswordUseCase,
+  ListInvitationsUseCase,
   RefreshSessionUseCase,
+  ResendInvitationUseCase,
   ResetPasswordUseCase,
   type SetCurrentUserAvatarUseCase,
   type UpdateCurrentUserProfileUseCase,
@@ -70,6 +72,8 @@ export interface AuthRouterUseCases {
   resetPassword: ResetPasswordUseCase;
   createInvitation: CreateInvitationUseCase;
   acceptInvitation: AcceptInvitationUseCase;
+  listInvitations: ListInvitationsUseCase;
+  resendInvitation: ResendInvitationUseCase;
 }
 
 export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -110,50 +114,61 @@ type AuthResultBase = {
 
 export const createAuthUseCases = (
   deps: AuthRouterDeps,
-): AuthRouterUseCases => ({
-  authenticateUser: new AuthenticateUserUseCase({
-    credentialsRepository: deps.credentialsRepository,
-    passwordVerifier: deps.passwordVerifier,
-    tokenIssuer: deps.tokenIssuer,
-    userRepository: deps.userRepository,
-    clock: deps.clock,
-    tokenTtlSeconds: deps.tokenTtlSeconds,
-    issuer: deps.issuer,
-    authSessionRepository: deps.authSessionRepository,
-  }),
-  refreshSession: new RefreshSessionUseCase({
-    tokenIssuer: deps.tokenIssuer,
-    userRepository: deps.userRepository,
-    clock: deps.clock,
-    tokenTtlSeconds: deps.tokenTtlSeconds,
-    issuer: deps.issuer,
-    authSessionRepository: deps.authSessionRepository,
-  }),
-  forgotPassword: new ForgotPasswordUseCase({
-    userRepository: deps.userRepository,
-    passwordResetTokenRepository: deps.passwordResetTokenRepository,
-  }),
-  resetPassword: new ResetPasswordUseCase({
-    passwordResetTokenRepository: deps.passwordResetTokenRepository,
-    credentialsRepository: deps.credentialsRepository,
-    passwordHasher: deps.passwordHasher,
-    userRepository: deps.userRepository,
-    authSessionRepository: deps.authSessionRepository,
-  }),
-  createInvitation: new CreateInvitationUseCase({
+): AuthRouterUseCases => {
+  const createInvitation = new CreateInvitationUseCase({
     userRepository: deps.userRepository,
     invitationRepository: deps.invitationRepository,
     invitationEmailSender: deps.invitationEmailSender,
     inviteTokenTtlSeconds: deps.inviteTokenTtlSeconds,
     inviteAcceptBaseUrl: deps.inviteAcceptBaseUrl,
-  }),
-  acceptInvitation: new AcceptInvitationUseCase({
-    invitationRepository: deps.invitationRepository,
-    userRepository: deps.userRepository,
-    passwordHasher: deps.passwordHasher,
-    credentialsRepository: deps.credentialsRepository,
-  }),
-});
+  });
+
+  return {
+    authenticateUser: new AuthenticateUserUseCase({
+      credentialsRepository: deps.credentialsRepository,
+      passwordVerifier: deps.passwordVerifier,
+      tokenIssuer: deps.tokenIssuer,
+      userRepository: deps.userRepository,
+      clock: deps.clock,
+      tokenTtlSeconds: deps.tokenTtlSeconds,
+      issuer: deps.issuer,
+      authSessionRepository: deps.authSessionRepository,
+    }),
+    refreshSession: new RefreshSessionUseCase({
+      tokenIssuer: deps.tokenIssuer,
+      userRepository: deps.userRepository,
+      clock: deps.clock,
+      tokenTtlSeconds: deps.tokenTtlSeconds,
+      issuer: deps.issuer,
+      authSessionRepository: deps.authSessionRepository,
+    }),
+    forgotPassword: new ForgotPasswordUseCase({
+      userRepository: deps.userRepository,
+      passwordResetTokenRepository: deps.passwordResetTokenRepository,
+    }),
+    resetPassword: new ResetPasswordUseCase({
+      passwordResetTokenRepository: deps.passwordResetTokenRepository,
+      credentialsRepository: deps.credentialsRepository,
+      passwordHasher: deps.passwordHasher,
+      userRepository: deps.userRepository,
+      authSessionRepository: deps.authSessionRepository,
+    }),
+    createInvitation,
+    acceptInvitation: new AcceptInvitationUseCase({
+      invitationRepository: deps.invitationRepository,
+      userRepository: deps.userRepository,
+      passwordHasher: deps.passwordHasher,
+      credentialsRepository: deps.credentialsRepository,
+    }),
+    listInvitations: new ListInvitationsUseCase({
+      invitationRepository: deps.invitationRepository,
+    }),
+    resendInvitation: new ResendInvitationUseCase({
+      invitationRepository: deps.invitationRepository,
+      createInvitationUseCase: createInvitation,
+    }),
+  };
+};
 
 const enrichUserWithAvatarUrl = async (
   user: AuthResultUser,
