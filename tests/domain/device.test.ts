@@ -16,6 +16,12 @@ describe("createDeviceProps", () => {
       name: "Lobby Display",
       identifier: "AA:BB:CC",
       location: "Main Hall",
+      ipAddress: null,
+      macAddress: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
     });
   });
 

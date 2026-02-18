@@ -3,7 +3,10 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import { type DeviceRepository } from "#/application/ports/devices";
+import {
+  type DeviceRecord,
+  type DeviceRepository,
+} from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { paginate } from "#/application/use-cases/shared/pagination";
@@ -53,14 +56,7 @@ const mapWithConcurrency = async <T, R>(
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
-function withTelemetry(device: {
-  id: string;
-  identifier: string;
-  name: string;
-  location: string | null;
-  createdAt: string;
-  updatedAt: string;
-}) {
+function withTelemetry(device: DeviceRecord) {
   const lastSeenAt = device.updatedAt;
   const lastSeenMs = Date.parse(lastSeenAt);
   const onlineStatus =
@@ -69,6 +65,12 @@ function withTelemetry(device: {
       : "DOWN";
   return {
     ...device,
+    ipAddress: device.ipAddress ?? null,
+    macAddress: device.macAddress ?? null,
+    screenWidth: device.screenWidth ?? null,
+    screenHeight: device.screenHeight ?? null,
+    outputType: device.outputType ?? null,
+    orientation: device.orientation ?? null,
     lastSeenAt,
     onlineStatus,
   } as const;
@@ -115,6 +117,12 @@ export class RegisterDeviceUseCase {
       const updated = await this.deps.deviceRepository.update(existing.id, {
         name: props.name,
         location: props.location,
+        ipAddress: props.ipAddress,
+        macAddress: props.macAddress,
+        screenWidth: props.screenWidth,
+        screenHeight: props.screenHeight,
+        outputType: props.outputType,
+        orientation: props.orientation,
       });
       if (!updated) {
         throw new NotFoundError("Device not found");
@@ -127,7 +135,94 @@ export class RegisterDeviceUseCase {
       identifier: props.identifier,
       location: props.location,
     });
+    if (
+      props.ipAddress !== null ||
+      props.macAddress !== null ||
+      props.screenWidth !== null ||
+      props.screenHeight !== null ||
+      props.outputType !== null ||
+      props.orientation !== null
+    ) {
+      const enriched = await this.deps.deviceRepository.update(created.id, {
+        ipAddress: props.ipAddress,
+        macAddress: props.macAddress,
+        screenWidth: props.screenWidth,
+        screenHeight: props.screenHeight,
+        outputType: props.outputType,
+        orientation: props.orientation,
+      });
+      return withTelemetry(enriched ?? created);
+    }
     return withTelemetry(created);
+  }
+}
+
+export class UpdateDeviceUseCase {
+  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+
+  async execute(input: {
+    id: string;
+    name?: string;
+    location?: string | null;
+    ipAddress?: string | null;
+    macAddress?: string | null;
+    screenWidth?: number | null;
+    screenHeight?: number | null;
+    outputType?: string | null;
+    orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+  }) {
+    const normalizedName =
+      input.name === undefined ? undefined : input.name.trim();
+    if (normalizedName !== undefined && normalizedName.length === 0) {
+      throw new ValidationError("Name is required");
+    }
+
+    const normalizeOptionalText = (
+      value: string | null | undefined,
+      fieldName: string,
+    ): string | null | undefined => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        throw new ValidationError(`${fieldName} cannot be empty`);
+      }
+      return trimmed;
+    };
+
+    const ipAddress = normalizeOptionalText(input.ipAddress, "ipAddress");
+    const macAddress = normalizeOptionalText(input.macAddress, "macAddress");
+    const normalizedOutputType = normalizeOptionalText(
+      input.outputType,
+      "outputType",
+    );
+
+    const normalizeDimension = (
+      value: number | null | undefined,
+      fieldName: string,
+    ): number | null | undefined => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      if (!Number.isInteger(value) || value <= 0) {
+        throw new ValidationError(`${fieldName} must be a positive integer`);
+      }
+      return value;
+    };
+
+    const screenWidth = normalizeDimension(input.screenWidth, "screenWidth");
+    const screenHeight = normalizeDimension(input.screenHeight, "screenHeight");
+    const updated = await this.deps.deviceRepository.update(input.id, {
+      name: normalizedName,
+      location: input.location,
+      ipAddress,
+      macAddress,
+      screenWidth,
+      screenHeight,
+      outputType: normalizedOutputType,
+      orientation: input.orientation,
+    });
+    if (!updated) throw new NotFoundError("Device not found");
+    return withTelemetry(updated);
   }
 }
 

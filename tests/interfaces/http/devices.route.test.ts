@@ -17,6 +17,10 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     name: string;
     identifier: string;
     location: string | null;
+    screenWidth: number | null;
+    screenHeight: number | null;
+    outputType: string | null;
+    orientation: "LANDSCAPE" | "PORTRAIT" | null;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -42,6 +46,10 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         const record = {
           id: `device-${devices.length + 1}`,
           ...input,
+          screenWidth: null,
+          screenHeight: null,
+          outputType: null,
+          orientation: null,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         };
@@ -50,12 +58,27 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
       },
       update: async (
         id: string,
-        input: { name?: string; location?: string | null },
+        input: {
+          name?: string;
+          location?: string | null;
+          screenWidth?: number | null;
+          screenHeight?: number | null;
+          outputType?: string | null;
+          orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+        },
       ) => {
         const record = devices.find((device) => device.id === id);
         if (!record) return null;
         if (input.name !== undefined) record.name = input.name;
         if (input.location !== undefined) record.location = input.location;
+        if (input.screenWidth !== undefined)
+          record.screenWidth = input.screenWidth;
+        if (input.screenHeight !== undefined)
+          record.screenHeight = input.screenHeight;
+        if (input.outputType !== undefined)
+          record.outputType = input.outputType;
+        if (input.orientation !== undefined)
+          record.orientation = input.orientation;
         record.updatedAt = "2025-01-02T00:00:00.000Z";
         return record;
       },
@@ -264,6 +287,10 @@ describe("Devices routes", () => {
       name: "Lobby",
       identifier: "AA:BB",
       location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -293,6 +320,10 @@ describe("Devices routes", () => {
       name: "Lobby",
       identifier: "AA:BB",
       location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -305,6 +336,55 @@ describe("Devices routes", () => {
     expect(response.status).toBe(200);
   });
 
+  test("PATCH /devices/:id updates device with devices:update permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["devices:update"]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const token = await issueToken();
+
+    const response = await app.request(`/devices/${deviceId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Lobby TV",
+        location: "Main Hall",
+        outputType: "HDMI-0",
+        screenWidth: 1920,
+        screenHeight: 1080,
+        orientation: "LANDSCAPE",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{
+      name: string;
+      location: string | null;
+      outputType: string | null;
+      screenWidth: number | null;
+      screenHeight: number | null;
+      orientation: "LANDSCAPE" | "PORTRAIT" | null;
+    }>(response);
+    expect(json.name).toBe("Lobby TV");
+    expect(json.location).toBe("Main Hall");
+    expect(json.outputType).toBe("HDMI-0");
+    expect(json.screenWidth).toBe(1920);
+    expect(json.screenHeight).toBe(1080);
+    expect(json.orientation).toBe("LANDSCAPE");
+  });
+
   test("GET /devices/:id/manifest returns empty manifest", async () => {
     const { app, devices } = await makeApp();
     devices.push({
@@ -312,6 +392,10 @@ describe("Devices routes", () => {
       name: "Lobby",
       identifier: "AA:BB",
       location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -332,6 +416,10 @@ describe("Devices routes", () => {
       name: "Lobby",
       identifier: "AA:BB",
       location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });

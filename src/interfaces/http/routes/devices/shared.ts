@@ -15,6 +15,7 @@ import {
   GetDeviceUseCase,
   ListDevicesUseCase,
   RegisterDeviceUseCase,
+  UpdateDeviceUseCase,
 } from "#/application/use-cases/devices";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { unauthorized } from "#/interfaces/http/responses";
@@ -40,6 +41,7 @@ export interface DevicesRouterDeps {
 export interface DevicesRouterUseCases {
   listDevices: ListDevicesUseCase;
   getDevice: GetDeviceUseCase;
+  updateDevice: UpdateDeviceUseCase;
   registerDevice: RegisterDeviceUseCase;
   getActiveSchedule: GetDeviceActiveScheduleUseCase;
   getManifest: GetDeviceManifestUseCase;
@@ -60,6 +62,9 @@ export const createDevicesUseCases = (
     deviceRepository: deps.repositories.deviceRepository,
   }),
   getDevice: new GetDeviceUseCase({
+    deviceRepository: deps.repositories.deviceRepository,
+  }),
+  updateDevice: new UpdateDeviceUseCase({
     deviceRepository: deps.repositories.deviceRepository,
   }),
   registerDevice: new RegisterDeviceUseCase({

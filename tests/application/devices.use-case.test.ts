@@ -9,6 +9,7 @@ import {
   ListDevicesUseCase,
   NotFoundError,
   RegisterDeviceUseCase,
+  UpdateDeviceUseCase,
 } from "#/application/use-cases/devices";
 
 const makeRepository = () => {
@@ -30,6 +31,10 @@ const makeRepository = () => {
         name: input.name,
         identifier: input.identifier,
         location: input.location,
+        screenWidth: null,
+        screenHeight: null,
+        outputType: null,
+        orientation: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
@@ -41,6 +46,13 @@ const makeRepository = () => {
       if (!record) return null;
       if (input.name !== undefined) record.name = input.name;
       if (input.location !== undefined) record.location = input.location;
+      if (input.screenWidth !== undefined)
+        record.screenWidth = input.screenWidth;
+      if (input.screenHeight !== undefined)
+        record.screenHeight = input.screenHeight;
+      if (input.outputType !== undefined) record.outputType = input.outputType;
+      if (input.orientation !== undefined)
+        record.orientation = input.orientation;
       record.updatedAt = "2025-01-02T00:00:00.000Z";
       return record;
     },
@@ -109,6 +121,35 @@ describe("Devices use cases", () => {
     expect(updated.id).toBe(created.id);
     expect(updated.name).toBe("Lobby Display");
     expect(updated.location).toBe("Hallway");
+  });
+
+  test("UpdateDeviceUseCase updates mutable device fields", async () => {
+    const { repo } = makeRepository();
+    const created = await repo.create({
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+    });
+
+    const updateDevice = new UpdateDeviceUseCase({
+      deviceRepository: repo,
+    });
+    const updated = await updateDevice.execute({
+      id: created.id,
+      name: "Lobby TV",
+      location: "Main Hall",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      outputType: "HDMI-0",
+      orientation: "LANDSCAPE",
+    });
+
+    expect(updated.name).toBe("Lobby TV");
+    expect(updated.location).toBe("Main Hall");
+    expect(updated.screenWidth).toBe(1920);
+    expect(updated.screenHeight).toBe(1080);
+    expect(updated.outputType).toBe("HDMI-0");
+    expect(updated.orientation).toBe("LANDSCAPE");
   });
 
   test("GetDeviceManifestUseCase returns empty when no schedule", async () => {

@@ -85,6 +85,12 @@ export const registerDeviceApiRoutes = (args: {
           name: payload.name,
           identifier: payload.identifier,
           location: payload.location ?? null,
+          ipAddress: payload.ipAddress ?? null,
+          macAddress: payload.macAddress ?? null,
+          screenWidth: payload.screenWidth ?? null,
+          screenHeight: payload.screenHeight ?? null,
+          outputType: payload.outputType ?? null,
+          orientation: payload.orientation ?? null,
         });
         c.set("actorId", result.id);
         c.set("resourceId", result.id);

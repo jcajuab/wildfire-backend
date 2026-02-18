@@ -3,6 +3,12 @@ export interface DeviceRecord {
   name: string;
   identifier: string;
   location: string | null;
+  ipAddress?: string | null;
+  macAddress?: string | null;
+  screenWidth?: number | null;
+  screenHeight?: number | null;
+  outputType?: string | null;
+  orientation?: "LANDSCAPE" | "PORTRAIT" | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,7 +25,16 @@ export interface DeviceRepository {
   }): Promise<DeviceRecord>;
   update(
     id: string,
-    input: { name?: string; location?: string | null },
+    input: {
+      name?: string;
+      location?: string | null;
+      ipAddress?: string | null;
+      macAddress?: string | null;
+      screenWidth?: number | null;
+      screenHeight?: number | null;
+      outputType?: string | null;
+      orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+    },
   ): Promise<DeviceRecord | null>;
   touchSeen?(id: string, at: Date): Promise<void>;
 }

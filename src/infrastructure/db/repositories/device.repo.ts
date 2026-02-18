@@ -11,6 +11,15 @@ const toRecord = (row: typeof devices.$inferSelect): DeviceRecord => ({
   name: row.name,
   identifier: row.identifier,
   location: row.location ?? null,
+  ipAddress: row.ipAddress ?? null,
+  macAddress: row.macAddress ?? null,
+  screenWidth: row.screenWidth ?? null,
+  screenHeight: row.screenHeight ?? null,
+  outputType: row.outputType ?? null,
+  orientation:
+    row.orientation === "LANDSCAPE" || row.orientation === "PORTRAIT"
+      ? row.orientation
+      : null,
   createdAt:
     row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
   updatedAt:
@@ -76,6 +85,12 @@ export class DeviceDbRepository implements DeviceRepository {
       name: input.name,
       identifier: input.identifier,
       location: input.location,
+      ipAddress: null,
+      macAddress: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -83,7 +98,16 @@ export class DeviceDbRepository implements DeviceRepository {
 
   async update(
     id: string,
-    input: { name?: string; location?: string | null },
+    input: {
+      name?: string;
+      location?: string | null;
+      ipAddress?: string | null;
+      macAddress?: string | null;
+      screenWidth?: number | null;
+      screenHeight?: number | null;
+      outputType?: string | null;
+      orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+    },
   ): Promise<DeviceRecord | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
@@ -92,6 +116,24 @@ export class DeviceDbRepository implements DeviceRepository {
       name: input.name ?? existing.name,
       location:
         input.location !== undefined ? input.location : existing.location,
+      ipAddress:
+        input.ipAddress !== undefined ? input.ipAddress : existing.ipAddress,
+      macAddress:
+        input.macAddress !== undefined ? input.macAddress : existing.macAddress,
+      screenWidth:
+        input.screenWidth !== undefined
+          ? input.screenWidth
+          : existing.screenWidth,
+      screenHeight:
+        input.screenHeight !== undefined
+          ? input.screenHeight
+          : existing.screenHeight,
+      outputType:
+        input.outputType !== undefined ? input.outputType : existing.outputType,
+      orientation:
+        input.orientation !== undefined
+          ? input.orientation
+          : existing.orientation,
     };
 
     const now = new Date();
@@ -100,6 +142,12 @@ export class DeviceDbRepository implements DeviceRepository {
       .set({
         name: next.name,
         location: next.location,
+        ipAddress: next.ipAddress,
+        macAddress: next.macAddress,
+        screenWidth: next.screenWidth,
+        screenHeight: next.screenHeight,
+        outputType: next.outputType,
+        orientation: next.orientation,
         updatedAt: now,
       })
       .where(eq(devices.id, id));
