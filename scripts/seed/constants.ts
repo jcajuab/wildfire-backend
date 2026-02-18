@@ -12,6 +12,7 @@ export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   action: string;
 }> = [
   { resource: "content", action: "read" },
+  { resource: "content", action: "download" },
   { resource: "content", action: "create" },
   { resource: "content", action: "update" },
   { resource: "content", action: "delete" },
