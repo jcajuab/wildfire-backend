@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, type SQL, sql } from "drizzle-orm";
 import {
   type AuditEventRecord,
   type AuditEventRepository,
@@ -9,6 +9,10 @@ import { db } from "#/infrastructure/db/client";
 import { auditEvents } from "#/infrastructure/db/schema/audit.sql";
 import { devices } from "#/infrastructure/db/schema/device.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
+
+/** Escape LIKE wildcards so user input is treated literally. */
+const escapeLike = (value: string): string =>
+  value.replace(/[%_\\]/g, (ch) => `\\${ch}`);
 
 const toRecord = (
   row: typeof auditEvents.$inferSelect & {
@@ -54,10 +58,12 @@ const buildWhere = (query: ListAuditEventsQuery): SQL | undefined => {
     predicates.push(eq(auditEvents.actorType, query.actorType));
   }
   if (query.action) {
-    predicates.push(eq(auditEvents.action, query.action));
+    predicates.push(like(auditEvents.action, `${escapeLike(query.action)}%`));
   }
   if (query.resourceType) {
-    predicates.push(eq(auditEvents.resourceType, query.resourceType));
+    predicates.push(
+      like(auditEvents.resourceType, `${escapeLike(query.resourceType)}%`),
+    );
   }
   if (query.resourceId) {
     predicates.push(eq(auditEvents.resourceId, query.resourceId));
@@ -66,7 +72,9 @@ const buildWhere = (query: ListAuditEventsQuery): SQL | undefined => {
     predicates.push(eq(auditEvents.status, query.status));
   }
   if (query.requestId) {
-    predicates.push(eq(auditEvents.requestId, query.requestId));
+    predicates.push(
+      like(auditEvents.requestId, `${escapeLike(query.requestId)}%`),
+    );
   }
 
   return predicates.length > 0 ? and(...predicates) : undefined;
