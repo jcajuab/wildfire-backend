@@ -37,11 +37,11 @@ export class RefreshSessionUseCase {
   constructor(private readonly deps: RefreshSessionDeps) {}
 
   async execute(input: RefreshSessionInput): Promise<RefreshSessionResult> {
-    const user = await this.deps.userRepository.findById(input.userId);
-    if (!user) {
+    const existingUser = await this.deps.userRepository.findById(input.userId);
+    if (!existingUser) {
       throw new InvalidCredentialsError();
     }
-    if (!user.isActive) {
+    if (!existingUser.isActive) {
       throw new InvalidCredentialsError(
         "Your account is currently deactivated. Please contact your administrator.",
       );
@@ -49,6 +49,11 @@ export class RefreshSessionUseCase {
 
     const issuedAt = this.deps.clock.nowSeconds();
     const expiresAt = issuedAt + this.deps.tokenTtlSeconds;
+    const lastSeenAt = new Date(issuedAt * 1000).toISOString();
+    const user =
+      (await this.deps.userRepository.update(input.userId, {
+        lastSeenAt,
+      })) ?? existingUser;
     if (input.currentSessionId) {
       const isOwnedByUser = this.deps.authSessionRepository.isOwnedByUser
         ? await this.deps.authSessionRepository.isOwnedByUser(

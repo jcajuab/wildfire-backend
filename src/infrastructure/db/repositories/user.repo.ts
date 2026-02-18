@@ -3,9 +3,25 @@ import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
 
+const toRecord = (row: typeof users.$inferSelect): UserRecord => ({
+  id: row.id,
+  email: row.email,
+  name: row.name,
+  isActive: row.isActive,
+  timezone: row.timezone ?? null,
+  avatarKey: row.avatarKey ?? null,
+  lastSeenAt:
+    row.lastSeenAt == null
+      ? null
+      : row.lastSeenAt instanceof Date
+        ? row.lastSeenAt.toISOString()
+        : row.lastSeenAt,
+});
+
 export class UserDbRepository implements UserRepository {
   async list(): Promise<UserRecord[]> {
-    return db.select().from(users);
+    const rows = await db.select().from(users);
+    return rows.map(toRecord);
   }
 
   async findById(id: string): Promise<UserRecord | null> {
@@ -14,12 +30,13 @@ export class UserDbRepository implements UserRepository {
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
-    return result[0] ?? null;
+    return result[0] ? toRecord(result[0]) : null;
   }
 
   async findByIds(ids: string[]): Promise<UserRecord[]> {
     if (ids.length === 0) return [];
-    return db.select().from(users).where(inArray(users.id, ids));
+    const rows = await db.select().from(users).where(inArray(users.id, ids));
+    return rows.map(toRecord);
   }
 
   async findByEmail(email: string): Promise<UserRecord | null> {
@@ -28,7 +45,7 @@ export class UserDbRepository implements UserRepository {
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
-    return result[0] ?? null;
+    return result[0] ? toRecord(result[0]) : null;
   }
 
   async create(input: {
@@ -51,6 +68,9 @@ export class UserDbRepository implements UserRepository {
       email: input.email,
       name: input.name,
       isActive,
+      timezone: null,
+      avatarKey: null,
+      lastSeenAt: null,
     };
   }
 
@@ -62,6 +82,7 @@ export class UserDbRepository implements UserRepository {
       isActive?: boolean;
       timezone?: string | null;
       avatarKey?: string | null;
+      lastSeenAt?: string | null;
     },
   ): Promise<UserRecord | null> {
     const existing = await this.findById(id);
@@ -75,6 +96,8 @@ export class UserDbRepository implements UserRepository {
         input.timezone !== undefined ? input.timezone : existing.timezone,
       avatarKey:
         input.avatarKey !== undefined ? input.avatarKey : existing.avatarKey,
+      lastSeenAt:
+        input.lastSeenAt !== undefined ? input.lastSeenAt : existing.lastSeenAt,
     };
 
     await db
@@ -85,6 +108,7 @@ export class UserDbRepository implements UserRepository {
         isActive: next.isActive,
         timezone: next.timezone,
         avatarKey: next.avatarKey,
+        lastSeenAt: next.lastSeenAt ? new Date(next.lastSeenAt) : null,
       })
       .where(eq(users.id, id));
 

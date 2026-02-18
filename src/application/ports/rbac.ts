@@ -7,6 +7,7 @@ export interface UserRecord {
   isActive: boolean;
   timezone?: string | null;
   avatarKey?: string | null;
+  lastSeenAt?: string | null;
 }
 
 export interface RoleRecord {
@@ -44,6 +45,7 @@ export interface UserRepository {
       isActive?: boolean;
       timezone?: string | null;
       avatarKey?: string | null;
+      lastSeenAt?: string | null;
     },
   ): Promise<UserRecord | null>;
   delete(id: string): Promise<boolean>;
