@@ -54,11 +54,15 @@ export const registerRbacPermissionRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
         c.set("resourceId", params.id);
-        const permissions = await useCases.getRolePermissions.execute({
+        const result = await useCases.getRolePermissions.execute({
           roleId: params.id,
+          page,
+          pageSize,
         });
-        return c.json(permissions);
+        return c.json(result);
       },
       ...applicationErrorMappers,
     ),

@@ -110,4 +110,8 @@ export class DeviceDbRepository implements DeviceRepository {
       updatedAt: now.toISOString(),
     };
   }
+
+  async touchSeen(id: string, at: Date): Promise<void> {
+    await db.update(devices).set({ updatedAt: at }).where(eq(devices.id, id));
+  }
 }

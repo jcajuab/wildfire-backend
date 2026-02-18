@@ -70,5 +70,6 @@ export const createSchedulesUseCases = (
   }),
   deleteSchedule: new DeleteScheduleUseCase({
     scheduleRepository: deps.repositories.scheduleRepository,
+    playlistRepository: deps.repositories.playlistRepository,
   }),
 });

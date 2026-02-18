@@ -11,6 +11,8 @@ export const toScheduleView = (
   name: schedule.name,
   playlistId: schedule.playlistId,
   deviceId: schedule.deviceId,
+  startDate: schedule.startDate ?? "",
+  endDate: schedule.endDate ?? "",
   startTime: schedule.startTime,
   endTime: schedule.endTime,
   daysOfWeek: schedule.daysOfWeek,

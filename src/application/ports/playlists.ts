@@ -1,7 +1,10 @@
+import { type PlaylistStatus } from "#/domain/playlists/playlist";
+
 export interface PlaylistRecord {
   id: string;
   name: string;
   description: string | null;
+  status?: PlaylistStatus;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -17,6 +20,14 @@ export interface PlaylistItemRecord {
 
 export interface PlaylistRepository {
   list(): Promise<PlaylistRecord[]>;
+  listPage(input: {
+    offset: number;
+    limit: number;
+    status?: PlaylistStatus;
+    search?: string;
+    sortBy?: "updatedAt" | "name";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: PlaylistRecord[]; total: number }>;
   findByIds(ids: string[]): Promise<PlaylistRecord[]>;
   findById(id: string): Promise<PlaylistRecord | null>;
   create(input: {
@@ -28,6 +39,7 @@ export interface PlaylistRepository {
     id: string,
     input: { name?: string; description?: string | null },
   ): Promise<PlaylistRecord | null>;
+  updateStatus(id: string, status: PlaylistStatus): Promise<void>;
   delete(id: string): Promise<boolean>;
   listItems(playlistId: string): Promise<PlaylistItemRecord[]>;
   findItemById(id: string): Promise<PlaylistItemRecord | null>;

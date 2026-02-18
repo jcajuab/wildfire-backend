@@ -382,9 +382,12 @@ describe("RBAC use cases", () => {
       } as never,
     });
 
-    await expect(useCase.execute({ roleId: "role-1" })).resolves.toEqual([
-      { id: "perm-1", resource: "content", action: "read" },
-    ]);
+    await expect(useCase.execute({ roleId: "role-1" })).resolves.toEqual({
+      items: [{ id: "perm-1", resource: "content", action: "read" }],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    });
   });
 
   test("SetRolePermissionsUseCase returns assigned permissions", async () => {
@@ -447,8 +450,9 @@ describe("RBAC use cases", () => {
     });
 
     const result = await useCase.execute({ userId: "user-1" });
-    expect(result).toHaveLength(2);
-    expect(result.map((r) => r.name)).toEqual(["Admin", "Viewer"]);
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((r) => r.name)).toEqual(["Admin", "Viewer"]);
+    expect(result.total).toBe(2);
   });
 
   test("GetUserRolesUseCase throws when user missing", async () => {
@@ -491,8 +495,9 @@ describe("RBAC use cases", () => {
     });
 
     const result = await useCase.execute({ roleId: "role-1" });
-    expect(result).toHaveLength(2);
-    expect(result.map((u) => u.id)).toEqual(["user-1", "user-2"]);
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((u) => u.id)).toEqual(["user-1", "user-2"]);
+    expect(result.total).toBe(2);
   });
 
   test("GetRoleUsersUseCase throws when role missing", async () => {

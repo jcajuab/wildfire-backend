@@ -3,6 +3,8 @@ export interface ScheduleRecord {
   name: string;
   playlistId: string;
   deviceId: string;
+  startDate?: string;
+  endDate?: string;
   startTime: string;
   endTime: string;
   daysOfWeek: number[];
@@ -20,6 +22,8 @@ export interface ScheduleRepository {
     name: string;
     playlistId: string;
     deviceId: string;
+    startDate?: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
     daysOfWeek: number[];
@@ -32,6 +36,8 @@ export interface ScheduleRepository {
       name?: string;
       playlistId?: string;
       deviceId?: string;
+      startDate?: string;
+      endDate?: string;
       startTime?: string;
       endTime?: string;
       daysOfWeek?: number[];
@@ -40,4 +46,5 @@ export interface ScheduleRepository {
     },
   ): Promise<ScheduleRecord | null>;
   delete(id: string): Promise<boolean>;
+  countByPlaylistId?(playlistId: string): Promise<number>;
 }

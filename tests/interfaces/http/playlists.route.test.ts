@@ -53,6 +53,10 @@ const makeApp = async (
     repositories: {
       playlistRepository: {
         list: async () => [...playlists],
+        listPage: async ({ offset, limit }) => ({
+          items: playlists.slice(offset, offset + limit),
+          total: playlists.length,
+        }),
         findByIds: async (ids: string[]) =>
           playlists.filter((item) => ids.includes(item.id)),
         findById: async (id: string) =>
@@ -62,6 +66,7 @@ const makeApp = async (
             id: playlistId,
             name: input.name,
             description: input.description,
+            status: "DRAFT" as const,
             createdById: input.createdById,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -70,6 +75,7 @@ const makeApp = async (
           return record;
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async (playlistId: string) =>
           items.filter((item) => item.playlistId === playlistId),
@@ -171,7 +177,7 @@ describe("Playlists routes", () => {
     expect(Array.isArray(body.items)).toBe(true);
     expect(typeof body.total).toBe("number");
     expect(body.page).toBe(1);
-    expect(body.pageSize).toBe(50);
+    expect(body.pageSize).toBe(20);
   });
 
   test("POST /playlists creates playlist", async () => {

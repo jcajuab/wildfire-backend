@@ -132,12 +132,14 @@ describe("Devices use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
@@ -260,6 +262,7 @@ describe("Devices use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-1")
             ? [
@@ -285,6 +288,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async () => [
           {
@@ -373,6 +377,7 @@ describe("Devices use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-1")
             ? [
@@ -398,6 +403,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async () => [
           {

@@ -18,6 +18,8 @@ export const schedules = mysqlTable("schedules", {
   deviceId: varchar("device_id", { length: 36 })
     .notNull()
     .references(() => devices.id, { onDelete: "cascade" }),
+  startDate: varchar("start_date", { length: 10 }).notNull(),
+  endDate: varchar("end_date", { length: 10 }).notNull(),
   startTime: varchar("start_time", { length: 5 }).notNull(),
   endTime: varchar("end_time", { length: 5 }).notNull(),
   daysOfWeek: json("days_of_week").notNull(),

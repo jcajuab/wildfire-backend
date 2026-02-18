@@ -19,7 +19,7 @@ export class GetUserRolesUseCase {
     },
   ) {}
 
-  async execute(input: { userId: string }) {
+  async execute(input: { userId: string; page?: number; pageSize?: number }) {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
 
@@ -27,9 +27,18 @@ export class GetUserRolesUseCase {
       input.userId,
     );
     const roleIds = assignments.map((a) => a.roleId);
-    if (roleIds.length === 0) return [];
+    if (roleIds.length === 0) {
+      return paginate([], {
+        page: input.page,
+        pageSize: input.pageSize,
+      });
+    }
 
-    return this.deps.roleRepository.findByIds(roleIds);
+    const roles = await this.deps.roleRepository.findByIds(roleIds);
+    return paginate(roles, {
+      page: input.page,
+      pageSize: input.pageSize,
+    });
   }
 }
 

@@ -55,6 +55,21 @@ export const createPermissionMiddleware = (deps: {
       });
 
       if (!allowed) {
+        c.set("action", "authz.permission.deny");
+        c.set("resourceType", "permission");
+        c.set("resourceId", permission);
+        (c as unknown as { set: (k: string, v: string) => void }).set(
+          "deniedPermission",
+          permission,
+        );
+        (c as unknown as { set: (k: string, v: string) => void }).set(
+          "denyErrorCode",
+          "FORBIDDEN",
+        );
+        (c as unknown as { set: (k: string, v: string) => void }).set(
+          "denyErrorType",
+          "PermissionDenied",
+        );
         return forbidden(c, "Forbidden");
       }
 

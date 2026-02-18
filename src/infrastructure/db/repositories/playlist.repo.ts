@@ -1,25 +1,40 @@
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import {
   type PlaylistItemRecord,
   type PlaylistRecord,
   type PlaylistRepository,
 } from "#/application/ports/playlists";
+import {
+  isPlaylistStatus,
+  type PlaylistStatus,
+} from "#/domain/playlists/playlist";
 import { db } from "#/infrastructure/db/client";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 
 const toPlaylistRecord = (
   row: typeof playlists.$inferSelect,
-): PlaylistRecord => ({
-  id: row.id,
-  name: row.name,
-  description: row.description ?? null,
-  createdById: row.createdById,
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
-});
+): PlaylistRecord => {
+  if (!isPlaylistStatus(row.status)) {
+    throw new Error(`Invalid playlist status: ${row.status}`);
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? null,
+    status: row.status,
+    createdById: row.createdById,
+    createdAt:
+      row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : row.createdAt,
+    updatedAt:
+      row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : row.updatedAt,
+  };
+};
 
 const toItemRecord = (
   row: typeof playlistItems.$inferSelect,
@@ -36,8 +51,51 @@ export class PlaylistDbRepository implements PlaylistRepository {
     const rows = await db
       .select()
       .from(playlists)
-      .orderBy(desc(playlists.createdAt));
+      .orderBy(desc(playlists.updatedAt));
     return rows.map(toPlaylistRecord);
+  }
+
+  async listPage(input: {
+    offset: number;
+    limit: number;
+    status?: PlaylistStatus;
+    search?: string;
+    sortBy?: "updatedAt" | "name";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: PlaylistRecord[]; total: number }> {
+    const conditions = [
+      input.status ? eq(playlists.status, input.status) : undefined,
+      input.search && input.search.length > 0
+        ? like(playlists.name, `%${input.search.replaceAll("%", "\\%")}%`)
+        : undefined,
+    ].filter((value) => value !== undefined);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const orderColumn =
+      input.sortBy === "name" ? playlists.name : playlists.updatedAt;
+    const orderBy =
+      input.sortDirection === "asc" ? asc(orderColumn) : desc(orderColumn);
+
+    const rows = await db
+      .select()
+      .from(playlists)
+      .where(whereClause)
+      .orderBy(orderBy)
+      .limit(input.limit)
+      .offset(input.offset);
+
+    const totalQuery = db
+      .select({ value: sql<number>`count(*)` })
+      .from(playlists);
+    const totalResult =
+      whereClause === undefined
+        ? await totalQuery
+        : await totalQuery.where(whereClause);
+
+    return {
+      items: rows.map(toPlaylistRecord),
+      total: totalResult[0]?.value ?? 0,
+    };
   }
 
   async findByIds(ids: string[]): Promise<PlaylistRecord[]> {
@@ -71,6 +129,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       id,
       name: input.name,
       description: input.description,
+      status: "DRAFT",
       createdById: input.createdById,
       createdAt: now,
       updatedAt: now,
@@ -80,6 +139,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       id,
       name: input.name,
       description: input.description,
+      status: "DRAFT",
       createdById: input.createdById,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -116,6 +176,10 @@ export class PlaylistDbRepository implements PlaylistRepository {
       ...next,
       updatedAt: now.toISOString(),
     };
+  }
+
+  async updateStatus(id: string, status: PlaylistStatus): Promise<void> {
+    await db.update(playlists).set({ status }).where(eq(playlists.id, id));
   }
 
   async delete(id: string): Promise<boolean> {

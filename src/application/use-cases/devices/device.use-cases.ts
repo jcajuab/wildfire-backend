@@ -51,12 +51,36 @@ const mapWithConcurrency = async <T, R>(
   return result;
 };
 
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function withTelemetry(device: {
+  id: string;
+  identifier: string;
+  name: string;
+  location: string | null;
+  createdAt: string;
+  updatedAt: string;
+}) {
+  const lastSeenAt = device.updatedAt;
+  const lastSeenMs = Date.parse(lastSeenAt);
+  const onlineStatus =
+    Number.isFinite(lastSeenMs) && Date.now() - lastSeenMs <= ONLINE_WINDOW_MS
+      ? "LIVE"
+      : "DOWN";
+  return {
+    ...device,
+    lastSeenAt,
+    onlineStatus,
+  } as const;
+}
+
 export class ListDevicesUseCase {
   constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
 
   async execute(input?: { page?: number; pageSize?: number }) {
     const all = await this.deps.deviceRepository.list();
-    return paginate(all, input);
+    const withStatus = all.map(withTelemetry);
+    return paginate(withStatus, input);
   }
 }
 
@@ -66,7 +90,7 @@ export class GetDeviceUseCase {
   async execute(input: { id: string }) {
     const device = await this.deps.deviceRepository.findById(input.id);
     if (!device) throw new NotFoundError("Device not found");
-    return device;
+    return withTelemetry(device);
   }
 }
 
@@ -95,14 +119,15 @@ export class RegisterDeviceUseCase {
       if (!updated) {
         throw new NotFoundError("Device not found");
       }
-      return updated;
+      return withTelemetry(updated);
     }
 
-    return this.deps.deviceRepository.create({
+    const created = await this.deps.deviceRepository.create({
       name: props.name,
       identifier: props.identifier,
       location: props.location,
     });
+    return withTelemetry(created);
   }
 }
 
@@ -117,6 +142,7 @@ export class GetDeviceActiveScheduleUseCase {
   ) {}
 
   async execute(input: { deviceId: string; now: Date }) {
+    await this.deps.deviceRepository.touchSeen?.(input.deviceId, input.now);
     const [device, schedules] = await Promise.all([
       this.deps.deviceRepository.findById(input.deviceId),
       this.deps.scheduleRepository.listByDevice(input.deviceId),
@@ -167,6 +193,7 @@ export class GetDeviceManifestUseCase {
   ) {}
 
   async execute(input: { deviceId: string; now: Date }) {
+    await this.deps.deviceRepository.touchSeen?.(input.deviceId, input.now);
     const [device, schedules] = await Promise.all([
       this.deps.deviceRepository.findById(input.deviceId),
       this.deps.scheduleRepository.listByDevice(input.deviceId),

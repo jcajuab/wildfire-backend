@@ -16,6 +16,9 @@ export type ObservabilityVariables = RequestIdVariables & {
   fileId?: string;
   rbacPolicyVersion?: string;
   rbacTargetCount?: string;
+  deniedPermission?: string;
+  denyErrorCode?: string;
+  denyErrorType?: string;
 };
 
 export const setAction =

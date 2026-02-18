@@ -1,3 +1,8 @@
+export type PlaylistStatus = "DRAFT" | "IN_USE";
+
+export const isPlaylistStatus = (value: string): value is PlaylistStatus =>
+  value === "DRAFT" || value === "IN_USE";
+
 export const isValidSequence = (value: number) =>
   Number.isInteger(value) && value > 0;
 

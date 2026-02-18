@@ -5,8 +5,11 @@ import {
   type PlaylistRepository,
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
-import { paginate } from "#/application/use-cases/shared/pagination";
-import { isValidDuration, isValidSequence } from "#/domain/playlists/playlist";
+import {
+  isValidDuration,
+  isValidSequence,
+  type PlaylistStatus,
+} from "#/domain/playlists/playlist";
 import { NotFoundError } from "./errors";
 import { toPlaylistItemView, toPlaylistView } from "./playlist-view";
 
@@ -18,21 +21,64 @@ export class ListPlaylistsUseCase {
     },
   ) {}
 
-  async execute(input?: { page?: number; pageSize?: number }) {
-    const playlists = await this.deps.playlistRepository.list();
+  async execute(input?: {
+    page?: number;
+    pageSize?: number;
+    status?: PlaylistStatus;
+    search?: string;
+    sortBy?: "updatedAt" | "name";
+    sortDirection?: "asc" | "desc";
+  }) {
+    const page = Math.max(Math.trunc(input?.page ?? 1), 1);
+    const pageSize = Math.min(
+      Math.max(Math.trunc(input?.pageSize ?? 20), 1),
+      100,
+    );
+    const offset = (page - 1) * pageSize;
+
+    const { items: playlists, total } =
+      await this.deps.playlistRepository.listPage({
+        offset,
+        limit: pageSize,
+        status: input?.status,
+        search: input?.search,
+        sortBy: input?.sortBy,
+        sortDirection: input?.sortDirection,
+      });
     const creatorIds = Array.from(
       new Set(playlists.map((item) => item.createdById)),
     );
     const creators = await this.deps.userRepository.findByIds(creatorIds);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
-    const views = playlists.map((playlist) =>
+    const statsByPlaylistId = new Map<
+      string,
+      { itemsCount: number; totalDuration: number }
+    >();
+    await Promise.all(
+      playlists.map(async (playlist) => {
+        const items = await this.deps.playlistRepository.listItems(playlist.id);
+        statsByPlaylistId.set(playlist.id, {
+          itemsCount: items.length,
+          totalDuration: items.reduce((sum, item) => sum + item.duration, 0),
+        });
+      }),
+    );
+
+    const items = playlists.map((playlist) =>
       toPlaylistView(
         playlist,
         creatorsById.get(playlist.createdById)?.name ?? null,
+        statsByPlaylistId.get(playlist.id),
       ),
     );
-    return paginate(views, input);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+    };
   }
 }
 
@@ -59,7 +105,10 @@ export class CreatePlaylistUseCase {
       description: input.description ?? null,
       createdById: input.createdById,
     });
-    return toPlaylistView(playlist, creator.name);
+    return toPlaylistView(playlist, creator.name, {
+      itemsCount: 0,
+      totalDuration: 0,
+    });
   }
 }
 
@@ -83,7 +132,10 @@ export class GetPlaylistUseCase {
       playlist.createdById,
     );
     return {
-      ...toPlaylistView(playlist, creator?.name ?? null),
+      ...toPlaylistView(playlist, creator?.name ?? null, {
+        itemsCount: itemViews.length,
+        totalDuration: itemViews.reduce((sum, item) => sum + item.duration, 0),
+      }),
       items: itemViews,
     };
   }
@@ -129,7 +181,11 @@ export class UpdatePlaylistUseCase {
     const creator = await this.deps.userRepository.findById(
       playlist.createdById,
     );
-    return toPlaylistView(playlist, creator?.name ?? null);
+    const items = await this.deps.playlistRepository.listItems(playlist.id);
+    return toPlaylistView(playlist, creator?.name ?? null, {
+      itemsCount: items.length,
+      totalDuration: items.reduce((sum, item) => sum + item.duration, 0),
+    });
   }
 }
 

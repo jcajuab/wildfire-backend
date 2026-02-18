@@ -4,6 +4,7 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import {
+  isValidDate,
   isValidDaysOfWeek,
   isValidTime,
   selectActiveSchedule,
@@ -59,6 +60,8 @@ export class CreateScheduleUseCase {
     name: string;
     playlistId: string;
     deviceId: string;
+    startDate?: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
     daysOfWeek: number[];
@@ -67,6 +70,14 @@ export class CreateScheduleUseCase {
   }) {
     if (!isValidTime(input.startTime) || !isValidTime(input.endTime)) {
       throw new ValidationError("Invalid time range");
+    }
+    const startDate = input.startDate ?? "1970-01-01";
+    const endDate = input.endDate ?? "2099-12-31";
+    if (!isValidDate(startDate) || !isValidDate(endDate)) {
+      throw new ValidationError("Invalid date range");
+    }
+    if (startDate > endDate) {
+      throw new ValidationError("Invalid date range");
     }
     if (!isValidDaysOfWeek(input.daysOfWeek)) {
       throw new ValidationError("Invalid days of week");
@@ -83,12 +94,15 @@ export class CreateScheduleUseCase {
       name: input.name,
       playlistId: input.playlistId,
       deviceId: input.deviceId,
+      startDate,
+      endDate,
       startTime: input.startTime,
       endTime: input.endTime,
       daysOfWeek: input.daysOfWeek,
       priority: input.priority,
       isActive: input.isActive,
     });
+    await this.deps.playlistRepository.updateStatus(input.playlistId, "IN_USE");
 
     return toScheduleView(schedule, playlist, device);
   }
@@ -130,6 +144,8 @@ export class UpdateScheduleUseCase {
     name?: string;
     playlistId?: string;
     deviceId?: string;
+    startDate?: string;
+    endDate?: string;
     startTime?: string;
     endTime?: string;
     daysOfWeek?: number[];
@@ -144,6 +160,24 @@ export class UpdateScheduleUseCase {
     }
     if (input.daysOfWeek && !isValidDaysOfWeek(input.daysOfWeek)) {
       throw new ValidationError("Invalid days of week");
+    }
+    if (
+      (input.startDate && !isValidDate(input.startDate)) ||
+      (input.endDate && !isValidDate(input.endDate))
+    ) {
+      throw new ValidationError("Invalid date range");
+    }
+
+    const existing = await this.deps.scheduleRepository.findById(input.id);
+    if (!existing) throw new NotFoundError("Schedule not found");
+    const nextStartDate = input.startDate ?? existing.startDate ?? "";
+    const nextEndDate = input.endDate ?? existing.endDate ?? "";
+    if (
+      nextStartDate.length > 0 &&
+      nextEndDate.length > 0 &&
+      nextStartDate > nextEndDate
+    ) {
+      throw new ValidationError("Invalid date range");
     }
 
     const [playlistForUpdate, deviceForUpdate] = await Promise.all([
@@ -165,6 +199,8 @@ export class UpdateScheduleUseCase {
       name: input.name,
       playlistId: input.playlistId,
       deviceId: input.deviceId,
+      startDate: input.startDate,
+      endDate: input.endDate,
       startTime: input.startTime,
       endTime: input.endTime,
       daysOfWeek: input.daysOfWeek,
@@ -173,6 +209,25 @@ export class UpdateScheduleUseCase {
     });
 
     if (!schedule) throw new NotFoundError("Schedule not found");
+
+    const previousPlaylistId = existing.playlistId;
+    if (previousPlaylistId !== schedule.playlistId) {
+      const remaining = this.deps.scheduleRepository.countByPlaylistId
+        ? await this.deps.scheduleRepository.countByPlaylistId(
+            previousPlaylistId,
+          )
+        : 0;
+      if (remaining === 0) {
+        await this.deps.playlistRepository.updateStatus(
+          previousPlaylistId,
+          "DRAFT",
+        );
+      }
+    }
+    await this.deps.playlistRepository.updateStatus(
+      schedule.playlistId,
+      "IN_USE",
+    );
 
     const [playlist, device] = await Promise.all([
       this.deps.playlistRepository.findById(schedule.playlistId),
@@ -185,12 +240,30 @@ export class UpdateScheduleUseCase {
 
 export class DeleteScheduleUseCase {
   constructor(
-    private readonly deps: { scheduleRepository: ScheduleRepository },
+    private readonly deps: {
+      scheduleRepository: ScheduleRepository;
+      playlistRepository: PlaylistRepository;
+    },
   ) {}
 
   async execute(input: { id: string }) {
+    const existing = await this.deps.scheduleRepository.findById(input.id);
+    if (!existing) throw new NotFoundError("Schedule not found");
+
     const deleted = await this.deps.scheduleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Schedule not found");
+
+    const remaining = this.deps.scheduleRepository.countByPlaylistId
+      ? await this.deps.scheduleRepository.countByPlaylistId(
+          existing.playlistId,
+        )
+      : 0;
+    if (remaining === 0) {
+      await this.deps.playlistRepository.updateStatus(
+        existing.playlistId,
+        "DRAFT",
+      );
+    }
   }
 }
 

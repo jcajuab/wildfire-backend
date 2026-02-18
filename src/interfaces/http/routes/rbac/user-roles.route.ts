@@ -53,11 +53,15 @@ export const registerRbacUserRoleRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
         c.set("resourceId", params.id);
-        const roles = await useCases.getUserRoles.execute({
+        const result = await useCases.getUserRoles.execute({
           userId: params.id,
+          page,
+          pageSize,
         });
-        return c.json(roles);
+        return c.json(result);
       },
       ...applicationErrorMappers,
     ),

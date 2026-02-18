@@ -50,12 +50,21 @@ export const registerRbacRoleUserRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
+        const page = Number(c.req.query("page")) || undefined;
+        const pageSize = Number(c.req.query("pageSize")) || undefined;
         c.set("resourceId", params.id);
-        const users = await useCases.getRoleUsers.execute({
+        const result = await useCases.getRoleUsers.execute({
           roleId: params.id,
+          page,
+          pageSize,
         });
-        const enriched = await maybeEnrichUsersForResponse(users, deps);
-        return c.json(enriched);
+        const enriched = await maybeEnrichUsersForResponse(result.items, deps);
+        return c.json({
+          items: enriched,
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize,
+        });
       },
       ...applicationErrorMappers,
     ),

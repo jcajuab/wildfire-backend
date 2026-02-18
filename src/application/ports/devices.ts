@@ -21,4 +21,5 @@ export interface DeviceRepository {
     id: string,
     input: { name?: string; location?: string | null },
   ): Promise<DeviceRecord | null>;
+  touchSeen?(id: string, at: Date): Promise<void>;
 }

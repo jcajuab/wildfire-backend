@@ -18,6 +18,10 @@ const shouldCaptureByAction = (action: string): boolean => {
     return true;
   }
 
+  if (action === "authz.permission.deny") {
+    return true;
+  }
+
   if (!action.startsWith("rbac.")) {
     return false;
   }
@@ -63,6 +67,9 @@ const buildSafeAuditMetadata = (input: {
   fileId?: string;
   rbacPolicyVersion?: string;
   rbacTargetCount?: string;
+  deniedPermission?: string;
+  denyErrorCode?: string;
+  denyErrorType?: string;
 }): string | undefined => {
   const metadata: Record<string, string> = {};
   if (input.sessionId) {
@@ -76,6 +83,15 @@ const buildSafeAuditMetadata = (input: {
   }
   if (input.rbacTargetCount) {
     metadata.rbacTargetCount = input.rbacTargetCount;
+  }
+  if (input.deniedPermission) {
+    metadata.deniedPermission = input.deniedPermission;
+  }
+  if (input.denyErrorCode) {
+    metadata.denyErrorCode = input.denyErrorCode;
+  }
+  if (input.denyErrorType) {
+    metadata.denyErrorType = input.denyErrorType;
   }
   return Object.keys(metadata).length > 0
     ? JSON.stringify(metadata)
@@ -104,6 +120,9 @@ export const createAuditTrailMiddleware = (deps: {
     const fileId = c.get("fileId");
     const rbacPolicyVersion = c.get("rbacPolicyVersion");
     const rbacTargetCount = c.get("rbacTargetCount");
+    const deniedPermission = c.get("deniedPermission");
+    const denyErrorCode = c.get("denyErrorCode");
+    const denyErrorType = c.get("denyErrorType");
     const ipAddress = resolveIpAddress({
       forwardedFor: c.req.header("x-forwarded-for"),
       realIp: c.req.header("x-real-ip"),
@@ -128,6 +147,9 @@ export const createAuditTrailMiddleware = (deps: {
         fileId,
         rbacPolicyVersion,
         rbacTargetCount,
+        deniedPermission,
+        denyErrorCode,
+        denyErrorType,
       }),
     });
 

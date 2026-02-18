@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import {
   type ScheduleRecord,
   type ScheduleRepository,
@@ -11,6 +11,8 @@ const toRecord = (row: typeof schedules.$inferSelect): ScheduleRecord => ({
   name: row.name,
   playlistId: row.playlistId,
   deviceId: row.deviceId,
+  startDate: row.startDate,
+  endDate: row.endDate,
   startTime: row.startTime,
   endTime: row.endTime,
   daysOfWeek: row.daysOfWeek as number[],
@@ -53,6 +55,8 @@ export class ScheduleDbRepository implements ScheduleRepository {
     name: string;
     playlistId: string;
     deviceId: string;
+    startDate?: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
     daysOfWeek: number[];
@@ -66,6 +70,8 @@ export class ScheduleDbRepository implements ScheduleRepository {
       name: input.name,
       playlistId: input.playlistId,
       deviceId: input.deviceId,
+      startDate: input.startDate ?? "1970-01-01",
+      endDate: input.endDate ?? "2099-12-31",
       startTime: input.startTime,
       endTime: input.endTime,
       daysOfWeek: input.daysOfWeek,
@@ -78,6 +84,8 @@ export class ScheduleDbRepository implements ScheduleRepository {
     return {
       id,
       ...input,
+      startDate: input.startDate ?? "1970-01-01",
+      endDate: input.endDate ?? "2099-12-31",
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -89,6 +97,8 @@ export class ScheduleDbRepository implements ScheduleRepository {
       name?: string;
       playlistId?: string;
       deviceId?: string;
+      startDate?: string;
+      endDate?: string;
       startTime?: string;
       endTime?: string;
       daysOfWeek?: number[];
@@ -103,6 +113,8 @@ export class ScheduleDbRepository implements ScheduleRepository {
       name: input.name ?? existing.name,
       playlistId: input.playlistId ?? existing.playlistId,
       deviceId: input.deviceId ?? existing.deviceId,
+      startDate: input.startDate ?? existing.startDate,
+      endDate: input.endDate ?? existing.endDate,
       startTime: input.startTime ?? existing.startTime,
       endTime: input.endTime ?? existing.endTime,
       daysOfWeek: input.daysOfWeek ?? existing.daysOfWeek,
@@ -129,5 +141,13 @@ export class ScheduleDbRepository implements ScheduleRepository {
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(schedules).where(eq(schedules.id, id));
     return result[0]?.affectedRows > 0;
+  }
+
+  async countByPlaylistId(playlistId: string): Promise<number> {
+    const result = await db
+      .select({ value: sql<number>`count(*)` })
+      .from(schedules)
+      .where(eq(schedules.playlistId, playlistId));
+    return result[0]?.value ?? 0;
   }
 }

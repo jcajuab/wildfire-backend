@@ -517,8 +517,14 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
+    const body = await parseJson<{
+      items: Array<{ id: string }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.total).toBeGreaterThan(0);
   });
 
   test("PUT /roles/:id/permissions returns 403 for system role", async () => {
@@ -585,9 +591,15 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.id).toBe(userId);
+    const body = await parseJson<{
+      items: Array<{ id: string }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]?.id).toBe(userId);
+    expect(body.total).toBeGreaterThan(0);
   });
 
   test("GET /roles/:id/users returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
@@ -599,17 +611,20 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body =
-      await parseJson<
-        Array<{
-          id: string;
-          avatarUrl?: string;
-          avatarKey?: string;
-        }>
-      >(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.avatarUrl).toBe(presignedUrl);
-    expect(body[0]).not.toHaveProperty("avatarKey");
+    const body = await parseJson<{
+      items: Array<{
+        id: string;
+        avatarUrl?: string;
+        avatarKey?: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]?.avatarUrl).toBe(presignedUrl);
+    expect(body.items[0]).not.toHaveProperty("avatarKey");
+    expect(body.total).toBeGreaterThan(0);
   });
 
   test("GET /permissions returns permissions", async () => {
@@ -730,9 +745,15 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.id).toBe(roleId);
+    const body = await parseJson<{
+      items: Array<{ id: string }>;
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(response);
+    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.items[0]?.id).toBe(roleId);
+    expect(body.total).toBeGreaterThan(0);
   });
 
   test("PATCH /users/:id updates user", async () => {

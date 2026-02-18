@@ -103,7 +103,7 @@ export class GetRolePermissionsUseCase {
     },
   ) {}
 
-  async execute(input: { roleId: string }) {
+  async execute(input: { roleId: string; page?: number; pageSize?: number }) {
     const role = await this.deps.roleRepository.findById(input.roleId);
     if (!role) throw new NotFoundError("Role not found");
 
@@ -112,7 +112,12 @@ export class GetRolePermissionsUseCase {
         input.roleId,
       );
     const permissionIds = rolePermissions.map((item) => item.permissionId);
-    return this.deps.permissionRepository.findByIds(permissionIds);
+    const permissions =
+      await this.deps.permissionRepository.findByIds(permissionIds);
+    return paginate(permissions, {
+      page: input.page,
+      pageSize: input.pageSize,
+    });
   }
 }
 
@@ -150,15 +155,24 @@ export class GetRoleUsersUseCase {
     },
   ) {}
 
-  async execute(input: { roleId: string }) {
+  async execute(input: { roleId: string; page?: number; pageSize?: number }) {
     const role = await this.deps.roleRepository.findById(input.roleId);
     if (!role) throw new NotFoundError("Role not found");
 
     const userIds = await this.deps.userRoleRepository.listUserIdsByRoleId(
       input.roleId,
     );
-    if (userIds.length === 0) return [];
+    if (userIds.length === 0) {
+      return paginate([], {
+        page: input.page,
+        pageSize: input.pageSize,
+      });
+    }
 
-    return this.deps.userRepository.findByIds(userIds);
+    const users = await this.deps.userRepository.findByIds(userIds);
+    return paginate(users, {
+      page: input.page,
+      pageSize: input.pageSize,
+    });
   }
 }

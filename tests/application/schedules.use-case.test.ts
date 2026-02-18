@@ -45,6 +45,7 @@ const makeDeps = () => {
 
   const playlistRepository: PlaylistRepository = {
     list: async () => [],
+    listPage: async () => ({ items: [], total: 0 }),
     findByIds: async (ids: string[]) =>
       ids
         .map((id) =>
@@ -75,6 +76,7 @@ const makeDeps = () => {
       throw new Error("not used");
     },
     update: async () => null,
+    updateStatus: async () => undefined,
     delete: async () => false,
     listItems: async () => [],
     findItemById: async () => null,
@@ -166,6 +168,7 @@ describe("Schedules use cases", () => {
           playlistListCalls += 1;
           return [];
         },
+        listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) => {
           playlistFindByIdsCalls += 1;
           return ids.includes("playlist-1")
@@ -186,6 +189,7 @@ describe("Schedules use cases", () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async () => [],
         findItemById: async () => null,

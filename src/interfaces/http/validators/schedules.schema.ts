@@ -5,6 +5,8 @@ export const scheduleSchema = z.object({
   name: z.string(),
   playlistId: z.string(),
   deviceId: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
   startTime: z.string(),
   endTime: z.string(),
   daysOfWeek: z.array(z.number().int()),
@@ -24,6 +26,9 @@ export const scheduleSchema = z.object({
 
 export const scheduleListResponseSchema = z.object({
   items: z.array(scheduleSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
 });
 
 export const scheduleIdParamSchema = z.object({
@@ -34,6 +39,8 @@ export const createScheduleSchema = z.object({
   name: z.string().min(1),
   playlistId: z.string().uuid(),
   deviceId: z.string().uuid(),
+  startDate: z.string().date(),
+  endDate: z.string().date(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
   daysOfWeek: z.array(z.number().int()).min(1),
@@ -45,6 +52,8 @@ export const updateScheduleSchema = z.object({
   name: z.string().min(1).optional(),
   playlistId: z.string().uuid().optional(),
   deviceId: z.string().uuid().optional(),
+  startDate: z.string().date().optional(),
+  endDate: z.string().date().optional(),
   startTime: z.string().min(1).optional(),
   endTime: z.string().min(1).optional(),
   daysOfWeek: z.array(z.number().int()).min(1).optional(),

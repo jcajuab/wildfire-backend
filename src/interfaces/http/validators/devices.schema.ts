@@ -6,12 +6,17 @@ export const deviceSchema = z.object({
   identifier: z.string(),
   name: z.string(),
   location: z.string().nullable(),
+  lastSeenAt: z.string(),
+  onlineStatus: z.enum(["LIVE", "DOWN"]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 
 export const deviceListResponseSchema = z.object({
   items: z.array(deviceSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
 });
 
 export const deviceIdParamSchema = z.object({

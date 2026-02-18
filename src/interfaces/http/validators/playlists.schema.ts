@@ -4,6 +4,9 @@ export const playlistSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  status: z.enum(["DRAFT", "IN_USE"]),
+  itemsCount: z.number().int(),
+  totalDuration: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.object({
@@ -30,6 +33,18 @@ export const playlistWithItemsSchema = playlistSchema.extend({
 
 export const playlistListResponseSchema = z.object({
   items: z.array(playlistSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
+export const playlistListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(["DRAFT", "IN_USE"]).optional(),
+  search: z.string().trim().min(1).max(255).optional(),
+  sortBy: z.enum(["updatedAt", "name"]).default("updatedAt"),
+  sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
 
 export const playlistIdParamSchema = z.object({

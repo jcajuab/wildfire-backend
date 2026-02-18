@@ -142,6 +142,42 @@ describe("audit trail middleware", () => {
     expect(calls[1]).toEqual(expect.objectContaining({ status: 403 }));
   });
 
+  test("captures permission deny events with safe metadata", async () => {
+    const { calls, auditQueue } = makeQueue();
+    const app = new Hono<{ Variables: ObservabilityVariables }>();
+    app.use("*", requestId());
+    app.use("*", createAuditTrailMiddleware({ auditQueue }));
+
+    app.get(
+      "/audit-only",
+      setAction("authz.permission.deny", {
+        route: "/audit-only",
+        resourceType: "permission",
+      }),
+      (c) => {
+        c.set("deniedPermission", "audit:read");
+        c.set("denyErrorCode", "FORBIDDEN");
+        c.set("denyErrorType", "PermissionDenied");
+        return c.json({ error: "Forbidden" }, 403);
+      },
+    );
+
+    const response = await app.request("/audit-only");
+    expect(response.status).toBe(403);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual(
+      expect.objectContaining({
+        action: "authz.permission.deny",
+        status: 403,
+      }),
+    );
+    const metadataJson = calls[0]?.metadataJson;
+    expect(typeof metadataJson).toBe("string");
+    expect(String(metadataJson)).toContain("audit:read");
+    expect(String(metadataJson)).toContain("FORBIDDEN");
+    expect(String(metadataJson)).toContain("PermissionDenied");
+  });
+
   test("logs warning when event is dropped due to queue overflow", async () => {
     const { auditQueue } = makeQueue({ overflow: true });
     const app = new Hono<{ Variables: ObservabilityVariables }>();

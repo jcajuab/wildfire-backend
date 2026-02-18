@@ -74,6 +74,10 @@ const makeApp = async (
       },
       playlistRepository: {
         list: async () => [...playlists],
+        listPage: async ({ offset, limit }) => ({
+          items: playlists.slice(offset, offset + limit),
+          total: playlists.length,
+        }),
         findByIds: async (ids: string[]) =>
           playlists.filter((playlist) => ids.includes(playlist.id)),
         findById: async (id: string) =>
@@ -82,6 +86,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
@@ -162,6 +167,8 @@ describe("Schedules routes", () => {
         name: "Morning",
         playlistId,
         deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
         daysOfWeek: [1, 2, 3],
@@ -189,6 +196,8 @@ describe("Schedules routes", () => {
         name: "Morning",
         playlistId: "0e2c9b1e-7c1a-4b4d-8c2e-7b0a2f5f6d8c",
         deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
         daysOfWeek: [1, 2, 3],
@@ -214,6 +223,8 @@ describe("Schedules routes", () => {
         name: "Morning",
         playlistId,
         deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
         startTime: "99:00",
         endTime: "17:00",
         daysOfWeek: [1, 2, 3],
@@ -241,6 +252,8 @@ describe("Schedules routes", () => {
         name: "Morning",
         playlistId,
         deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
         daysOfWeek: [1, 2, 3],

@@ -8,6 +8,7 @@ import {
 import {
   createPlaylistSchema,
   playlistIdParamSchema,
+  playlistListQuerySchema,
   playlistListResponseSchema,
   playlistSchema,
   playlistWithItemsSchema,
@@ -16,6 +17,7 @@ import {
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
@@ -35,6 +37,7 @@ export const registerPlaylistCrudRoutes = (args: {
     "/",
     setAction("playlists.playlist.list", { route: "/playlists" }),
     ...authorize("playlists:read"),
+    validateQuery(playlistListQuerySchema),
     describeRoute({
       description: "List playlists",
       tags: playlistTags,
@@ -51,9 +54,15 @@ export const registerPlaylistCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
-        const result = await useCases.listPlaylists.execute({ page, pageSize });
+        const query = c.req.valid("query");
+        const result = await useCases.listPlaylists.execute({
+          page: query.page,
+          pageSize: query.pageSize,
+          status: query.status,
+          search: query.search,
+          sortBy: query.sortBy,
+          sortDirection: query.sortDirection,
+        });
         return c.json(result);
       },
       ...applicationErrorMappers,

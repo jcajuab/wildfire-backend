@@ -119,6 +119,10 @@ const makeApp = async (
       },
       playlistRepository: {
         list: async () => playlists,
+        listPage: async ({ offset, limit }) => ({
+          items: playlists.slice(offset, offset + limit),
+          total: playlists.length,
+        }),
         findByIds: async (ids: string[]) =>
           playlists.filter((playlist) => ids.includes(playlist.id)),
         findById: async (id: string) =>
@@ -127,6 +131,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         update: async () => null,
+        updateStatus: async () => undefined,
         delete: async () => false,
         listItems: async () => [
           {

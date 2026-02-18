@@ -37,6 +37,10 @@ const makeDeps = () => {
 
   const playlistRepository: PlaylistRepository = {
     list: async () => [...playlists],
+    listPage: async ({ offset, limit }) => ({
+      items: playlists.slice(offset, offset + limit),
+      total: playlists.length,
+    }),
     findByIds: async (ids: string[]) =>
       playlists.filter((playlist) => ids.includes(playlist.id)),
     findById: async (id: string) =>
@@ -46,6 +50,7 @@ const makeDeps = () => {
         id: `playlist-${playlists.length + 1}`,
         name: input.name,
         description: input.description,
+        status: "DRAFT",
         createdById: input.createdById,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -54,6 +59,7 @@ const makeDeps = () => {
       return record;
     },
     update: async () => null,
+    updateStatus: async () => undefined,
     delete: async () => false,
     listItems: async (playlistId: string) =>
       items.filter((item) => item.playlistId === playlistId),

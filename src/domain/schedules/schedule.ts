@@ -1,10 +1,13 @@
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 export const isValidTime = (value: string) => timeRegex.test(value);
 
 export const isValidDaysOfWeek = (value: number[]) =>
   value.length > 0 &&
   value.every((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+
+export const isValidDate = (value: string) => isoDateRegex.test(value);
 
 const toMinutes = (value: string) => {
   const match = timeRegex.exec(value);
@@ -73,9 +76,24 @@ export const isWithinTimeWindow = (
   return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
 };
 
+const getUtcDateString = (date: Date) => date.toISOString().slice(0, 10);
+
+export const isWithinDateWindow = (
+  current: string,
+  start: string,
+  end: string,
+) => {
+  if (!isValidDate(current) || !isValidDate(start) || !isValidDate(end)) {
+    return false;
+  }
+  return current >= start && current <= end;
+};
+
 export const selectActiveSchedule = <
   T extends {
     isActive: boolean;
+    startDate?: string;
+    endDate?: string;
     daysOfWeek: number[];
     startTime: string;
     endTime: string;
@@ -87,10 +105,17 @@ export const selectActiveSchedule = <
   timeZone = "UTC",
 ) => {
   const { day, time } = toZonedDayAndTime(now, timeZone);
+  const date = getUtcDateString(now);
 
   return (
     schedules
       .filter((schedule) => schedule.isActive)
+      .filter((schedule) => {
+        if (!schedule.startDate || !schedule.endDate) {
+          return true;
+        }
+        return isWithinDateWindow(date, schedule.startDate, schedule.endDate);
+      })
       .filter((schedule) => schedule.daysOfWeek.includes(day))
       .filter((schedule) =>
         isWithinTimeWindow(time, schedule.startTime, schedule.endTime),
