@@ -38,3 +38,24 @@ export interface DeviceRepository {
   ): Promise<DeviceRecord | null>;
   touchSeen?(id: string, at: Date): Promise<void>;
 }
+
+export interface DeviceGroupRecord {
+  id: string;
+  name: string;
+  deviceIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeviceGroupRepository {
+  list(): Promise<DeviceGroupRecord[]>;
+  findById(id: string): Promise<DeviceGroupRecord | null>;
+  findByName(name: string): Promise<DeviceGroupRecord | null>;
+  create(input: { name: string }): Promise<DeviceGroupRecord>;
+  update(
+    id: string,
+    input: { name?: string },
+  ): Promise<DeviceGroupRecord | null>;
+  delete(id: string): Promise<boolean>;
+  setDeviceGroups(deviceId: string, groupIds: string[]): Promise<void>;
+}

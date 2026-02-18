@@ -13,11 +13,20 @@ import {
   unauthorizedResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
+  createDeviceGroupRequestBodySchema,
+  createDeviceGroupSchema,
+  deviceGroupIdParamSchema,
+  deviceGroupListResponseSchema,
+  deviceGroupSchema,
   deviceIdParamSchema,
   deviceListResponseSchema,
   deviceSchema,
   patchDeviceRequestBodySchema,
   patchDeviceSchema,
+  setDeviceGroupsRequestBodySchema,
+  setDeviceGroupsSchema,
+  updateDeviceGroupRequestBodySchema,
+  updateDeviceGroupSchema,
 } from "#/interfaces/http/validators/devices.schema";
 import {
   validateJson,
@@ -79,7 +88,7 @@ export const registerDeviceStaffRoutes = (args: {
   );
 
   router.get(
-    "/:id",
+    "/:id{[0-9a-fA-F-]{36}}",
     setAction("devices.device.get", {
       route: "/devices/:id",
       resourceType: "device",
@@ -115,7 +124,7 @@ export const registerDeviceStaffRoutes = (args: {
   );
 
   router.patch(
-    "/:id",
+    "/:id{[0-9a-fA-F-]{36}}",
     setAction("devices.device.update", {
       route: "/devices/:id",
       resourceType: "device",
@@ -174,6 +183,189 @@ export const registerDeviceStaffRoutes = (args: {
           orientation: payload.orientation,
         });
         return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/groups",
+    setAction("devices.group.list", {
+      route: "/devices/groups",
+      resourceType: "device-group",
+    }),
+    ...authorize("devices:read"),
+    describeRoute({
+      description: "List device groups",
+      tags: deviceTags,
+      responses: {
+        200: {
+          description: "Device groups",
+          content: {
+            "application/json": {
+              schema: resolver(deviceGroupListResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const items = await useCases.listDeviceGroups.execute();
+        return c.json({ items });
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/groups",
+    setAction("devices.group.create", {
+      route: "/devices/groups",
+      resourceType: "device-group",
+    }),
+    ...authorize("devices:update"),
+    validateJson(createDeviceGroupSchema),
+    describeRoute({
+      description: "Create device group",
+      tags: deviceTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: createDeviceGroupRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Device group",
+          content: {
+            "application/json": {
+              schema: resolver(deviceGroupSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const result = await useCases.createDeviceGroup.execute({
+          name: payload.name,
+        });
+        c.set("resourceId", result.id);
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.patch(
+    "/groups/:groupId",
+    setAction("devices.group.update", {
+      route: "/devices/groups/:groupId",
+      resourceType: "device-group",
+    }),
+    ...authorize("devices:update"),
+    validateParams(deviceGroupIdParamSchema),
+    validateJson(updateDeviceGroupSchema),
+    describeRoute({
+      description: "Update device group",
+      tags: deviceTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: updateDeviceGroupRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Device group",
+          content: {
+            "application/json": {
+              schema: resolver(deviceGroupSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
+        const result = await useCases.updateDeviceGroup.execute({
+          id: params.groupId,
+          name: payload.name,
+        });
+        c.set("resourceId", result.id);
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.delete(
+    "/groups/:groupId",
+    setAction("devices.group.delete", {
+      route: "/devices/groups/:groupId",
+      resourceType: "device-group",
+    }),
+    ...authorize("devices:update"),
+    validateParams(deviceGroupIdParamSchema),
+    describeRoute({
+      description: "Delete device group",
+      tags: deviceTags,
+      responses: {
+        204: { description: "Deleted" },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        await useCases.deleteDeviceGroup.execute({ id: params.groupId });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.put(
+    "/:id{[0-9a-fA-F-]{36}}/groups",
+    setAction("devices.group.set", {
+      route: "/devices/:id/groups",
+      resourceType: "device",
+    }),
+    ...authorize("devices:update"),
+    validateParams(deviceIdParamSchema),
+    validateJson(setDeviceGroupsSchema),
+    describeRoute({
+      description: "Set device groups for a device",
+      tags: deviceTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: setDeviceGroupsRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        204: { description: "Updated" },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
+        await useCases.setDeviceGroups.execute({
+          deviceId: params.id,
+          groupIds: payload.groupIds,
+        });
+        c.set("resourceId", params.id);
+        return c.body(null, 204);
       },
       ...applicationErrorMappers,
     ),

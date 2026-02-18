@@ -7,6 +7,7 @@ import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-s
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
+import { DeviceGroupDbRepository } from "#/infrastructure/db/repositories/device-group.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
@@ -48,6 +49,7 @@ export interface HttpContainer {
     playlistRepository: PlaylistDbRepository;
     scheduleRepository: ScheduleDbRepository;
     deviceRepository: DeviceDbRepository;
+    deviceGroupRepository: DeviceGroupDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
   };
   auth: {
@@ -80,6 +82,7 @@ export const createHttpContainer = (
   const playlistRepository = new PlaylistDbRepository();
   const scheduleRepository = new ScheduleDbRepository();
   const deviceRepository = new DeviceDbRepository();
+  const deviceGroupRepository = new DeviceGroupDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
@@ -116,6 +119,7 @@ export const createHttpContainer = (
       playlistRepository,
       scheduleRepository,
       deviceRepository,
+      deviceGroupRepository,
       passwordResetTokenRepository,
     },
     auth: {

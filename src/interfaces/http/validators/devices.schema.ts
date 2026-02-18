@@ -29,6 +29,10 @@ export const deviceIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+export const deviceGroupIdParamSchema = z.object({
+  groupId: z.string().uuid(),
+});
+
 export const registerDeviceSchema = z.object({
   identifier: z.string().min(1),
   name: z.string().min(1),
@@ -51,6 +55,56 @@ export const patchDeviceSchema = z.object({
   outputType: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
 });
+
+export const createDeviceGroupSchema = z.object({
+  name: z.string().min(1).max(120),
+});
+
+export const updateDeviceGroupSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+});
+
+export const setDeviceGroupsSchema = z.object({
+  groupIds: z.array(z.string().uuid()).default([]),
+});
+
+export const deviceGroupSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  deviceIds: z.array(z.string().uuid()),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const deviceGroupListResponseSchema = z.object({
+  items: z.array(deviceGroupSchema),
+});
+
+export const createDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 1, maxLength: 120 },
+  },
+  required: ["name"],
+};
+
+export const updateDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 1, maxLength: 120 },
+  },
+};
+
+export const setDeviceGroupsRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    groupIds: {
+      type: "array",
+      items: { type: "string", format: "uuid" },
+    },
+  },
+  required: ["groupIds"],
+};
 
 export const patchDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",

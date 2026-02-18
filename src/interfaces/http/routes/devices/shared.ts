@@ -5,16 +5,24 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import { type DeviceRepository } from "#/application/ports/devices";
+import {
+  type DeviceGroupRepository,
+  type DeviceRepository,
+} from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
+  CreateDeviceGroupUseCase,
+  DeleteDeviceGroupUseCase,
   GetDeviceActiveScheduleUseCase,
   GetDeviceManifestUseCase,
   GetDeviceUseCase,
+  ListDeviceGroupsUseCase,
   ListDevicesUseCase,
   RegisterDeviceUseCase,
+  SetDeviceGroupsUseCase,
+  UpdateDeviceGroupUseCase,
   UpdateDeviceUseCase,
 } from "#/application/use-cases/devices";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
@@ -34,6 +42,7 @@ export interface DevicesRouterDeps {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
+    deviceGroupRepository: DeviceGroupRepository;
   };
   storage: ContentStorage;
 }
@@ -43,6 +52,11 @@ export interface DevicesRouterUseCases {
   getDevice: GetDeviceUseCase;
   updateDevice: UpdateDeviceUseCase;
   registerDevice: RegisterDeviceUseCase;
+  listDeviceGroups: ListDeviceGroupsUseCase;
+  createDeviceGroup: CreateDeviceGroupUseCase;
+  updateDeviceGroup: UpdateDeviceGroupUseCase;
+  deleteDeviceGroup: DeleteDeviceGroupUseCase;
+  setDeviceGroups: SetDeviceGroupsUseCase;
   getActiveSchedule: GetDeviceActiveScheduleUseCase;
   getManifest: GetDeviceManifestUseCase;
 }
@@ -69,6 +83,22 @@ export const createDevicesUseCases = (
   }),
   registerDevice: new RegisterDeviceUseCase({
     deviceRepository: deps.repositories.deviceRepository,
+  }),
+  listDeviceGroups: new ListDeviceGroupsUseCase({
+    deviceGroupRepository: deps.repositories.deviceGroupRepository,
+  }),
+  createDeviceGroup: new CreateDeviceGroupUseCase({
+    deviceGroupRepository: deps.repositories.deviceGroupRepository,
+  }),
+  updateDeviceGroup: new UpdateDeviceGroupUseCase({
+    deviceGroupRepository: deps.repositories.deviceGroupRepository,
+  }),
+  deleteDeviceGroup: new DeleteDeviceGroupUseCase({
+    deviceGroupRepository: deps.repositories.deviceGroupRepository,
+  }),
+  setDeviceGroups: new SetDeviceGroupsUseCase({
+    deviceRepository: deps.repositories.deviceRepository,
+    deviceGroupRepository: deps.repositories.deviceGroupRepository,
   }),
   getActiveSchedule: new GetDeviceActiveScheduleUseCase({
     scheduleRepository: deps.repositories.scheduleRepository,

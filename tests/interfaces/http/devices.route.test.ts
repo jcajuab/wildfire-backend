@@ -24,9 +24,17 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     createdAt: string;
     updatedAt: string;
   }>;
+  const deviceGroups = [] as Array<{
+    id: string;
+    name: string;
+    deviceIds: string[];
+    createdAt: string;
+    updatedAt: string;
+  }>;
 
   return {
     devices,
+    deviceGroups,
     deviceRepository: {
       list: async () => [...devices],
       findByIds: async (ids: string[]) =>
@@ -83,6 +91,48 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         return record;
       },
     },
+    deviceGroupRepository: {
+      list: async () => [...deviceGroups],
+      findById: async (id: string) =>
+        deviceGroups.find((group) => group.id === id) ?? null,
+      findByName: async (name: string) =>
+        deviceGroups.find((group) => group.name === name) ?? null,
+      create: async (input: { name: string }) => {
+        const record = {
+          id: crypto.randomUUID(),
+          name: input.name,
+          deviceIds: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        };
+        deviceGroups.push(record);
+        return record;
+      },
+      update: async (id: string, input: { name?: string }) => {
+        const group = deviceGroups.find((item) => item.id === id);
+        if (!group) return null;
+        if (input.name !== undefined) group.name = input.name;
+        group.updatedAt = "2025-01-02T00:00:00.000Z";
+        return group;
+      },
+      delete: async (id: string) => {
+        const index = deviceGroups.findIndex((item) => item.id === id);
+        if (index === -1) return false;
+        deviceGroups.splice(index, 1);
+        return true;
+      },
+      setDeviceGroups: async (deviceId: string, groupIds: string[]) => {
+        for (const group of deviceGroups) {
+          group.deviceIds = group.deviceIds.filter((id) => id !== deviceId);
+        }
+        for (const groupId of groupIds) {
+          const group = deviceGroups.find((item) => item.id === groupId);
+          if (group && !group.deviceIds.includes(deviceId)) {
+            group.deviceIds.push(deviceId);
+          }
+        }
+      },
+    },
   };
 };
 
@@ -91,7 +141,8 @@ const makeApp = async (
   options?: { registerDeviceError?: Error },
 ) => {
   const app = new Hono();
-  const { devices, deviceRepository } = makeRepositories(options);
+  const { devices, deviceRepository, deviceGroupRepository } =
+    makeRepositories(options);
   const playlists = [
     {
       id: playlistId,
@@ -187,6 +238,7 @@ const makeApp = async (
         update: async () => null,
       },
       authorizationRepository,
+      deviceGroupRepository,
     },
     storage: {
       upload: async () => {},
@@ -383,6 +435,54 @@ describe("Devices routes", () => {
     expect(json.screenWidth).toBe(1920);
     expect(json.screenHeight).toBe(1080);
     expect(json.orientation).toBe("LANDSCAPE");
+  });
+
+  test("GET /devices/groups returns groups with devices:read permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const createResponse = await app.request("/devices/groups", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Lobby Group" }),
+    });
+    expect(createResponse.status).toBe(403);
+
+    const elevated = await makeApp(["devices:read", "devices:update"]);
+    const elevatedToken = await elevated.issueToken();
+    const createOk = await elevated.app.request("/devices/groups", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${elevatedToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Lobby Group" }),
+    });
+    expect(createOk.status).toBe(200);
+
+    const listResponse = await elevated.app.request("/devices/groups", {
+      headers: { Authorization: `Bearer ${elevatedToken}` },
+    });
+    expect(listResponse.status).toBe(200);
+    const json = await parseJson<{ items: Array<{ name: string }> }>(
+      listResponse,
+    );
+    expect(json.items.some((group) => group.name === "Lobby Group")).toBe(true);
   });
 
   test("GET /devices/:id/manifest returns empty manifest", async () => {
