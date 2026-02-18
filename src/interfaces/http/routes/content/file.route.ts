@@ -30,7 +30,7 @@ export const registerContentFileRoutes = (args: {
       route: "/content/:id/file",
       resourceType: "content",
     }),
-    requirePermission("content:read"),
+    requirePermission("content:download"),
     validateParams(contentIdParamSchema),
     describeRoute({
       description: "Get presigned content download URL",

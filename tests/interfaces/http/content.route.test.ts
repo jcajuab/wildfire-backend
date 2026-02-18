@@ -178,7 +178,7 @@ describe("Content routes", () => {
   });
 
   test("GET /content/:id/file returns download URL", async () => {
-    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const { app, issueToken, records } = await makeApp(["content:download"]);
     const token = await issueToken();
     records.push({
       id: "11111111-1111-4111-8111-111111111111",
@@ -209,6 +209,35 @@ describe("Content routes", () => {
       "content/images/11111111-1111-4111-8111-111111111111.png",
     );
     expect(body.downloadUrl).toContain("response-content-disposition=");
+  });
+
+  test("GET /content/:id/file returns 403 with only content:read", async () => {
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const token = await issueToken();
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Poster",
+      type: "IMAGE",
+      status: "DRAFT",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const response = await app.request(
+      "/content/11111111-1111-4111-8111-111111111111/file",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(403);
   });
 
   test("returns 401 without token", async () => {
