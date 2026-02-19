@@ -343,6 +343,15 @@ const makeApp = async (
       authorizationRepository,
       deviceGroupRepository,
       devicePairingCodeRepository,
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async () => ({
+          key: "device_runtime_scroll_px_per_second",
+          value: "24",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+      },
     },
     storage: {
       upload: async () => {},
@@ -380,6 +389,8 @@ describe("Devices routes", () => {
         name: "Lobby",
         identifier: "AA:BB",
         location: "Hall",
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     });
 
@@ -413,6 +424,8 @@ describe("Devices routes", () => {
         pairingCode: "223456",
         name: "Lobby",
         identifier: "AA:BB",
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     });
 
@@ -432,6 +445,8 @@ describe("Devices routes", () => {
         name: "Lobby",
         identifier: "device-one",
         deviceFingerprint: "fp-1",
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     });
     const firstBody = await parseJson<{ id: string }>(first);
@@ -447,6 +462,8 @@ describe("Devices routes", () => {
         name: "Lobby Updated",
         identifier: "device-two",
         deviceFingerprint: "fp-1",
+        screenWidth: 1920,
+        screenHeight: 1080,
       }),
     });
 
@@ -473,6 +490,8 @@ describe("Devices routes", () => {
         name: "Device A",
         identifier: "device-a",
         deviceFingerprint: "fp-a",
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     });
 
@@ -487,6 +506,8 @@ describe("Devices routes", () => {
         name: "Device B",
         identifier: "device-b",
         deviceFingerprint: "fp-b",
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     });
 
@@ -501,6 +522,8 @@ describe("Devices routes", () => {
         name: "Conflict",
         identifier: "device-a",
         deviceFingerprint: "fp-b",
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     });
 
@@ -542,6 +565,38 @@ describe("Devices routes", () => {
     const { app } = await makeApp();
     const response = await app.request(`/devices/${deviceId}/active-schedule`);
     expect(response.status).toBe(401);
+  });
+
+  test("GET /devices/:id/stream-token returns 401 without API key", async () => {
+    const { app } = await makeApp();
+    const response = await app.request(`/devices/${deviceId}/stream-token`);
+    expect(response.status).toBe(401);
+  });
+
+  test("GET /devices/:id/stream rejects invalid stream token", async () => {
+    const { app } = await makeApp();
+    const response = await app.request(
+      `/devices/${deviceId}/stream?streamToken=invalid`,
+    );
+    expect(response.status).toBe(401);
+  });
+
+  test("GET /devices/:id/stream returns event-stream for valid token", async () => {
+    const { app } = await makeApp();
+    const tokenResponse = await app.request(
+      `/devices/${deviceId}/stream-token`,
+      {
+        headers: { "X-API-Key": "device-key" },
+      },
+    );
+    expect(tokenResponse.status).toBe(200);
+    const tokenBody = await parseJson<{ token: string }>(tokenResponse);
+
+    const response = await app.request(
+      `/devices/${deviceId}/stream?streamToken=${encodeURIComponent(tokenBody.token)}`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
   });
 
   test("GET /devices requires permission", async () => {

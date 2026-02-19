@@ -19,6 +19,7 @@ const TABLES = [
   "role_deletion_requests",
   "roles",
   "schedules",
+  "system_settings",
   "user_roles",
   "users",
 ] as const;

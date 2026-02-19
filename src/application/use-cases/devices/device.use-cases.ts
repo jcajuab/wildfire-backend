@@ -5,12 +5,17 @@ import {
   type ContentStorage,
 } from "#/application/ports/content";
 import { type DevicePairingCodeRepository } from "#/application/ports/device-pairing";
+import { type DeviceStreamEventPublisher } from "#/application/ports/device-stream-events";
 import {
   type DeviceRecord,
   type DeviceRepository,
 } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import {
+  DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  type SystemSettingRepository,
+} from "#/application/ports/settings";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
@@ -59,6 +64,7 @@ const mapWithConcurrency = async <T, R>(
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
 const PAIRING_CODE_DUPLICATE_INDEX = "pairing_codes_code_hash_unique";
+const DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND = 24;
 
 const hashPairingCode = (code: string): string =>
   createHash("sha256").update(code).digest("hex");
@@ -164,6 +170,10 @@ export class RegisterDeviceUseCase {
       }
       throw error;
     }
+    if (props.screenWidth === null || props.screenHeight === null) {
+      throw new ValidationError("Device resolution is required");
+    }
+
     const existing = await this.deps.deviceRepository.findByIdentifier(
       props.identifier,
     );
@@ -334,13 +344,23 @@ export class UpdateDeviceUseCase {
 }
 
 export class RequestDeviceRefreshUseCase {
-  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+  constructor(
+    private readonly deps: {
+      deviceRepository: DeviceRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
+    },
+  ) {}
 
   async execute(input: { id: string }): Promise<void> {
     const bumped = await this.deps.deviceRepository.bumpRefreshNonce(input.id);
     if (!bumped) {
       throw new NotFoundError("Device not found");
     }
+    this.deps.deviceEventPublisher?.publish({
+      type: "device_refresh_requested",
+      deviceId: input.id,
+      reason: "refresh_nonce_bumped",
+    });
   }
 }
 
@@ -400,6 +420,7 @@ export class GetDeviceManifestUseCase {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
       deviceRepository: DeviceRepository;
+      systemSettingRepository: SystemSettingRepository;
       downloadUrlExpiresInSeconds: number;
       scheduleTimeZone?: string;
     },
@@ -419,10 +440,12 @@ export class GetDeviceManifestUseCase {
     );
 
     if (!active) {
+      const runtimeSettings = await this.getRuntimeSettings();
       return {
         playlistId: null,
         playlistVersion: "",
         generatedAt: input.now.toISOString(),
+        runtimeSettings,
         items: [],
       };
     }
@@ -466,9 +489,12 @@ export class GetDeviceManifestUseCase {
       };
     });
 
+    const runtimeSettings = await this.getRuntimeSettings();
+
     const versionPayload = JSON.stringify({
       playlistId: playlist.id,
       refreshNonce: device.refreshNonce ?? 0,
+      scrollPxPerSecond: runtimeSettings.scrollPxPerSecond,
       items: manifestItems.map((item) => ({
         id: item.id,
         sequence: item.sequence,
@@ -485,7 +511,24 @@ export class GetDeviceManifestUseCase {
       playlistId: playlist.id,
       playlistVersion,
       generatedAt: input.now.toISOString(),
+      runtimeSettings,
       items: manifestItems,
+    };
+  }
+
+  private async getRuntimeSettings(): Promise<{ scrollPxPerSecond: number }> {
+    const setting = await this.deps.systemSettingRepository.findByKey(
+      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+    );
+    if (!setting) {
+      return { scrollPxPerSecond: DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND };
+    }
+    const parsed = Number.parseInt(setting.value, 10);
+    return {
+      scrollPxPerSecond:
+        Number.isInteger(parsed) && parsed > 0
+          ? parsed
+          : DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND,
     };
   }
 }

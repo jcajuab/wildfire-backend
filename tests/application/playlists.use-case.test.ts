@@ -371,4 +371,110 @@ describe("Playlists use cases", () => {
       }),
     ).rejects.toBeInstanceOf(Error);
   });
+
+  test("AddPlaylistItemUseCase disables impacted schedules when playlist exceeds window", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+    const updates: Array<{ id: string; isActive?: boolean }> = [];
+    const scheduleRepository = {
+      list: async () => [
+        {
+          id: "schedule-1",
+          name: "Morning",
+          playlistId: playlist.id,
+          deviceId: "device-1",
+          startTime: "08:00",
+          endTime: "08:01",
+          daysOfWeek: [1],
+          priority: 10,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+      listByDevice: async () => [],
+      findById: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async (id: string, input: { isActive?: boolean }) => {
+        updates.push({ id, isActive: input.isActive });
+        return null;
+      },
+      delete: async () => false,
+      countByPlaylistId: async () => 0,
+    };
+    const useCase = new AddPlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: {
+        ...deps.contentRepository,
+        findById: async () => ({
+          id: "content-1",
+          title: "Tall Content",
+          type: "IMAGE",
+          status: "DRAFT",
+          fileKey: "content/images/a.png",
+          checksum: "abc",
+          mimeType: "image/png",
+          fileSize: 100,
+          width: 100,
+          height: 3000,
+          duration: null,
+          createdById: "user-1",
+          createdAt: "2025-01-01T00:00:00.000Z",
+        }),
+        findByIds: async () => [
+          {
+            id: "content-1",
+            title: "Tall Content",
+            type: "IMAGE",
+            status: "DRAFT",
+            fileKey: "content/images/a.png",
+            checksum: "abc",
+            mimeType: "image/png",
+            fileSize: 100,
+            width: 100,
+            height: 3000,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+      scheduleRepository,
+      deviceRepository: {
+        list: async () => [],
+        findByIds: async () => [],
+        findById: async () => ({
+          id: "device-1",
+          name: "Lobby",
+          identifier: "AA:BB",
+          location: null,
+          screenWidth: 1366,
+          screenHeight: 768,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        findByIdentifier: async () => null,
+        findByFingerprint: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        bumpRefreshNonce: async () => false,
+      },
+    });
+
+    await useCase.execute({
+      playlistId: playlist.id,
+      contentId: "content-1",
+      sequence: 10,
+      duration: 5,
+    });
+    expect(updates.some((entry) => entry.id === "schedule-1")).toBe(true);
+  });
 });

@@ -197,6 +197,9 @@ const buildContentActionApp = async () => {
       delete: async () => {},
       getPresignedDownloadUrl: async () => "https://example.com/file",
     },
+    contentMetadataExtractor: {
+      extract: async () => ({ width: 1366, height: 768, duration: null }),
+    },
   });
 
   const app = new Hono();

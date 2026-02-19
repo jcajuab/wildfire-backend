@@ -43,6 +43,8 @@ const makeApp = async (
       name: "Lobby",
       identifier: "AA:BB",
       location: null,
+      screenWidth: 1366,
+      screenHeight: 768,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     },
@@ -115,6 +117,17 @@ const makeApp = async (
       authorizationRepository: {
         findPermissionsForUser: async () =>
           permissions.map((permission) => Permission.parse(permission)),
+      },
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
       },
     },
   });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  type ContentMetadataExtractor,
   type ContentRecord,
   type ContentRepository,
   type ContentStorage,
@@ -119,6 +120,15 @@ const makeStorage = (options?: { deleteError?: Error }) => {
   };
 };
 
+const metadataExtractor: ContentMetadataExtractor = {
+  extract: async ({ type }) => {
+    if (type === "VIDEO") {
+      return { width: 1920, height: 1080, duration: 30 };
+    }
+    return { width: 1366, height: 768, duration: null };
+  },
+};
+
 describe("Content use cases", () => {
   test("uploads content and returns content view", async () => {
     const { repository } = makeContentRepository();
@@ -127,6 +137,7 @@ describe("Content use cases", () => {
     const useCase = new UploadContentUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
       userRepository,
     });
 
@@ -157,6 +168,7 @@ describe("Content use cases", () => {
     const useCase = new UploadContentUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
       userRepository,
     });
 
@@ -176,6 +188,7 @@ describe("Content use cases", () => {
     const useCase = new UploadContentUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
       userRepository,
     });
 
@@ -382,6 +395,7 @@ describe("Content use cases", () => {
         update: async () => null,
       },
       contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
       userRepository,
       cleanupFailureLogger: {
         logContentCleanupFailure: (input) => {

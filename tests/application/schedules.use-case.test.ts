@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ValidationError } from "#/application/errors/validation";
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -102,6 +103,8 @@ const makeDeps = () => {
                 name: "Lobby",
                 identifier: "AA:BB",
                 location: null,
+                screenWidth: 1366,
+                screenHeight: 768,
                 createdAt: "2025-01-01T00:00:00.000Z",
                 updatedAt: "2025-01-01T00:00:00.000Z",
               }
@@ -115,6 +118,8 @@ const makeDeps = () => {
             name: "Lobby",
             identifier: "AA:BB",
             location: null,
+            screenWidth: 1366,
+            screenHeight: 768,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           }
@@ -253,6 +258,17 @@ describe("Schedules use cases", () => {
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
       deviceRepository: deps.deviceRepository,
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+      },
     });
 
     await expect(
@@ -267,6 +283,66 @@ describe("Schedules use cases", () => {
         isActive: true,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test("CreateScheduleUseCase rejects window shorter than required playback", async () => {
+    const deps = makeDeps();
+    const useCase = new CreateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: {
+        ...deps.playlistRepository,
+        listItems: async () => [
+          {
+            id: "item-1",
+            playlistId: "playlist-1",
+            contentId: "content-1",
+            sequence: 10,
+            duration: 5,
+          },
+        ],
+      },
+      deviceRepository: deps.deviceRepository,
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [
+          {
+            id: "content-1",
+            title: "Poster",
+            type: "IMAGE",
+            status: "DRAFT",
+            fileKey: "content/images/a.png",
+            checksum: "abc",
+            mimeType: "image/png",
+            fileSize: 100,
+            width: 100,
+            height: 3000,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+      },
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Short Window",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startTime: "08:00",
+        endTime: "08:01",
+        daysOfWeek: [1],
+        priority: 1,
+        isActive: true,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 
   test("GetActiveScheduleForDeviceUseCase returns highest priority", async () => {

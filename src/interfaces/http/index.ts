@@ -29,6 +29,7 @@ import { healthRouter } from "#/interfaces/http/routes/health.route";
 import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
+import { createSettingsRouter } from "#/interfaces/http/routes/settings.route";
 import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
 import packageJSON from "#/package.json" with { type: "json" };
 
@@ -138,6 +139,8 @@ const playlistsRouter = createPlaylistsRouter({
     contentRepository: container.repositories.contentRepository,
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
+    deviceRepository: container.repositories.deviceRepository,
   },
 });
 
@@ -150,6 +153,7 @@ const schedulesRouter = createSchedulesRouter({
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
     deviceRepository: container.repositories.deviceRepository,
+    contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
 });
@@ -171,6 +175,7 @@ const devicesRouter = createDevicesRouter({
     deviceGroupRepository: container.repositories.deviceGroupRepository,
     devicePairingCodeRepository:
       container.repositories.devicePairingCodeRepository,
+    systemSettingRepository: container.repositories.systemSettingRepository,
   },
   storage: container.storage.contentStorage,
 });
@@ -188,6 +193,7 @@ const contentRouter = createContentRouter({
     authorizationRepository: container.repositories.authorizationRepository,
   },
   storage: container.storage.contentStorage,
+  contentMetadataExtractor: container.storage.contentMetadataExtractor,
 });
 
 const rbacRouter = createRbacRouter({
@@ -220,6 +226,18 @@ const auditRouter = createAuditRouter({
     auditEventRepository: container.repositories.auditEventRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     userRepository: container.repositories.userRepository,
+    deviceRepository: container.repositories.deviceRepository,
+  },
+});
+
+const settingsRouter = createSettingsRouter({
+  jwtSecret: env.JWT_SECRET,
+  authSessionRepository: container.repositories.authSessionRepository,
+  authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
+  repositories: {
+    authorizationRepository: container.repositories.authorizationRepository,
+    systemSettingRepository: container.repositories.systemSettingRepository,
     deviceRepository: container.repositories.deviceRepository,
   },
 });
@@ -257,6 +275,7 @@ app.route("/schedules", schedulesRouter);
 app.route("/devices", devicesRouter);
 app.route("/content", contentRouter);
 app.route("/audit", auditRouter);
+app.route("/settings", settingsRouter);
 app.route("/", rbacRouter);
 
 app.onError((err, c) => {

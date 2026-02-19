@@ -42,8 +42,8 @@ export const registerDeviceSchema = z.object({
   location: z.string().nullable().optional(),
   ipAddress: z.string().min(1).max(128).nullable().optional(),
   macAddress: z.string().min(1).max(64).nullable().optional(),
-  screenWidth: z.number().int().positive().nullable().optional(),
-  screenHeight: z.number().int().positive().nullable().optional(),
+  screenWidth: z.number().int().positive(),
+  screenHeight: z.number().int().positive(),
   outputType: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
 });
@@ -116,10 +116,8 @@ export const patchDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
     location: { oneOf: [{ type: "string" }, { type: "null" }] },
     ipAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
     macAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
-    screenWidth: { oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }] },
-    screenHeight: {
-      oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }],
-    },
+    screenWidth: { type: "integer", minimum: 1 },
+    screenHeight: { type: "integer", minimum: 1 },
     outputType: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
     orientation: {
       oneOf: [
@@ -152,12 +150,27 @@ export const registerDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
       ],
     },
   },
-  required: ["pairingCode", "identifier", "name"],
+  required: [
+    "pairingCode",
+    "identifier",
+    "name",
+    "screenWidth",
+    "screenHeight",
+  ],
 };
 
 export const pairingCodeResponseSchema = z.object({
   code: z.string().regex(/^\d{6}$/),
   expiresAt: z.string(),
+});
+
+export const deviceStreamTokenResponseSchema = z.object({
+  token: z.string().min(1),
+  expiresAt: z.string(),
+});
+
+export const deviceStreamQuerySchema = z.object({
+  streamToken: z.string().min(1),
 });
 
 export const deviceManifestItemSchema = z.object({
@@ -180,5 +193,8 @@ export const deviceManifestSchema = z.object({
   playlistId: z.string().nullable(),
   playlistVersion: z.string(),
   generatedAt: z.string(),
+  runtimeSettings: z.object({
+    scrollPxPerSecond: z.number().int().positive(),
+  }),
   items: z.array(deviceManifestItemSchema),
 });

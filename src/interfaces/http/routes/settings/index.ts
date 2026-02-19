@@ -1,17 +1,16 @@
 import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
-import { registerDeviceApiRoutes } from "./device-api.route";
+import { registerSettingsCrudRoutes } from "./crud.route";
 import {
-  createDevicesUseCases,
-  createRequireDeviceApiKey,
-  type DevicesRouterDeps,
+  createSettingsUseCases,
+  type SettingsRouterDeps,
+  type SettingsRouterUseCases,
 } from "./shared";
-import { registerDeviceStaffRoutes } from "./staff.route";
 
-export type { DevicesRouterDeps } from "./shared";
+export type { SettingsRouterDeps } from "./shared";
 
-export const createDevicesRouter = (deps: DevicesRouterDeps) => {
+export const createSettingsRouter = (deps: SettingsRouterDeps) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
@@ -20,19 +19,16 @@ export const createDevicesRouter = (deps: DevicesRouterDeps) => {
     authSessionCookieName: deps.authSessionCookieName,
     authSessionDualMode: deps.authSessionDualMode,
   });
-  const useCases = createDevicesUseCases(deps);
-  const requireDeviceApiKey = createRequireDeviceApiKey(deps.deviceApiKey);
+  const useCases: SettingsRouterUseCases = createSettingsUseCases(deps);
 
-  registerDeviceApiRoutes({
-    router,
-    useCases,
-    requireDeviceApiKey,
-    streamTokenSecret: deps.jwtSecret,
-  });
-  registerDeviceStaffRoutes({
+  registerSettingsCrudRoutes({
     router,
     useCases,
     authorize,
+    listDeviceIds: async () =>
+      (await deps.repositories.deviceRepository.list()).map(
+        (device) => device.id,
+      ),
   });
 
   return router;

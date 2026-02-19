@@ -109,6 +109,9 @@ const makeApp = async (permissions: string[]) => {
       authorizationRepository,
     },
     storage,
+    contentMetadataExtractor: {
+      extract: async () => ({ width: 1366, height: 768, duration: null }),
+    },
   });
   app.route("/content", router);
 

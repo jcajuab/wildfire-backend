@@ -1,4 +1,5 @@
 import {
+  type ContentMetadataExtractor,
   type ContentRecord,
   type ContentRepository,
   type ContentStorage,
@@ -12,6 +13,7 @@ import {
 } from "#/domain/content/content";
 import { toContentView } from "./content-view";
 import {
+  ContentMetadataExtractionError,
   ContentStorageCleanupError,
   InvalidContentTypeError,
   NotFoundError,
@@ -22,6 +24,7 @@ export class UploadContentUseCase {
     private readonly deps: {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
+      contentMetadataExtractor: ContentMetadataExtractor;
       userRepository: UserRepository;
       cleanupFailureLogger?: CleanupFailureLogger;
     },
@@ -43,10 +46,26 @@ export class UploadContentUseCase {
     const fileKey = buildContentFileKey({ id, type, mimeType });
     const buffer = await input.file.arrayBuffer();
     const checksum = await sha256Hex(buffer);
+    const data = new Uint8Array(buffer);
+    let extractedMetadata: Awaited<
+      ReturnType<ContentMetadataExtractor["extract"]>
+    >;
+    try {
+      extractedMetadata = await this.deps.contentMetadataExtractor.extract({
+        type,
+        mimeType,
+        data,
+      });
+    } catch (error) {
+      throw new ContentMetadataExtractionError(
+        "Failed to extract content metadata",
+        { cause: error },
+      );
+    }
 
     await this.deps.contentStorage.upload({
       key: fileKey,
-      body: new Uint8Array(buffer),
+      body: data,
       contentType: mimeType,
       contentLength: input.file.size,
     });
@@ -62,9 +81,9 @@ export class UploadContentUseCase {
         checksum,
         mimeType,
         fileSize: input.file.size,
-        width: null,
-        height: null,
-        duration: null,
+        width: extractedMetadata.width,
+        height: extractedMetadata.height,
+        duration: extractedMetadata.duration,
         createdById: user.id,
       });
     } catch (error) {

@@ -13,6 +13,7 @@ import {
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   CreateDeviceGroupUseCase,
   DeleteDeviceGroupUseCase,
@@ -30,6 +31,7 @@ import {
 } from "#/application/use-cases/devices";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { unauthorized } from "#/interfaces/http/responses";
+import { publishDeviceStreamEvent } from "./stream";
 
 export interface DevicesRouterDeps {
   jwtSecret: string;
@@ -47,6 +49,7 @@ export interface DevicesRouterDeps {
     authorizationRepository: AuthorizationRepository;
     deviceGroupRepository: DeviceGroupRepository;
     devicePairingCodeRepository: DevicePairingCodeRepository;
+    systemSettingRepository: SystemSettingRepository;
   };
   storage: ContentStorage;
 }
@@ -77,58 +80,84 @@ export const deviceTags = ["Devices"];
 
 export const createDevicesUseCases = (
   deps: DevicesRouterDeps,
-): DevicesRouterUseCases => ({
-  listDevices: new ListDevicesUseCase({
-    deviceRepository: deps.repositories.deviceRepository,
-  }),
-  getDevice: new GetDeviceUseCase({
-    deviceRepository: deps.repositories.deviceRepository,
-  }),
-  updateDevice: new UpdateDeviceUseCase({
-    deviceRepository: deps.repositories.deviceRepository,
-  }),
-  requestDeviceRefresh: new RequestDeviceRefreshUseCase({
-    deviceRepository: deps.repositories.deviceRepository,
-  }),
-  registerDevice: new RegisterDeviceUseCase({
-    deviceRepository: deps.repositories.deviceRepository,
-    devicePairingCodeRepository: deps.repositories.devicePairingCodeRepository,
-  }),
-  issuePairingCode: new IssueDevicePairingCodeUseCase({
-    devicePairingCodeRepository: deps.repositories.devicePairingCodeRepository,
-  }),
-  listDeviceGroups: new ListDeviceGroupsUseCase({
-    deviceGroupRepository: deps.repositories.deviceGroupRepository,
-  }),
-  createDeviceGroup: new CreateDeviceGroupUseCase({
-    deviceGroupRepository: deps.repositories.deviceGroupRepository,
-  }),
-  updateDeviceGroup: new UpdateDeviceGroupUseCase({
-    deviceGroupRepository: deps.repositories.deviceGroupRepository,
-  }),
-  deleteDeviceGroup: new DeleteDeviceGroupUseCase({
-    deviceGroupRepository: deps.repositories.deviceGroupRepository,
-  }),
-  setDeviceGroups: new SetDeviceGroupsUseCase({
-    deviceRepository: deps.repositories.deviceRepository,
-    deviceGroupRepository: deps.repositories.deviceGroupRepository,
-  }),
-  getActiveSchedule: new GetDeviceActiveScheduleUseCase({
-    scheduleRepository: deps.repositories.scheduleRepository,
-    playlistRepository: deps.repositories.playlistRepository,
-    deviceRepository: deps.repositories.deviceRepository,
-    scheduleTimeZone: deps.scheduleTimeZone,
-  }),
-  getManifest: new GetDeviceManifestUseCase({
-    scheduleRepository: deps.repositories.scheduleRepository,
-    playlistRepository: deps.repositories.playlistRepository,
-    contentRepository: deps.repositories.contentRepository,
-    contentStorage: deps.storage,
-    deviceRepository: deps.repositories.deviceRepository,
-    downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
-    scheduleTimeZone: deps.scheduleTimeZone,
-  }),
-});
+): DevicesRouterUseCases => {
+  const deviceEventPublisher = {
+    publish(input: {
+      type:
+        | "manifest_updated"
+        | "schedule_updated"
+        | "playlist_updated"
+        | "device_refresh_requested";
+      deviceId: string;
+      reason?: string;
+      timestamp?: string;
+    }) {
+      publishDeviceStreamEvent({
+        type: input.type,
+        deviceId: input.deviceId,
+        reason: input.reason,
+        timestamp: input.timestamp ?? new Date().toISOString(),
+      });
+    },
+  };
+
+  return {
+    listDevices: new ListDevicesUseCase({
+      deviceRepository: deps.repositories.deviceRepository,
+    }),
+    getDevice: new GetDeviceUseCase({
+      deviceRepository: deps.repositories.deviceRepository,
+    }),
+    updateDevice: new UpdateDeviceUseCase({
+      deviceRepository: deps.repositories.deviceRepository,
+    }),
+    requestDeviceRefresh: new RequestDeviceRefreshUseCase({
+      deviceRepository: deps.repositories.deviceRepository,
+      deviceEventPublisher,
+    }),
+    registerDevice: new RegisterDeviceUseCase({
+      deviceRepository: deps.repositories.deviceRepository,
+      devicePairingCodeRepository:
+        deps.repositories.devicePairingCodeRepository,
+    }),
+    issuePairingCode: new IssueDevicePairingCodeUseCase({
+      devicePairingCodeRepository:
+        deps.repositories.devicePairingCodeRepository,
+    }),
+    listDeviceGroups: new ListDeviceGroupsUseCase({
+      deviceGroupRepository: deps.repositories.deviceGroupRepository,
+    }),
+    createDeviceGroup: new CreateDeviceGroupUseCase({
+      deviceGroupRepository: deps.repositories.deviceGroupRepository,
+    }),
+    updateDeviceGroup: new UpdateDeviceGroupUseCase({
+      deviceGroupRepository: deps.repositories.deviceGroupRepository,
+    }),
+    deleteDeviceGroup: new DeleteDeviceGroupUseCase({
+      deviceGroupRepository: deps.repositories.deviceGroupRepository,
+    }),
+    setDeviceGroups: new SetDeviceGroupsUseCase({
+      deviceRepository: deps.repositories.deviceRepository,
+      deviceGroupRepository: deps.repositories.deviceGroupRepository,
+    }),
+    getActiveSchedule: new GetDeviceActiveScheduleUseCase({
+      scheduleRepository: deps.repositories.scheduleRepository,
+      playlistRepository: deps.repositories.playlistRepository,
+      deviceRepository: deps.repositories.deviceRepository,
+      scheduleTimeZone: deps.scheduleTimeZone,
+    }),
+    getManifest: new GetDeviceManifestUseCase({
+      scheduleRepository: deps.repositories.scheduleRepository,
+      playlistRepository: deps.repositories.playlistRepository,
+      contentRepository: deps.repositories.contentRepository,
+      contentStorage: deps.storage,
+      deviceRepository: deps.repositories.deviceRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
+      downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
+      scheduleTimeZone: deps.scheduleTimeZone,
+    }),
+  };
+};
 
 const safeCompare = (a: string, b: string): boolean => {
   if (a.length !== b.length) return false;

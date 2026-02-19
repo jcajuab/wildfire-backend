@@ -1,10 +1,13 @@
 import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
+import { type DeviceStreamEventPublisher } from "#/application/ports/device-stream-events";
+import { type DeviceRepository } from "#/application/ports/devices";
 import {
   type PlaylistItemRecord,
   type PlaylistRepository,
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   isValidDuration,
   isValidSequence,
@@ -12,6 +15,137 @@ import {
 } from "#/domain/playlists/playlist";
 import { NotFoundError } from "./errors";
 import { toPlaylistItemView, toPlaylistView } from "./playlist-view";
+
+const publishPlaylistUpdateEvents = async (
+  deps: {
+    scheduleRepository?: ScheduleRepository;
+    deviceEventPublisher?: DeviceStreamEventPublisher;
+  },
+  playlistId: string,
+  reason: string,
+) => {
+  if (!deps.scheduleRepository || !deps.deviceEventPublisher) {
+    return;
+  }
+  const schedules = await deps.scheduleRepository.list();
+  const impactedDeviceIds = Array.from(
+    new Set(
+      schedules
+        .filter((schedule) => schedule.playlistId === playlistId)
+        .map((schedule) => schedule.deviceId),
+    ),
+  );
+  for (const deviceId of impactedDeviceIds) {
+    deps.deviceEventPublisher.publish({
+      type: "playlist_updated",
+      deviceId,
+      reason,
+    });
+  }
+};
+
+const OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
+
+const parseTimeToSeconds = (value: string): number => {
+  const [hourRaw, minuteRaw] = value.split(":");
+  const hour = Number.parseInt(hourRaw ?? "", 10);
+  const minute = Number.parseInt(minuteRaw ?? "", 10);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+    return 0;
+  }
+  return hour * 3600 + minute * 60;
+};
+
+const scheduleWindowDurationSeconds = (startTime: string, endTime: string) => {
+  const startSeconds = parseTimeToSeconds(startTime);
+  const endSeconds = parseTimeToSeconds(endTime);
+  if (endSeconds > startSeconds) return endSeconds - startSeconds;
+  if (endSeconds < startSeconds) return 24 * 3600 - startSeconds + endSeconds;
+  return 0;
+};
+
+const computeRequiredMinDurationSeconds = async (input: {
+  playlistRepository: PlaylistRepository;
+  contentRepository: ContentRepository;
+  playlistId: string;
+  deviceWidth: number;
+  deviceHeight: number;
+}) => {
+  const items = await input.playlistRepository.listItems(input.playlistId);
+  if (items.length === 0) return 0;
+  const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
+  const contents = await input.contentRepository.findByIds(contentIds);
+  const contentById = new Map(contents.map((content) => [content.id, content]));
+  let baseDuration = 0;
+  let overflowExtra = 0;
+  for (const item of items) {
+    baseDuration += item.duration;
+    const content = contentById.get(item.contentId);
+    if (!content) continue;
+    if (
+      (content.type === "IMAGE" || content.type === "PDF") &&
+      content.width !== null &&
+      content.height !== null &&
+      content.width > 0 &&
+      content.height > 0
+    ) {
+      const scaledHeight = (input.deviceWidth / content.width) * content.height;
+      const overflow = Math.max(0, scaledHeight - input.deviceHeight);
+      overflowExtra += Math.ceil(overflow / OVERFLOW_SCROLL_PIXELS_PER_SECOND);
+    }
+  }
+  return baseDuration + overflowExtra;
+};
+
+const invalidateImpactedSchedules = async (
+  deps: {
+    playlistRepository: PlaylistRepository;
+    contentRepository: ContentRepository;
+    scheduleRepository?: ScheduleRepository;
+    deviceRepository?: DeviceRepository;
+    deviceEventPublisher?: DeviceStreamEventPublisher;
+  },
+  playlistId: string,
+): Promise<void> => {
+  if (!deps.scheduleRepository || !deps.deviceRepository) {
+    return;
+  }
+  const schedules = await deps.scheduleRepository.list();
+  const impacted = schedules.filter(
+    (schedule) => schedule.playlistId === playlistId && schedule.isActive,
+  );
+  for (const schedule of impacted) {
+    const device = await deps.deviceRepository.findById(schedule.deviceId);
+    if (
+      !device ||
+      typeof device.screenWidth !== "number" ||
+      typeof device.screenHeight !== "number"
+    ) {
+      continue;
+    }
+    const deviceWidth = device.screenWidth;
+    const deviceHeight = device.screenHeight;
+    const required = await computeRequiredMinDurationSeconds({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+      playlistId,
+      deviceWidth,
+      deviceHeight,
+    });
+    const windowSeconds = scheduleWindowDurationSeconds(
+      schedule.startTime,
+      schedule.endTime,
+    );
+    if (windowSeconds < required) {
+      await deps.scheduleRepository.update(schedule.id, { isActive: false });
+      deps.deviceEventPublisher?.publish({
+        type: "schedule_updated",
+        deviceId: schedule.deviceId,
+        reason: "schedule_auto_disabled_due_to_playlist_duration",
+      });
+    }
+  }
+};
 
 export class ListPlaylistsUseCase {
   constructor(
@@ -237,6 +371,9 @@ export class AddPlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      scheduleRepository?: ScheduleRepository;
+      deviceRepository?: DeviceRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
 
@@ -277,6 +414,12 @@ export class AddPlaylistItemUseCase {
     await this.deps.contentRepository.update(input.contentId, {
       status: "IN_USE",
     });
+    await publishPlaylistUpdateEvents(
+      this.deps,
+      input.playlistId,
+      "playlist_item_added",
+    );
+    await invalidateImpactedSchedules(this.deps, input.playlistId);
 
     return toPlaylistItemView(item, content);
   }
@@ -287,6 +430,9 @@ export class UpdatePlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      scheduleRepository?: ScheduleRepository;
+      deviceRepository?: DeviceRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
 
@@ -306,6 +452,12 @@ export class UpdatePlaylistItemUseCase {
 
     const content = await this.deps.contentRepository.findById(item.contentId);
     if (!content) throw new NotFoundError("Content not found");
+    await publishPlaylistUpdateEvents(
+      this.deps,
+      item.playlistId,
+      "playlist_item_updated",
+    );
+    await invalidateImpactedSchedules(this.deps, item.playlistId);
 
     return toPlaylistItemView(item, content);
   }
@@ -316,6 +468,9 @@ export class DeletePlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      scheduleRepository?: ScheduleRepository;
+      deviceRepository?: DeviceRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
 
@@ -334,5 +489,11 @@ export class DeletePlaylistItemUseCase {
         status: "DRAFT",
       });
     }
+    await publishPlaylistUpdateEvents(
+      this.deps,
+      existing.playlistId,
+      "playlist_item_deleted",
+    );
+    await invalidateImpactedSchedules(this.deps, existing.playlistId);
   }
 }

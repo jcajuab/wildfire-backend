@@ -193,6 +193,8 @@ describe("Devices use cases", () => {
       name: "Lobby",
       identifier: "AA:BB",
       location: "Main Hall",
+      screenWidth: 1366,
+      screenHeight: 768,
     });
 
     expect(device.identifier).toBe("AA:BB");
@@ -219,6 +221,8 @@ describe("Devices use cases", () => {
       name: "Lobby Display",
       identifier: "AA:BB",
       location: "Hallway",
+      screenWidth: 1366,
+      screenHeight: 768,
     });
 
     expect(updated.id).toBe(created.id);
@@ -242,6 +246,8 @@ describe("Devices use cases", () => {
       identifier: "old-identifier",
       deviceFingerprint: "fp-1",
       location: null,
+      screenWidth: 1366,
+      screenHeight: 768,
     });
 
     issueCode("456789");
@@ -251,6 +257,8 @@ describe("Devices use cases", () => {
       identifier: "new-identifier",
       deviceFingerprint: "fp-1",
       location: "Hallway",
+      screenWidth: 1920,
+      screenHeight: 1080,
     });
 
     expect(updated.id).toBe(created.id);
@@ -274,6 +282,8 @@ describe("Devices use cases", () => {
       identifier: "device-a",
       deviceFingerprint: "fp-a",
       location: null,
+      screenWidth: 1366,
+      screenHeight: 768,
     });
     issueCode("678901");
     await registerDevice.execute({
@@ -282,6 +292,8 @@ describe("Devices use cases", () => {
       identifier: "device-b",
       deviceFingerprint: "fp-b",
       location: null,
+      screenWidth: 1366,
+      screenHeight: 768,
     });
 
     issueCode("789012");
@@ -292,6 +304,8 @@ describe("Devices use cases", () => {
         identifier: "device-a",
         deviceFingerprint: "fp-b",
         location: null,
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
@@ -310,6 +324,8 @@ describe("Devices use cases", () => {
         name: "Lobby",
         identifier: "AA:BB",
         location: null,
+        screenWidth: 1366,
+        screenHeight: 768,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
@@ -430,6 +446,12 @@ describe("Devices use cases", () => {
         getPresignedDownloadUrl: async () => "",
       },
       deviceRepository: repo,
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async () => {
+          throw new Error("not used");
+        },
+      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -440,6 +462,85 @@ describe("Devices use cases", () => {
 
     expect(result.items).toHaveLength(0);
     expect(result.playlistId).toBeNull();
+    expect(result.runtimeSettings.scrollPxPerSecond).toBe(24);
+  });
+
+  test("GetDeviceManifestUseCase uses persisted runtime scroll setting", async () => {
+    const { repo } = makeRepository();
+    const created = await repo.create({
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+    });
+
+    const useCase = new GetDeviceManifestUseCase({
+      scheduleRepository: {
+        listByDevice: async () => [],
+        list: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+      },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        deleteItem: async () => false,
+      },
+      contentRepository: {
+        findById: async () => null,
+        findByIds: async () => [],
+        create: async () => {
+          throw new Error("not used");
+        },
+        list: async () => ({ items: [], total: 0 }),
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+        update: async () => null,
+      },
+      contentStorage: {
+        upload: async () => {},
+        delete: async () => {},
+        getPresignedDownloadUrl: async () => "",
+      },
+      deviceRepository: repo,
+      systemSettingRepository: {
+        findByKey: async () => ({
+          key: "device_runtime_scroll_px_per_second",
+          value: "36",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        upsert: async () => {
+          throw new Error("not used");
+        },
+      },
+      downloadUrlExpiresInSeconds: 3600,
+    });
+
+    const result = await useCase.execute({
+      deviceId: created.id,
+      now: new Date("2025-01-01T00:00:00.000Z"),
+    });
+    expect(result.runtimeSettings.scrollPxPerSecond).toBe(36);
   });
 
   test("GetDeviceManifestUseCase version changes after refresh request", async () => {
@@ -544,6 +645,12 @@ describe("Devices use cases", () => {
         getPresignedDownloadUrl: async () => "https://example.com/file",
       },
       deviceRepository: repo,
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async () => {
+          throw new Error("not used");
+        },
+      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -707,6 +814,12 @@ describe("Devices use cases", () => {
         getPresignedDownloadUrl: async () => "https://example.com/file",
       },
       deviceRepository: repo,
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async () => {
+          throw new Error("not used");
+        },
+      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -872,6 +985,12 @@ describe("Devices use cases", () => {
         },
       },
       deviceRepository: repo,
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async () => {
+          throw new Error("not used");
+        },
+      },
       downloadUrlExpiresInSeconds: 3600,
     });
 

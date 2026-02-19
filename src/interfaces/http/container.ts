@@ -18,8 +18,10 @@ import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
 import { RoleDeletionRequestDbRepository } from "#/infrastructure/db/repositories/role-deletion-request.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
+import { SystemSettingDbRepository } from "#/infrastructure/db/repositories/system-setting.repo";
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
+import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
 import { LogInvitationEmailSender } from "#/infrastructure/notifications/log-invitation-email.sender";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { SystemClock } from "#/infrastructure/time/system.clock";
@@ -60,6 +62,7 @@ export interface HttpContainer {
     devicePairingCodeRepository: DevicePairingCodeDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
     invitationRepository: InvitationDbRepository;
+    systemSettingRepository: SystemSettingDbRepository;
   };
   auth: {
     credentialsRepository: HtshadowCredentialsRepository;
@@ -71,6 +74,7 @@ export interface HttpContainer {
   };
   storage: {
     contentStorage: S3ContentStorage;
+    contentMetadataExtractor: DefaultContentMetadataExtractor;
     minioEndpoint: string;
   };
 }
@@ -98,6 +102,7 @@ export const createHttpContainer = (
   const devicePairingCodeRepository = new DevicePairingCodeDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
   const invitationRepository = new InvitationDbRepository();
+  const systemSettingRepository = new SystemSettingDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
@@ -119,6 +124,7 @@ export const createHttpContainer = (
     secretAccessKey: config.minio.rootPassword,
     requestTimeoutMs: config.minio.requestTimeoutMs,
   });
+  const contentMetadataExtractor = new DefaultContentMetadataExtractor();
 
   return {
     repositories: {
@@ -140,6 +146,7 @@ export const createHttpContainer = (
       devicePairingCodeRepository,
       passwordResetTokenRepository,
       invitationRepository,
+      systemSettingRepository,
     },
     auth: {
       credentialsRepository,
@@ -151,6 +158,7 @@ export const createHttpContainer = (
     },
     storage: {
       contentStorage,
+      contentMetadataExtractor,
       minioEndpoint,
     },
   };

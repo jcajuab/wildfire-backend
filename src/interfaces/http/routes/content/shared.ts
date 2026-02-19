@@ -1,6 +1,7 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import {
+  type ContentMetadataExtractor,
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
@@ -32,6 +33,7 @@ export interface ContentRouterDeps {
     authorizationRepository: AuthorizationRepository;
   };
   storage: ContentStorage;
+  contentMetadataExtractor: ContentMetadataExtractor;
 }
 
 export interface ContentRouterUseCases {
@@ -79,6 +81,7 @@ export const createContentUseCases = (
     uploadContent: new UploadContentUseCase({
       contentRepository: deps.repositories.contentRepository,
       contentStorage: deps.storage,
+      contentMetadataExtractor: deps.contentMetadataExtractor,
       userRepository: deps.repositories.userRepository,
       cleanupFailureLogger,
     }),

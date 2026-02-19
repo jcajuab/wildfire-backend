@@ -24,3 +24,10 @@ export class ContentStorageCleanupError extends Error {
     this.name = "ContentStorageCleanupError";
   }
 }
+
+export class ContentMetadataExtractionError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "ContentMetadataExtractionError";
+  }
+}

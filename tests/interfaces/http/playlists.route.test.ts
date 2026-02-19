@@ -140,6 +140,38 @@ const makeApp = async (
         findPermissionsForUser: async () =>
           permissions.map((permission) => Permission.parse(permission)),
       },
+      scheduleRepository: {
+        list: async () => [],
+        listByDevice: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+      },
+      deviceRepository: {
+        list: async () => [],
+        findByIds: async () => [],
+        findById: async () => ({
+          id: "device-1",
+          name: "Lobby",
+          identifier: "AA:BB",
+          location: null,
+          screenWidth: 1366,
+          screenHeight: 768,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        findByIdentifier: async () => null,
+        findByFingerprint: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        bumpRefreshNonce: async () => false,
+      },
     },
   });
 

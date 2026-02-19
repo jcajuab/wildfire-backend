@@ -2,6 +2,7 @@ import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
 import {
   ContentInUseError,
+  ContentMetadataExtractionError,
   InvalidContentTypeError,
 } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -114,6 +115,7 @@ export const registerContentWriteRoutes = (args: {
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
       mapErrorToResponse(InvalidContentTypeError, badRequest),
+      mapErrorToResponse(ContentMetadataExtractionError, badRequest),
     ),
   );
 

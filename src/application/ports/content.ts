@@ -16,6 +16,12 @@ export interface ContentRecord {
   createdAt: string;
 }
 
+export interface ExtractedContentMetadata {
+  width: number;
+  height: number;
+  duration: number | null;
+}
+
 export interface ContentRepository {
   create(input: Omit<ContentRecord, "createdAt">): Promise<ContentRecord>;
   findById(id: string): Promise<ContentRecord | null>;
@@ -50,4 +56,12 @@ export interface ContentStorage {
     expiresInSeconds: number;
     responseContentDisposition?: string;
   }): Promise<string>;
+}
+
+export interface ContentMetadataExtractor {
+  extract(input: {
+    type: ContentType;
+    mimeType: string;
+    data: Uint8Array;
+  }): Promise<ExtractedContentMetadata>;
 }

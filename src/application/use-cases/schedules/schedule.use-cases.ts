@@ -1,4 +1,6 @@
 import { ValidationError } from "#/application/errors/validation";
+import { type ContentRepository } from "#/application/ports/content";
+import { type DeviceStreamEventPublisher } from "#/application/ports/device-stream-events";
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -11,6 +13,65 @@ import {
 } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 import { toScheduleView } from "./schedule-view";
+
+const OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
+const DAY_SECONDS = 24 * 60 * 60;
+
+const parseTimeToSeconds = (value: string): number => {
+  const [hourRaw, minuteRaw] = value.split(":");
+  const hour = Number.parseInt(hourRaw ?? "", 10);
+  const minute = Number.parseInt(minuteRaw ?? "", 10);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+    throw new ValidationError("Invalid schedule time format");
+  }
+  return hour * 3600 + minute * 60;
+};
+
+const computeWindowDurationSeconds = (startTime: string, endTime: string) => {
+  const startSeconds = parseTimeToSeconds(startTime);
+  const endSeconds = parseTimeToSeconds(endTime);
+  if (endSeconds > startSeconds) {
+    return endSeconds - startSeconds;
+  }
+  if (endSeconds < startSeconds) {
+    return DAY_SECONDS - startSeconds + endSeconds;
+  }
+  return 0;
+};
+
+const computeRequiredMinDurationSeconds = async (input: {
+  playlistRepository: PlaylistRepository;
+  contentRepository: ContentRepository;
+  playlistId: string;
+  deviceWidth: number;
+  deviceHeight: number;
+}): Promise<number> => {
+  const items = await input.playlistRepository.listItems(input.playlistId);
+  if (items.length === 0) return 0;
+  const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
+  const contents = await input.contentRepository.findByIds(contentIds);
+  const contentById = new Map(contents.map((content) => [content.id, content]));
+
+  let baseDuration = 0;
+  let overflowExtra = 0;
+  for (const item of items) {
+    baseDuration += item.duration;
+    const content = contentById.get(item.contentId);
+    if (!content) continue;
+    if (
+      (content.type === "IMAGE" || content.type === "PDF") &&
+      content.width !== null &&
+      content.height !== null &&
+      content.width > 0 &&
+      content.height > 0
+    ) {
+      const scaledHeight = (input.deviceWidth / content.width) * content.height;
+      const overflow = Math.max(0, scaledHeight - input.deviceHeight);
+      overflowExtra += Math.ceil(overflow / OVERFLOW_SCROLL_PIXELS_PER_SECOND);
+    }
+  }
+  return baseDuration + overflowExtra;
+};
 
 export class ListSchedulesUseCase {
   constructor(
@@ -53,6 +114,8 @@ export class CreateScheduleUseCase {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
       deviceRepository: DeviceRepository;
+      contentRepository: ContentRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
 
@@ -89,6 +152,32 @@ export class CreateScheduleUseCase {
     ]);
     if (!playlist) throw new NotFoundError("Playlist not found");
     if (!device) throw new NotFoundError("Device not found");
+    if (
+      typeof device.screenWidth !== "number" ||
+      typeof device.screenHeight !== "number"
+    ) {
+      throw new ValidationError(
+        "Device resolution is required before scheduling",
+      );
+    }
+    const deviceWidth = device.screenWidth;
+    const deviceHeight = device.screenHeight;
+    const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
+      playlistRepository: this.deps.playlistRepository,
+      contentRepository: this.deps.contentRepository,
+      playlistId: input.playlistId,
+      deviceWidth,
+      deviceHeight,
+    });
+    const windowDurationSeconds = computeWindowDurationSeconds(
+      input.startTime,
+      input.endTime,
+    );
+    if (windowDurationSeconds < requiredMinDurationSeconds) {
+      throw new ValidationError(
+        `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
+      );
+    }
 
     const schedule = await this.deps.scheduleRepository.create({
       name: input.name,
@@ -103,6 +192,11 @@ export class CreateScheduleUseCase {
       isActive: input.isActive,
     });
     await this.deps.playlistRepository.updateStatus(input.playlistId, "IN_USE");
+    this.deps.deviceEventPublisher?.publish({
+      type: "schedule_updated",
+      deviceId: schedule.deviceId,
+      reason: "schedule_created",
+    });
 
     return toScheduleView(schedule, playlist, device);
   }
@@ -136,6 +230,8 @@ export class UpdateScheduleUseCase {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
       deviceRepository: DeviceRepository;
+      contentRepository: ContentRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
 
@@ -180,19 +276,64 @@ export class UpdateScheduleUseCase {
       throw new ValidationError("Invalid date range");
     }
 
-    const [playlistForUpdate, deviceForUpdate] = await Promise.all([
+    const [
+      playlistForUpdate,
+      deviceForUpdate,
+      existingDevice,
+      existingPlaylist,
+    ] = await Promise.all([
       input.playlistId
         ? this.deps.playlistRepository.findById(input.playlistId)
         : Promise.resolve(undefined),
       input.deviceId
         ? this.deps.deviceRepository.findById(input.deviceId)
         : Promise.resolve(undefined),
+      this.deps.deviceRepository.findById(existing.deviceId),
+      this.deps.playlistRepository.findById(existing.playlistId),
     ]);
     if (input.playlistId && !playlistForUpdate) {
       throw new NotFoundError("Playlist not found");
     }
     if (input.deviceId && !deviceForUpdate) {
       throw new NotFoundError("Device not found");
+    }
+    const resolvedDevice = input.deviceId ? deviceForUpdate : existingDevice;
+    if (!resolvedDevice) {
+      throw new NotFoundError("Device not found");
+    }
+    if (
+      typeof resolvedDevice.screenWidth !== "number" ||
+      typeof resolvedDevice.screenHeight !== "number"
+    ) {
+      throw new ValidationError(
+        "Device resolution is required before scheduling",
+      );
+    }
+    const resolvedPlaylist = input.playlistId
+      ? playlistForUpdate
+      : existingPlaylist;
+    if (!resolvedPlaylist) {
+      throw new NotFoundError("Playlist not found");
+    }
+    const nextStartTime = input.startTime ?? existing.startTime;
+    const nextEndTime = input.endTime ?? existing.endTime;
+    const deviceWidth = resolvedDevice.screenWidth;
+    const deviceHeight = resolvedDevice.screenHeight;
+    const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
+      playlistRepository: this.deps.playlistRepository,
+      contentRepository: this.deps.contentRepository,
+      playlistId: resolvedPlaylist.id,
+      deviceWidth,
+      deviceHeight,
+    });
+    const windowDurationSeconds = computeWindowDurationSeconds(
+      nextStartTime,
+      nextEndTime,
+    );
+    if (windowDurationSeconds < requiredMinDurationSeconds) {
+      throw new ValidationError(
+        `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
+      );
     }
 
     const schedule = await this.deps.scheduleRepository.update(input.id, {
@@ -227,6 +368,11 @@ export class UpdateScheduleUseCase {
       schedule.playlistId,
       "IN_USE",
     );
+    this.deps.deviceEventPublisher?.publish({
+      type: "schedule_updated",
+      deviceId: schedule.deviceId,
+      reason: "schedule_updated",
+    });
 
     const [playlist, device] = await Promise.all([
       this.deps.playlistRepository.findById(schedule.playlistId),
@@ -242,6 +388,7 @@ export class DeleteScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
 
@@ -261,6 +408,11 @@ export class DeleteScheduleUseCase {
         "DRAFT",
       );
     }
+    this.deps.deviceEventPublisher?.publish({
+      type: "schedule_updated",
+      deviceId: existing.deviceId,
+      reason: "schedule_deleted",
+    });
   }
 }
 
