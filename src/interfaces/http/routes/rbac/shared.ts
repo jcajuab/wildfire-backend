@@ -5,12 +5,15 @@ import {
   type AuthorizationRepository,
   type PermissionRepository,
   type PolicyHistoryRepository,
+  type RoleDeletionRequestRepository,
   type RolePermissionRepository,
   type RoleRepository,
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
 import {
+  ApproveRoleDeletionRequestUseCase,
+  CreateRoleDeletionRequestUseCase,
   CreateRoleUseCase,
   CreateUserUseCase,
   DeleteRoleUseCase,
@@ -22,8 +25,10 @@ import {
   GetUserUseCase,
   ListPermissionsUseCase,
   ListPolicyHistoryUseCase,
+  ListRoleDeletionRequestsUseCase,
   ListRolesUseCase,
   ListUsersUseCase,
+  RejectRoleDeletionRequestUseCase,
   SetRolePermissionsUseCase,
   SetUserRolesUseCase,
   UpdateRoleUseCase,
@@ -43,6 +48,7 @@ export interface RbacRouterDeps {
     permissionRepository: PermissionRepository;
     userRoleRepository: UserRoleRepository;
     rolePermissionRepository: RolePermissionRepository;
+    roleDeletionRequestRepository: RoleDeletionRequestRepository;
     authorizationRepository: AuthorizationRepository;
     policyHistoryRepository: PolicyHistoryRepository;
   };
@@ -60,6 +66,10 @@ export interface RbacRouterUseCases {
   setRolePermissions: SetRolePermissionsUseCase;
   listPermissions: ListPermissionsUseCase;
   listPolicyHistory: ListPolicyHistoryUseCase;
+  createRoleDeletionRequest: CreateRoleDeletionRequestUseCase;
+  listRoleDeletionRequests: ListRoleDeletionRequestsUseCase;
+  approveRoleDeletionRequest: ApproveRoleDeletionRequestUseCase;
+  rejectRoleDeletionRequest: RejectRoleDeletionRequestUseCase;
   listUsers: ListUsersUseCase;
   createUser: CreateUserUseCase;
   getUser: GetUserUseCase;
@@ -101,6 +111,29 @@ export const createRbacUseCases = (
   }),
   deleteRole: new DeleteRoleUseCase({
     roleRepository: deps.repositories.roleRepository,
+    userRoleRepository: deps.repositories.userRoleRepository,
+  }),
+  createRoleDeletionRequest: new CreateRoleDeletionRequestUseCase({
+    roleRepository: deps.repositories.roleRepository,
+    userRoleRepository: deps.repositories.userRoleRepository,
+    roleDeletionRequestRepository:
+      deps.repositories.roleDeletionRequestRepository,
+  }),
+  listRoleDeletionRequests: new ListRoleDeletionRequestsUseCase({
+    roleDeletionRequestRepository:
+      deps.repositories.roleDeletionRequestRepository,
+  }),
+  approveRoleDeletionRequest: new ApproveRoleDeletionRequestUseCase({
+    roleRepository: deps.repositories.roleRepository,
+    userRoleRepository: deps.repositories.userRoleRepository,
+    roleDeletionRequestRepository:
+      deps.repositories.roleDeletionRequestRepository,
+  }),
+  rejectRoleDeletionRequest: new RejectRoleDeletionRequestUseCase({
+    roleRepository: deps.repositories.roleRepository,
+    userRoleRepository: deps.repositories.userRoleRepository,
+    roleDeletionRequestRepository:
+      deps.repositories.roleDeletionRequestRepository,
   }),
   getRolePermissions: new GetRolePermissionsUseCase({
     roleRepository: deps.repositories.roleRepository,

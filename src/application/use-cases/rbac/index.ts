@@ -3,12 +3,16 @@ export { NotFoundError } from "#/application/use-cases/rbac/errors";
 export { ListPermissionsUseCase } from "#/application/use-cases/rbac/permission.use-cases";
 export { ListPolicyHistoryUseCase } from "#/application/use-cases/rbac/policy-history.use-case";
 export {
+  ApproveRoleDeletionRequestUseCase,
+  CreateRoleDeletionRequestUseCase,
   CreateRoleUseCase,
   DeleteRoleUseCase,
   GetRolePermissionsUseCase,
   GetRoleUseCase,
   GetRoleUsersUseCase,
+  ListRoleDeletionRequestsUseCase,
   ListRolesUseCase,
+  RejectRoleDeletionRequestUseCase,
   SetRolePermissionsUseCase,
   UpdateRoleUseCase,
 } from "#/application/use-cases/rbac/role.use-cases";

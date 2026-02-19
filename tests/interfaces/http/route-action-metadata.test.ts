@@ -277,6 +277,15 @@ const buildRbacActionApp = async () => {
         listPermissionsByRoleId: async () => [],
         setRolePermissions: async () => {},
       },
+      roleDeletionRequestRepository: {
+        createPending: async () => {},
+        findPendingByRoleId: async () => null,
+        findById: async () => null,
+        list: async () => [],
+        count: async () => 0,
+        markApproved: async () => false,
+        markRejected: async () => false,
+      },
       policyHistoryRepository: {
         create: async () => {},
         list: async () => [],

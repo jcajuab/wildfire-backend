@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentStorage } from "#/application/ports/content";
-import { type PolicyHistoryRepository } from "#/application/ports/rbac";
+import {
+  type PolicyHistoryRepository,
+  type RoleDeletionRequestRepository,
+} from "#/application/ports/rbac";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
@@ -20,6 +23,7 @@ function buildAppWithEditorUser(): {
   app: Hono;
   issueToken: () => Promise<string>;
   issueTokenForEditor: () => Promise<string>;
+  store: ReturnType<typeof makeStore>["store"];
 } {
   const { store, repositories } = makeStore();
   store.roles.push({
@@ -28,20 +32,18 @@ function buildAppWithEditorUser(): {
     description: "Can edit",
     isSystem: false,
   });
-  const permUpdate = {
-    id: "perm-users-update",
-    resource: "users",
-    action: "update",
-  };
-  const permDelete = {
-    id: "perm-users-delete",
-    resource: "users",
-    action: "delete",
-  };
-  store.permissions.push(permUpdate, permDelete);
+  const editorPermissions = [
+    { id: "perm-users-update", resource: "users", action: "update" },
+    { id: "perm-users-delete", resource: "users", action: "delete" },
+    { id: "perm-roles-delete", resource: "roles", action: "delete" },
+    { id: "perm-roles-read", resource: "roles", action: "read" },
+  ] as const;
+  store.permissions.push(...editorPermissions);
   store.rolePermissions.push(
-    { roleId: editorRoleId, permissionId: permUpdate.id },
-    { roleId: editorRoleId, permissionId: permDelete.id },
+    ...editorPermissions.map((permission) => ({
+      roleId: editorRoleId,
+      permissionId: permission.id,
+    })),
   );
   store.userRoles.push({ userId: userIdNoRoles, roleId: editorRoleId });
 
@@ -55,6 +57,7 @@ function buildAppWithEditorUser(): {
   const nowSeconds = Math.floor(Date.now() / 1000);
   return {
     app,
+    store,
     issueToken: async () =>
       tokenIssuer.issueToken({
         subject: userId,
@@ -96,6 +99,16 @@ const makeStore = () => {
     }>,
     userRoles: [] as Array<{ userId: string; roleId: string }>,
     rolePermissions: [] as Array<{ roleId: string; permissionId: string }>,
+    roleDeletionRequests: [] as Array<{
+      id: string;
+      roleId: string;
+      requestedByUserId: string;
+      requestedAt: string;
+      status: "pending" | "approved" | "rejected" | "cancelled";
+      approvedByUserId: string | null;
+      approvedAt: string | null;
+      reason: string | null;
+    }>,
     policyHistory: [] as Array<{
       id: string;
       occurredAt: string;
@@ -327,6 +340,155 @@ const makeStore = () => {
           )
           .filter((item) => (targetId ? item.targetId === targetId : true))
           .filter((item) => (actorId ? item.actorId === actorId : true)).length,
+    },
+    roleDeletionRequestRepository: {
+      createPending: async ({
+        roleId,
+        requestedByUserId,
+        reason,
+      }: Parameters<RoleDeletionRequestRepository["createPending"]>[0]) => {
+        store.roleDeletionRequests.push({
+          id: crypto.randomUUID(),
+          roleId,
+          requestedByUserId,
+          requestedAt: new Date().toISOString(),
+          status: "pending",
+          approvedByUserId: null,
+          approvedAt: null,
+          reason: reason ?? null,
+        });
+      },
+      findPendingByRoleId: async (
+        roleId: Parameters<
+          RoleDeletionRequestRepository["findPendingByRoleId"]
+        >[0],
+      ) => {
+        const req = store.roleDeletionRequests.find(
+          (item) => item.roleId === roleId && item.status === "pending",
+        );
+        if (!req) return null;
+        const role = store.roles.find((item) => item.id === req.roleId);
+        const requester = store.users.find(
+          (item) => item.id === req.requestedByUserId,
+        );
+        const approver = store.users.find(
+          (item) => item.id === req.approvedByUserId,
+        );
+        if (!role || !requester) return null;
+        return {
+          id: req.id,
+          roleId: req.roleId,
+          roleName: role.name,
+          requestedByUserId: req.requestedByUserId,
+          requestedByName: requester.name,
+          requestedByEmail: requester.email,
+          requestedAt: req.requestedAt,
+          status: req.status,
+          approvedByUserId: req.approvedByUserId,
+          approvedByName: approver?.name ?? null,
+          approvedByEmail: approver?.email ?? null,
+          approvedAt: req.approvedAt,
+          reason: req.reason,
+        };
+      },
+      findById: async (
+        id: Parameters<RoleDeletionRequestRepository["findById"]>[0],
+      ) => {
+        const req = store.roleDeletionRequests.find((item) => item.id === id);
+        if (!req) return null;
+        const role = store.roles.find((item) => item.id === req.roleId);
+        const requester = store.users.find(
+          (item) => item.id === req.requestedByUserId,
+        );
+        const approver = store.users.find(
+          (item) => item.id === req.approvedByUserId,
+        );
+        if (!role || !requester) return null;
+        return {
+          id: req.id,
+          roleId: req.roleId,
+          roleName: role.name,
+          requestedByUserId: req.requestedByUserId,
+          requestedByName: requester.name,
+          requestedByEmail: requester.email,
+          requestedAt: req.requestedAt,
+          status: req.status,
+          approvedByUserId: req.approvedByUserId,
+          approvedByName: approver?.name ?? null,
+          approvedByEmail: approver?.email ?? null,
+          approvedAt: req.approvedAt,
+          reason: req.reason,
+        };
+      },
+      list: async ({
+        offset,
+        limit,
+        status,
+        roleId,
+      }: Parameters<RoleDeletionRequestRepository["list"]>[0]) =>
+        store.roleDeletionRequests
+          .filter((item) => (status ? item.status === status : true))
+          .filter((item) => (roleId ? item.roleId === roleId : true))
+          .slice(offset, offset + limit)
+          .map((req) => {
+            const role = store.roles.find((item) => item.id === req.roleId);
+            const requester = store.users.find(
+              (item) => item.id === req.requestedByUserId,
+            );
+            const approver = store.users.find(
+              (item) => item.id === req.approvedByUserId,
+            );
+            return {
+              id: req.id,
+              roleId: req.roleId,
+              roleName: role?.name ?? "Unknown",
+              requestedByUserId: req.requestedByUserId,
+              requestedByName: requester?.name ?? "Unknown",
+              requestedByEmail: requester?.email ?? "unknown@example.com",
+              requestedAt: req.requestedAt,
+              status: req.status,
+              approvedByUserId: req.approvedByUserId,
+              approvedByName: approver?.name ?? null,
+              approvedByEmail: approver?.email ?? null,
+              approvedAt: req.approvedAt,
+              reason: req.reason,
+            };
+          }),
+      count: async ({
+        status,
+        roleId,
+      }: Parameters<RoleDeletionRequestRepository["count"]>[0]) =>
+        store.roleDeletionRequests
+          .filter((item) => (status ? item.status === status : true))
+          .filter((item) => (roleId ? item.roleId === roleId : true)).length,
+      markApproved: async ({
+        id,
+        approvedByUserId,
+      }: Parameters<RoleDeletionRequestRepository["markApproved"]>[0]) => {
+        const req = store.roleDeletionRequests.find(
+          (item) => item.id === id && item.status === "pending",
+        );
+        if (!req) return false;
+        req.status = "approved";
+        req.approvedByUserId = approvedByUserId;
+        req.approvedAt = new Date().toISOString();
+        return true;
+      },
+      markRejected: async ({
+        id,
+        approvedByUserId,
+        reason,
+      }: Parameters<RoleDeletionRequestRepository["markRejected"]>[0]) => {
+        const req = store.roleDeletionRequests.find(
+          (item) => item.id === id && item.status === "pending",
+        );
+        if (!req) return false;
+        req.status = "rejected";
+        req.approvedByUserId = approvedByUserId;
+        req.approvedAt = new Date().toISOString();
+        req.reason = reason ?? null;
+        return true;
+      },
     },
     authorizationRepository: {
       findPermissionsForUser: async (userId: string) => {
@@ -581,6 +743,123 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(204);
+  });
+
+  test("DELETE /roles/:id returns 403 for non-super-admin", async () => {
+    const { app, issueToken, issueTokenForEditor } = buildAppWithEditorUser();
+    const superToken = await issueToken();
+
+    const createRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${superToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Non-Sys Role" }),
+    });
+    const created = await parseJson<{ id: string }>(createRes);
+
+    const editorToken = await issueTokenForEditor();
+    const response = await app.request(`/roles/${created.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${editorToken}` },
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  test("role deletion requests require super-admin approval", async () => {
+    const { app, issueToken, issueTokenForEditor, store } =
+      buildAppWithEditorUser();
+    const superToken = await issueToken();
+
+    const createRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${superToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Approval Target" }),
+    });
+    const createdRole = await parseJson<{ id: string }>(createRes);
+
+    const editorToken = await issueTokenForEditor();
+    const requestRes = await app.request(
+      `/roles/${createdRole.id}/deletion-requests`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${editorToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: "no longer used" }),
+      },
+    );
+    expect(requestRes.status).toBe(204);
+    expect(store.roleDeletionRequests).toHaveLength(1);
+
+    const requestId = store.roleDeletionRequests[0]?.id;
+    expect(requestId).toBeDefined();
+
+    const editorApprove = await app.request(
+      `/roles/deletion-requests/${requestId}/approve`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${editorToken}` },
+      },
+    );
+    expect(editorApprove.status).toBe(403);
+
+    const superApprove = await app.request(
+      `/roles/deletion-requests/${requestId}/approve`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${superToken}` },
+      },
+    );
+    expect(superApprove.status).toBe(204);
+  });
+
+  test("GET /roles/deletion-requests lists requests", async () => {
+    const { app, issueToken, issueTokenForEditor } = buildAppWithEditorUser();
+    const superToken = await issueToken();
+    const editorToken = await issueTokenForEditor();
+
+    const createRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${superToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "List Target" }),
+    });
+    const createdRole = await parseJson<{ id: string }>(createRes);
+
+    const requestRes = await app.request(
+      `/roles/${createdRole.id}/deletion-requests`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${editorToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: "cleanup" }),
+      },
+    );
+    expect(requestRes.status).toBe(204);
+
+    const listRes = await app.request("/roles/deletion-requests", {
+      headers: { Authorization: `Bearer ${superToken}` },
+    });
+    expect(listRes.status).toBe(200);
+    const body = await parseJson<{
+      items: Array<{ roleId: string }>;
+      total: number;
+    }>(listRes);
+    expect(body.total).toBeGreaterThan(0);
+    expect(body.items.some((item) => item.roleId === createdRole.id)).toBe(
+      true,
+    );
   });
 
   test("GET /roles/:id/permissions returns permissions", async () => {

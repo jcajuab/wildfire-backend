@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { ForbiddenError } from "#/application/errors/forbidden";
 import {
+  ApproveRoleDeletionRequestUseCase,
+  CreateRoleDeletionRequestUseCase,
   CreateRoleUseCase,
   CreateUserUseCase,
   DeleteRoleUseCase,
@@ -12,9 +14,11 @@ import {
   GetUserUseCase,
   ListPermissionsUseCase,
   ListPolicyHistoryUseCase,
+  ListRoleDeletionRequestsUseCase,
   ListRolesUseCase,
   ListUsersUseCase,
   NotFoundError,
+  RejectRoleDeletionRequestUseCase,
   SetRolePermissionsUseCase,
   SetUserRolesUseCase,
   UpdateRoleUseCase,
@@ -366,12 +370,149 @@ describe("RBAC use cases", () => {
       roleRepository: {
         findById: async () => null,
         delete: async () => false,
+        list: async () => [],
+      } as never,
+      userRoleRepository: {
+        listRolesByUserId: async () => [],
       } as never,
     });
 
     await expect(useCase.execute({ id: "role-1" })).rejects.toBeInstanceOf(
       NotFoundError,
     );
+  });
+
+  test("CreateRoleDeletionRequestUseCase creates request for non-super-admin", async () => {
+    const useCase = new CreateRoleDeletionRequestUseCase({
+      roleRepository: {
+        findById: async () => ({
+          id: "role-1",
+          name: "Editor",
+          description: null,
+          isSystem: false,
+        }),
+        list: async () => [
+          {
+            id: "role-sys",
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+        ],
+      } as never,
+      userRoleRepository: {
+        listRolesByUserId: async () => [],
+      } as never,
+      roleDeletionRequestRepository: {
+        findPendingByRoleId: async () => null,
+        createPending: async () => undefined,
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({ roleId: "role-1", requestedByUserId: "user-1" }),
+    ).resolves.toBeUndefined();
+  });
+
+  test("ApproveRoleDeletionRequestUseCase rejects non-super-admin approver", async () => {
+    const useCase = new ApproveRoleDeletionRequestUseCase({
+      roleRepository: {
+        list: async () => [
+          {
+            id: "role-sys",
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+        ],
+      } as never,
+      userRoleRepository: {
+        listRolesByUserId: async () => [],
+      } as never,
+      roleDeletionRequestRepository: {
+        findById: async () => null,
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({ requestId: "req-1", approvedByUserId: "user-2" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("ListRoleDeletionRequestsUseCase returns paginated results", async () => {
+    const useCase = new ListRoleDeletionRequestsUseCase({
+      roleDeletionRequestRepository: {
+        createPending: async () => undefined,
+        findPendingByRoleId: async () => null,
+        findById: async () => null,
+        list: async () => [
+          {
+            id: "req-1",
+            roleId: "role-1",
+            roleName: "Editor",
+            requestedByUserId: "user-1",
+            requestedByName: "Requester",
+            requestedByEmail: "req@example.com",
+            requestedAt: "2026-01-01T00:00:00.000Z",
+            status: "pending",
+            approvedByUserId: null,
+            approvedByName: null,
+            approvedByEmail: null,
+            approvedAt: null,
+            reason: null,
+          },
+        ],
+        count: async () => 1,
+        markApproved: async () => false,
+        markRejected: async () => false,
+      },
+    });
+
+    const result = await useCase.execute();
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+  });
+
+  test("RejectRoleDeletionRequestUseCase allows super-admin to reject", async () => {
+    const useCase = new RejectRoleDeletionRequestUseCase({
+      roleRepository: {
+        list: async () => [
+          {
+            id: "role-sys",
+            name: "Super Admin",
+            description: null,
+            isSystem: true,
+          },
+        ],
+      } as never,
+      userRoleRepository: {
+        listRolesByUserId: async () => [
+          { userId: "user-1", roleId: "role-sys" },
+        ],
+      } as never,
+      roleDeletionRequestRepository: {
+        findById: async () => ({
+          id: "req-1",
+          roleId: "role-1",
+          roleName: "Editor",
+          requestedByUserId: "user-2",
+          requestedByName: "Requester",
+          requestedByEmail: "req@example.com",
+          requestedAt: "2026-01-01T00:00:00.000Z",
+          status: "pending",
+          approvedByUserId: null,
+          approvedByName: null,
+          approvedByEmail: null,
+          approvedAt: null,
+          reason: null,
+        }),
+        markRejected: async () => true,
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({ requestId: "req-1", approvedByUserId: "user-1" }),
+    ).resolves.toBeUndefined();
   });
 
   test("GetRolePermissionsUseCase returns permissions", async () => {

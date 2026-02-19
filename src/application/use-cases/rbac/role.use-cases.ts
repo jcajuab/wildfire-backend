@@ -2,6 +2,7 @@ import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   type PermissionRepository,
   type PolicyHistoryRepository,
+  type RoleDeletionRequestRepository,
   type RolePermissionRepository,
   type RoleRepository,
   type RoleWithUserCount,
@@ -82,16 +83,219 @@ export class UpdateRoleUseCase {
 }
 
 export class DeleteRoleUseCase {
-  constructor(private readonly deps: { roleRepository: RoleRepository }) {}
+  constructor(
+    private readonly deps: {
+      roleRepository: RoleRepository;
+      userRoleRepository: UserRoleRepository;
+    },
+  ) {}
 
-  async execute(input: { id: string }) {
+  async execute(input: { id: string; callerUserId?: string }) {
     const role = await this.deps.roleRepository.findById(input.id);
     if (!role) throw new NotFoundError("Role not found");
     if (role.isSystem) {
       throw new ForbiddenError("Cannot delete system role");
     }
+    const callerIsSuperAdmin = await isUserSuperAdmin({
+      roleRepository: this.deps.roleRepository,
+      userRoleRepository: this.deps.userRoleRepository,
+      userId: input.callerUserId,
+    });
+    if (!callerIsSuperAdmin) {
+      throw new ForbiddenError(
+        "Only Super Admin can delete roles directly. Submit a deletion request.",
+      );
+    }
     const deleted = await this.deps.roleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Role not found");
+  }
+}
+
+const isUserSuperAdmin = async (input: {
+  roleRepository: RoleRepository;
+  userRoleRepository: UserRoleRepository;
+  userId?: string;
+}): Promise<boolean> => {
+  if (!input.userId) return false;
+  const roles = await input.roleRepository.list();
+  const systemRole = roles.find((role) => role.isSystem);
+  if (!systemRole) return false;
+  const assignments = await input.userRoleRepository.listRolesByUserId(
+    input.userId,
+  );
+  return assignments.some((assignment) => assignment.roleId === systemRole.id);
+};
+
+export class CreateRoleDeletionRequestUseCase {
+  constructor(
+    private readonly deps: {
+      roleRepository: RoleRepository;
+      userRoleRepository: UserRoleRepository;
+      roleDeletionRequestRepository: RoleDeletionRequestRepository;
+    },
+  ) {}
+
+  async execute(input: {
+    roleId: string;
+    requestedByUserId: string;
+    reason?: string;
+  }): Promise<void> {
+    const role = await this.deps.roleRepository.findById(input.roleId);
+    if (!role) throw new NotFoundError("Role not found");
+    if (role.isSystem) {
+      throw new ForbiddenError("Cannot request deletion for system role");
+    }
+
+    const requesterIsSuperAdmin = await isUserSuperAdmin({
+      roleRepository: this.deps.roleRepository,
+      userRoleRepository: this.deps.userRoleRepository,
+      userId: input.requestedByUserId,
+    });
+    if (requesterIsSuperAdmin) {
+      throw new ForbiddenError(
+        "Super Admin can delete roles directly without a request.",
+      );
+    }
+
+    const pending =
+      await this.deps.roleDeletionRequestRepository.findPendingByRoleId(
+        input.roleId,
+      );
+    if (pending) {
+      throw new ForbiddenError("A pending deletion request already exists.");
+    }
+
+    await this.deps.roleDeletionRequestRepository.createPending({
+      roleId: input.roleId,
+      requestedByUserId: input.requestedByUserId,
+      reason: input.reason,
+    });
+  }
+}
+
+export class ListRoleDeletionRequestsUseCase {
+  constructor(
+    private readonly deps: {
+      roleDeletionRequestRepository: RoleDeletionRequestRepository;
+    },
+  ) {}
+
+  async execute(input?: {
+    page?: number;
+    pageSize?: number;
+    status?: "pending" | "approved" | "rejected" | "cancelled";
+    roleId?: string;
+  }) {
+    const page = Math.max(1, input?.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, input?.pageSize ?? 20));
+    const offset = (page - 1) * pageSize;
+    const [items, total] = await Promise.all([
+      this.deps.roleDeletionRequestRepository.list({
+        offset,
+        limit: pageSize,
+        status: input?.status,
+        roleId: input?.roleId,
+      }),
+      this.deps.roleDeletionRequestRepository.count({
+        status: input?.status,
+        roleId: input?.roleId,
+      }),
+    ]);
+
+    return {
+      items,
+      page,
+      pageSize,
+      total,
+    };
+  }
+}
+
+export class ApproveRoleDeletionRequestUseCase {
+  constructor(
+    private readonly deps: {
+      roleRepository: RoleRepository;
+      userRoleRepository: UserRoleRepository;
+      roleDeletionRequestRepository: RoleDeletionRequestRepository;
+    },
+  ) {}
+
+  async execute(input: { requestId: string; approvedByUserId: string }) {
+    const approverIsSuperAdmin = await isUserSuperAdmin({
+      roleRepository: this.deps.roleRepository,
+      userRoleRepository: this.deps.userRoleRepository,
+      userId: input.approvedByUserId,
+    });
+    if (!approverIsSuperAdmin) {
+      throw new ForbiddenError("Only Super Admin can approve role deletion.");
+    }
+
+    const request = await this.deps.roleDeletionRequestRepository.findById(
+      input.requestId,
+    );
+    if (!request) throw new NotFoundError("Deletion request not found");
+    if (request.status !== "pending") {
+      throw new ForbiddenError("Deletion request is no longer pending.");
+    }
+
+    const role = await this.deps.roleRepository.findById(request.roleId);
+    if (!role) throw new NotFoundError("Role not found");
+    if (role.isSystem) {
+      throw new ForbiddenError("Cannot delete system role");
+    }
+
+    const deleted = await this.deps.roleRepository.delete(request.roleId);
+    if (!deleted) throw new NotFoundError("Role not found");
+
+    const marked = await this.deps.roleDeletionRequestRepository.markApproved({
+      id: request.id,
+      approvedByUserId: input.approvedByUserId,
+    });
+    if (!marked) {
+      throw new ForbiddenError("Deletion request is no longer pending.");
+    }
+  }
+}
+
+export class RejectRoleDeletionRequestUseCase {
+  constructor(
+    private readonly deps: {
+      roleRepository: RoleRepository;
+      userRoleRepository: UserRoleRepository;
+      roleDeletionRequestRepository: RoleDeletionRequestRepository;
+    },
+  ) {}
+
+  async execute(input: {
+    requestId: string;
+    approvedByUserId: string;
+    reason?: string;
+  }) {
+    const approverIsSuperAdmin = await isUserSuperAdmin({
+      roleRepository: this.deps.roleRepository,
+      userRoleRepository: this.deps.userRoleRepository,
+      userId: input.approvedByUserId,
+    });
+    if (!approverIsSuperAdmin) {
+      throw new ForbiddenError("Only Super Admin can reject role deletion.");
+    }
+
+    const request = await this.deps.roleDeletionRequestRepository.findById(
+      input.requestId,
+    );
+    if (!request) throw new NotFoundError("Deletion request not found");
+    if (request.status !== "pending") {
+      throw new ForbiddenError("Deletion request is no longer pending.");
+    }
+
+    const marked = await this.deps.roleDeletionRequestRepository.markRejected({
+      id: request.id,
+      approvedByUserId: input.approvedByUserId,
+      reason: input.reason,
+    });
+    if (!marked) {
+      throw new ForbiddenError("Deletion request is no longer pending.");
+    }
   }
 }
 

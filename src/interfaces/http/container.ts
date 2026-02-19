@@ -14,6 +14,7 @@ import { PermissionDbRepository } from "#/infrastructure/db/repositories/permiss
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
 import { PolicyHistoryDbRepository } from "#/infrastructure/db/repositories/policy-history.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
+import { RoleDeletionRequestDbRepository } from "#/infrastructure/db/repositories/role-deletion-request.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
@@ -46,6 +47,7 @@ export interface HttpContainer {
     userRoleRepository: UserRoleDbRepository;
     rolePermissionRepository: RolePermissionDbRepository;
     policyHistoryRepository: PolicyHistoryDbRepository;
+    roleDeletionRequestRepository: RoleDeletionRequestDbRepository;
     authorizationRepository: AuthorizationDbRepository;
     authSessionRepository: AuthSessionDbRepository;
     auditEventRepository: AuditEventDbRepository;
@@ -82,6 +84,7 @@ export const createHttpContainer = (
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
   const policyHistoryRepository = new PolicyHistoryDbRepository();
+  const roleDeletionRequestRepository = new RoleDeletionRequestDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
   const authSessionRepository = new AuthSessionDbRepository();
   const auditEventRepository = new AuditEventDbRepository();
@@ -122,6 +125,7 @@ export const createHttpContainer = (
       userRoleRepository,
       rolePermissionRepository,
       policyHistoryRepository,
+      roleDeletionRequestRepository,
       authorizationRepository,
       authSessionRepository,
       auditEventRepository,

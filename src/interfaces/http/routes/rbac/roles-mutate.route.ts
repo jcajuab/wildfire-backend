@@ -165,7 +165,10 @@ export const registerRbacRoleMutateRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        await useCases.deleteRole.execute({ id: params.id });
+        await useCases.deleteRole.execute({
+          id: params.id,
+          callerUserId: c.get("userId"),
+        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

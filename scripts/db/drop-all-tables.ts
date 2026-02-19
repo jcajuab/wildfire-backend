@@ -15,6 +15,7 @@ const TABLES = [
   "playlists",
   "role_permissions",
   "rbac_policy_history",
+  "rbac_role_deletion_requests",
   "roles",
   "schedules",
   "user_roles",

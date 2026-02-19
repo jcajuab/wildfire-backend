@@ -199,6 +199,8 @@ const rbacRouter = createRbacRouter({
     permissionRepository: container.repositories.permissionRepository,
     userRoleRepository: container.repositories.userRoleRepository,
     rolePermissionRepository: container.repositories.rolePermissionRepository,
+    roleDeletionRequestRepository:
+      container.repositories.roleDeletionRequestRepository,
     policyHistoryRepository: container.repositories.policyHistoryRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },

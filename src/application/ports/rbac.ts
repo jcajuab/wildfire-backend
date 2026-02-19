@@ -30,6 +30,12 @@ export interface PermissionRecord {
 export type PolicyHistoryChangeType = "role_permissions" | "user_roles";
 export type PolicyHistoryTargetType = "role" | "user";
 
+export type RoleDeletionRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled";
+
 export interface PolicyHistoryRecord {
   id: string;
   occurredAt: string;
@@ -44,6 +50,22 @@ export interface PolicyHistoryRecord {
   targetCount: number;
   addedCount: number;
   removedCount: number;
+}
+
+export interface RoleDeletionRequestRecord {
+  id: string;
+  roleId: string;
+  roleName: string;
+  requestedByUserId: string;
+  requestedByName: string;
+  requestedByEmail: string;
+  requestedAt: string;
+  status: RoleDeletionRequestStatus;
+  approvedByUserId: string | null;
+  approvedByName: string | null;
+  approvedByEmail: string | null;
+  approvedAt: string | null;
+  reason: string | null;
 }
 
 export interface UserRepository {
@@ -141,6 +163,37 @@ export interface PolicyHistoryRepository {
     from?: string;
     to?: string;
   }): Promise<number>;
+}
+
+export interface RoleDeletionRequestRepository {
+  createPending(input: {
+    roleId: string;
+    requestedByUserId: string;
+    reason?: string;
+  }): Promise<void>;
+  findPendingByRoleId(
+    roleId: string,
+  ): Promise<RoleDeletionRequestRecord | null>;
+  findById(id: string): Promise<RoleDeletionRequestRecord | null>;
+  list(input: {
+    offset: number;
+    limit: number;
+    status?: RoleDeletionRequestStatus;
+    roleId?: string;
+  }): Promise<RoleDeletionRequestRecord[]>;
+  count(input: {
+    status?: RoleDeletionRequestStatus;
+    roleId?: string;
+  }): Promise<number>;
+  markApproved(input: {
+    id: string;
+    approvedByUserId: string;
+  }): Promise<boolean>;
+  markRejected(input: {
+    id: string;
+    approvedByUserId: string;
+    reason?: string;
+  }): Promise<boolean>;
 }
 
 export interface AuthorizationRepository {

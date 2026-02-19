@@ -9,6 +9,10 @@ export const roleIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+export const roleDeletionRequestIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
 export const updateRoleSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().trim().optional().nullable(),
@@ -74,6 +78,51 @@ export const policyHistoryRecordSchema = z.object({
 
 export const policyHistoryListResponseSchema = z.object({
   items: z.array(policyHistoryRecordSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+});
+
+export const createRoleDeletionRequestSchema = z.object({
+  reason: z.string().trim().max(1024).optional(),
+});
+
+export const rejectRoleDeletionRequestSchema = z.object({
+  reason: z.string().trim().max(1024).optional(),
+});
+
+export const roleDeletionRequestStatusSchema = z.enum([
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+]);
+
+export const roleDeletionRequestListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  status: roleDeletionRequestStatusSchema.optional(),
+  roleId: z.string().uuid().optional(),
+});
+
+export const roleDeletionRequestRecordSchema = z.object({
+  id: z.string().uuid(),
+  roleId: z.string().uuid(),
+  roleName: z.string(),
+  requestedByUserId: z.string().uuid(),
+  requestedByName: z.string(),
+  requestedByEmail: z.string().email(),
+  requestedAt: z.string(),
+  status: roleDeletionRequestStatusSchema,
+  approvedByUserId: z.string().uuid().nullable(),
+  approvedByName: z.string().nullable(),
+  approvedByEmail: z.string().email().nullable(),
+  approvedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+
+export const roleDeletionRequestListResponseSchema = z.object({
+  items: z.array(roleDeletionRequestRecordSchema),
   page: z.number().int().positive(),
   pageSize: z.number().int().positive(),
   total: z.number().int().nonnegative(),
