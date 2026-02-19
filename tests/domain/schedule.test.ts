@@ -58,4 +58,40 @@ describe("schedule helpers", () => {
 
     expect(result?.id).toBe("manila-evening");
   });
+
+  test("uses configured timezone date for schedule date windows", () => {
+    const schedules = [
+      {
+        id: "should-match-local-date",
+        isActive: true,
+        startDate: "2025-01-01",
+        endDate: "2025-01-01",
+        daysOfWeek: [3],
+        startTime: "00:00",
+        endTime: "23:59",
+        priority: 10,
+      },
+      {
+        id: "utc-date-only",
+        isActive: true,
+        startDate: "2024-12-31",
+        endDate: "2024-12-31",
+        daysOfWeek: [3],
+        startTime: "00:00",
+        endTime: "23:59",
+        priority: 5,
+      },
+    ];
+
+    const utcMidnightBoundary = new Date("2024-12-31T16:30:00.000Z");
+    const result = (
+      selectActiveSchedule as unknown as (
+        input: typeof schedules,
+        at: Date,
+        timeZone: string,
+      ) => (typeof schedules)[number] | null
+    )(schedules, utcMidnightBoundary, "Asia/Manila");
+
+    expect(result?.id).toBe("should-match-local-date");
+  });
 });

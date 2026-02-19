@@ -3,6 +3,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type CleanupFailureLogger } from "#/application/ports/observability";
 import { type UserRepository } from "#/application/ports/rbac";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
@@ -10,7 +11,11 @@ import {
   resolveContentType,
 } from "#/domain/content/content";
 import { toContentView } from "./content-view";
-import { InvalidContentTypeError, NotFoundError } from "./errors";
+import {
+  ContentStorageCleanupError,
+  InvalidContentTypeError,
+  NotFoundError,
+} from "./errors";
 
 export class UploadContentUseCase {
   constructor(
@@ -18,6 +23,7 @@ export class UploadContentUseCase {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
       userRepository: UserRepository;
+      cleanupFailureLogger?: CleanupFailureLogger;
     },
   ) {}
 
@@ -63,7 +69,22 @@ export class UploadContentUseCase {
       });
     } catch (error) {
       // Clean up orphan storage file if DB insert fails
-      await this.deps.contentStorage.delete(fileKey).catch(() => {});
+      try {
+        await this.deps.contentStorage.delete(fileKey);
+      } catch (cleanupError) {
+        this.deps.cleanupFailureLogger?.logContentCleanupFailure({
+          route: "/content",
+          contentId: id,
+          fileKey,
+          failurePhase: "upload_rollback_delete",
+          error: cleanupError,
+        });
+        throw new ContentStorageCleanupError(
+          "Content creation failed and uploaded file cleanup did not complete.",
+          { contentId: id, fileKey },
+          { cause: cleanupError },
+        );
+      }
       throw error;
     }
 

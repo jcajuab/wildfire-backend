@@ -16,6 +16,7 @@ import {
   UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
+import { logger } from "#/infrastructure/observability/logger";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface ContentRouterDeps {
@@ -52,31 +53,56 @@ export const contentTags = ["Content"];
 
 export const createContentUseCases = (
   deps: ContentRouterDeps,
-): ContentRouterUseCases => ({
-  uploadContent: new UploadContentUseCase({
-    contentRepository: deps.repositories.contentRepository,
-    contentStorage: deps.storage,
-    userRepository: deps.repositories.userRepository,
-  }),
-  listContent: new ListContentUseCase({
-    contentRepository: deps.repositories.contentRepository,
-    userRepository: deps.repositories.userRepository,
-  }),
-  getContent: new GetContentUseCase({
-    contentRepository: deps.repositories.contentRepository,
-    userRepository: deps.repositories.userRepository,
-  }),
-  updateContent: new UpdateContentUseCase({
-    contentRepository: deps.repositories.contentRepository,
-    userRepository: deps.repositories.userRepository,
-  }),
-  deleteContent: new DeleteContentUseCase({
-    contentRepository: deps.repositories.contentRepository,
-    contentStorage: deps.storage,
-  }),
-  getDownloadUrl: new GetContentDownloadUrlUseCase({
-    contentRepository: deps.repositories.contentRepository,
-    contentStorage: deps.storage,
-    expiresInSeconds: deps.downloadUrlExpiresInSeconds,
-  }),
-});
+): ContentRouterUseCases => {
+  const cleanupFailureLogger = {
+    logContentCleanupFailure(input: {
+      route: string;
+      contentId: string;
+      fileKey: string;
+      failurePhase: "upload_rollback_delete" | "delete_after_metadata_remove";
+      error: unknown;
+    }) {
+      logger.error(
+        {
+          route: input.route,
+          contentId: input.contentId,
+          fileKey: input.fileKey,
+          failurePhase: input.failurePhase,
+          err: input.error,
+        },
+        "content storage cleanup failed",
+      );
+    },
+  };
+
+  return {
+    uploadContent: new UploadContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      contentStorage: deps.storage,
+      userRepository: deps.repositories.userRepository,
+      cleanupFailureLogger,
+    }),
+    listContent: new ListContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      userRepository: deps.repositories.userRepository,
+    }),
+    getContent: new GetContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      userRepository: deps.repositories.userRepository,
+    }),
+    updateContent: new UpdateContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      userRepository: deps.repositories.userRepository,
+    }),
+    deleteContent: new DeleteContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      contentStorage: deps.storage,
+      cleanupFailureLogger,
+    }),
+    getDownloadUrl: new GetContentDownloadUrlUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      contentStorage: deps.storage,
+      expiresInSeconds: deps.downloadUrlExpiresInSeconds,
+    }),
+  };
+};

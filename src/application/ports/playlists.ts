@@ -42,6 +42,9 @@ export interface PlaylistRepository {
   updateStatus(id: string, status: PlaylistStatus): Promise<void>;
   delete(id: string): Promise<boolean>;
   listItems(playlistId: string): Promise<PlaylistItemRecord[]>;
+  listItemStatsByPlaylistIds?(
+    playlistIds: string[],
+  ): Promise<Map<string, { itemsCount: number; totalDuration: number }>>;
   findItemById(id: string): Promise<PlaylistItemRecord | null>;
   countItemsByContentId(contentId: string): Promise<number>;
   addItem(input: {

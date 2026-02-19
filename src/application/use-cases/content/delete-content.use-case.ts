@@ -2,13 +2,19 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import { ContentInUseError, NotFoundError } from "./errors";
+import { type CleanupFailureLogger } from "#/application/ports/observability";
+import {
+  ContentInUseError,
+  ContentStorageCleanupError,
+  NotFoundError,
+} from "./errors";
 
 export class DeleteContentUseCase {
   constructor(
     private readonly deps: {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
+      cleanupFailureLogger?: CleanupFailureLogger;
     },
   ) {}
 
@@ -32,6 +38,21 @@ export class DeleteContentUseCase {
     }
     // Storage deletion after DB commit: orphan files are recoverable,
     // ghost DB records pointing to missing files are not.
-    await this.deps.contentStorage.delete(record.fileKey).catch(() => {});
+    try {
+      await this.deps.contentStorage.delete(record.fileKey);
+    } catch (cleanupError) {
+      this.deps.cleanupFailureLogger?.logContentCleanupFailure({
+        route: "/content/:id",
+        contentId: input.id,
+        fileKey: record.fileKey,
+        failurePhase: "delete_after_metadata_remove",
+        error: cleanupError,
+      });
+      throw new ContentStorageCleanupError(
+        "Content metadata was deleted but storage cleanup did not complete.",
+        { contentId: input.id, fileKey: record.fileKey },
+        { cause: cleanupError },
+      );
+    }
   }
 }

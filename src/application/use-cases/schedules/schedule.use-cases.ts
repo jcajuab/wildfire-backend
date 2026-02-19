@@ -212,11 +212,10 @@ export class UpdateScheduleUseCase {
 
     const previousPlaylistId = existing.playlistId;
     if (previousPlaylistId !== schedule.playlistId) {
-      const remaining = this.deps.scheduleRepository.countByPlaylistId
-        ? await this.deps.scheduleRepository.countByPlaylistId(
-            previousPlaylistId,
-          )
-        : 0;
+      const remaining =
+        await this.deps.scheduleRepository.countByPlaylistId(
+          previousPlaylistId,
+        );
       if (remaining === 0) {
         await this.deps.playlistRepository.updateStatus(
           previousPlaylistId,
@@ -253,11 +252,9 @@ export class DeleteScheduleUseCase {
     const deleted = await this.deps.scheduleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Schedule not found");
 
-    const remaining = this.deps.scheduleRepository.countByPlaylistId
-      ? await this.deps.scheduleRepository.countByPlaylistId(
-          existing.playlistId,
-        )
-      : 0;
+    const remaining = await this.deps.scheduleRepository.countByPlaylistId(
+      existing.playlistId,
+    );
     if (remaining === 0) {
       await this.deps.playlistRepository.updateStatus(
         existing.playlistId,

@@ -1,6 +1,7 @@
 export { DeleteContentUseCase } from "./delete-content.use-case";
 export {
   ContentInUseError,
+  ContentStorageCleanupError,
   InvalidContentTypeError,
   NotFoundError,
 } from "./errors";

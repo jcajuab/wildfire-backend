@@ -257,6 +257,7 @@ describe("Devices use cases", () => {
         },
         update: async () => null,
         delete: async () => false,
+        countByPlaylistId: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -339,6 +340,7 @@ describe("Devices use cases", () => {
         },
         update: async () => null,
         delete: async () => false,
+        countByPlaylistId: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -508,6 +510,7 @@ describe("Devices use cases", () => {
         },
         update: async () => null,
         delete: async () => false,
+        countByPlaylistId: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -623,6 +626,7 @@ describe("Devices use cases", () => {
         },
         update: async () => null,
         delete: async () => false,
+        countByPlaylistId: async () => 0,
       },
       playlistRepository: {
         list: async () => [],

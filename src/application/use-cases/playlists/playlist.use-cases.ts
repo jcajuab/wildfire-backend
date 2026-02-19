@@ -51,19 +51,13 @@ export class ListPlaylistsUseCase {
     const creators = await this.deps.userRepository.findByIds(creatorIds);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
-    const statsByPlaylistId = new Map<
-      string,
-      { itemsCount: number; totalDuration: number }
-    >();
-    await Promise.all(
-      playlists.map(async (playlist) => {
-        const items = await this.deps.playlistRepository.listItems(playlist.id);
-        statsByPlaylistId.set(playlist.id, {
-          itemsCount: items.length,
-          totalDuration: items.reduce((sum, item) => sum + item.duration, 0),
-        });
-      }),
-    );
+    const playlistIds = playlists.map((playlist) => playlist.id);
+    const statsByPlaylistId = this.deps.playlistRepository
+      .listItemStatsByPlaylistIds
+      ? await this.deps.playlistRepository.listItemStatsByPlaylistIds(
+          playlistIds,
+        )
+      : await this.buildStatsByPlaylistId(playlistIds);
 
     const items = playlists.map((playlist) =>
       toPlaylistView(
@@ -79,6 +73,23 @@ export class ListPlaylistsUseCase {
       page,
       pageSize,
     };
+  }
+
+  private async buildStatsByPlaylistId(playlistIds: string[]) {
+    const statsByPlaylistId = new Map<
+      string,
+      { itemsCount: number; totalDuration: number }
+    >();
+    await Promise.all(
+      playlistIds.map(async (playlistId) => {
+        const items = await this.deps.playlistRepository.listItems(playlistId);
+        statsByPlaylistId.set(playlistId, {
+          itemsCount: items.length,
+          totalDuration: items.reduce((sum, item) => sum + item.duration, 0),
+        });
+      }),
+    );
+    return statsByPlaylistId;
   }
 }
 
@@ -249,6 +260,13 @@ export class AddPlaylistItemUseCase {
 
     const content = await this.deps.contentRepository.findById(input.contentId);
     if (!content) throw new NotFoundError("Content not found");
+
+    const existingItems = await this.deps.playlistRepository.listItems(
+      input.playlistId,
+    );
+    if (existingItems.some((item) => item.sequence === input.sequence)) {
+      throw new ValidationError("Sequence already exists in playlist");
+    }
 
     const item = await this.deps.playlistRepository.addItem({
       playlistId: input.playlistId,

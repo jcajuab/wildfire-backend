@@ -71,6 +71,7 @@ const makeApp = async (
         },
         update: async () => null,
         delete: async () => false,
+        countByPlaylistId: async () => 0,
       },
       playlistRepository: {
         list: async () => [...playlists],

@@ -13,3 +13,14 @@ export class ContentInUseError extends Error {
     this.name = "ContentInUseError";
   }
 }
+
+export class ContentStorageCleanupError extends Error {
+  constructor(
+    message: string,
+    public readonly context: { contentId: string; fileKey: string },
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ContentStorageCleanupError";
+  }
+}

@@ -15,6 +15,8 @@ const makeDeps = () => {
     name: string;
     playlistId: string;
     deviceId: string;
+    startDate?: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
     daysOfWeek: number[];
@@ -41,6 +43,7 @@ const makeDeps = () => {
     },
     update: async () => null,
     delete: async () => false,
+    countByPlaylistId: async () => 0,
   };
 
   const playlistRepository: PlaylistRepository = {
@@ -164,6 +167,7 @@ describe("Schedules use cases", () => {
         },
         update: async () => null,
         delete: async () => false,
+        countByPlaylistId: async () => 0,
       },
       playlistRepository: {
         list: async () => {
@@ -344,5 +348,50 @@ describe("Schedules use cases", () => {
     const now = new Date("2025-01-06T09:30:00.000Z");
     const result = await useCase.execute({ deviceId: "device-1", now });
     expect(result?.id).toBe("schedule-manila");
+  });
+
+  test("GetActiveScheduleForDeviceUseCase applies date window in configured timezone", async () => {
+    const deps = makeDeps();
+    deps.schedules.push(
+      {
+        id: "local-date",
+        name: "Local Date Window",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-01-01",
+        endDate: "2025-01-01",
+        startTime: "00:00",
+        endTime: "23:59",
+        daysOfWeek: [3],
+        priority: 10,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "utc-date",
+        name: "UTC Date Window",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2024-12-31",
+        endDate: "2024-12-31",
+        startTime: "00:00",
+        endTime: "23:59",
+        daysOfWeek: [3],
+        priority: 5,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+
+    const useCase = new GetActiveScheduleForDeviceUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      scheduleTimeZone: "Asia/Manila",
+    });
+
+    const now = new Date("2024-12-31T16:30:00.000Z");
+    const result = await useCase.execute({ deviceId: "device-1", now });
+    expect(result?.id).toBe("local-date");
   });
 });

@@ -52,6 +52,23 @@ const toZonedDayAndTime = (now: Date, timeZone: string) => {
   return { day, time: `${hour}:${minute}` };
 };
 
+const toZonedDateString = (now: Date, timeZone: string) => {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    throw new Error(`Unable to resolve zoned date parts for ${timeZone}`);
+  }
+  return `${year}-${month}-${day}`;
+};
+
 export const isWithinTimeWindow = (
   current: string,
   start: string,
@@ -75,8 +92,6 @@ export const isWithinTimeWindow = (
 
   return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
 };
-
-const getUtcDateString = (date: Date) => date.toISOString().slice(0, 10);
 
 export const isWithinDateWindow = (
   current: string,
@@ -105,7 +120,7 @@ export const selectActiveSchedule = <
   timeZone = "UTC",
 ) => {
   const { day, time } = toZonedDayAndTime(now, timeZone);
-  const date = getUtcDateString(now);
+  const date = toZonedDateString(now, timeZone);
 
   return (
     schedules

@@ -6,6 +6,7 @@ import {
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import {
+  ContentStorageCleanupError,
   DeleteContentUseCase,
   GetContentDownloadUrlUseCase,
   GetContentUseCase,
@@ -89,7 +90,7 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
     delete: async () => false,
   }) satisfies UserRepository;
 
-const makeStorage = () => {
+const makeStorage = (options?: { deleteError?: Error }) => {
   type UploadInput = Parameters<ContentStorage["upload"]>[0];
   let lastUpload: UploadInput | null = null;
   let lastDeletedKey: string | null = null;
@@ -100,6 +101,9 @@ const makeStorage = () => {
     },
     delete: async (key) => {
       lastDeletedKey = key;
+      if (options?.deleteError) {
+        throw options.deleteError;
+      }
     },
     getPresignedDownloadUrl: async ({ key }) => `https://example.com/${key}`,
   };
@@ -288,6 +292,9 @@ describe("Content use cases", () => {
     const useCase = new DeleteContentUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
+      cleanupFailureLogger: {
+        logContentCleanupFailure: () => undefined,
+      },
     });
 
     records.push({
@@ -310,6 +317,95 @@ describe("Content use cases", () => {
     expect(storage.lastDeletedKey).toBe(
       "content/images/11111111-1111-4111-8111-111111111111.png",
     );
+  });
+
+  test("throws cleanup error when storage delete fails after metadata deletion", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage({
+      deleteError: new Error("storage unavailable"),
+    });
+    const id = "11111111-1111-4111-8111-111111111111";
+    records.push({
+      id,
+      title: "Poster",
+      type: "IMAGE",
+      status: "DRAFT",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const loggerCalls: unknown[] = [];
+    const loggingUseCase = new DeleteContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      cleanupFailureLogger: {
+        logContentCleanupFailure: (input) => {
+          loggerCalls.push(input);
+        },
+      },
+    });
+    await expect(loggingUseCase.execute({ id })).rejects.toBeInstanceOf(
+      ContentStorageCleanupError,
+    );
+    expect(await repository.findById(id)).toBeNull();
+    expect(loggerCalls).toHaveLength(1);
+    const payload = loggerCalls[0] as Record<string, unknown>;
+    expect(payload.route).toBe("/content/:id");
+    expect(payload.contentId).toBe(id);
+    expect(payload.fileKey).toBe(
+      "content/images/11111111-1111-4111-8111-111111111111.png",
+    );
+    expect(payload.failurePhase).toBe("delete_after_metadata_remove");
+  });
+
+  test("throws cleanup error when upload rollback delete fails", async () => {
+    const storage = makeStorage({ deleteError: new Error("cleanup failed") });
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const loggerCalls: unknown[] = [];
+    const useCase = new UploadContentUseCase({
+      contentRepository: {
+        create: async () => {
+          throw new Error("db insert failed");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+        update: async () => null,
+      },
+      contentStorage: storage.storage,
+      userRepository,
+      cleanupFailureLogger: {
+        logContentCleanupFailure: (input) => {
+          loggerCalls.push(input);
+        },
+      },
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+    await expect(
+      useCase.execute({
+        title: "Rollback failure",
+        file,
+        createdById: "user-1",
+      }),
+    ).rejects.toBeInstanceOf(ContentStorageCleanupError);
+    expect(loggerCalls).toHaveLength(1);
+    const payload = loggerCalls[0] as Record<string, unknown>;
+    expect(payload.route).toBe("/content");
+    expect(payload.failurePhase).toBe("upload_rollback_delete");
+    expect(payload.contentId).toBeTypeOf("string");
+    expect(payload.fileKey).toBeTypeOf("string");
   });
 
   test("returns presigned download url", async () => {

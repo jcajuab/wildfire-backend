@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
+import { ValidationError } from "#/application/errors/validation";
 import {
   type PlaylistItemRecord,
   type PlaylistRecord,
@@ -45,6 +46,34 @@ const toItemRecord = (
   sequence: row.sequence,
   duration: row.duration,
 });
+
+const PLAYLIST_SEQUENCE_UNIQUE_INDEX =
+  "playlist_items_playlist_id_sequence_unique";
+
+export const mapPlaylistItemInsertError = (error: unknown): Error => {
+  if (!(error instanceof Error)) {
+    return new Error("Unable to create playlist item");
+  }
+  const duplicateEntryError = error as {
+    code?: string;
+    message?: string;
+    sqlMessage?: string;
+  };
+  const rawMessage = [
+    duplicateEntryError.message,
+    duplicateEntryError.sqlMessage,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  if (
+    duplicateEntryError.code === "ER_DUP_ENTRY" &&
+    rawMessage.includes(PLAYLIST_SEQUENCE_UNIQUE_INDEX)
+  ) {
+    return new ValidationError("Sequence already exists in playlist");
+  }
+  return error;
+};
 
 export class PlaylistDbRepository implements PlaylistRepository {
   async list(): Promise<PlaylistRecord[]> {
@@ -196,6 +225,36 @@ export class PlaylistDbRepository implements PlaylistRepository {
     return rows.map(toItemRecord);
   }
 
+  async listItemStatsByPlaylistIds(
+    playlistIds: string[],
+  ): Promise<Map<string, { itemsCount: number; totalDuration: number }>> {
+    const stats = new Map<
+      string,
+      { itemsCount: number; totalDuration: number }
+    >(playlistIds.map((id) => [id, { itemsCount: 0, totalDuration: 0 }]));
+    if (playlistIds.length === 0) {
+      return stats;
+    }
+
+    const rows = await db
+      .select({
+        playlistId: playlistItems.playlistId,
+        itemsCount: sql<number>`count(*)`,
+        totalDuration: sql<number>`coalesce(sum(${playlistItems.duration}), 0)`,
+      })
+      .from(playlistItems)
+      .where(inArray(playlistItems.playlistId, playlistIds))
+      .groupBy(playlistItems.playlistId);
+
+    for (const row of rows) {
+      stats.set(row.playlistId, {
+        itemsCount: Number(row.itemsCount),
+        totalDuration: Number(row.totalDuration),
+      });
+    }
+    return stats;
+  }
+
   async findItemById(id: string): Promise<PlaylistItemRecord | null> {
     const rows = await db
       .select()
@@ -220,13 +279,17 @@ export class PlaylistDbRepository implements PlaylistRepository {
     duration: number;
   }): Promise<PlaylistItemRecord> {
     const id = crypto.randomUUID();
-    await db.insert(playlistItems).values({
-      id,
-      playlistId: input.playlistId,
-      contentId: input.contentId,
-      sequence: input.sequence,
-      duration: input.duration,
-    });
+    try {
+      await db.insert(playlistItems).values({
+        id,
+        playlistId: input.playlistId,
+        contentId: input.contentId,
+        sequence: input.sequence,
+        duration: input.duration,
+      });
+    } catch (error) {
+      throw mapPlaylistItemInsertError(error);
+    }
 
     return {
       id,

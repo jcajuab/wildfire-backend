@@ -63,6 +63,24 @@ const makeDeps = () => {
     delete: async () => false,
     listItems: async (playlistId: string) =>
       items.filter((item) => item.playlistId === playlistId),
+    listItemStatsByPlaylistIds: async (playlistIds: string[]) => {
+      const stats = new Map<
+        string,
+        { itemsCount: number; totalDuration: number }
+      >(playlistIds.map((id) => [id, { itemsCount: 0, totalDuration: 0 }]));
+      for (const item of items) {
+        if (!playlistIds.includes(item.playlistId)) continue;
+        const current = stats.get(item.playlistId) ?? {
+          itemsCount: 0,
+          totalDuration: 0,
+        };
+        stats.set(item.playlistId, {
+          itemsCount: current.itemsCount + 1,
+          totalDuration: current.totalDuration + item.duration,
+        });
+      }
+      return stats;
+    },
     findItemById: async (id: string) =>
       items.find((item) => item.id === id) ?? null,
     countItemsByContentId: async (contentId: string) =>
@@ -146,6 +164,42 @@ describe("Playlists use cases", () => {
 
     const result = await useCase.execute();
     expect(result.items[0]?.createdBy.name).toBe("User");
+  });
+
+  test("ListPlaylistsUseCase uses batched playlist stats when available", async () => {
+    const deps = makeDeps();
+    await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+
+    let listItemsCalls = 0;
+    let listStatsCalls = 0;
+    const playlistRepository: PlaylistRepository = {
+      ...deps.playlistRepository,
+      listItems: async (playlistId: string) => {
+        listItemsCalls += 1;
+        return deps.playlistRepository.listItems(playlistId);
+      },
+      listItemStatsByPlaylistIds: async (playlistIds: string[]) => {
+        listStatsCalls += 1;
+        const statsLoader = deps.playlistRepository.listItemStatsByPlaylistIds;
+        if (!statsLoader) {
+          return new Map();
+        }
+        return statsLoader(playlistIds);
+      },
+    };
+
+    const useCase = new ListPlaylistsUseCase({
+      playlistRepository,
+      userRepository: deps.userRepository,
+    });
+    await useCase.execute();
+
+    expect(listStatsCalls).toBe(1);
+    expect(listItemsCalls).toBe(0);
   });
 
   test("CreatePlaylistUseCase returns playlist", async () => {
@@ -285,6 +339,35 @@ describe("Playlists use cases", () => {
         contentId: "content-1",
         sequence: 0,
         duration: 5,
+      }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  test("AddPlaylistItemUseCase rejects duplicate sequence within playlist", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+    await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-1",
+      sequence: 10,
+      duration: 5,
+    });
+
+    const useCase = new AddPlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        contentId: "content-1",
+        sequence: 10,
+        duration: 7,
       }),
     ).rejects.toBeInstanceOf(Error);
   });

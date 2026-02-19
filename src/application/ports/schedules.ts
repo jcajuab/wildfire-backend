@@ -46,5 +46,5 @@ export interface ScheduleRepository {
     },
   ): Promise<ScheduleRecord | null>;
   delete(id: string): Promise<boolean>;
-  countByPlaylistId?(playlistId: string): Promise<number>;
+  countByPlaylistId(playlistId: string): Promise<number>;
 }
