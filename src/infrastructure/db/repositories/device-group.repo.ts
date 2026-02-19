@@ -5,7 +5,7 @@ import {
 } from "#/application/ports/devices";
 import { db } from "#/infrastructure/db/client";
 import {
-  deviceGroupDevices,
+  deviceGroupMemberships,
   deviceGroups,
 } from "#/infrastructure/db/schema/device.sql";
 
@@ -47,12 +47,12 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
         name: deviceGroups.name,
         createdAt: deviceGroups.createdAt,
         updatedAt: deviceGroups.updatedAt,
-        deviceId: deviceGroupDevices.deviceId,
+        deviceId: deviceGroupMemberships.deviceId,
       })
       .from(deviceGroups)
       .leftJoin(
-        deviceGroupDevices,
-        eq(deviceGroupDevices.groupId, deviceGroups.id),
+        deviceGroupMemberships,
+        eq(deviceGroupMemberships.groupId, deviceGroups.id),
       );
     return mapRowsToGroups(rows);
   }
@@ -64,12 +64,12 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
         name: deviceGroups.name,
         createdAt: deviceGroups.createdAt,
         updatedAt: deviceGroups.updatedAt,
-        deviceId: deviceGroupDevices.deviceId,
+        deviceId: deviceGroupMemberships.deviceId,
       })
       .from(deviceGroups)
       .leftJoin(
-        deviceGroupDevices,
-        eq(deviceGroupDevices.groupId, deviceGroups.id),
+        deviceGroupMemberships,
+        eq(deviceGroupMemberships.groupId, deviceGroups.id),
       )
       .where(eq(deviceGroups.id, id));
     const mapped = mapRowsToGroups(rows);
@@ -83,12 +83,12 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
         name: deviceGroups.name,
         createdAt: deviceGroups.createdAt,
         updatedAt: deviceGroups.updatedAt,
-        deviceId: deviceGroupDevices.deviceId,
+        deviceId: deviceGroupMemberships.deviceId,
       })
       .from(deviceGroups)
       .leftJoin(
-        deviceGroupDevices,
-        eq(deviceGroupDevices.groupId, deviceGroups.id),
+        deviceGroupMemberships,
+        eq(deviceGroupMemberships.groupId, deviceGroups.id),
       )
       .where(eq(deviceGroups.name, name));
     const mapped = mapRowsToGroups(rows);
@@ -139,10 +139,10 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
 
   async setDeviceGroups(deviceId: string, groupIds: string[]): Promise<void> {
     await db
-      .delete(deviceGroupDevices)
-      .where(eq(deviceGroupDevices.deviceId, deviceId));
+      .delete(deviceGroupMemberships)
+      .where(eq(deviceGroupMemberships.deviceId, deviceId));
     if (groupIds.length === 0) return;
-    await db.insert(deviceGroupDevices).values(
+    await db.insert(deviceGroupMemberships).values(
       groupIds.map((groupId) => ({
         groupId,
         deviceId,

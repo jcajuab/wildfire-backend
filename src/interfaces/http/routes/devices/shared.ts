@@ -5,6 +5,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type DevicePairingCodeRepository } from "#/application/ports/device-pairing";
 import {
   type DeviceGroupRepository,
   type DeviceRepository,
@@ -18,6 +19,7 @@ import {
   GetDeviceActiveScheduleUseCase,
   GetDeviceManifestUseCase,
   GetDeviceUseCase,
+  IssueDevicePairingCodeUseCase,
   ListDeviceGroupsUseCase,
   ListDevicesUseCase,
   RegisterDeviceUseCase,
@@ -44,6 +46,7 @@ export interface DevicesRouterDeps {
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
     deviceGroupRepository: DeviceGroupRepository;
+    devicePairingCodeRepository: DevicePairingCodeRepository;
   };
   storage: ContentStorage;
 }
@@ -53,6 +56,7 @@ export interface DevicesRouterUseCases {
   getDevice: GetDeviceUseCase;
   updateDevice: UpdateDeviceUseCase;
   registerDevice: RegisterDeviceUseCase;
+  issuePairingCode: IssueDevicePairingCodeUseCase;
   listDeviceGroups: ListDeviceGroupsUseCase;
   createDeviceGroup: CreateDeviceGroupUseCase;
   updateDeviceGroup: UpdateDeviceGroupUseCase;
@@ -88,6 +92,10 @@ export const createDevicesUseCases = (
   }),
   registerDevice: new RegisterDeviceUseCase({
     deviceRepository: deps.repositories.deviceRepository,
+    devicePairingCodeRepository: deps.repositories.devicePairingCodeRepository,
+  }),
+  issuePairingCode: new IssueDevicePairingCodeUseCase({
+    devicePairingCodeRepository: deps.repositories.devicePairingCodeRepository,
   }),
   listDeviceGroups: new ListDeviceGroupsUseCase({
     deviceGroupRepository: deps.repositories.deviceGroupRepository,

@@ -38,7 +38,6 @@ export const registerDeviceApiRoutes = (args: {
       actorType: "device",
       resourceType: "device",
     }),
-    requireDeviceApiKey,
     validateJson(registerDeviceSchema),
     describeRoute({
       description: "Register or update a device",
@@ -82,6 +81,7 @@ export const registerDeviceApiRoutes = (args: {
       async (c) => {
         const payload = c.req.valid("json");
         const result = await useCases.registerDevice.execute({
+          pairingCode: payload.pairingCode,
           name: payload.name,
           identifier: payload.identifier,
           deviceFingerprint: payload.deviceFingerprint ?? null,

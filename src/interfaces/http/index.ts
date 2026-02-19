@@ -169,6 +169,8 @@ const devicesRouter = createDevicesRouter({
     contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     deviceGroupRepository: container.repositories.deviceGroupRepository,
+    devicePairingCodeRepository:
+      container.repositories.devicePairingCodeRepository,
   },
   storage: container.storage.contentStorage,
 });

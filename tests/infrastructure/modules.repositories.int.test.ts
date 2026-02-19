@@ -66,6 +66,18 @@ const setup = async () => {
     )
   `);
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS pairing_codes (
+      id varchar(36) PRIMARY KEY,
+      code_hash varchar(64) NOT NULL,
+      expires_at timestamp NOT NULL,
+      used_at timestamp NULL,
+      created_by_id varchar(36) NOT NULL,
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY pairing_codes_code_hash_unique (code_hash)
+    )
+  `);
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS schedules (
       id varchar(36) PRIMARY KEY,
       name varchar(255) NOT NULL,
@@ -82,6 +94,7 @@ const setup = async () => {
   `);
 
   await db.execute(sql`DELETE FROM schedules`);
+  await db.execute(sql`DELETE FROM pairing_codes`);
   await db.execute(sql`DELETE FROM playlist_items`);
   await db.execute(sql`DELETE FROM playlists`);
   await db.execute(sql`DELETE FROM content`);
@@ -167,4 +180,34 @@ describe("Module repositories (integration)", () => {
 
     expect(created.id).toBeDefined();
   });
+
+  maybeTest(
+    "DevicePairingCodeDbRepository consumes valid code once",
+    async () => {
+      await setup();
+      const { DevicePairingCodeDbRepository } = await import(
+        "#/infrastructure/db/repositories/device-pairing-code.repo"
+      );
+
+      const repo = new DevicePairingCodeDbRepository();
+      const created = await repo.create({
+        codeHash: "hash-1",
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        createdById: "user-1",
+      });
+      expect(created.id).toBeDefined();
+
+      const consumed = await repo.consumeValidCode({
+        codeHash: "hash-1",
+        now: new Date(),
+      });
+      expect(consumed).not.toBeNull();
+
+      const secondConsume = await repo.consumeValidCode({
+        codeHash: "hash-1",
+        now: new Date(),
+      });
+      expect(secondConsume).toBeNull();
+    },
+  );
 });

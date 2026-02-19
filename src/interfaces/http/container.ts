@@ -8,6 +8,7 @@ import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/auth
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
 import { DeviceGroupDbRepository } from "#/infrastructure/db/repositories/device-group.repo";
+import { DevicePairingCodeDbRepository } from "#/infrastructure/db/repositories/device-pairing-code.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -56,6 +57,7 @@ export interface HttpContainer {
     scheduleRepository: ScheduleDbRepository;
     deviceRepository: DeviceDbRepository;
     deviceGroupRepository: DeviceGroupDbRepository;
+    devicePairingCodeRepository: DevicePairingCodeDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
     invitationRepository: InvitationDbRepository;
   };
@@ -93,6 +95,7 @@ export const createHttpContainer = (
   const scheduleRepository = new ScheduleDbRepository();
   const deviceRepository = new DeviceDbRepository();
   const deviceGroupRepository = new DeviceGroupDbRepository();
+  const devicePairingCodeRepository = new DevicePairingCodeDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
   const invitationRepository = new InvitationDbRepository();
 
@@ -134,6 +137,7 @@ export const createHttpContainer = (
       scheduleRepository,
       deviceRepository,
       deviceGroupRepository,
+      devicePairingCodeRepository,
       passwordResetTokenRepository,
       invitationRepository,
     },

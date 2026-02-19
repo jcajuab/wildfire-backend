@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
 import { Permission } from "#/domain/rbac/permission";
@@ -10,6 +11,8 @@ const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const deviceId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
+const hashPairingCode = (code: string): string =>
+  createHash("sha256").update(code).digest("hex");
 
 const makeRepositories = (options?: { registerDeviceError?: Error }) => {
   const devices = [] as Array<{
@@ -33,10 +36,30 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     createdAt: string;
     updatedAt: string;
   }>;
+  const pairingCodes = [] as Array<{
+    id: string;
+    codeHash: string;
+    expiresAt: Date;
+    usedAt: Date | null;
+    createdById: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
 
   return {
     devices,
     deviceGroups,
+    issuePairingCode: (code: string, expiresAt?: Date) => {
+      pairingCodes.push({
+        id: crypto.randomUUID(),
+        codeHash: hashPairingCode(code),
+        expiresAt: expiresAt ?? new Date(Date.now() + 10 * 60 * 1000),
+        usedAt: null,
+        createdById: "user-1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    },
     deviceRepository: {
       list: async () => [...devices],
       findByIds: async (ids: string[]) =>
@@ -153,6 +176,60 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         }
       },
     },
+    devicePairingCodeRepository: {
+      create: async (input: {
+        codeHash: string;
+        expiresAt: Date;
+        createdById: string;
+      }) => {
+        const now = new Date();
+        const record = {
+          id: crypto.randomUUID(),
+          codeHash: input.codeHash,
+          expiresAt: input.expiresAt,
+          usedAt: null as Date | null,
+          createdById: input.createdById,
+          createdAt: now,
+          updatedAt: now,
+        };
+        pairingCodes.push(record);
+        return {
+          id: record.id,
+          codeHash: record.codeHash,
+          expiresAt: record.expiresAt.toISOString(),
+          usedAt: null,
+          createdById: record.createdById,
+          createdAt: record.createdAt.toISOString(),
+          updatedAt: record.updatedAt.toISOString(),
+        };
+      },
+      consumeValidCode: async ({
+        codeHash,
+        now,
+      }: {
+        codeHash: string;
+        now: Date;
+      }) => {
+        const record = pairingCodes.find(
+          (item) =>
+            item.codeHash === codeHash &&
+            item.usedAt === null &&
+            item.expiresAt.getTime() > now.getTime(),
+        );
+        if (!record) return null;
+        record.usedAt = now;
+        record.updatedAt = now;
+        return {
+          id: record.id,
+          codeHash: record.codeHash,
+          expiresAt: record.expiresAt.toISOString(),
+          usedAt: record.usedAt.toISOString(),
+          createdById: record.createdById,
+          createdAt: record.createdAt.toISOString(),
+          updatedAt: record.updatedAt.toISOString(),
+        };
+      },
+    },
   };
 };
 
@@ -161,8 +238,13 @@ const makeApp = async (
   options?: { registerDeviceError?: Error },
 ) => {
   const app = new Hono();
-  const { devices, deviceRepository, deviceGroupRepository } =
-    makeRepositories(options);
+  const {
+    devices,
+    issuePairingCode,
+    deviceRepository,
+    deviceGroupRepository,
+    devicePairingCodeRepository,
+  } = makeRepositories(options);
   const playlists = [
     {
       id: playlistId,
@@ -260,6 +342,7 @@ const makeApp = async (
       },
       authorizationRepository,
       deviceGroupRepository,
+      devicePairingCodeRepository,
     },
     storage: {
       upload: async () => {},
@@ -280,19 +363,20 @@ const makeApp = async (
       issuer: undefined,
     });
 
-  return { app, issueToken, devices };
+  return { app, issueToken, devices, issuePairingCode };
 };
 
 describe("Devices routes", () => {
-  test("POST /devices registers device with API key", async () => {
-    const { app } = await makeApp();
+  test("POST /devices registers device with pairing code", async () => {
+    const { app, issuePairingCode } = await makeApp();
+    issuePairingCode("123456");
     const response = await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
       body: JSON.stringify({
+        pairingCode: "123456",
         name: "Lobby",
         identifier: "AA:BB",
         location: "Hall",
@@ -304,7 +388,7 @@ describe("Devices routes", () => {
     expect(json.id).toBeDefined();
   });
 
-  test("POST /devices returns 401 without API key", async () => {
+  test("POST /devices returns 400 without pairing code", async () => {
     const { app } = await makeApp();
     const response = await app.request("/devices", {
       method: "POST",
@@ -312,34 +396,39 @@ describe("Devices routes", () => {
       body: JSON.stringify({ name: "Lobby", identifier: "AA:BB" }),
     });
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(400);
   });
 
   test("POST /devices returns 500 on unexpected repository failure", async () => {
-    const { app } = await makeApp([], {
+    const { app, issuePairingCode } = await makeApp([], {
       registerDeviceError: new Error("db unavailable"),
     });
+    issuePairingCode("223456");
     const response = await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
-      body: JSON.stringify({ name: "Lobby", identifier: "AA:BB" }),
+      body: JSON.stringify({
+        pairingCode: "223456",
+        name: "Lobby",
+        identifier: "AA:BB",
+      }),
     });
 
     expect(response.status).toBe(500);
   });
 
   test("POST /devices reuses existing device when fingerprint matches", async () => {
-    const { app, devices } = await makeApp();
+    const { app, devices, issuePairingCode } = await makeApp();
+    issuePairingCode("323456");
     const first = await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
       body: JSON.stringify({
+        pairingCode: "323456",
         name: "Lobby",
         identifier: "device-one",
         deviceFingerprint: "fp-1",
@@ -347,13 +436,14 @@ describe("Devices routes", () => {
     });
     const firstBody = await parseJson<{ id: string }>(first);
 
+    issuePairingCode("423456");
     const second = await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
       body: JSON.stringify({
+        pairingCode: "423456",
         name: "Lobby Updated",
         identifier: "device-two",
         deviceFingerprint: "fp-1",
@@ -370,41 +460,44 @@ describe("Devices routes", () => {
   });
 
   test("POST /devices rejects conflicting identifier and fingerprint", async () => {
-    const { app } = await makeApp();
+    const { app, issuePairingCode } = await makeApp();
 
+    issuePairingCode("523456");
     await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
       body: JSON.stringify({
+        pairingCode: "523456",
         name: "Device A",
         identifier: "device-a",
         deviceFingerprint: "fp-a",
       }),
     });
 
+    issuePairingCode("623456");
     await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
       body: JSON.stringify({
+        pairingCode: "623456",
         name: "Device B",
         identifier: "device-b",
         deviceFingerprint: "fp-b",
       }),
     });
 
+    issuePairingCode("723456");
     const conflict = await app.request("/devices", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "device-key",
       },
       body: JSON.stringify({
+        pairingCode: "723456",
         name: "Conflict",
         identifier: "device-a",
         deviceFingerprint: "fp-b",
@@ -412,6 +505,31 @@ describe("Devices routes", () => {
     });
 
     expect(conflict.status).toBe(400);
+  });
+
+  test("POST /devices/pairing-codes issues code with devices:create permission", async () => {
+    const { app, issueToken } = await makeApp(["devices:create"]);
+    const token = await issueToken();
+    const response = await app.request("/devices/pairing-codes", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{ code: string; expiresAt: string }>(response);
+    expect(json.code).toMatch(/^\d{6}$/);
+    expect(Date.parse(json.expiresAt)).toBeGreaterThan(Date.now());
+  });
+
+  test("POST /devices/pairing-codes returns 403 without devices:create", async () => {
+    const { app, issueToken } = await makeApp(["devices:read"]);
+    const token = await issueToken();
+    const response = await app.request("/devices/pairing-codes", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(403);
   });
 
   test("GET /devices/:id/manifest returns 401 without API key", async () => {

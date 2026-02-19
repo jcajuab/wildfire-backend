@@ -49,8 +49,8 @@ export const deviceGroups = mysqlTable(
   }),
 );
 
-export const deviceGroupDevices = mysqlTable(
-  "device_group_devices",
+export const deviceGroupMemberships = mysqlTable(
+  "device_group_memberships",
   {
     groupId: varchar("group_id", { length: 36 })
       .notNull()

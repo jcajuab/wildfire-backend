@@ -4,8 +4,8 @@ import {
   type PolicyHistoryRepository,
 } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
+import { policyHistory } from "#/infrastructure/db/schema/policy-history.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
-import { rbacPolicyHistory } from "#/infrastructure/db/schema/rbac-policy-history.sql";
 
 const buildWhere = (input: {
   policyVersion?: number;
@@ -17,22 +17,22 @@ const buildWhere = (input: {
 }): SQL | undefined => {
   const predicates: SQL[] = [];
   if (input.policyVersion !== undefined) {
-    predicates.push(eq(rbacPolicyHistory.policyVersion, input.policyVersion));
+    predicates.push(eq(policyHistory.policyVersion, input.policyVersion));
   }
   if (input.changeType) {
-    predicates.push(eq(rbacPolicyHistory.changeType, input.changeType));
+    predicates.push(eq(policyHistory.changeType, input.changeType));
   }
   if (input.targetId) {
-    predicates.push(eq(rbacPolicyHistory.targetId, input.targetId));
+    predicates.push(eq(policyHistory.targetId, input.targetId));
   }
   if (input.actorId) {
-    predicates.push(eq(rbacPolicyHistory.actorId, input.actorId));
+    predicates.push(eq(policyHistory.actorId, input.actorId));
   }
   if (input.from) {
-    predicates.push(gte(rbacPolicyHistory.occurredAt, new Date(input.from)));
+    predicates.push(gte(policyHistory.occurredAt, new Date(input.from)));
   }
   if (input.to) {
-    predicates.push(lte(rbacPolicyHistory.occurredAt, new Date(input.to)));
+    predicates.push(lte(policyHistory.occurredAt, new Date(input.to)));
   }
   return predicates.length > 0 ? and(...predicates) : undefined;
 };
@@ -49,7 +49,7 @@ export class PolicyHistoryDbRepository implements PolicyHistoryRepository {
     addedCount: number;
     removedCount: number;
   }): Promise<void> {
-    await db.insert(rbacPolicyHistory).values({
+    await db.insert(policyHistory).values({
       id: crypto.randomUUID(),
       policyVersion: input.policyVersion,
       changeType: input.changeType,
@@ -76,24 +76,24 @@ export class PolicyHistoryDbRepository implements PolicyHistoryRepository {
     const where = buildWhere(input);
     const rows = await db
       .select({
-        id: rbacPolicyHistory.id,
-        occurredAt: rbacPolicyHistory.occurredAt,
-        policyVersion: rbacPolicyHistory.policyVersion,
-        changeType: rbacPolicyHistory.changeType,
-        targetId: rbacPolicyHistory.targetId,
-        targetType: rbacPolicyHistory.targetType,
-        actorId: rbacPolicyHistory.actorId,
-        requestId: rbacPolicyHistory.requestId,
-        targetCount: rbacPolicyHistory.targetCount,
-        addedCount: rbacPolicyHistory.addedCount,
-        removedCount: rbacPolicyHistory.removedCount,
+        id: policyHistory.id,
+        occurredAt: policyHistory.occurredAt,
+        policyVersion: policyHistory.policyVersion,
+        changeType: policyHistory.changeType,
+        targetId: policyHistory.targetId,
+        targetType: policyHistory.targetType,
+        actorId: policyHistory.actorId,
+        requestId: policyHistory.requestId,
+        targetCount: policyHistory.targetCount,
+        addedCount: policyHistory.addedCount,
+        removedCount: policyHistory.removedCount,
         actorName: users.name,
         actorEmail: users.email,
       })
-      .from(rbacPolicyHistory)
-      .leftJoin(users, eq(users.id, rbacPolicyHistory.actorId))
+      .from(policyHistory)
+      .leftJoin(users, eq(users.id, policyHistory.actorId))
       .where(where)
-      .orderBy(desc(rbacPolicyHistory.occurredAt), desc(rbacPolicyHistory.id))
+      .orderBy(desc(policyHistory.occurredAt), desc(policyHistory.id))
       .offset(input.offset)
       .limit(input.limit);
 
@@ -128,7 +128,7 @@ export class PolicyHistoryDbRepository implements PolicyHistoryRepository {
     const where = buildWhere(input);
     const result = await db
       .select({ value: sql<number>`count(*)` })
-      .from(rbacPolicyHistory)
+      .from(policyHistory)
       .where(where);
     return result[0]?.value ?? 0;
   }

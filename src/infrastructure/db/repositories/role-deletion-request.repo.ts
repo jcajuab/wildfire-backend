@@ -5,7 +5,7 @@ import {
 } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { roles, users } from "#/infrastructure/db/schema/rbac.sql";
-import { rbacRoleDeletionRequests } from "#/infrastructure/db/schema/rbac-role-deletion-request.sql";
+import { roleDeletionRequests } from "#/infrastructure/db/schema/role-deletion-request.sql";
 
 const toIso = (value: Date | string | null): string | null => {
   if (value == null) return null;
@@ -19,10 +19,10 @@ const buildWhere = (input: {
 }): SQL | undefined => {
   const predicates: SQL[] = [];
   if (input.status) {
-    predicates.push(eq(rbacRoleDeletionRequests.status, input.status));
+    predicates.push(eq(roleDeletionRequests.status, input.status));
   }
   if (input.roleId) {
-    predicates.push(eq(rbacRoleDeletionRequests.roleId, input.roleId));
+    predicates.push(eq(roleDeletionRequests.roleId, input.roleId));
   }
   return predicates.length > 0 ? and(...predicates) : undefined;
 };
@@ -40,34 +40,31 @@ export class RoleDeletionRequestDbRepository
     const where = buildWhere(input);
     const predicates = input.id
       ? where
-        ? and(where, eq(rbacRoleDeletionRequests.id, input.id))
-        : eq(rbacRoleDeletionRequests.id, input.id)
+        ? and(where, eq(roleDeletionRequests.id, input.id))
+        : eq(roleDeletionRequests.id, input.id)
       : where;
 
     const rows = await db
       .select({
-        id: rbacRoleDeletionRequests.id,
-        roleId: rbacRoleDeletionRequests.roleId,
+        id: roleDeletionRequests.id,
+        roleId: roleDeletionRequests.roleId,
         roleName: roles.name,
-        requestedByUserId: rbacRoleDeletionRequests.requestedByUserId,
+        requestedByUserId: roleDeletionRequests.requestedByUserId,
         requestedByName: users.name,
         requestedByEmail: users.email,
-        requestedAt: rbacRoleDeletionRequests.requestedAt,
-        status: rbacRoleDeletionRequests.status,
-        approvedByUserId: rbacRoleDeletionRequests.approvedByUserId,
-        approvedAt: rbacRoleDeletionRequests.approvedAt,
-        reason: rbacRoleDeletionRequests.reason,
+        requestedAt: roleDeletionRequests.requestedAt,
+        status: roleDeletionRequests.status,
+        approvedByUserId: roleDeletionRequests.approvedByUserId,
+        approvedAt: roleDeletionRequests.approvedAt,
+        reason: roleDeletionRequests.reason,
       })
-      .from(rbacRoleDeletionRequests)
-      .innerJoin(roles, eq(roles.id, rbacRoleDeletionRequests.roleId))
-      .innerJoin(
-        users,
-        eq(users.id, rbacRoleDeletionRequests.requestedByUserId),
-      )
+      .from(roleDeletionRequests)
+      .innerJoin(roles, eq(roles.id, roleDeletionRequests.roleId))
+      .innerJoin(users, eq(users.id, roleDeletionRequests.requestedByUserId))
       .where(predicates)
       .orderBy(
-        desc(rbacRoleDeletionRequests.requestedAt),
-        desc(rbacRoleDeletionRequests.id),
+        desc(roleDeletionRequests.requestedAt),
+        desc(roleDeletionRequests.id),
       )
       .offset(input.offset)
       .limit(input.limit);
@@ -94,7 +91,7 @@ export class RoleDeletionRequestDbRepository
     requestedByUserId: string;
     reason?: string;
   }): Promise<void> {
-    await db.insert(rbacRoleDeletionRequests).values({
+    await db.insert(roleDeletionRequests).values({
       id: crypto.randomUUID(),
       roleId: input.roleId,
       requestedByUserId: input.requestedByUserId,
@@ -136,7 +133,7 @@ export class RoleDeletionRequestDbRepository
     const where = buildWhere(input);
     const result = await db
       .select({ value: sql<number>`count(*)` })
-      .from(rbacRoleDeletionRequests)
+      .from(roleDeletionRequests)
       .where(where);
     return result[0]?.value ?? 0;
   }
@@ -146,7 +143,7 @@ export class RoleDeletionRequestDbRepository
     approvedByUserId: string;
   }): Promise<boolean> {
     const result = await db
-      .update(rbacRoleDeletionRequests)
+      .update(roleDeletionRequests)
       .set({
         status: "approved",
         approvedByUserId: input.approvedByUserId,
@@ -154,8 +151,8 @@ export class RoleDeletionRequestDbRepository
       })
       .where(
         and(
-          eq(rbacRoleDeletionRequests.id, input.id),
-          eq(rbacRoleDeletionRequests.status, "pending"),
+          eq(roleDeletionRequests.id, input.id),
+          eq(roleDeletionRequests.status, "pending"),
         ),
       );
     return (result as { rowsAffected?: number }).rowsAffected !== 0;
@@ -167,7 +164,7 @@ export class RoleDeletionRequestDbRepository
     reason?: string;
   }): Promise<boolean> {
     const result = await db
-      .update(rbacRoleDeletionRequests)
+      .update(roleDeletionRequests)
       .set({
         status: "rejected",
         approvedByUserId: input.approvedByUserId,
@@ -176,8 +173,8 @@ export class RoleDeletionRequestDbRepository
       })
       .where(
         and(
-          eq(rbacRoleDeletionRequests.id, input.id),
-          eq(rbacRoleDeletionRequests.status, "pending"),
+          eq(roleDeletionRequests.id, input.id),
+          eq(roleDeletionRequests.status, "pending"),
         ),
       );
     return (result as { rowsAffected?: number }).rowsAffected !== 0;

@@ -21,6 +21,7 @@ import {
   deviceIdParamSchema,
   deviceListResponseSchema,
   deviceSchema,
+  pairingCodeResponseSchema,
   patchDeviceRequestBodySchema,
   patchDeviceSchema,
   setDeviceGroupsRequestBodySchema,
@@ -81,6 +82,44 @@ export const registerDeviceStaffRoutes = (args: {
         const page = Number(c.req.query("page")) || undefined;
         const pageSize = Number(c.req.query("pageSize")) || undefined;
         const result = await useCases.listDevices.execute({ page, pageSize });
+        return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/pairing-codes",
+    setAction("devices.pairing-code.create", {
+      route: "/devices/pairing-codes",
+      resourceType: "device",
+    }),
+    ...authorize("devices:create"),
+    describeRoute({
+      description: "Issue one-time pairing code for device registration",
+      tags: deviceTags,
+      responses: {
+        200: {
+          description: "Pairing code",
+          content: {
+            "application/json": {
+              schema: resolver(pairingCodeResponseSchema),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const result = await useCases.issuePairingCode.execute({
+          createdById: c.get("userId"),
+        });
         return c.json(result);
       },
       ...applicationErrorMappers,

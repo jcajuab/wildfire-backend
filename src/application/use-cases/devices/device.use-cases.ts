@@ -1,8 +1,10 @@
+import { createHash, randomInt } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
 import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type DevicePairingCodeRepository } from "#/application/ports/device-pairing";
 import {
   type DeviceRecord,
   type DeviceRepository,
@@ -55,6 +57,28 @@ const mapWithConcurrency = async <T, R>(
 };
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
+const PAIRING_CODE_DUPLICATE_INDEX = "pairing_codes_code_hash_unique";
+
+const hashPairingCode = (code: string): string =>
+  createHash("sha256").update(code).digest("hex");
+
+const isDuplicatePairingCodeError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const dbError = error as {
+    code?: string;
+    message?: string;
+    sqlMessage?: string;
+  };
+  const details = [dbError.message, dbError.sqlMessage]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  return (
+    dbError.code === "ER_DUP_ENTRY" &&
+    details.includes(PAIRING_CODE_DUPLICATE_INDEX)
+  );
+};
 
 function withTelemetry(device: DeviceRecord) {
   const lastSeenAt = device.updatedAt;
@@ -97,12 +121,43 @@ export class GetDeviceUseCase {
 }
 
 export class RegisterDeviceUseCase {
-  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+  constructor(
+    private readonly deps: {
+      deviceRepository: DeviceRepository;
+      devicePairingCodeRepository: DevicePairingCodeRepository;
+    },
+  ) {}
 
-  async execute(input: DeviceInput) {
+  async execute(input: DeviceInput & { pairingCode: string }) {
+    const pairingCode = input.pairingCode.trim();
+    if (!/^\d{6}$/.test(pairingCode)) {
+      throw new ValidationError("Pairing code must be a 6-digit number");
+    }
+    const consumed =
+      await this.deps.devicePairingCodeRepository.consumeValidCode({
+        codeHash: hashPairingCode(pairingCode),
+        now: new Date(),
+      });
+    if (!consumed) {
+      throw new ValidationError(
+        "Pairing code is invalid, expired, or already used",
+      );
+    }
+
     let props: ReturnType<typeof createDeviceProps>;
     try {
-      props = createDeviceProps(input);
+      props = createDeviceProps({
+        name: input.name,
+        identifier: input.identifier,
+        deviceFingerprint: input.deviceFingerprint,
+        location: input.location,
+        ipAddress: input.ipAddress,
+        macAddress: input.macAddress,
+        screenWidth: input.screenWidth,
+        screenHeight: input.screenHeight,
+        outputType: input.outputType,
+        orientation: input.orientation,
+      });
     } catch (error) {
       if (error instanceof DeviceValidationError) {
         throw new ValidationError(error.message);
@@ -175,6 +230,37 @@ export class RegisterDeviceUseCase {
       return withTelemetry(enriched ?? created);
     }
     return withTelemetry(created);
+  }
+}
+
+export class IssueDevicePairingCodeUseCase {
+  constructor(
+    private readonly deps: {
+      devicePairingCodeRepository: DevicePairingCodeRepository;
+    },
+  ) {}
+
+  async execute(input: { createdById: string }) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+      const expiresAt = new Date(Date.now() + PAIRING_CODE_TTL_MS);
+      try {
+        await this.deps.devicePairingCodeRepository.create({
+          codeHash: hashPairingCode(code),
+          expiresAt,
+          createdById: input.createdById,
+        });
+        return {
+          code,
+          expiresAt: expiresAt.toISOString(),
+        };
+      } catch (error) {
+        if (!isDuplicatePairingCodeError(error)) {
+          throw error;
+        }
+      }
+    }
+    throw new Error("Failed to generate a unique pairing code");
   }
 }
 

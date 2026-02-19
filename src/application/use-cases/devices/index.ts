@@ -2,6 +2,7 @@ export {
   GetDeviceActiveScheduleUseCase,
   GetDeviceManifestUseCase,
   GetDeviceUseCase,
+  IssueDevicePairingCodeUseCase,
   ListDevicesUseCase,
   RegisterDeviceUseCase,
   RequestDeviceRefreshUseCase,

@@ -35,6 +35,7 @@ export const deviceGroupIdParamSchema = z.object({
 });
 
 export const registerDeviceSchema = z.object({
+  pairingCode: z.string().regex(/^\d{6}$/),
   identifier: z.string().min(1),
   deviceFingerprint: z.string().min(1).max(255).nullable().optional(),
   name: z.string().min(1),
@@ -132,6 +133,7 @@ export const patchDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
 export const registerDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
+    pairingCode: { type: "string", pattern: "^\\d{6}$" },
     identifier: { type: "string" },
     deviceFingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
     name: { type: "string" },
@@ -150,8 +152,13 @@ export const registerDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
       ],
     },
   },
-  required: ["identifier", "name"],
+  required: ["pairingCode", "identifier", "name"],
 };
+
+export const pairingCodeResponseSchema = z.object({
+  code: z.string().regex(/^\d{6}$/),
+  expiresAt: z.string(),
+});
 
 export const deviceManifestItemSchema = z.object({
   id: z.string(),

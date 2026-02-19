@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
+import { type DevicePairingCodeRepository } from "#/application/ports/device-pairing";
 import {
   type DeviceRecord,
   type DeviceRepository,
@@ -7,6 +9,7 @@ import {
 import {
   GetDeviceManifestUseCase,
   GetDeviceUseCase,
+  IssueDevicePairingCodeUseCase,
   ListDevicesUseCase,
   NotFoundError,
   RegisterDeviceUseCase,
@@ -76,6 +79,81 @@ const makeRepository = () => {
   return { repo, records };
 };
 
+const hashPairingCode = (code: string): string =>
+  createHash("sha256").update(code).digest("hex");
+
+const makePairingRepository = () => {
+  const records: Array<{
+    id: string;
+    codeHash: string;
+    expiresAt: Date;
+    usedAt: Date | null;
+    createdById: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = [];
+
+  const repository: DevicePairingCodeRepository = {
+    create: async (input) => {
+      const now = new Date();
+      const record = {
+        id: crypto.randomUUID(),
+        codeHash: input.codeHash,
+        expiresAt: input.expiresAt,
+        usedAt: null,
+        createdById: input.createdById,
+        createdAt: now,
+        updatedAt: now,
+      };
+      records.push(record);
+      return {
+        id: record.id,
+        codeHash: record.codeHash,
+        expiresAt: record.expiresAt.toISOString(),
+        usedAt: null,
+        createdById: record.createdById,
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
+      };
+    },
+    consumeValidCode: async ({ codeHash, now }) => {
+      const record = records.find(
+        (item) =>
+          item.codeHash === codeHash &&
+          item.usedAt === null &&
+          item.expiresAt.getTime() > now.getTime(),
+      );
+      if (!record) return null;
+      record.usedAt = now;
+      record.updatedAt = now;
+      return {
+        id: record.id,
+        codeHash: record.codeHash,
+        expiresAt: record.expiresAt.toISOString(),
+        usedAt: record.usedAt.toISOString(),
+        createdById: record.createdById,
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
+      };
+    },
+  };
+
+  const issueCode = (code: string, options?: { expiresAt?: Date }) => {
+    const now = new Date();
+    records.push({
+      id: crypto.randomUUID(),
+      codeHash: hashPairingCode(code),
+      expiresAt: options?.expiresAt ?? new Date(now.getTime() + 10 * 60 * 1000),
+      usedAt: null,
+      createdById: "user-1",
+      createdAt: now,
+      updatedAt: now,
+    });
+  };
+
+  return { repository, issueCode, records };
+};
+
 describe("Devices use cases", () => {
   test("ListDevicesUseCase returns devices", async () => {
     const { repo } = makeRepository();
@@ -102,11 +180,16 @@ describe("Devices use cases", () => {
 
   test("RegisterDeviceUseCase creates new device", async () => {
     const { repo } = makeRepository();
+    const { repository: pairingCodeRepository, issueCode } =
+      makePairingRepository();
+    issueCode("123456");
     const registerDevice = new RegisterDeviceUseCase({
       deviceRepository: repo,
+      devicePairingCodeRepository: pairingCodeRepository,
     });
 
     const device = await registerDevice.execute({
+      pairingCode: "123456",
       name: "Lobby",
       identifier: "AA:BB",
       location: "Main Hall",
@@ -117,8 +200,11 @@ describe("Devices use cases", () => {
 
   test("RegisterDeviceUseCase updates existing device", async () => {
     const { repo } = makeRepository();
+    const { repository: pairingCodeRepository, issueCode } =
+      makePairingRepository();
     const registerDevice = new RegisterDeviceUseCase({
       deviceRepository: repo,
+      devicePairingCodeRepository: pairingCodeRepository,
     });
 
     const created = await repo.create({
@@ -127,7 +213,9 @@ describe("Devices use cases", () => {
       location: null,
     });
 
+    issueCode("234567");
     const updated = await registerDevice.execute({
+      pairingCode: "234567",
       name: "Lobby Display",
       identifier: "AA:BB",
       location: "Hallway",
@@ -140,18 +228,25 @@ describe("Devices use cases", () => {
 
   test("RegisterDeviceUseCase reuses existing device by fingerprint", async () => {
     const { repo } = makeRepository();
+    const { repository: pairingCodeRepository, issueCode } =
+      makePairingRepository();
     const registerDevice = new RegisterDeviceUseCase({
       deviceRepository: repo,
+      devicePairingCodeRepository: pairingCodeRepository,
     });
 
+    issueCode("345678");
     const created = await registerDevice.execute({
+      pairingCode: "345678",
       name: "Lobby",
       identifier: "old-identifier",
       deviceFingerprint: "fp-1",
       location: null,
     });
 
+    issueCode("456789");
     const updated = await registerDevice.execute({
+      pairingCode: "456789",
       name: "Lobby Renamed",
       identifier: "new-identifier",
       deviceFingerprint: "fp-1",
@@ -165,31 +260,70 @@ describe("Devices use cases", () => {
 
   test("RegisterDeviceUseCase rejects conflicting identifier and fingerprint", async () => {
     const { repo } = makeRepository();
+    const { repository: pairingCodeRepository, issueCode } =
+      makePairingRepository();
     const registerDevice = new RegisterDeviceUseCase({
       deviceRepository: repo,
+      devicePairingCodeRepository: pairingCodeRepository,
     });
 
+    issueCode("567890");
     await registerDevice.execute({
+      pairingCode: "567890",
       name: "Device A",
       identifier: "device-a",
       deviceFingerprint: "fp-a",
       location: null,
     });
+    issueCode("678901");
     await registerDevice.execute({
+      pairingCode: "678901",
       name: "Device B",
       identifier: "device-b",
       deviceFingerprint: "fp-b",
       location: null,
     });
 
+    issueCode("789012");
     await expect(
       registerDevice.execute({
+        pairingCode: "789012",
         name: "Conflict",
         identifier: "device-a",
         deviceFingerprint: "fp-b",
         location: null,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("RegisterDeviceUseCase rejects invalid pairing code", async () => {
+    const { repo } = makeRepository();
+    const { repository: pairingCodeRepository } = makePairingRepository();
+    const registerDevice = new RegisterDeviceUseCase({
+      deviceRepository: repo,
+      devicePairingCodeRepository: pairingCodeRepository,
+    });
+
+    await expect(
+      registerDevice.execute({
+        pairingCode: "111111",
+        name: "Lobby",
+        identifier: "AA:BB",
+        location: null,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("IssueDevicePairingCodeUseCase returns 6-digit code and expiry", async () => {
+    const { repository: pairingCodeRepository } = makePairingRepository();
+    const useCase = new IssueDevicePairingCodeUseCase({
+      devicePairingCodeRepository: pairingCodeRepository,
+    });
+
+    const result = await useCase.execute({ createdById: "user-1" });
+
+    expect(result.code).toMatch(/^\d{6}$/);
+    expect(Date.parse(result.expiresAt)).toBeGreaterThan(Date.now());
   });
 
   test("UpdateDeviceUseCase updates mutable device fields", async () => {
