@@ -21,6 +21,7 @@ import {
   ListDeviceGroupsUseCase,
   ListDevicesUseCase,
   RegisterDeviceUseCase,
+  RequestDeviceRefreshUseCase,
   SetDeviceGroupsUseCase,
   UpdateDeviceGroupUseCase,
   UpdateDeviceUseCase,
@@ -59,6 +60,7 @@ export interface DevicesRouterUseCases {
   setDeviceGroups: SetDeviceGroupsUseCase;
   getActiveSchedule: GetDeviceActiveScheduleUseCase;
   getManifest: GetDeviceManifestUseCase;
+  requestDeviceRefresh: RequestDeviceRefreshUseCase;
 }
 
 export type DevicesRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -79,6 +81,9 @@ export const createDevicesUseCases = (
     deviceRepository: deps.repositories.deviceRepository,
   }),
   updateDevice: new UpdateDeviceUseCase({
+    deviceRepository: deps.repositories.deviceRepository,
+  }),
+  requestDeviceRefresh: new RequestDeviceRefreshUseCase({
     deviceRepository: deps.repositories.deviceRepository,
   }),
   registerDevice: new RegisterDeviceUseCase({

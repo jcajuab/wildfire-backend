@@ -4,6 +4,7 @@ export {
   GetDeviceUseCase,
   ListDevicesUseCase,
   RegisterDeviceUseCase,
+  RequestDeviceRefreshUseCase,
   UpdateDeviceUseCase,
 } from "./device.use-cases";
 export {

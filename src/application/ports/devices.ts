@@ -9,6 +9,7 @@ export interface DeviceRecord {
   screenHeight?: number | null;
   outputType?: string | null;
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+  refreshNonce?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +38,7 @@ export interface DeviceRepository {
     },
   ): Promise<DeviceRecord | null>;
   touchSeen?(id: string, at: Date): Promise<void>;
+  bumpRefreshNonce(id: string): Promise<boolean>;
 }
 
 export interface DeviceGroupRecord {

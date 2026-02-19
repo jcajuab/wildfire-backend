@@ -226,6 +226,17 @@ export class UpdateDeviceUseCase {
   }
 }
 
+export class RequestDeviceRefreshUseCase {
+  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+
+  async execute(input: { id: string }): Promise<void> {
+    const bumped = await this.deps.deviceRepository.bumpRefreshNonce(input.id);
+    if (!bumped) {
+      throw new NotFoundError("Device not found");
+    }
+  }
+}
+
 export class GetDeviceActiveScheduleUseCase {
   constructor(
     private readonly deps: {
@@ -350,6 +361,7 @@ export class GetDeviceManifestUseCase {
 
     const versionPayload = JSON.stringify({
       playlistId: playlist.id,
+      refreshNonce: device.refreshNonce ?? 0,
       items: manifestItems.map((item) => ({
         id: item.id,
         sequence: item.sequence,

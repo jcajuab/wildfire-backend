@@ -89,6 +89,7 @@ const mockDeviceRepository = {
     updatedAt: "",
   }),
   update: async () => null,
+  bumpRefreshNonce: async () => false,
 };
 
 const makeApp = async (permissions: string[]) => {

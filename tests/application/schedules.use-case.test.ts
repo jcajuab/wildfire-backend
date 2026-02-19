@@ -121,6 +121,7 @@ const makeDeps = () => {
       throw new Error("not used");
     },
     update: async () => null,
+    bumpRefreshNonce: async () => false,
   };
 
   return {
@@ -226,6 +227,7 @@ describe("Schedules use cases", () => {
           throw new Error("not used");
         },
         update: async () => null,
+        bumpRefreshNonce: async () => false,
       },
     });
 

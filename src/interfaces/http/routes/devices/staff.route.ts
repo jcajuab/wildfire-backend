@@ -188,6 +188,41 @@ export const registerDeviceStaffRoutes = (args: {
     ),
   );
 
+  router.post(
+    "/:id{[0-9a-fA-F-]{36}}/refresh",
+    setAction("devices.device.refresh", {
+      route: "/devices/:id/refresh",
+      resourceType: "device",
+    }),
+    ...authorize("devices:update"),
+    validateParams(deviceIdParamSchema),
+    describeRoute({
+      description: "Queue a refresh signal for a device",
+      tags: deviceTags,
+      responses: {
+        204: { description: "Refresh queued" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        await useCases.requestDeviceRefresh.execute({ id: params.id });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
   router.get(
     "/groups",
     setAction("devices.group.list", {

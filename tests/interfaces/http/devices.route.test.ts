@@ -21,6 +21,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     screenHeight: number | null;
     outputType: string | null;
     orientation: "LANDSCAPE" | "PORTRAIT" | null;
+    refreshNonce: number;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -58,6 +59,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
           screenHeight: null,
           outputType: null,
           orientation: null,
+          refreshNonce: 0,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         };
@@ -89,6 +91,12 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
           record.orientation = input.orientation;
         record.updatedAt = "2025-01-02T00:00:00.000Z";
         return record;
+      },
+      bumpRefreshNonce: async (id: string) => {
+        const record = devices.find((device) => device.id === id);
+        if (!record) return false;
+        record.refreshNonce += 1;
+        return true;
       },
     },
     deviceGroupRepository: {
@@ -343,6 +351,7 @@ describe("Devices routes", () => {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -376,6 +385,7 @@ describe("Devices routes", () => {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -399,6 +409,7 @@ describe("Devices routes", () => {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -437,6 +448,69 @@ describe("Devices routes", () => {
     expect(json.orientation).toBe("LANDSCAPE");
   });
 
+  test("POST /devices/:id/refresh queues refresh with devices:update permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["devices:update"]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      refreshNonce: 0,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/devices/${deviceId}/refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(204);
+    expect(devices[0]?.refreshNonce).toBe(1);
+  });
+
+  test("POST /devices/:id/refresh returns 403 without permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      refreshNonce: 0,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/devices/${deviceId}/refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  test("POST /devices/:id/refresh returns 404 for missing device", async () => {
+    const { app, issueToken } = await makeApp(["devices:update"]);
+    const token = await issueToken();
+
+    const response = await app.request(`/devices/${deviceId}/refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(404);
+  });
+
   test("GET /devices/groups returns groups with devices:read permission", async () => {
     const { app, issueToken, devices } = await makeApp(["devices:read"]);
     devices.push({
@@ -448,6 +522,7 @@ describe("Devices routes", () => {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -496,6 +571,7 @@ describe("Devices routes", () => {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -520,6 +596,7 @@ describe("Devices routes", () => {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });

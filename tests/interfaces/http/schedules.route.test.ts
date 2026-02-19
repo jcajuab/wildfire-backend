@@ -108,6 +108,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         update: async () => null,
+        bumpRefreshNonce: async () => false,
       },
       authorizationRepository: {
         findPermissionsForUser: async () =>
