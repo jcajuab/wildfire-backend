@@ -862,6 +862,17 @@ describe("RBAC routes", () => {
     );
   });
 
+  test("GET /roles/deletion-requests returns 403 without roles:delete", async () => {
+    const { app, issueToken } = buildApp(["roles:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/roles/deletion-requests", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(403);
+  });
+
   test("GET /roles/:id/permissions returns permissions", async () => {
     const { app, issueToken } = buildApp(["roles:read"]);
     const token = await issueToken();

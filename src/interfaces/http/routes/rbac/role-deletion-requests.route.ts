@@ -78,7 +78,7 @@ export const registerRbacRoleDeletionRequestRoutes = (args: {
       route: "/roles/deletion-requests",
       resourceType: "role-deletion-request",
     }),
-    ...authorize("roles:read"),
+    ...authorize("roles:delete"),
     validateQuery(roleDeletionRequestListQuerySchema),
     describeRoute({
       description: "List role deletion requests",
