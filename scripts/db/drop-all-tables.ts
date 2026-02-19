@@ -3,13 +3,18 @@ import { db } from "#/infrastructure/db/client";
 
 const TABLES = [
   "audit_events",
+  "auth_sessions",
   "user_roles",
   "role_permissions",
   "playlist_items",
   "schedules",
   "content",
   "playlists",
+  "device_group_devices",
+  "device_groups",
   "devices",
+  "password_reset_tokens",
+  "invitations",
   "users",
   "roles",
   "permissions",
