@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentStorage } from "#/application/ports/content";
+import { type PolicyHistoryRepository } from "#/application/ports/rbac";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
@@ -95,6 +96,21 @@ const makeStore = () => {
     }>,
     userRoles: [] as Array<{ userId: string; roleId: string }>,
     rolePermissions: [] as Array<{ roleId: string; permissionId: string }>,
+    policyHistory: [] as Array<{
+      id: string;
+      occurredAt: string;
+      policyVersion: number;
+      changeType: "role_permissions" | "user_roles";
+      targetId: string;
+      targetType: "role" | "user";
+      actorId: string | null;
+      actorName: string | null;
+      actorEmail: string | null;
+      requestId: string | null;
+      targetCount: number;
+      addedCount: number;
+      removedCount: number;
+    }>,
   };
 
   store.users.push({
@@ -253,6 +269,65 @@ const makeStore = () => {
         );
       },
     },
+    policyHistoryRepository: {
+      create: async (
+        input: Parameters<PolicyHistoryRepository["create"]>[0],
+      ) => {
+        const actor = store.users.find((user) => user.id === input.actorId);
+        store.policyHistory.push({
+          id: crypto.randomUUID(),
+          occurredAt: new Date().toISOString(),
+          policyVersion: input.policyVersion,
+          changeType: input.changeType,
+          targetId: input.targetId,
+          targetType: input.targetType,
+          actorId: input.actorId ?? null,
+          actorName: actor?.name ?? null,
+          actorEmail: actor?.email ?? null,
+          requestId: input.requestId ?? null,
+          targetCount: input.targetCount,
+          addedCount: input.addedCount,
+          removedCount: input.removedCount,
+        });
+      },
+      list: async ({
+        offset,
+        limit,
+        policyVersion,
+        changeType,
+        targetId,
+        actorId,
+      }: Parameters<PolicyHistoryRepository["list"]>[0]) =>
+        store.policyHistory
+          .filter((item) =>
+            policyVersion !== undefined
+              ? item.policyVersion === policyVersion
+              : true,
+          )
+          .filter((item) =>
+            changeType ? item.changeType === changeType : true,
+          )
+          .filter((item) => (targetId ? item.targetId === targetId : true))
+          .filter((item) => (actorId ? item.actorId === actorId : true))
+          .slice(offset, offset + limit),
+      count: async ({
+        policyVersion,
+        changeType,
+        targetId,
+        actorId,
+      }: Parameters<PolicyHistoryRepository["count"]>[0]) =>
+        store.policyHistory
+          .filter((item) =>
+            policyVersion !== undefined
+              ? item.policyVersion === policyVersion
+              : true,
+          )
+          .filter((item) =>
+            changeType ? item.changeType === changeType : true,
+          )
+          .filter((item) => (targetId ? item.targetId === targetId : true))
+          .filter((item) => (actorId ? item.actorId === actorId : true)).length,
+    },
     authorizationRepository: {
       findPermissionsForUser: async (userId: string) => {
         const roleIds = store.userRoles
@@ -312,7 +387,7 @@ const buildApp = (permissions: string[] = ["*:manage"]) => {
       email: "admin@example.com",
     });
 
-  return { app, issueToken };
+  return { app, issueToken, store };
 };
 
 /** Builds app with avatarStorage mock; store.users[0] is given avatarKey so GET /users and GET /users/:id return avatarUrl. */
@@ -580,6 +655,51 @@ describe("RBAC routes", () => {
     const body = await parseJson<Array<{ id: string }>>(response);
     expect(body.length).toBeGreaterThan(0);
     expect(body[0]?.id).toBe("perm-2");
+  });
+
+  test("PUT /roles/:id/permissions writes policy history only when policyVersion is provided", async () => {
+    const { app, issueToken, store } = buildApp([
+      "roles:update",
+      "roles:create",
+    ]);
+    const token = await issueToken();
+
+    const createRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "History Role" }),
+    });
+    const created = await parseJson<{ id: string }>(createRes);
+
+    const firstUpdate = await app.request(`/roles/${created.id}/permissions`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ permissionIds: ["perm-2"] }),
+    });
+    expect(firstUpdate.status).toBe(200);
+    expect(store.policyHistory).toHaveLength(0);
+
+    const secondUpdate = await app.request(`/roles/${created.id}/permissions`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        permissionIds: ["perm-2", "perm-3"],
+        policyVersion: 12,
+      }),
+    });
+    expect(secondUpdate.status).toBe(200);
+    expect(store.policyHistory).toHaveLength(1);
+    expect(store.policyHistory[0]?.policyVersion).toBe(12);
+    expect(store.policyHistory[0]?.changeType).toBe("role_permissions");
   });
 
   test("GET /roles/:id/users returns users assigned to role", async () => {
@@ -877,6 +997,62 @@ describe("RBAC routes", () => {
     const body = await parseJson<Array<{ id: string }>>(response);
     expect(body.length).toBe(1);
     expect(body[0]?.id).toBe(editorRoleId);
+  });
+
+  test("GET /policy-history returns versioned policy changes", async () => {
+    const { app, issueToken, store } = buildApp([
+      "roles:read",
+      "roles:update",
+      "roles:create",
+      "users:update",
+    ]);
+    const token = await issueToken();
+
+    const createRoleRes = await app.request("/roles", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Audited Role" }),
+    });
+    const createdRole = await parseJson<{ id: string }>(createRoleRes);
+
+    const setRolePerms = await app.request(
+      `/roles/${createdRole.id}/permissions`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ permissionIds: ["perm-2"], policyVersion: 3 }),
+      },
+    );
+    expect(setRolePerms.status).toBe(200);
+
+    const setUserRoles = await app.request(`/users/${userIdNoRoles}/roles`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ roleIds: [createdRole.id], policyVersion: 3 }),
+    });
+    expect(setUserRoles.status).toBe(200);
+    expect(store.policyHistory.length).toBe(2);
+
+    const response = await app.request("/policy-history?policyVersion=3", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      items: Array<{ changeType: string; policyVersion: number }>;
+      total: number;
+    }>(response);
+    expect(body.total).toBe(2);
+    expect(body.items.every((item) => item.policyVersion === 3)).toBe(true);
   });
 
   test("GET /roles returns 401 without token", async () => {

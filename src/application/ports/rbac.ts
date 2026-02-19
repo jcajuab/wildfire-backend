@@ -27,6 +27,25 @@ export interface PermissionRecord {
   action: string;
 }
 
+export type PolicyHistoryChangeType = "role_permissions" | "user_roles";
+export type PolicyHistoryTargetType = "role" | "user";
+
+export interface PolicyHistoryRecord {
+  id: string;
+  occurredAt: string;
+  policyVersion: number;
+  changeType: PolicyHistoryChangeType;
+  targetId: string;
+  targetType: PolicyHistoryTargetType;
+  actorId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  requestId: string | null;
+  targetCount: number;
+  addedCount: number;
+  removedCount: number;
+}
+
 export interface UserRepository {
   list(): Promise<UserRecord[]>;
   findById(id: string): Promise<UserRecord | null>;
@@ -90,6 +109,38 @@ export interface RolePermissionRepository {
     roleId: string,
   ): Promise<{ roleId: string; permissionId: string }[]>;
   setRolePermissions(roleId: string, permissionIds: string[]): Promise<void>;
+}
+
+export interface PolicyHistoryRepository {
+  create(input: {
+    policyVersion: number;
+    changeType: PolicyHistoryChangeType;
+    targetId: string;
+    targetType: PolicyHistoryTargetType;
+    actorId?: string;
+    requestId?: string;
+    targetCount: number;
+    addedCount: number;
+    removedCount: number;
+  }): Promise<void>;
+  list(input: {
+    offset: number;
+    limit: number;
+    policyVersion?: number;
+    changeType?: PolicyHistoryChangeType;
+    targetId?: string;
+    actorId?: string;
+    from?: string;
+    to?: string;
+  }): Promise<PolicyHistoryRecord[]>;
+  count(input: {
+    policyVersion?: number;
+    changeType?: PolicyHistoryChangeType;
+    targetId?: string;
+    actorId?: string;
+    from?: string;
+    to?: string;
+  }): Promise<number>;
 }
 
 export interface AuthorizationRepository {

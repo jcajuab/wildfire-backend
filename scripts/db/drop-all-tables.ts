@@ -1,6 +1,26 @@
 import { sql } from "drizzle-orm";
 import { db } from "#/infrastructure/db/client";
 
+const TABLES = [
+  "audit_events",
+  "auth_sessions",
+  "content",
+  "device_group_devices",
+  "device_groups",
+  "devices",
+  "invitations",
+  "password_reset_tokens",
+  "permissions",
+  "playlist_items",
+  "playlists",
+  "role_permissions",
+  "rbac_policy_history",
+  "roles",
+  "schedules",
+  "user_roles",
+  "users",
+] as const;
+
 export const parseDropArgs = (argv: string[]) => {
   const force = argv.includes("--force");
   const unknownFlags = argv.filter(
@@ -25,19 +45,7 @@ async function main(): Promise<void> {
 
   await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
 
-  const rows = (await db.execute(sql`
-    SELECT table_name
-    FROM information_schema.tables
-    WHERE table_schema = DATABASE()
-      AND table_type = 'BASE TABLE'
-    ORDER BY table_name ASC
-  `)) as Array<{ table_name?: unknown }>;
-
-  const tables = rows
-    .map((row) => (typeof row.table_name === "string" ? row.table_name : null))
-    .filter((table): table is string => table !== null);
-
-  for (const table of tables) {
+  for (const table of TABLES) {
     await db.execute(sql.raw(`DROP TABLE IF EXISTS \`${table}\``));
     console.log(`Dropped table: ${table}`);
   }

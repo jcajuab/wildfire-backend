@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerRbacPermissionRoutes } from "./permissions.route";
+import { registerRbacPolicyHistoryRoutes } from "./policy-history.route";
 import { registerRbacRoleRoutes } from "./roles.route";
 import { createRbacUseCases, type RbacRouterDeps } from "./shared";
 import { registerRbacUserRoutes } from "./users.route";
@@ -21,6 +22,7 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
 
   registerRbacRoleRoutes({ router, deps, useCases, authorize });
   registerRbacPermissionRoutes({ router, useCases, authorize });
+  registerRbacPolicyHistoryRoutes({ router, useCases, authorize });
   registerRbacUserRoutes({ router, useCases, deps, authorize });
 
   return router;

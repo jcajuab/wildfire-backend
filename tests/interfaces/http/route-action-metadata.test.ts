@@ -277,6 +277,11 @@ const buildRbacActionApp = async () => {
         listPermissionsByRoleId: async () => [],
         setRolePermissions: async () => {},
       },
+      policyHistoryRepository: {
+        create: async () => {},
+        list: async () => [],
+        count: async () => 0,
+      },
       authorizationRepository: {
         findPermissionsForUser: async () => [new Permission("users", "read")],
       },

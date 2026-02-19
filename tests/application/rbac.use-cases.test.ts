@@ -11,6 +11,7 @@ import {
   GetUserRolesUseCase,
   GetUserUseCase,
   ListPermissionsUseCase,
+  ListPolicyHistoryUseCase,
   ListRolesUseCase,
   ListUsersUseCase,
   NotFoundError,
@@ -261,7 +262,13 @@ describe("RBAC use cases", () => {
         ],
       } as never,
       userRoleRepository: {
+        listRolesByUserId: async () => [],
         setUserRoles: async () => undefined,
+      } as never,
+      policyHistoryRepository: {
+        create: async () => undefined,
+        list: async () => [],
+        count: async () => 0,
       } as never,
     });
 
@@ -394,7 +401,13 @@ describe("RBAC use cases", () => {
     const useCase = new SetRolePermissionsUseCase({
       roleRepository: { findById: async () => ({ id: "role-1" }) } as never,
       rolePermissionRepository: {
+        listPermissionsByRoleId: async () => [],
         setRolePermissions: async () => undefined,
+      } as never,
+      policyHistoryRepository: {
+        create: async () => undefined,
+        list: async () => [],
+        count: async () => 0,
       } as never,
       permissionRepository: {
         findByIds: async () => [
@@ -422,6 +435,36 @@ describe("RBAC use cases", () => {
       { id: "perm-1", resource: "content", action: "read" },
     ]);
     expect(result.total).toBe(1);
+  });
+
+  test("ListPolicyHistoryUseCase returns paginated results", async () => {
+    const useCase = new ListPolicyHistoryUseCase({
+      policyHistoryRepository: {
+        create: async () => undefined,
+        list: async () => [
+          {
+            id: "hist-1",
+            occurredAt: "2026-01-01T00:00:00.000Z",
+            policyVersion: 9,
+            changeType: "user_roles",
+            targetId: "user-1",
+            targetType: "user",
+            actorId: "user-2",
+            actorName: "Admin",
+            actorEmail: "admin@example.com",
+            requestId: "req-1",
+            targetCount: 1,
+            addedCount: 1,
+            removedCount: 0,
+          },
+        ],
+        count: async () => 1,
+      },
+    });
+
+    const result = await useCase.execute({ policyVersion: 9 });
+    expect(result.total).toBe(1);
+    expect(result.items[0]?.policyVersion).toBe(9);
   });
 
   test("GetUserRolesUseCase returns roles for user", async () => {

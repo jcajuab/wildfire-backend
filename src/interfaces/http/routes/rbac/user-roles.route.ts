@@ -135,6 +135,9 @@ export const registerRbacUserRoleRoutes = (args: {
         const roles = await useCases.setUserRoles.execute({
           userId: params.id,
           roleIds: payload.roleIds,
+          policyVersion: payload.policyVersion,
+          actorId: c.get("userId"),
+          requestId: c.get("requestId"),
         });
         return c.json(roles);
       },

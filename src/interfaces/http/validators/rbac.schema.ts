@@ -39,3 +39,42 @@ export const setUserRolesSchema = z.object({
   roleIds: z.array(z.string()).default([]),
   policyVersion: z.number().int().positive().optional(),
 });
+
+export const policyHistoryChangeTypeSchema = z.enum([
+  "role_permissions",
+  "user_roles",
+]);
+
+export const policyHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).optional(),
+  policyVersion: z.coerce.number().int().positive().optional(),
+  changeType: policyHistoryChangeTypeSchema.optional(),
+  targetId: z.string().uuid().optional(),
+  actorId: z.string().uuid().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const policyHistoryRecordSchema = z.object({
+  id: z.string().uuid(),
+  occurredAt: z.string(),
+  policyVersion: z.number().int().positive(),
+  changeType: policyHistoryChangeTypeSchema,
+  targetId: z.string().uuid(),
+  targetType: z.enum(["role", "user"]),
+  actorId: z.string().uuid().nullable(),
+  actorName: z.string().nullable(),
+  actorEmail: z.string().nullable(),
+  requestId: z.string().nullable(),
+  targetCount: z.number().int().nonnegative(),
+  addedCount: z.number().int().nonnegative(),
+  removedCount: z.number().int().nonnegative(),
+});
+
+export const policyHistoryListResponseSchema = z.object({
+  items: z.array(policyHistoryRecordSchema),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+});

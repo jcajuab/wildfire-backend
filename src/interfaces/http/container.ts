@@ -12,6 +12,7 @@ import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitat
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
+import { PolicyHistoryDbRepository } from "#/infrastructure/db/repositories/policy-history.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
@@ -44,6 +45,7 @@ export interface HttpContainer {
     permissionRepository: PermissionDbRepository;
     userRoleRepository: UserRoleDbRepository;
     rolePermissionRepository: RolePermissionDbRepository;
+    policyHistoryRepository: PolicyHistoryDbRepository;
     authorizationRepository: AuthorizationDbRepository;
     authSessionRepository: AuthSessionDbRepository;
     auditEventRepository: AuditEventDbRepository;
@@ -79,6 +81,7 @@ export const createHttpContainer = (
   const permissionRepository = new PermissionDbRepository();
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
+  const policyHistoryRepository = new PolicyHistoryDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
   const authSessionRepository = new AuthSessionDbRepository();
   const auditEventRepository = new AuditEventDbRepository();
@@ -118,6 +121,7 @@ export const createHttpContainer = (
       permissionRepository,
       userRoleRepository,
       rolePermissionRepository,
+      policyHistoryRepository,
       authorizationRepository,
       authSessionRepository,
       auditEventRepository,

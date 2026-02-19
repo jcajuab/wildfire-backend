@@ -4,6 +4,7 @@ import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
   type PermissionRepository,
+  type PolicyHistoryRepository,
   type RolePermissionRepository,
   type RoleRepository,
   type UserRepository,
@@ -20,6 +21,7 @@ import {
   GetUserRolesUseCase,
   GetUserUseCase,
   ListPermissionsUseCase,
+  ListPolicyHistoryUseCase,
   ListRolesUseCase,
   ListUsersUseCase,
   SetRolePermissionsUseCase,
@@ -42,6 +44,7 @@ export interface RbacRouterDeps {
     userRoleRepository: UserRoleRepository;
     rolePermissionRepository: RolePermissionRepository;
     authorizationRepository: AuthorizationRepository;
+    policyHistoryRepository: PolicyHistoryRepository;
   };
   avatarStorage?: ContentStorage;
   avatarUrlExpiresInSeconds?: number;
@@ -56,6 +59,7 @@ export interface RbacRouterUseCases {
   getRolePermissions: GetRolePermissionsUseCase;
   setRolePermissions: SetRolePermissionsUseCase;
   listPermissions: ListPermissionsUseCase;
+  listPolicyHistory: ListPolicyHistoryUseCase;
   listUsers: ListUsersUseCase;
   createUser: CreateUserUseCase;
   getUser: GetUserUseCase;
@@ -107,9 +111,13 @@ export const createRbacUseCases = (
     roleRepository: deps.repositories.roleRepository,
     rolePermissionRepository: deps.repositories.rolePermissionRepository,
     permissionRepository: deps.repositories.permissionRepository,
+    policyHistoryRepository: deps.repositories.policyHistoryRepository,
   }),
   listPermissions: new ListPermissionsUseCase({
     permissionRepository: deps.repositories.permissionRepository,
+  }),
+  listPolicyHistory: new ListPolicyHistoryUseCase({
+    policyHistoryRepository: deps.repositories.policyHistoryRepository,
   }),
   listUsers: new ListUsersUseCase({
     userRepository: deps.repositories.userRepository,
@@ -134,6 +142,7 @@ export const createRbacUseCases = (
     userRepository: deps.repositories.userRepository,
     roleRepository: deps.repositories.roleRepository,
     userRoleRepository: deps.repositories.userRoleRepository,
+    policyHistoryRepository: deps.repositories.policyHistoryRepository,
   }),
   getUserRoles: new GetUserRolesUseCase({
     userRepository: deps.repositories.userRepository,

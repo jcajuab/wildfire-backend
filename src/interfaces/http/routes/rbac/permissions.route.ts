@@ -135,6 +135,9 @@ export const registerRbacPermissionRoutes = (args: {
         const permissions = await useCases.setRolePermissions.execute({
           roleId: params.id,
           permissionIds: payload.permissionIds,
+          policyVersion: payload.policyVersion,
+          actorId: c.get("userId"),
+          requestId: c.get("requestId"),
         });
         return c.json(permissions);
       },

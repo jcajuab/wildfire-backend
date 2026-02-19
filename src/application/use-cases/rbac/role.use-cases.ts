@@ -1,6 +1,7 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   type PermissionRepository,
+  type PolicyHistoryRepository,
   type RolePermissionRepository,
   type RoleRepository,
   type RoleWithUserCount,
@@ -127,20 +128,56 @@ export class SetRolePermissionsUseCase {
       roleRepository: RoleRepository;
       rolePermissionRepository: RolePermissionRepository;
       permissionRepository: PermissionRepository;
+      policyHistoryRepository: PolicyHistoryRepository;
     },
   ) {}
 
-  async execute(input: { roleId: string; permissionIds: string[] }) {
+  async execute(input: {
+    roleId: string;
+    permissionIds: string[];
+    policyVersion?: number;
+    actorId?: string;
+    requestId?: string;
+  }) {
     const role = await this.deps.roleRepository.findById(input.roleId);
     if (!role) throw new NotFoundError("Role not found");
     if (role.isSystem) {
       throw new ForbiddenError("Cannot modify permissions of system role");
     }
 
+    const currentAssignments =
+      await this.deps.rolePermissionRepository.listPermissionsByRoleId(
+        input.roleId,
+      );
+    const currentPermissionIds = new Set(
+      currentAssignments.map((item) => item.permissionId),
+    );
+    const nextPermissionIds = new Set(input.permissionIds);
+    const addedCount = [...nextPermissionIds].filter(
+      (permissionId) => !currentPermissionIds.has(permissionId),
+    ).length;
+    const removedCount = [...currentPermissionIds].filter(
+      (permissionId) => !nextPermissionIds.has(permissionId),
+    ).length;
+
     await this.deps.rolePermissionRepository.setRolePermissions(
       input.roleId,
       input.permissionIds,
     );
+
+    if (input.policyVersion !== undefined) {
+      await this.deps.policyHistoryRepository.create({
+        policyVersion: input.policyVersion,
+        changeType: "role_permissions",
+        targetId: input.roleId,
+        targetType: "role",
+        actorId: input.actorId,
+        requestId: input.requestId,
+        targetCount: nextPermissionIds.size,
+        addedCount,
+        removedCount,
+      });
+    }
 
     return this.deps.permissionRepository.findByIds(input.permissionIds);
   }
