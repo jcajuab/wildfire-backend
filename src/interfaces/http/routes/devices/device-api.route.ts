@@ -84,6 +84,7 @@ export const registerDeviceApiRoutes = (args: {
         const result = await useCases.registerDevice.execute({
           name: payload.name,
           identifier: payload.identifier,
+          deviceFingerprint: payload.deviceFingerprint ?? null,
           location: payload.location ?? null,
           ipAddress: payload.ipAddress ?? null,
           macAddress: payload.macAddress ?? null,

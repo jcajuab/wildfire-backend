@@ -4,6 +4,7 @@ import { z } from "zod";
 export const deviceSchema = z.object({
   id: z.string(),
   identifier: z.string(),
+  deviceFingerprint: z.string().nullable().optional(),
   name: z.string(),
   location: z.string().nullable(),
   ipAddress: z.string().nullable(),
@@ -35,6 +36,7 @@ export const deviceGroupIdParamSchema = z.object({
 
 export const registerDeviceSchema = z.object({
   identifier: z.string().min(1),
+  deviceFingerprint: z.string().min(1).max(255).nullable().optional(),
   name: z.string().min(1),
   location: z.string().nullable().optional(),
   ipAddress: z.string().min(1).max(128).nullable().optional(),
@@ -131,6 +133,7 @@ export const registerDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     identifier: { type: "string" },
+    deviceFingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
     name: { type: "string" },
     location: { oneOf: [{ type: "string" }, { type: "null" }] },
     ipAddress: { oneOf: [{ type: "string" }, { type: "null" }] },

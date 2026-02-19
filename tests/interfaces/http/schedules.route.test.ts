@@ -104,6 +104,7 @@ const makeApp = async (
         findById: async (id: string) =>
           devices.find((device) => device.id === id) ?? null,
         findByIdentifier: async () => null,
+        findByFingerprint: async () => null,
         create: async () => {
           throw new Error("not used");
         },

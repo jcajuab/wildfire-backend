@@ -10,6 +10,7 @@ const toRecord = (row: typeof devices.$inferSelect): DeviceRecord => ({
   id: row.id,
   name: row.name,
   identifier: row.identifier,
+  deviceFingerprint: row.deviceFingerprint ?? null,
   location: row.location ?? null,
   ipAddress: row.ipAddress ?? null,
   macAddress: row.macAddress ?? null,
@@ -65,9 +66,19 @@ export class DeviceDbRepository implements DeviceRepository {
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
+  async findByFingerprint(fingerprint: string): Promise<DeviceRecord | null> {
+    const rows = await db
+      .select()
+      .from(devices)
+      .where(eq(devices.deviceFingerprint, fingerprint))
+      .limit(1);
+    return rows[0] ? toRecord(rows[0]) : null;
+  }
+
   async create(input: {
     name: string;
     identifier: string;
+    deviceFingerprint?: string | null;
     location: string | null;
   }): Promise<DeviceRecord> {
     const id = crypto.randomUUID();
@@ -76,6 +87,7 @@ export class DeviceDbRepository implements DeviceRepository {
       id,
       name: input.name,
       identifier: input.identifier,
+      deviceFingerprint: input.deviceFingerprint ?? null,
       location: input.location,
       createdAt: now,
       updatedAt: now,
@@ -85,6 +97,7 @@ export class DeviceDbRepository implements DeviceRepository {
       id,
       name: input.name,
       identifier: input.identifier,
+      deviceFingerprint: input.deviceFingerprint ?? null,
       location: input.location,
       ipAddress: null,
       macAddress: null,
@@ -102,6 +115,8 @@ export class DeviceDbRepository implements DeviceRepository {
     id: string,
     input: {
       name?: string;
+      identifier?: string;
+      deviceFingerprint?: string | null;
       location?: string | null;
       ipAddress?: string | null;
       macAddress?: string | null;
@@ -116,6 +131,11 @@ export class DeviceDbRepository implements DeviceRepository {
 
     const next = {
       name: input.name ?? existing.name,
+      identifier: input.identifier ?? existing.identifier,
+      deviceFingerprint:
+        input.deviceFingerprint !== undefined
+          ? input.deviceFingerprint
+          : (existing.deviceFingerprint ?? null),
       location:
         input.location !== undefined ? input.location : existing.location,
       ipAddress:
@@ -143,6 +163,8 @@ export class DeviceDbRepository implements DeviceRepository {
       .update(devices)
       .set({
         name: next.name,
+        identifier: next.identifier,
+        deviceFingerprint: next.deviceFingerprint,
         location: next.location,
         ipAddress: next.ipAddress,
         macAddress: next.macAddress,

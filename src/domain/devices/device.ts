@@ -8,6 +8,7 @@ export class DeviceValidationError extends Error {
 export interface DeviceInput {
   name: string;
   identifier: string;
+  deviceFingerprint?: string | null;
   location?: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
@@ -20,6 +21,7 @@ export interface DeviceInput {
 export interface DeviceProps {
   name: string;
   identifier: string;
+  deviceFingerprint: string | null;
   location: string | null;
   ipAddress: string | null;
   macAddress: string | null;
@@ -46,6 +48,12 @@ export const createDeviceProps = (input: DeviceInput): DeviceProps => {
   return {
     name,
     identifier,
+    deviceFingerprint: input.deviceFingerprint
+      ? (() => {
+          const trimmed = input.deviceFingerprint.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        })()
+      : null,
     location: input.location ? input.location.trim() : null,
     ipAddress: input.ipAddress ? input.ipAddress.trim() : null,
     macAddress: input.macAddress ? input.macAddress.trim() : null,

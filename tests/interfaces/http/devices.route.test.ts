@@ -16,6 +16,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     id: string;
     name: string;
     identifier: string;
+    deviceFingerprint: string | null;
     location: string | null;
     screenWidth: number | null;
     screenHeight: number | null;
@@ -44,9 +45,13 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         devices.find((device) => device.id === id) ?? null,
       findByIdentifier: async (identifier: string) =>
         devices.find((device) => device.identifier === identifier) ?? null,
+      findByFingerprint: async (fingerprint: string) =>
+        devices.find((device) => device.deviceFingerprint === fingerprint) ??
+        null,
       create: async (input: {
         name: string;
         identifier: string;
+        deviceFingerprint?: string | null;
         location: string | null;
       }) => {
         if (options?.registerDeviceError) {
@@ -55,6 +60,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         const record = {
           id: `device-${devices.length + 1}`,
           ...input,
+          deviceFingerprint: input.deviceFingerprint ?? null,
           screenWidth: null,
           screenHeight: null,
           outputType: null,
@@ -70,6 +76,8 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         id: string,
         input: {
           name?: string;
+          identifier?: string;
+          deviceFingerprint?: string | null;
           location?: string | null;
           screenWidth?: number | null;
           screenHeight?: number | null;
@@ -80,6 +88,10 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         const record = devices.find((device) => device.id === id);
         if (!record) return null;
         if (input.name !== undefined) record.name = input.name;
+        if (input.identifier !== undefined)
+          record.identifier = input.identifier;
+        if (input.deviceFingerprint !== undefined)
+          record.deviceFingerprint = input.deviceFingerprint;
         if (input.location !== undefined) record.location = input.location;
         if (input.screenWidth !== undefined)
           record.screenWidth = input.screenWidth;
@@ -318,6 +330,89 @@ describe("Devices routes", () => {
     expect(response.status).toBe(500);
   });
 
+  test("POST /devices reuses existing device when fingerprint matches", async () => {
+    const { app, devices } = await makeApp();
+    const first = await app.request("/devices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "device-key",
+      },
+      body: JSON.stringify({
+        name: "Lobby",
+        identifier: "device-one",
+        deviceFingerprint: "fp-1",
+      }),
+    });
+    const firstBody = await parseJson<{ id: string }>(first);
+
+    const second = await app.request("/devices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "device-key",
+      },
+      body: JSON.stringify({
+        name: "Lobby Updated",
+        identifier: "device-two",
+        deviceFingerprint: "fp-1",
+      }),
+    });
+
+    expect(second.status).toBe(200);
+    const secondBody = await parseJson<{ id: string; identifier: string }>(
+      second,
+    );
+    expect(secondBody.id).toBe(firstBody.id);
+    expect(secondBody.identifier).toBe("device-two");
+    expect(devices).toHaveLength(1);
+  });
+
+  test("POST /devices rejects conflicting identifier and fingerprint", async () => {
+    const { app } = await makeApp();
+
+    await app.request("/devices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "device-key",
+      },
+      body: JSON.stringify({
+        name: "Device A",
+        identifier: "device-a",
+        deviceFingerprint: "fp-a",
+      }),
+    });
+
+    await app.request("/devices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "device-key",
+      },
+      body: JSON.stringify({
+        name: "Device B",
+        identifier: "device-b",
+        deviceFingerprint: "fp-b",
+      }),
+    });
+
+    const conflict = await app.request("/devices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "device-key",
+      },
+      body: JSON.stringify({
+        name: "Conflict",
+        identifier: "device-a",
+        deviceFingerprint: "fp-b",
+      }),
+    });
+
+    expect(conflict.status).toBe(400);
+  });
+
   test("GET /devices/:id/manifest returns 401 without API key", async () => {
     const { app } = await makeApp();
     const response = await app.request(`/devices/${deviceId}/manifest`);
@@ -346,6 +441,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -380,6 +476,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -404,6 +501,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -454,6 +552,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -480,6 +579,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -517,6 +617,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -566,6 +667,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -591,6 +693,7 @@ describe("Devices routes", () => {
       id: deviceId,
       name: "Lobby",
       identifier: "AA:BB",
+      deviceFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,

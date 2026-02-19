@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ValidationError } from "#/application/errors/validation";
 import {
   type DeviceRecord,
   type DeviceRepository,
@@ -26,11 +27,15 @@ const makeRepository = () => {
       records.find((record) => record.id === id) ?? null,
     findByIdentifier: async (identifier: string) =>
       records.find((record) => record.identifier === identifier) ?? null,
+    findByFingerprint: async (fingerprint: string) =>
+      records.find((record) => record.deviceFingerprint === fingerprint) ??
+      null,
     create: async (input) => {
       const record: DeviceRecord = {
         id: `device-${records.length + 1}`,
         name: input.name,
         identifier: input.identifier,
+        deviceFingerprint: input.deviceFingerprint ?? null,
         location: input.location,
         screenWidth: null,
         screenHeight: null,
@@ -46,6 +51,9 @@ const makeRepository = () => {
       const record = records.find((item) => item.id === id);
       if (!record) return null;
       if (input.name !== undefined) record.name = input.name;
+      if (input.identifier !== undefined) record.identifier = input.identifier;
+      if (input.deviceFingerprint !== undefined)
+        record.deviceFingerprint = input.deviceFingerprint;
       if (input.location !== undefined) record.location = input.location;
       if (input.screenWidth !== undefined)
         record.screenWidth = input.screenWidth;
@@ -128,6 +136,60 @@ describe("Devices use cases", () => {
     expect(updated.id).toBe(created.id);
     expect(updated.name).toBe("Lobby Display");
     expect(updated.location).toBe("Hallway");
+  });
+
+  test("RegisterDeviceUseCase reuses existing device by fingerprint", async () => {
+    const { repo } = makeRepository();
+    const registerDevice = new RegisterDeviceUseCase({
+      deviceRepository: repo,
+    });
+
+    const created = await registerDevice.execute({
+      name: "Lobby",
+      identifier: "old-identifier",
+      deviceFingerprint: "fp-1",
+      location: null,
+    });
+
+    const updated = await registerDevice.execute({
+      name: "Lobby Renamed",
+      identifier: "new-identifier",
+      deviceFingerprint: "fp-1",
+      location: "Hallway",
+    });
+
+    expect(updated.id).toBe(created.id);
+    expect(updated.identifier).toBe("new-identifier");
+    expect(updated.deviceFingerprint).toBe("fp-1");
+  });
+
+  test("RegisterDeviceUseCase rejects conflicting identifier and fingerprint", async () => {
+    const { repo } = makeRepository();
+    const registerDevice = new RegisterDeviceUseCase({
+      deviceRepository: repo,
+    });
+
+    await registerDevice.execute({
+      name: "Device A",
+      identifier: "device-a",
+      deviceFingerprint: "fp-a",
+      location: null,
+    });
+    await registerDevice.execute({
+      name: "Device B",
+      identifier: "device-b",
+      deviceFingerprint: "fp-b",
+      location: null,
+    });
+
+    await expect(
+      registerDevice.execute({
+        name: "Conflict",
+        identifier: "device-a",
+        deviceFingerprint: "fp-b",
+        location: null,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 
   test("UpdateDeviceUseCase updates mutable device fields", async () => {

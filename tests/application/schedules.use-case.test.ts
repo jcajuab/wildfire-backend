@@ -117,6 +117,7 @@ const makeDeps = () => {
           }
         : null,
     findByIdentifier: async () => null,
+    findByFingerprint: async () => null,
     create: async () => {
       throw new Error("not used");
     },
@@ -223,6 +224,7 @@ describe("Schedules use cases", () => {
         },
         findById: async () => null,
         findByIdentifier: async () => null,
+        findByFingerprint: async () => null,
         create: async () => {
           throw new Error("not used");
         },

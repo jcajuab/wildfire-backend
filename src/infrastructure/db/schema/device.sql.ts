@@ -14,6 +14,7 @@ export const devices = mysqlTable(
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     identifier: varchar("identifier", { length: 255 }).notNull(),
+    deviceFingerprint: varchar("device_fingerprint", { length: 255 }),
     location: varchar("location", { length: 255 }),
     ipAddress: varchar("ip_address", { length: 128 }),
     macAddress: varchar("mac_address", { length: 64 }),
@@ -29,6 +30,9 @@ export const devices = mysqlTable(
     identifierUnique: uniqueIndex("devices_identifier_unique").on(
       table.identifier,
     ),
+    deviceFingerprintUnique: uniqueIndex(
+      "devices_device_fingerprint_unique",
+    ).on(table.deviceFingerprint),
   }),
 );
 

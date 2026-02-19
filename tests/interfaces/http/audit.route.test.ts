@@ -80,6 +80,7 @@ const mockDeviceRepository = {
   list: async () => [],
   findById: async () => null,
   findByIdentifier: async () => null,
+  findByFingerprint: async () => null,
   create: async () => ({
     id: "",
     name: "",

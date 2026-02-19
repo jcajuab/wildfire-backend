@@ -15,6 +15,7 @@ describe("createDeviceProps", () => {
     expect(props).toEqual({
       name: "Lobby Display",
       identifier: "AA:BB:CC",
+      deviceFingerprint: null,
       location: "Main Hall",
       ipAddress: null,
       macAddress: null,
@@ -35,5 +36,15 @@ describe("createDeviceProps", () => {
     expect(() =>
       createDeviceProps({ name: "Display", identifier: "" }),
     ).toThrow(DeviceValidationError);
+  });
+
+  test("normalizes optional fingerprint", () => {
+    const props = createDeviceProps({
+      name: "Display",
+      identifier: "abc",
+      deviceFingerprint: "  fp-123  ",
+    });
+
+    expect(props.deviceFingerprint).toBe("fp-123");
   });
 });

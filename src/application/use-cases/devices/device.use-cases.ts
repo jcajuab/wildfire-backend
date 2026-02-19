@@ -112,10 +112,29 @@ export class RegisterDeviceUseCase {
     const existing = await this.deps.deviceRepository.findByIdentifier(
       props.identifier,
     );
+    const existingByFingerprint = props.deviceFingerprint
+      ? await this.deps.deviceRepository.findByFingerprint(
+          props.deviceFingerprint,
+        )
+      : null;
 
-    if (existing) {
-      const updated = await this.deps.deviceRepository.update(existing.id, {
+    if (
+      existing &&
+      existingByFingerprint &&
+      existing.id !== existingByFingerprint.id
+    ) {
+      throw new ValidationError(
+        "Device identifier and fingerprint belong to different records",
+      );
+    }
+
+    const target = existing ?? existingByFingerprint;
+
+    if (target) {
+      const updated = await this.deps.deviceRepository.update(target.id, {
         name: props.name,
+        identifier: props.identifier,
+        deviceFingerprint: props.deviceFingerprint,
         location: props.location,
         ipAddress: props.ipAddress,
         macAddress: props.macAddress,
@@ -133,6 +152,7 @@ export class RegisterDeviceUseCase {
     const created = await this.deps.deviceRepository.create({
       name: props.name,
       identifier: props.identifier,
+      deviceFingerprint: props.deviceFingerprint,
       location: props.location,
     });
     if (
@@ -144,6 +164,7 @@ export class RegisterDeviceUseCase {
       props.orientation !== null
     ) {
       const enriched = await this.deps.deviceRepository.update(created.id, {
+        deviceFingerprint: props.deviceFingerprint,
         ipAddress: props.ipAddress,
         macAddress: props.macAddress,
         screenWidth: props.screenWidth,

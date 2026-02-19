@@ -2,6 +2,7 @@ export interface DeviceRecord {
   id: string;
   name: string;
   identifier: string;
+  deviceFingerprint?: string | null;
   location: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
@@ -19,15 +20,19 @@ export interface DeviceRepository {
   findByIds(ids: string[]): Promise<DeviceRecord[]>;
   findById(id: string): Promise<DeviceRecord | null>;
   findByIdentifier(identifier: string): Promise<DeviceRecord | null>;
+  findByFingerprint(fingerprint: string): Promise<DeviceRecord | null>;
   create(input: {
     name: string;
     identifier: string;
+    deviceFingerprint?: string | null;
     location: string | null;
   }): Promise<DeviceRecord>;
   update(
     id: string,
     input: {
       name?: string;
+      identifier?: string;
+      deviceFingerprint?: string | null;
       location?: string | null;
       ipAddress?: string | null;
       macAddress?: string | null;
