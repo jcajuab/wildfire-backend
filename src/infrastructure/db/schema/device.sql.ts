@@ -22,6 +22,7 @@ export const devices = mysqlTable(
     screenHeight: int("screen_height"),
     outputType: varchar("output_type", { length: 64 }),
     orientation: varchar("orientation", { length: 16 }),
+    lastSeenAt: timestamp("last_seen_at"),
     refreshNonce: int("refresh_nonce").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

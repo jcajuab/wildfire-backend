@@ -25,6 +25,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     screenHeight: number | null;
     outputType: string | null;
     orientation: "LANDSCAPE" | "PORTRAIT" | null;
+    lastSeenAt?: string | null;
     refreshNonce: number;
     createdAt: string;
     updatedAt: string;
@@ -643,6 +644,41 @@ describe("Devices routes", () => {
     expect(json.total).toBe(1);
     expect(json.page).toBe(1);
     expect(json.pageSize).toBe(50);
+  });
+
+  test("GET /devices returns READY for stale but previously seen devices", async () => {
+    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      deviceFingerprint: null,
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      lastSeenAt: "2025-01-01T00:00:00.000Z",
+      refreshNonce: 0,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request("/devices", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{
+      items: Array<{
+        id: string;
+        onlineStatus: "READY" | "LIVE" | "DOWN";
+        lastSeenAt: string | null;
+      }>;
+    }>(response);
+    expect(json.items[0]?.onlineStatus).toBe("READY");
+    expect(json.items[0]?.lastSeenAt).toBe("2025-01-01T00:00:00.000Z");
   });
 
   test("GET /devices/:id returns device", async () => {

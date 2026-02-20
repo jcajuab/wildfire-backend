@@ -21,6 +21,10 @@ const toRecord = (row: typeof devices.$inferSelect): DeviceRecord => ({
     row.orientation === "LANDSCAPE" || row.orientation === "PORTRAIT"
       ? row.orientation
       : null,
+  lastSeenAt:
+    row.lastSeenAt instanceof Date
+      ? row.lastSeenAt.toISOString()
+      : (row.lastSeenAt ?? null),
   refreshNonce: row.refreshNonce,
   createdAt:
     row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
@@ -105,6 +109,7 @@ export class DeviceDbRepository implements DeviceRepository {
       screenHeight: null,
       outputType: null,
       orientation: null,
+      lastSeenAt: null,
       refreshNonce: 0,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -199,6 +204,9 @@ export class DeviceDbRepository implements DeviceRepository {
   }
 
   async touchSeen(id: string, at: Date): Promise<void> {
-    await db.update(devices).set({ updatedAt: at }).where(eq(devices.id, id));
+    await db
+      .update(devices)
+      .set({ lastSeenAt: at, updatedAt: at })
+      .where(eq(devices.id, id));
   }
 }

@@ -44,6 +44,7 @@ const makeRepository = () => {
         screenHeight: null,
         outputType: null,
         orientation: null,
+        lastSeenAt: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
@@ -167,6 +168,55 @@ describe("Devices use cases", () => {
 
     const result = await listDevices.execute();
     expect(result.items).toHaveLength(1);
+  });
+
+  test("ListDevicesUseCase maps onlineStatus from lastSeenAt", async () => {
+    const { repo, records } = makeRepository();
+    const listDevices = new ListDevicesUseCase({ deviceRepository: repo });
+
+    await repo.create({
+      name: "Never seen",
+      identifier: "AA:BB:CC:00:00:01",
+      location: null,
+    });
+    await repo.create({
+      name: "Recently seen",
+      identifier: "AA:BB:CC:00:00:02",
+      location: null,
+    });
+    await repo.create({
+      name: "Stale heartbeat",
+      identifier: "AA:BB:CC:00:00:03",
+      location: null,
+    });
+
+    const recentSeenAt = new Date(Date.now() - 60 * 1000).toISOString();
+    const staleSeenAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    const neverSeen = records.find((record) => record.name === "Never seen");
+    const recentlySeen = records.find(
+      (record) => record.name === "Recently seen",
+    );
+    const staleHeartbeat = records.find(
+      (record) => record.name === "Stale heartbeat",
+    );
+
+    if (!neverSeen || !recentlySeen || !staleHeartbeat) {
+      throw new Error("Expected seeded device records to exist");
+    }
+
+    neverSeen.lastSeenAt = null;
+    recentlySeen.lastSeenAt = recentSeenAt;
+    staleHeartbeat.lastSeenAt = staleSeenAt;
+
+    const result = await listDevices.execute();
+    const statusByIdentifier = new Map(
+      result.items.map((item) => [item.identifier, item.onlineStatus]),
+    );
+
+    expect(statusByIdentifier.get(neverSeen.identifier)).toBe("DOWN");
+    expect(statusByIdentifier.get(recentlySeen.identifier)).toBe("LIVE");
+    expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("READY");
   });
 
   test("GetDeviceUseCase throws when missing", async () => {

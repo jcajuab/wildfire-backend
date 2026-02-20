@@ -13,8 +13,8 @@ export const deviceSchema = z.object({
   screenHeight: z.number().int().nullable(),
   outputType: z.string().nullable(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
-  lastSeenAt: z.string(),
-  onlineStatus: z.enum(["LIVE", "DOWN"]),
+  lastSeenAt: z.string().nullable(),
+  onlineStatus: z.enum(["READY", "LIVE", "DOWN"]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

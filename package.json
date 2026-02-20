@@ -9,6 +9,7 @@
     "check:architecture": "bun run scripts/check-architecture-boundaries.ts",
     "db:drop": "dotenvx run -- bun run scripts/db/drop-all-tables.ts -- --force",
     "db:dump": "dotenvx run -- sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
+    "db:backfill:last-seen": "dotenvx run -- bun run scripts/db/backfill-device-last-seen.ts",
     "db:integrity": "dotenvx run -- bun run scripts/db-integrity-check.ts",
     "db:push": "dotenvx run -- drizzle-kit push",
     "db:seed": "dotenvx run -- bun run scripts/seed.ts",

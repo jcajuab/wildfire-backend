@@ -87,12 +87,15 @@ const isDuplicatePairingCodeError = (error: unknown): boolean => {
 };
 
 function withTelemetry(device: DeviceRecord) {
-  const lastSeenAt = device.updatedAt;
-  const lastSeenMs = Date.parse(lastSeenAt);
+  const lastSeenAt = device.lastSeenAt ?? null;
+  const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.NaN;
   const onlineStatus =
-    Number.isFinite(lastSeenMs) && Date.now() - lastSeenMs <= ONLINE_WINDOW_MS
-      ? "LIVE"
-      : "DOWN";
+    lastSeenAt === null
+      ? "DOWN"
+      : Number.isFinite(lastSeenMs) &&
+          Date.now() - lastSeenMs <= ONLINE_WINDOW_MS
+        ? "LIVE"
+        : "READY";
   return {
     ...device,
     ipAddress: device.ipAddress ?? null,

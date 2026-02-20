@@ -10,6 +10,7 @@ export interface DeviceRecord {
   screenHeight?: number | null;
   outputType?: string | null;
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+  lastSeenAt?: string | null;
   refreshNonce?: number;
   createdAt: string;
   updatedAt: string;
