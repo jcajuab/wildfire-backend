@@ -458,6 +458,8 @@ describe("Devices use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        listBySeries: async () => [],
+        deleteBySeries: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -535,6 +537,8 @@ describe("Devices use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        listBySeries: async () => [],
+        deleteBySeries: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -608,12 +612,13 @@ describe("Devices use cases", () => {
         listByDevice: async () => [
           {
             id: "schedule-1",
+            seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
             deviceId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            daysOfWeek: [1],
+            dayOfWeek: 1,
             priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -628,6 +633,8 @@ describe("Devices use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        listBySeries: async () => [],
+        deleteBySeries: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -785,12 +792,13 @@ describe("Devices use cases", () => {
         listByDevice: async () => [
           {
             id: "schedule-1",
+            seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
             deviceId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            daysOfWeek: [1],
+            dayOfWeek: 1,
             priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -805,6 +813,8 @@ describe("Devices use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        listBySeries: async () => [],
+        deleteBySeries: async () => 0,
       },
       playlistRepository: {
         list: async () => [],
@@ -908,12 +918,13 @@ describe("Devices use cases", () => {
         listByDevice: async () => [
           {
             id: "schedule-1",
+            seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
             deviceId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            daysOfWeek: [1],
+            dayOfWeek: 1,
             priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -928,6 +939,8 @@ describe("Devices use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        listBySeries: async () => [],
+        deleteBySeries: async () => 0,
       },
       playlistRepository: {
         list: async () => [],

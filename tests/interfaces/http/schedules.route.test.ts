@@ -16,12 +16,15 @@ const makeApp = async (
   const app = new Hono();
   const schedules: Array<{
     id: string;
+    seriesId: string;
     name: string;
     playlistId: string;
     deviceId: string;
+    startDate?: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
-    daysOfWeek: number[];
+    dayOfWeek: number;
     priority: number;
     isActive: boolean;
     createdAt: string;
@@ -56,6 +59,8 @@ const makeApp = async (
       scheduleRepository: {
         list: async () => [...schedules],
         listByDevice: async () => [],
+        listBySeries: async (seriesId: string) =>
+          schedules.filter((schedule) => schedule.seriesId === seriesId),
         findById: async (id: string) =>
           schedules.find((schedule) => schedule.id === id) ?? null,
         create: async (input) => {
@@ -71,9 +76,31 @@ const makeApp = async (
           schedules.push(record);
           return record;
         },
-        update: async () => null,
-        delete: async () => false,
-        countByPlaylistId: async () => 0,
+        update: async (id, input) => {
+          const index = schedules.findIndex((schedule) => schedule.id === id);
+          if (index === -1) return null;
+          const current = schedules[index];
+          if (!current) return null;
+          const next = { ...current, ...input };
+          schedules[index] = next;
+          return next;
+        },
+        delete: async (id) => {
+          const index = schedules.findIndex((schedule) => schedule.id === id);
+          if (index === -1) return false;
+          schedules.splice(index, 1);
+          return true;
+        },
+        countByPlaylistId: async (id) =>
+          schedules.filter((schedule) => schedule.playlistId === id).length,
+        deleteBySeries: async (seriesId) => {
+          const before = schedules.length;
+          const remaining = schedules.filter(
+            (schedule) => schedule.seriesId !== seriesId,
+          );
+          schedules.splice(0, schedules.length, ...remaining);
+          return before - schedules.length;
+        },
       },
       playlistRepository: {
         list: async () => [...playlists],
@@ -204,8 +231,8 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(201);
-    const json = await parseJson<{ id: string }>(response);
-    expect(json.id).toBeDefined();
+    const json = await parseJson<{ items: Array<{ id: string }> }>(response);
+    expect(json.items[0]?.id).toBeDefined();
   });
 
   test("POST /schedules returns 404 when playlist missing", async () => {
@@ -289,5 +316,54 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(500);
+  });
+
+  test("DELETE /schedules/series/:seriesId deletes all rows in a series", async () => {
+    const { app, issueToken } = await makeApp([
+      "schedules:create",
+      "schedules:delete",
+      "schedules:read",
+    ]);
+    const token = await issueToken();
+
+    const createResponse = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Weekdays",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "08:00",
+        endTime: "17:00",
+        daysOfWeek: [1, 2, 3, 4, 5],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+    expect(createResponse.status).toBe(201);
+    const created = await parseJson<{ items: Array<{ seriesId: string }> }>(
+      createResponse,
+    );
+    const seriesId = created.items[0]?.seriesId;
+    expect(seriesId).toBeDefined();
+
+    const deleteResponse = await app.request(`/schedules/series/${seriesId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(deleteResponse.status).toBe(204);
+
+    const listResponse = await app.request("/schedules", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const listed = await parseJson<{ items: Array<{ id: string }> }>(
+      listResponse,
+    );
+    expect(listed.items).toHaveLength(0);
   });
 });

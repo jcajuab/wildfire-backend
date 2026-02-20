@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const scheduleSchema = z.object({
   id: z.string(),
+  seriesId: z.string().uuid(),
   name: z.string(),
   playlistId: z.string(),
   deviceId: z.string(),
@@ -9,7 +10,7 @@ export const scheduleSchema = z.object({
   endDate: z.string(),
   startTime: z.string(),
   endTime: z.string(),
-  daysOfWeek: z.array(z.number().int()),
+  dayOfWeek: z.number().int().min(0).max(6),
   priority: z.number().int(),
   isActive: z.boolean(),
   createdAt: z.string(),
@@ -31,8 +32,16 @@ export const scheduleListResponseSchema = z.object({
   pageSize: z.number().int(),
 });
 
+export const scheduleItemsResponseSchema = z.object({
+  items: z.array(scheduleSchema),
+});
+
 export const scheduleIdParamSchema = z.object({
   id: z.string().uuid(),
+});
+
+export const scheduleSeriesIdParamSchema = z.object({
+  seriesId: z.string().uuid(),
 });
 
 export const createScheduleSchema = z.object({
@@ -56,7 +65,20 @@ export const updateScheduleSchema = z.object({
   endDate: z.string().date().optional(),
   startTime: z.string().min(1).optional(),
   endTime: z.string().min(1).optional(),
-  daysOfWeek: z.array(z.number().int()).min(1).optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  priority: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const updateScheduleSeriesSchema = z.object({
+  name: z.string().min(1).optional(),
+  playlistId: z.string().uuid().optional(),
+  deviceId: z.string().uuid().optional(),
+  startDate: z.string().date().optional(),
+  endDate: z.string().date().optional(),
+  startTime: z.string().min(1).optional(),
+  endTime: z.string().min(1).optional(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1).optional(),
   priority: z.number().int().optional(),
   isActive: z.boolean().optional(),
 });

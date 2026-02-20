@@ -109,7 +109,8 @@ export const selectActiveSchedule = <
     isActive: boolean;
     startDate?: string;
     endDate?: string;
-    daysOfWeek: number[];
+    dayOfWeek?: number;
+    daysOfWeek?: number[];
     startTime: string;
     endTime: string;
     priority: number;
@@ -121,6 +122,15 @@ export const selectActiveSchedule = <
 ) => {
   const { day, time } = toZonedDayAndTime(now, timeZone);
   const date = toZonedDateString(now, timeZone);
+  const matchesDay = (schedule: T): boolean => {
+    if (typeof schedule.dayOfWeek === "number") {
+      return schedule.dayOfWeek === day;
+    }
+    if (Array.isArray(schedule.daysOfWeek)) {
+      return schedule.daysOfWeek.includes(day);
+    }
+    return false;
+  };
 
   return (
     schedules
@@ -131,7 +141,7 @@ export const selectActiveSchedule = <
         }
         return isWithinDateWindow(date, schedule.startDate, schedule.endDate);
       })
-      .filter((schedule) => schedule.daysOfWeek.includes(day))
+      .filter(matchesDay)
       .filter((schedule) =>
         isWithinTimeWindow(time, schedule.startTime, schedule.endTime),
       )

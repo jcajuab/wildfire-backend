@@ -8,9 +8,11 @@ import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   CreateScheduleUseCase,
+  DeleteScheduleSeriesUseCase,
   DeleteScheduleUseCase,
   GetScheduleUseCase,
   ListSchedulesUseCase,
+  UpdateScheduleSeriesUseCase,
   UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
@@ -36,7 +38,9 @@ export interface SchedulesRouterUseCases {
   createSchedule: CreateScheduleUseCase;
   getSchedule: GetScheduleUseCase;
   updateSchedule: UpdateScheduleUseCase;
+  updateScheduleSeries: UpdateScheduleSeriesUseCase;
   deleteSchedule: DeleteScheduleUseCase;
+  deleteScheduleSeries: DeleteScheduleSeriesUseCase;
 }
 
 export type SchedulesRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -100,7 +104,20 @@ export const createSchedulesUseCases = (
       systemSettingRepository: deps.repositories.systemSettingRepository,
       deviceEventPublisher,
     }),
+    updateScheduleSeries: new UpdateScheduleSeriesUseCase({
+      scheduleRepository: deps.repositories.scheduleRepository,
+      playlistRepository: deps.repositories.playlistRepository,
+      deviceRepository: deps.repositories.deviceRepository,
+      contentRepository: deps.repositories.contentRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
+      deviceEventPublisher,
+    }),
     deleteSchedule: new DeleteScheduleUseCase({
+      scheduleRepository: deps.repositories.scheduleRepository,
+      playlistRepository: deps.repositories.playlistRepository,
+      deviceEventPublisher,
+    }),
+    deleteScheduleSeries: new DeleteScheduleSeriesUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
       deviceEventPublisher,

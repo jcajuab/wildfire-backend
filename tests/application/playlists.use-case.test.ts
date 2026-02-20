@@ -385,12 +385,13 @@ describe("Playlists use cases", () => {
       list: async () => [
         {
           id: "schedule-1",
+          seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
           deviceId: "device-1",
           startTime: "08:00",
           endTime: "08:01",
-          daysOfWeek: [1],
+          dayOfWeek: 1,
           priority: 10,
           isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
@@ -408,6 +409,8 @@ describe("Playlists use cases", () => {
       },
       delete: async () => false,
       countByPlaylistId: async () => 0,
+      listBySeries: async () => [],
+      deleteBySeries: async () => 0,
     };
     const useCase = new AddPlaylistItemUseCase({
       playlistRepository: deps.playlistRepository,

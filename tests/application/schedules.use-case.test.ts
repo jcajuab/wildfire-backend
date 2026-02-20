@@ -13,6 +13,7 @@ import {
 const makeDeps = () => {
   const schedules = [] as Array<{
     id: string;
+    seriesId: string;
     name: string;
     playlistId: string;
     deviceId: string;
@@ -20,7 +21,7 @@ const makeDeps = () => {
     endDate?: string;
     startTime: string;
     endTime: string;
-    daysOfWeek: number[];
+    dayOfWeek: number;
     priority: number;
     isActive: boolean;
     createdAt: string;
@@ -31,6 +32,8 @@ const makeDeps = () => {
     list: async () => [...schedules],
     listByDevice: async (deviceId: string) =>
       schedules.filter((schedule) => schedule.deviceId === deviceId),
+    listBySeries: async (seriesId: string) =>
+      schedules.filter((schedule) => schedule.seriesId === seriesId),
     findById: async () => null,
     create: async (input) => {
       const record = {
@@ -44,6 +47,7 @@ const makeDeps = () => {
     },
     update: async () => null,
     delete: async () => false,
+    deleteBySeries: async () => 0,
     countByPlaylistId: async () => 0,
   };
 
@@ -154,12 +158,13 @@ describe("Schedules use cases", () => {
         list: async () => [
           {
             id: "schedule-1",
+            seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
             deviceId: "device-1",
             startTime: "08:00",
             endTime: "17:00",
-            daysOfWeek: [1, 2, 3],
+            dayOfWeek: 1,
             priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -174,6 +179,8 @@ describe("Schedules use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        listBySeries: async () => [],
+        deleteBySeries: async () => 0,
       },
       playlistRepository: {
         list: async () => {
@@ -352,12 +359,13 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "schedule-1",
+        seriesId: "series-1",
         name: "Morning",
         playlistId: "playlist-1",
         deviceId: "device-1",
         startTime: "08:00",
         endTime: "12:00",
-        daysOfWeek: [1],
+        dayOfWeek: 1,
         priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -365,12 +373,13 @@ describe("Schedules use cases", () => {
       },
       {
         id: "schedule-2",
+        seriesId: "series-2",
         name: "Emergency",
         playlistId: "playlist-1",
         deviceId: "device-1",
         startTime: "08:00",
         endTime: "12:00",
-        daysOfWeek: [1],
+        dayOfWeek: 1,
         priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -392,12 +401,13 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "schedule-manila",
+        seriesId: "series-manila",
         name: "Manila Evening",
         playlistId: "playlist-1",
         deviceId: "device-1",
         startTime: "17:00",
         endTime: "18:00",
-        daysOfWeek: [1],
+        dayOfWeek: 1,
         priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -405,12 +415,13 @@ describe("Schedules use cases", () => {
       },
       {
         id: "schedule-utc",
+        seriesId: "series-utc",
         name: "UTC Morning",
         playlistId: "playlist-1",
         deviceId: "device-1",
         startTime: "09:00",
         endTime: "10:00",
-        daysOfWeek: [1],
+        dayOfWeek: 1,
         priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -433,6 +444,7 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "local-date",
+        seriesId: "series-local",
         name: "Local Date Window",
         playlistId: "playlist-1",
         deviceId: "device-1",
@@ -440,7 +452,7 @@ describe("Schedules use cases", () => {
         endDate: "2025-01-01",
         startTime: "00:00",
         endTime: "23:59",
-        daysOfWeek: [3],
+        dayOfWeek: 3,
         priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -448,6 +460,7 @@ describe("Schedules use cases", () => {
       },
       {
         id: "utc-date",
+        seriesId: "series-utc",
         name: "UTC Date Window",
         playlistId: "playlist-1",
         deviceId: "device-1",
@@ -455,7 +468,7 @@ describe("Schedules use cases", () => {
         endDate: "2024-12-31",
         startTime: "00:00",
         endTime: "23:59",
-        daysOfWeek: [3],
+        dayOfWeek: 3,
         priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",

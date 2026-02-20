@@ -80,12 +80,15 @@ const setup = async () => {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS schedules (
       id varchar(36) PRIMARY KEY,
+      series_id varchar(36) NOT NULL,
       name varchar(255) NOT NULL,
       playlist_id varchar(36) NOT NULL,
       device_id varchar(36) NOT NULL,
+      start_date varchar(10) NOT NULL DEFAULT '1970-01-01',
+      end_date varchar(10) NOT NULL DEFAULT '2099-12-31',
       start_time varchar(5) NOT NULL,
       end_time varchar(5) NOT NULL,
-      days_of_week json NOT NULL,
+      day_of_week int NOT NULL,
       priority int NOT NULL,
       is_active boolean NOT NULL DEFAULT true,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -168,12 +171,13 @@ describe("Module repositories (integration)", () => {
 
     const scheduleRepo = new ScheduleDbRepository();
     const created = await scheduleRepo.create({
+      seriesId: "series-1",
       name: "Morning",
       playlistId: "playlist-1",
       deviceId: "device-1",
       startTime: "08:00",
       endTime: "17:00",
-      daysOfWeek: [1, 2, 3],
+      dayOfWeek: 1,
       priority: 10,
       isActive: true,
     });
