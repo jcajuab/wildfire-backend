@@ -47,6 +47,9 @@ export const env = createEnv({
     INVITE_ACCEPT_BASE_URL: z
       .string()
       .default("http://localhost:3000/accept-invite"),
+    RESET_PASSWORD_BASE_URL: z
+      .string()
+      .default("http://localhost:3000/reset-password"),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.string().optional().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_ENABLED: z

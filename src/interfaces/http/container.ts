@@ -23,6 +23,7 @@ import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
 import { LogInvitationEmailSender } from "#/infrastructure/notifications/log-invitation-email.sender";
+import { LogPasswordResetEmailSender } from "#/infrastructure/notifications/log-password-reset-email.sender";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { SystemClock } from "#/infrastructure/time/system.clock";
 
@@ -71,6 +72,7 @@ export interface HttpContainer {
     tokenIssuer: JwtTokenIssuer;
     clock: SystemClock;
     invitationEmailSender: LogInvitationEmailSender;
+    passwordResetEmailSender: LogPasswordResetEmailSender;
   };
   storage: {
     contentStorage: S3ContentStorage;
@@ -115,6 +117,7 @@ export const createHttpContainer = (
   });
   const clock = new SystemClock();
   const invitationEmailSender = new LogInvitationEmailSender();
+  const passwordResetEmailSender = new LogPasswordResetEmailSender();
 
   const contentStorage = new S3ContentStorage({
     bucket: config.minio.bucket,
@@ -155,6 +158,7 @@ export const createHttpContainer = (
       tokenIssuer,
       clock,
       invitationEmailSender,
+      passwordResetEmailSender,
     },
     storage: {
       contentStorage,

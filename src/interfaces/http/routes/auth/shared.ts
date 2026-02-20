@@ -11,7 +11,10 @@ import {
   type TokenIssuer,
 } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
-import { type InvitationEmailSender } from "#/application/ports/notifications";
+import {
+  type InvitationEmailSender,
+  type PasswordResetEmailSender,
+} from "#/application/ports/notifications";
 import {
   type AuthorizationRepository,
   type UserRepository,
@@ -55,8 +58,10 @@ export interface AuthRouterDeps {
   passwordResetTokenRepository: PasswordResetTokenRepository;
   invitationRepository: InvitationRepository;
   invitationEmailSender: InvitationEmailSender;
+  passwordResetEmailSender?: PasswordResetEmailSender;
   inviteTokenTtlSeconds: number;
   inviteAcceptBaseUrl: string;
+  resetPasswordBaseUrl?: string;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
   updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
@@ -145,6 +150,11 @@ export const createAuthUseCases = (
     forgotPassword: new ForgotPasswordUseCase({
       userRepository: deps.userRepository,
       passwordResetTokenRepository: deps.passwordResetTokenRepository,
+      passwordResetEmailSender: deps.passwordResetEmailSender ?? {
+        sendResetLink: async () => {},
+      },
+      resetPasswordBaseUrl:
+        deps.resetPasswordBaseUrl ?? "http://localhost:3000/reset-password",
     }),
     resetPassword: new ResetPasswordUseCase({
       passwordResetTokenRepository: deps.passwordResetTokenRepository,

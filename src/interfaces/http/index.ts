@@ -107,8 +107,10 @@ const authRouter = createAuthRouter({
     container.repositories.passwordResetTokenRepository,
   invitationRepository: container.repositories.invitationRepository,
   invitationEmailSender: container.auth.invitationEmailSender,
+  passwordResetEmailSender: container.auth.passwordResetEmailSender,
   inviteTokenTtlSeconds: env.INVITE_TOKEN_TTL_SECONDS,
   inviteAcceptBaseUrl: env.INVITE_ACCEPT_BASE_URL,
+  resetPasswordBaseUrl: env.RESET_PASSWORD_BASE_URL,
   deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({
     userRepository: container.repositories.userRepository,
   }),

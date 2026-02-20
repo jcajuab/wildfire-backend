@@ -5,3 +5,11 @@ export interface InvitationEmailSender {
     expiresAt: Date;
   }): Promise<void>;
 }
+
+export interface PasswordResetEmailSender {
+  sendResetLink(input: {
+    email: string;
+    resetUrl: string;
+    expiresAt: Date;
+  }): Promise<void>;
+}

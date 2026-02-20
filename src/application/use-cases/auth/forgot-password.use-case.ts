@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { type PasswordResetTokenRepository } from "#/application/ports/auth";
+import { type PasswordResetEmailSender } from "#/application/ports/notifications";
 import { type UserRepository } from "#/application/ports/rbac";
 
 const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
@@ -8,11 +9,20 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+const DEFAULT_RESET_PASSWORD_BASE_URL = "http://localhost:3000/reset-password";
+
+function buildResetPasswordUrl(baseUrl: string, token: string): string {
+  const normalized = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+  return `${normalized}?token=${encodeURIComponent(token)}`;
+}
+
 export class ForgotPasswordUseCase {
   constructor(
     private readonly deps: {
       userRepository: UserRepository;
       passwordResetTokenRepository: PasswordResetTokenRepository;
+      passwordResetEmailSender: PasswordResetEmailSender;
+      resetPasswordBaseUrl: string;
     },
   ) {}
 
@@ -36,12 +46,17 @@ export class ForgotPasswordUseCase {
       expiresAt,
     });
 
-    // In a real system, send `token` (not hashed) to the user via email.
-    // For now, the token is returned via a side-channel or log in dev only.
-    if (process.env.NODE_ENV === "development") {
-      console.info(`[dev] Password reset token for ${input.email}: ${token}`);
-    }
+    const resetUrl = buildResetPasswordUrl(
+      this.deps.resetPasswordBaseUrl ?? DEFAULT_RESET_PASSWORD_BASE_URL,
+      token,
+    );
+
+    await this.deps.passwordResetEmailSender.sendResetLink({
+      email: input.email,
+      resetUrl,
+      expiresAt,
+    });
   }
 }
 
-export { hashToken };
+export { buildResetPasswordUrl, hashToken };
