@@ -95,6 +95,7 @@ const makeApp = async (
           return record;
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: {
@@ -171,6 +172,15 @@ const makeApp = async (
         },
         update: async () => null,
         bumpRefreshNonce: async () => false,
+      },
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async (input) => ({
+          key: input.key,
+          value: input.value,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
       },
     },
   });

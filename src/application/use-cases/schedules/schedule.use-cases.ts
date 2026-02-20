@@ -4,6 +4,10 @@ import { type DeviceStreamEventPublisher } from "#/application/ports/device-stre
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import {
+  DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  type SystemSettingRepository,
+} from "#/application/ports/settings";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import {
   isValidDate,
@@ -14,7 +18,7 @@ import {
 import { NotFoundError } from "./errors";
 import { toScheduleView } from "./schedule-view";
 
-const OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
+const DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
 const DAY_SECONDS = 24 * 60 * 60;
 
 const parseTimeToSeconds = (value: string): number => {
@@ -45,6 +49,7 @@ const computeRequiredMinDurationSeconds = async (input: {
   playlistId: string;
   deviceWidth: number;
   deviceHeight: number;
+  scrollPxPerSecond: number;
 }): Promise<number> => {
   const items = await input.playlistRepository.listItems(input.playlistId);
   if (items.length === 0) return 0;
@@ -67,7 +72,7 @@ const computeRequiredMinDurationSeconds = async (input: {
     ) {
       const scaledHeight = (input.deviceWidth / content.width) * content.height;
       const overflow = Math.max(0, scaledHeight - input.deviceHeight);
-      overflowExtra += Math.ceil(overflow / OVERFLOW_SCROLL_PIXELS_PER_SECOND);
+      overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
     }
   }
   return baseDuration + overflowExtra;
@@ -115,6 +120,7 @@ export class CreateScheduleUseCase {
       playlistRepository: PlaylistRepository;
       deviceRepository: DeviceRepository;
       contentRepository: ContentRepository;
+      systemSettingRepository?: SystemSettingRepository;
       deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
@@ -162,12 +168,14 @@ export class CreateScheduleUseCase {
     }
     const deviceWidth = device.screenWidth;
     const deviceHeight = device.screenHeight;
+    const scrollPxPerSecond = await this.getScrollPxPerSecond();
     const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
       playlistRepository: this.deps.playlistRepository,
       contentRepository: this.deps.contentRepository,
       playlistId: input.playlistId,
       deviceWidth,
       deviceHeight,
+      scrollPxPerSecond,
     });
     const windowDurationSeconds = computeWindowDurationSeconds(
       input.startTime,
@@ -200,6 +208,16 @@ export class CreateScheduleUseCase {
 
     return toScheduleView(schedule, playlist, device);
   }
+
+  private async getScrollPxPerSecond(): Promise<number> {
+    const setting = await this.deps.systemSettingRepository?.findByKey(
+      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+    );
+    const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
+    return Number.isInteger(parsed) && parsed > 0
+      ? parsed
+      : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
+  }
 }
 
 export class GetScheduleUseCase {
@@ -231,6 +249,7 @@ export class UpdateScheduleUseCase {
       playlistRepository: PlaylistRepository;
       deviceRepository: DeviceRepository;
       contentRepository: ContentRepository;
+      systemSettingRepository?: SystemSettingRepository;
       deviceEventPublisher?: DeviceStreamEventPublisher;
     },
   ) {}
@@ -319,12 +338,14 @@ export class UpdateScheduleUseCase {
     const nextEndTime = input.endTime ?? existing.endTime;
     const deviceWidth = resolvedDevice.screenWidth;
     const deviceHeight = resolvedDevice.screenHeight;
+    const scrollPxPerSecond = await this.getScrollPxPerSecond();
     const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
       playlistRepository: this.deps.playlistRepository,
       contentRepository: this.deps.contentRepository,
       playlistId: resolvedPlaylist.id,
       deviceWidth,
       deviceHeight,
+      scrollPxPerSecond,
     });
     const windowDurationSeconds = computeWindowDurationSeconds(
       nextStartTime,
@@ -380,6 +401,16 @@ export class UpdateScheduleUseCase {
     ]);
 
     return toScheduleView(schedule, playlist, device);
+  }
+
+  private async getScrollPxPerSecond(): Promise<number> {
+    const setting = await this.deps.systemSettingRepository?.findByKey(
+      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+    );
+    const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
+    return Number.isInteger(parsed) && parsed > 0
+      ? parsed
+      : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
   }
 }
 

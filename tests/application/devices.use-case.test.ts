@@ -427,6 +427,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: {
@@ -503,6 +504,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: {
@@ -610,6 +612,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: {
@@ -805,6 +808,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: contentRepository as never,
@@ -927,6 +931,7 @@ describe("Devices use cases", () => {
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: {

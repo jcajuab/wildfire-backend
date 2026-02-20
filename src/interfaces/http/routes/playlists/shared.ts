@@ -8,6 +8,7 @@ import {
   type UserRepository,
 } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   AddPlaylistItemUseCase,
   CreatePlaylistUseCase,
@@ -15,6 +16,7 @@ import {
   DeletePlaylistUseCase,
   GetPlaylistUseCase,
   ListPlaylistsUseCase,
+  ReorderPlaylistItemsUseCase,
   UpdatePlaylistItemUseCase,
   UpdatePlaylistUseCase,
 } from "#/application/use-cases/playlists";
@@ -33,6 +35,7 @@ export interface PlaylistsRouterDeps {
     authorizationRepository: AuthorizationRepository;
     scheduleRepository: ScheduleRepository;
     deviceRepository: DeviceRepository;
+    systemSettingRepository: SystemSettingRepository;
   };
 }
 
@@ -44,6 +47,7 @@ export interface PlaylistsRouterUseCases {
   deletePlaylist: DeletePlaylistUseCase;
   addPlaylistItem: AddPlaylistItemUseCase;
   updatePlaylistItem: UpdatePlaylistItemUseCase;
+  reorderPlaylistItems: ReorderPlaylistItemsUseCase;
   deletePlaylistItem: DeletePlaylistItemUseCase;
 }
 
@@ -108,6 +112,7 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       deviceRepository: deps.repositories.deviceRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
       deviceEventPublisher,
     }),
     updatePlaylistItem: new UpdatePlaylistItemUseCase({
@@ -115,6 +120,15 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       deviceRepository: deps.repositories.deviceRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
+      deviceEventPublisher,
+    }),
+    reorderPlaylistItems: new ReorderPlaylistItemsUseCase({
+      playlistRepository: deps.repositories.playlistRepository,
+      contentRepository: deps.repositories.contentRepository,
+      scheduleRepository: deps.repositories.scheduleRepository,
+      deviceRepository: deps.repositories.deviceRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
       deviceEventPublisher,
     }),
     deletePlaylistItem: new DeletePlaylistItemUseCase({
@@ -122,6 +136,7 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       deviceRepository: deps.repositories.deviceRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
       deviceEventPublisher,
     }),
   };

@@ -89,6 +89,7 @@ const makeDeps = () => {
       throw new Error("not used");
     },
     updateItem: async () => null,
+    reorderItems: async () => true,
     deleteItem: async () => false,
   };
 
@@ -209,6 +210,7 @@ describe("Schedules use cases", () => {
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       deviceRepository: {

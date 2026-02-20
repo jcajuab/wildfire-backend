@@ -141,6 +141,7 @@ const playlistsRouter = createPlaylistsRouter({
     authorizationRepository: container.repositories.authorizationRepository,
     scheduleRepository: container.repositories.scheduleRepository,
     deviceRepository: container.repositories.deviceRepository,
+    systemSettingRepository: container.repositories.systemSettingRepository,
   },
 });
 
@@ -155,6 +156,7 @@ const schedulesRouter = createSchedulesRouter({
     deviceRepository: container.repositories.deviceRepository,
     contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
+    systemSettingRepository: container.repositories.systemSettingRepository,
   },
 });
 

@@ -34,9 +34,9 @@ export const registerAuthPasswordResetRoutes = (args: {
   const { router, deps, useCases } = args;
 
   router.post(
-    "/forgot-password",
+    "/password/forgot",
     setAction("auth.password.reset.request", {
-      route: "/auth/forgot-password",
+      route: "/auth/password/forgot",
       resourceType: "user",
     }),
     validateJson(postAuthForgotPasswordSchema),
@@ -88,9 +88,9 @@ export const registerAuthPasswordResetRoutes = (args: {
   );
 
   router.post(
-    "/reset-password",
+    "/password/reset",
     setAction("auth.password.reset.complete", {
-      route: "/auth/reset-password",
+      route: "/auth/password/reset",
       resourceType: "user",
     }),
     validateJson(postAuthResetPasswordSchema),

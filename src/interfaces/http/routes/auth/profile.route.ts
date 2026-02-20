@@ -30,9 +30,9 @@ export const registerAuthProfileRoute = (args: {
   const { router, deps, useCases, jwtMiddleware } = args;
 
   router.patch(
-    "/me",
+    "/profile",
     setAction("auth.profile.update", {
-      route: "/auth/me",
+      route: "/auth/profile",
       resourceType: "user",
     }),
     jwtMiddleware,

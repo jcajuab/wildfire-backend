@@ -97,6 +97,7 @@ const makeDeps = () => {
       return record;
     },
     updateItem: async () => null,
+    reorderItems: async () => true,
     deleteItem: async () => false,
   };
 

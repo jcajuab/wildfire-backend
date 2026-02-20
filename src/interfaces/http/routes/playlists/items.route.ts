@@ -10,6 +10,7 @@ import {
   playlistIdParamSchema,
   playlistItemParamSchema,
   playlistItemSchema,
+  reorderPlaylistItemsSchema,
   updatePlaylistItemSchema,
 } from "#/interfaces/http/validators/playlists.schema";
 import {
@@ -104,6 +105,37 @@ export const registerPlaylistItemRoutes = (args: {
           duration: payload.duration,
         });
         return c.json(result);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.put(
+    "/:id/items/reorder",
+    setAction("playlists.item.reorder", {
+      route: "/playlists/:id/items/reorder",
+      resourceType: "playlist-item",
+    }),
+    ...authorize("playlists:update"),
+    validateParams(playlistIdParamSchema),
+    validateJson(reorderPlaylistItemsSchema),
+    describeRoute({
+      description: "Reorder playlist items atomically",
+      tags: playlistTags,
+      responses: {
+        204: { description: "Reordered" },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
+        c.set("resourceId", params.id);
+        await useCases.reorderPlaylistItems.execute({
+          playlistId: params.id,
+          orderedItemIds: payload.orderedItemIds,
+        });
+        return c.body(null, 204);
       },
       ...applicationErrorMappers,
     ),

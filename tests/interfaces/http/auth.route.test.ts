@@ -426,7 +426,7 @@ describe("Auth routes", () => {
     });
   });
 
-  test("GET /auth/me returns refreshed token when authorized", async () => {
+  test("GET /auth/session returns refreshed token when authorized", async () => {
     const { app, nowSeconds } = buildApp();
 
     const loginResponse = await app.request("/auth/login", {
@@ -441,7 +441,7 @@ describe("Auth routes", () => {
     const loginBody = await parseJson<{ token: string }>(loginResponse);
     const token = loginBody.token;
 
-    const response = await app.request("/auth/me", {
+    const response = await app.request("/auth/session", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -475,21 +475,21 @@ describe("Auth routes", () => {
     });
   });
 
-  test("GET /auth/me returns 401 for invalid token payload", async () => {
+  test("GET /auth/session returns 401 for invalid token payload", async () => {
     const { app } = buildApp();
     const token = await sign({ sub: 123 }, "test-secret");
 
-    const response = await app.request("/auth/me", {
+    const response = await app.request("/auth/session", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(response.status).toBe(401);
   });
 
-  test("GET /auth/me returns 401 without token", async () => {
+  test("GET /auth/session returns 401 without token", async () => {
     const { app } = buildApp();
 
-    const response = await app.request("/auth/me");
+    const response = await app.request("/auth/session");
 
     expect(response.status).toBe(401);
   });
@@ -516,11 +516,11 @@ describe("Auth routes", () => {
     expect(response.status).toBe(204);
   });
 
-  test("PATCH /auth/me updates profile and returns refreshed payload", async () => {
+  test("PATCH /auth/profile updates profile and returns refreshed payload", async () => {
     const { app } = buildApp();
     const token = await issueToken();
 
-    const response = await app.request("/auth/me", {
+    const response = await app.request("/auth/profile", {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -543,7 +543,7 @@ describe("Auth routes", () => {
     expect(body.user.timezone).toBe("Asia/Taipei");
   });
 
-  test("POST /auth/me/password returns 204 when current password is valid", async () => {
+  test("POST /auth/password/change returns 204 when current password is valid", async () => {
     const hasher = new BcryptPasswordHasher();
     let passwordHash = await hasher.hash("old-password");
     const { app } = buildApp({
@@ -556,7 +556,7 @@ describe("Auth routes", () => {
     });
     const token = await issueToken();
 
-    const response = await app.request("/auth/me/password", {
+    const response = await app.request("/auth/password/change", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -602,11 +602,11 @@ describe("Auth routes", () => {
     expect(uploads).toEqual(["avatars/user-1"]);
   });
 
-  test("DELETE /auth/me deletes current user", async () => {
+  test("DELETE /auth/profile deletes current user", async () => {
     const { app } = buildApp();
     const token = await issueToken();
 
-    const response = await app.request("/auth/me", {
+    const response = await app.request("/auth/profile", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });

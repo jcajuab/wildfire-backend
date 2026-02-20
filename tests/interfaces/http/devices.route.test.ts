@@ -325,6 +325,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       contentRepository: {

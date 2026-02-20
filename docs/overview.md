@@ -406,7 +406,7 @@ Notes:
 
 - The user must exist in DB (`users`) AND be `isActive=true`, even if the htshadow credentials match.
 
-#### GET `/auth/me` (JWT required)
+#### GET `/auth/session` (JWT required)
 
 Behavior:
 
@@ -421,7 +421,7 @@ Error:
 
 - 401 invalid token / inactive user
 
-#### PATCH `/auth/me` (JWT required)
+#### PATCH `/auth/profile` (JWT required)
 
 Update current user profile (name, timezone). No RBAC permission required.
 
@@ -433,11 +433,11 @@ Request body:
 
 Both fields are optional. Validator: `name` non-empty, max 255; `timezone` max 64 chars, nullable.
 
-Success 200: full auth payload (same shape as GET `/auth/me`), so the client can refresh session in one round-trip.
+Success 200: full auth payload (same shape as GET `/auth/session`), so the client can refresh session in one round-trip.
 
 Error: 400 invalid request, 401 unauthorized, 404 user not found.
 
-#### POST `/auth/me/password` (JWT required)
+#### POST `/auth/password/change` (JWT required)
 
 Change current user password. Verifies current password against htshadow, then updates the htshadow file with the new bcrypt hash.
 
@@ -459,7 +459,7 @@ Upload or replace current user avatar. Accepts one image file (JPEG, PNG, WebP, 
 
 Request: `multipart/form-data` with field `file` (image file).
 
-Success 200: full auth payload (same shape as GET `/auth/me`).
+Success 200: full auth payload (same shape as GET `/auth/session`).
 
 Error: 400 invalid request (e.g. not an image or too large), 401 unauthorized, 404 user not found.
 

@@ -57,5 +57,9 @@ export interface PlaylistRepository {
     id: string,
     input: { sequence?: number; duration?: number },
   ): Promise<PlaylistItemRecord | null>;
+  reorderItems(input: {
+    playlistId: string;
+    orderedItemIds: readonly string[];
+  }): Promise<boolean>;
   deleteItem(id: string): Promise<boolean>;
 }

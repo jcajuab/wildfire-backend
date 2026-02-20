@@ -35,9 +35,9 @@ export const registerAuthPasswordRoute = (args: {
   const { router, deps, jwtMiddleware } = args;
 
   router.post(
-    "/me/password",
+    "/password/change",
     setAction("auth.password.update", {
-      route: "/auth/me/password",
+      route: "/auth/password/change",
       resourceType: "user",
     }),
     jwtMiddleware,

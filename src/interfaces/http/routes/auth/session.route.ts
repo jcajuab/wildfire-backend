@@ -28,9 +28,9 @@ export const registerAuthSessionRoutes = (args: {
   const { router, deps, useCases, jwtMiddleware } = args;
 
   router.get(
-    "/me",
+    "/session",
     setAction("auth.session.refresh", {
-      route: "/auth/me",
+      route: "/auth/session",
       resourceType: "session",
     }),
     jwtMiddleware,
@@ -130,9 +130,9 @@ export const registerAuthSessionRoutes = (args: {
   );
 
   router.delete(
-    "/me",
+    "/profile",
     setAction("auth.account.delete", {
-      route: "/auth/me",
+      route: "/auth/profile",
       resourceType: "user",
     }),
     jwtMiddleware,

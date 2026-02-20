@@ -5,6 +5,7 @@ import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   CreateScheduleUseCase,
   DeleteScheduleUseCase,
@@ -26,6 +27,7 @@ export interface SchedulesRouterDeps {
     deviceRepository: DeviceRepository;
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
+    systemSettingRepository: SystemSettingRepository;
   };
 }
 
@@ -82,6 +84,7 @@ export const createSchedulesUseCases = (
       playlistRepository: deps.repositories.playlistRepository,
       deviceRepository: deps.repositories.deviceRepository,
       contentRepository: deps.repositories.contentRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
       deviceEventPublisher,
     }),
     getSchedule: new GetScheduleUseCase({
@@ -94,6 +97,7 @@ export const createSchedulesUseCases = (
       playlistRepository: deps.repositories.playlistRepository,
       deviceRepository: deps.repositories.deviceRepository,
       contentRepository: deps.repositories.contentRepository,
+      systemSettingRepository: deps.repositories.systemSettingRepository,
       deviceEventPublisher,
     }),
     deleteSchedule: new DeleteScheduleUseCase({

@@ -318,6 +318,48 @@ export class PlaylistDbRepository implements PlaylistRepository {
     return this.findItemById(id);
   }
 
+  async reorderItems(input: {
+    playlistId: string;
+    orderedItemIds: readonly string[];
+  }): Promise<boolean> {
+    const existing = await this.listItems(input.playlistId);
+    if (existing.length === 0) {
+      return input.orderedItemIds.length === 0;
+    }
+
+    const existingIds = existing.map((item) => item.id);
+    if (existingIds.length !== input.orderedItemIds.length) {
+      return false;
+    }
+    const nextSet = new Set(input.orderedItemIds);
+    if (nextSet.size !== input.orderedItemIds.length) {
+      return false;
+    }
+    for (const id of existingIds) {
+      if (!nextSet.has(id)) {
+        return false;
+      }
+    }
+
+    await db.transaction(async (tx) => {
+      // Move sequences away first to avoid unique collisions during swaps.
+      for (const [index, itemId] of input.orderedItemIds.entries()) {
+        await tx
+          .update(playlistItems)
+          .set({ sequence: 10_000 + index + 1 })
+          .where(eq(playlistItems.id, itemId));
+      }
+      for (const [index, itemId] of input.orderedItemIds.entries()) {
+        await tx
+          .update(playlistItems)
+          .set({ sequence: index + 1 })
+          .where(eq(playlistItems.id, itemId));
+      }
+    });
+
+    return true;
+  }
+
   async deleteItem(id: string): Promise<boolean> {
     const result = await db
       .delete(playlistItems)

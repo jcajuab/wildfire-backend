@@ -79,3 +79,7 @@ export const updatePlaylistItemSchema = z.object({
   sequence: z.number().int().optional(),
   duration: z.number().int().optional(),
 });
+
+export const reorderPlaylistItemsSchema = z.object({
+  orderedItemIds: z.array(z.string().uuid()).min(1),
+});

@@ -9,6 +9,10 @@ import {
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
+  DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  type SystemSettingRepository,
+} from "#/application/ports/settings";
+import {
   isValidDuration,
   isValidSequence,
   type PlaylistStatus,
@@ -44,7 +48,7 @@ const publishPlaylistUpdateEvents = async (
   }
 };
 
-const OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
+const DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
 
 const parseTimeToSeconds = (value: string): number => {
   const [hourRaw, minuteRaw] = value.split(":");
@@ -70,6 +74,7 @@ const computeRequiredMinDurationSeconds = async (input: {
   playlistId: string;
   deviceWidth: number;
   deviceHeight: number;
+  scrollPxPerSecond: number;
 }) => {
   const items = await input.playlistRepository.listItems(input.playlistId);
   if (items.length === 0) return 0;
@@ -91,7 +96,7 @@ const computeRequiredMinDurationSeconds = async (input: {
     ) {
       const scaledHeight = (input.deviceWidth / content.width) * content.height;
       const overflow = Math.max(0, scaledHeight - input.deviceHeight);
-      overflowExtra += Math.ceil(overflow / OVERFLOW_SCROLL_PIXELS_PER_SECOND);
+      overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
     }
   }
   return baseDuration + overflowExtra;
@@ -101,6 +106,7 @@ const invalidateImpactedSchedules = async (
   deps: {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
+    systemSettingRepository?: SystemSettingRepository;
     scheduleRepository?: ScheduleRepository;
     deviceRepository?: DeviceRepository;
     deviceEventPublisher?: DeviceStreamEventPublisher;
@@ -110,6 +116,9 @@ const invalidateImpactedSchedules = async (
   if (!deps.scheduleRepository || !deps.deviceRepository) {
     return;
   }
+  const scrollPxPerSecond = await resolveScrollPxPerSecond(
+    deps.systemSettingRepository,
+  );
   const schedules = await deps.scheduleRepository.list();
   const impacted = schedules.filter(
     (schedule) => schedule.playlistId === playlistId && schedule.isActive,
@@ -131,6 +140,7 @@ const invalidateImpactedSchedules = async (
       playlistId,
       deviceWidth,
       deviceHeight,
+      scrollPxPerSecond,
     });
     const windowSeconds = scheduleWindowDurationSeconds(
       schedule.startTime,
@@ -145,6 +155,18 @@ const invalidateImpactedSchedules = async (
       });
     }
   }
+};
+
+const resolveScrollPxPerSecond = async (
+  systemSettingRepository?: SystemSettingRepository,
+): Promise<number> => {
+  const setting = await systemSettingRepository?.findByKey(
+    DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  );
+  const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
 };
 
 export class ListPlaylistsUseCase {
@@ -371,6 +393,7 @@ export class AddPlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       deviceRepository?: DeviceRepository;
       deviceEventPublisher?: DeviceStreamEventPublisher;
@@ -430,6 +453,7 @@ export class UpdatePlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       deviceRepository?: DeviceRepository;
       deviceEventPublisher?: DeviceStreamEventPublisher;
@@ -463,11 +487,51 @@ export class UpdatePlaylistItemUseCase {
   }
 }
 
+export class ReorderPlaylistItemsUseCase {
+  constructor(
+    private readonly deps: {
+      playlistRepository: PlaylistRepository;
+      contentRepository: ContentRepository;
+      systemSettingRepository?: SystemSettingRepository;
+      scheduleRepository?: ScheduleRepository;
+      deviceRepository?: DeviceRepository;
+      deviceEventPublisher?: DeviceStreamEventPublisher;
+    },
+  ) {}
+
+  async execute(input: {
+    playlistId: string;
+    orderedItemIds: readonly string[];
+  }) {
+    const playlist = await this.deps.playlistRepository.findById(
+      input.playlistId,
+    );
+    if (!playlist) {
+      throw new NotFoundError("Playlist not found");
+    }
+    const reordered = await this.deps.playlistRepository.reorderItems({
+      playlistId: input.playlistId,
+      orderedItemIds: input.orderedItemIds,
+    });
+    if (!reordered) {
+      throw new ValidationError("Invalid playlist reorder payload");
+    }
+
+    await publishPlaylistUpdateEvents(
+      this.deps,
+      input.playlistId,
+      "playlist_items_reordered",
+    );
+    await invalidateImpactedSchedules(this.deps, input.playlistId);
+  }
+}
+
 export class DeletePlaylistItemUseCase {
   constructor(
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       deviceRepository?: DeviceRepository;
       deviceEventPublisher?: DeviceStreamEventPublisher;

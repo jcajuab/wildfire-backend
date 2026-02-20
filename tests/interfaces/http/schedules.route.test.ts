@@ -98,6 +98,7 @@ const makeApp = async (
           throw new Error("not used");
         },
         updateItem: async () => null,
+        reorderItems: async () => true,
         deleteItem: async () => false,
       },
       deviceRepository: {
@@ -128,6 +129,15 @@ const makeApp = async (
         update: async () => null,
         countPlaylistReferences: async () => 0,
         delete: async () => false,
+      },
+      systemSettingRepository: {
+        findByKey: async () => null,
+        upsert: async (input) => ({
+          key: input.key,
+          value: input.value,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
       },
     },
   });
