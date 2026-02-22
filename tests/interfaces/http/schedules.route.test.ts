@@ -58,7 +58,8 @@ const makeApp = async (
     repositories: {
       scheduleRepository: {
         list: async () => [...schedules],
-        listByDevice: async () => [],
+        listByDevice: async (deviceId: string) =>
+          schedules.filter((schedule) => schedule.deviceId === deviceId),
         listBySeries: async (seriesId: string) =>
           schedules.filter((schedule) => schedule.seriesId === seriesId),
         findById: async (id: string) =>
@@ -67,8 +68,9 @@ const makeApp = async (
           if (options?.createScheduleError) {
             throw options.createScheduleError;
           }
+          const suffix = String(schedules.length + 1).padStart(12, "0");
           const record = {
-            id: `schedule-${schedules.length + 1}`,
+            id: `00000000-0000-4000-8000-${suffix}`,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
             ...input,
@@ -316,6 +318,192 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(500);
+  });
+
+  test("POST /schedules returns 409 when schedule overlaps on same display", async () => {
+    const { app, issueToken } = await makeApp(["schedules:create"]);
+    const token = await issueToken();
+
+    const first = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Morning",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "08:00",
+        endTime: "10:00",
+        daysOfWeek: [1],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+    expect(first.status).toBe(201);
+
+    const conflict = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Conflict",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "09:00",
+        endTime: "11:00",
+        daysOfWeek: [1],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+
+    expect(conflict.status).toBe(409);
+  });
+
+  test("PATCH /schedules/:id returns 409 when update creates overlap", async () => {
+    const { app, issueToken } = await makeApp([
+      "schedules:create",
+      "schedules:update",
+    ]);
+    const token = await issueToken();
+
+    const first = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Morning",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "08:00",
+        endTime: "10:00",
+        daysOfWeek: [1],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+    const firstJson = await parseJson<{ items: Array<{ id: string }> }>(first);
+    const firstId = firstJson.items[0]?.id;
+    expect(firstId).toBeDefined();
+
+    const second = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Midday",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "11:00",
+        endTime: "12:00",
+        daysOfWeek: [1],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+    const secondJson = await parseJson<{ items: Array<{ id: string }> }>(
+      second,
+    );
+    const secondId = secondJson.items[0]?.id;
+    expect(secondId).toBeDefined();
+
+    const conflict = await app.request(`/schedules/${secondId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        startTime: "09:30",
+        endTime: "11:30",
+      }),
+    });
+
+    expect(conflict.status).toBe(409);
+  });
+
+  test("PATCH /schedules/series/:seriesId returns 409 when update creates overlap", async () => {
+    const { app, issueToken } = await makeApp([
+      "schedules:create",
+      "schedules:update",
+    ]);
+    const token = await issueToken();
+
+    const first = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Morning",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "08:00",
+        endTime: "10:00",
+        daysOfWeek: [1],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+    expect(first.status).toBe(201);
+
+    const second = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Series B",
+        playlistId,
+        deviceId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        startTime: "11:00",
+        endTime: "12:00",
+        daysOfWeek: [1, 2],
+        priority: 10,
+        isActive: true,
+      }),
+    });
+    const secondJson = await parseJson<{ items: Array<{ seriesId: string }> }>(
+      second,
+    );
+    const secondSeriesId = secondJson.items[0]?.seriesId;
+    expect(secondSeriesId).toBeDefined();
+
+    const conflict = await app.request(`/schedules/series/${secondSeriesId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        startTime: "09:00",
+        endTime: "11:30",
+      }),
+    });
+
+    expect(conflict.status).toBe(409);
   });
 
   test("DELETE /schedules/series/:seriesId deletes all rows in a series", async () => {

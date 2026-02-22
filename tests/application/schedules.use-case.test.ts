@@ -8,6 +8,9 @@ import {
   GetActiveScheduleForDeviceUseCase,
   ListSchedulesUseCase,
   NotFoundError,
+  ScheduleConflictError,
+  UpdateScheduleSeriesUseCase,
+  UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 
 const makeDeps = () => {
@@ -34,7 +37,8 @@ const makeDeps = () => {
       schedules.filter((schedule) => schedule.deviceId === deviceId),
     listBySeries: async (seriesId: string) =>
       schedules.filter((schedule) => schedule.seriesId === seriesId),
-    findById: async () => null,
+    findById: async (id: string) =>
+      schedules.find((schedule) => schedule.id === id) ?? null,
     create: async (input) => {
       const record = {
         id: `schedule-${schedules.length + 1}`,
@@ -45,10 +49,35 @@ const makeDeps = () => {
       schedules.push(record);
       return record;
     },
-    update: async () => null,
-    delete: async () => false,
-    deleteBySeries: async () => 0,
-    countByPlaylistId: async () => 0,
+    update: async (id, input) => {
+      const index = schedules.findIndex((schedule) => schedule.id === id);
+      if (index === -1) return null;
+      const current = schedules[index];
+      if (!current) return null;
+      const next = {
+        ...current,
+        ...input,
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      };
+      schedules[index] = next;
+      return next;
+    },
+    delete: async (id: string) => {
+      const index = schedules.findIndex((schedule) => schedule.id === id);
+      if (index === -1) return false;
+      schedules.splice(index, 1);
+      return true;
+    },
+    deleteBySeries: async (seriesId: string) => {
+      const before = schedules.length;
+      const remaining = schedules.filter(
+        (schedule) => schedule.seriesId !== seriesId,
+      );
+      schedules.splice(0, schedules.length, ...remaining);
+      return before - schedules.length;
+    },
+    countByPlaylistId: async (playlistId: string) =>
+      schedules.filter((schedule) => schedule.playlistId === playlistId).length,
   };
 
   const playlistRepository: PlaylistRepository = {
@@ -352,6 +381,232 @@ describe("Schedules use cases", () => {
         isActive: true,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("CreateScheduleUseCase rejects overlapping schedules for the same device", async () => {
+    const deps = makeDeps();
+    deps.schedules.push({
+      id: "schedule-existing",
+      seriesId: "series-existing",
+      name: "Morning Block",
+      playlistId: "playlist-1",
+      deviceId: "device-1",
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+      startTime: "10:00",
+      endTime: "11:00",
+      dayOfWeek: 1,
+      priority: 1,
+      isActive: true,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const useCase = new CreateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      deviceRepository: deps.deviceRepository,
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+      },
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Conflict",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-02-01",
+        endDate: "2025-11-30",
+        startTime: "10:30",
+        endTime: "11:30",
+        daysOfWeek: [1],
+        priority: 1,
+        isActive: true,
+      }),
+    ).rejects.toBeInstanceOf(ScheduleConflictError);
+  });
+
+  test("CreateScheduleUseCase allows touching schedule boundaries", async () => {
+    const deps = makeDeps();
+    deps.schedules.push({
+      id: "schedule-existing",
+      seriesId: "series-existing",
+      name: "Morning Block",
+      playlistId: "playlist-1",
+      deviceId: "device-1",
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+      startTime: "10:00",
+      endTime: "11:00",
+      dayOfWeek: 1,
+      priority: 1,
+      isActive: true,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const useCase = new CreateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      deviceRepository: deps.deviceRepository,
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+      },
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Back to back",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-02-01",
+        endDate: "2025-11-30",
+        startTime: "11:00",
+        endTime: "12:00",
+        daysOfWeek: [1],
+        priority: 1,
+        isActive: true,
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  test("UpdateScheduleUseCase rejects overlapping schedules", async () => {
+    const deps = makeDeps();
+    deps.schedules.push(
+      {
+        id: "schedule-a",
+        seriesId: "series-a",
+        name: "A",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-01-01",
+        endDate: "2025-12-31",
+        startTime: "08:00",
+        endTime: "09:00",
+        dayOfWeek: 1,
+        priority: 1,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "schedule-b",
+        seriesId: "series-b",
+        name: "B",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-01-01",
+        endDate: "2025-12-31",
+        startTime: "10:00",
+        endTime: "11:00",
+        dayOfWeek: 1,
+        priority: 1,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+    const useCase = new UpdateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      deviceRepository: deps.deviceRepository,
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+      },
+    });
+
+    await expect(
+      useCase.execute({
+        id: "schedule-b",
+        startTime: "08:30",
+        endTime: "09:30",
+      }),
+    ).rejects.toBeInstanceOf(ScheduleConflictError);
+  });
+
+  test("UpdateScheduleSeriesUseCase rejects overlapping schedules", async () => {
+    const deps = makeDeps();
+    deps.schedules.push(
+      {
+        id: "series-entry-1",
+        seriesId: "series-a",
+        name: "Series A",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-01-01",
+        endDate: "2025-12-31",
+        startTime: "08:00",
+        endTime: "09:00",
+        dayOfWeek: 1,
+        priority: 1,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "series-entry-2",
+        seriesId: "series-b",
+        name: "Series B",
+        playlistId: "playlist-1",
+        deviceId: "device-1",
+        startDate: "2025-01-01",
+        endDate: "2025-12-31",
+        startTime: "10:00",
+        endTime: "11:00",
+        dayOfWeek: 1,
+        priority: 1,
+        isActive: true,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+    const useCase = new UpdateScheduleSeriesUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      deviceRepository: deps.deviceRepository,
+      contentRepository: {
+        create: async () => {
+          throw new Error("not used");
+        },
+        findById: async () => null,
+        findByIds: async () => [],
+        list: async () => ({ items: [], total: 0 }),
+        update: async () => null,
+        countPlaylistReferences: async () => 0,
+        delete: async () => false,
+      },
+    });
+
+    await expect(
+      useCase.execute({
+        seriesId: "series-b",
+        startTime: "08:30",
+        endTime: "09:30",
+      }),
+    ).rejects.toBeInstanceOf(ScheduleConflictError);
   });
 
   test("GetActiveScheduleForDeviceUseCase returns highest priority", async () => {

@@ -1,4 +1,4 @@
-export { NotFoundError } from "./errors";
+export { NotFoundError, ScheduleConflictError } from "./errors";
 export {
   CreateScheduleUseCase,
   DeleteScheduleSeriesUseCase,
