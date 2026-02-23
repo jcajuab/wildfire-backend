@@ -73,6 +73,26 @@ describe("ContentDbRepository (integration)", () => {
 
     const updated = await repo.update(id, { title: "Updated Poster" });
     expect(updated?.title).toBe("Updated Poster");
+    const metadataUpdated = await repo.update(id, {
+      fileKey: `content/videos/${id}.mp4`,
+      thumbnailKey: `content/thumbnails/${id}.jpg`,
+      type: "VIDEO",
+      mimeType: "video/mp4",
+      fileSize: 456,
+      width: 1920,
+      height: 1080,
+      duration: 30,
+      checksum: "next-checksum",
+    });
+    expect(metadataUpdated?.fileKey).toBe(`content/videos/${id}.mp4`);
+    expect(metadataUpdated?.thumbnailKey).toBe(`content/thumbnails/${id}.jpg`);
+    expect(metadataUpdated?.type).toBe("VIDEO");
+    expect(metadataUpdated?.mimeType).toBe("video/mp4");
+    expect(metadataUpdated?.fileSize).toBe(456);
+    expect(metadataUpdated?.width).toBe(1920);
+    expect(metadataUpdated?.height).toBe(1080);
+    expect(metadataUpdated?.duration).toBe(30);
+    expect(metadataUpdated?.checksum).toBe("next-checksum");
 
     const notUpdated = await repo.update(crypto.randomUUID(), {
       title: "No-op",

@@ -8,6 +8,8 @@ import {
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import {
+  ContentInUseError,
+  ContentMetadataExtractionError,
   ContentStorageCleanupError,
   DeleteContentUseCase,
   GetContentDownloadUrlUseCase,
@@ -15,6 +17,7 @@ import {
   InvalidContentTypeError,
   ListContentUseCase,
   NotFoundError,
+  ReplaceContentFileUseCase,
   UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
@@ -604,5 +607,251 @@ describe("Content use cases", () => {
     await expect(
       useCase.execute({ id: "missing-id", title: "New Title" }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test("replaces file and metadata for draft content", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new ReplaceContentFileUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: {
+        extract: async () => ({ width: 1920, height: 1080, duration: 42 }),
+      },
+      contentThumbnailGenerator: {
+        generate: async () => new Uint8Array([1, 2, 3]),
+      },
+      userRepository,
+      cleanupFailureLogger: {
+        logContentCleanupFailure: () => undefined,
+      },
+    });
+    const id = "11111111-1111-4111-8111-111111111111";
+    records.push({
+      id,
+      title: "Before",
+      type: "PDF",
+      status: "DRAFT",
+      fileKey: "content/documents/11111111-1111-4111-8111-111111111111.pdf",
+      thumbnailKey:
+        "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+      checksum: "old",
+      mimeType: "application/pdf",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const file = new File([new TextEncoder().encode("video")], "clip.mp4", {
+      type: "video/mp4",
+    });
+    const result = await useCase.execute({
+      id,
+      file,
+      title: "After",
+      status: "IN_USE",
+    });
+
+    expect(result.title).toBe("After");
+    expect(result.status).toBe("IN_USE");
+    expect(result.type).toBe("VIDEO");
+    expect(result.mimeType).toBe("video/mp4");
+    expect(result.fileSize).toBe(file.size);
+    expect(storage.uploads).toHaveLength(2);
+    expect(storage.uploads[0]?.key).toBe(`content/videos/${id}.mp4`);
+    expect(storage.uploads[1]?.key).toBe(`content/thumbnails/${id}.jpg`);
+    // Old thumbnail is not deleted because new thumbnail has the same key (overwritten)
+    expect(storage.deletedKeys).toEqual([
+      "content/documents/11111111-1111-4111-8111-111111111111.pdf",
+    ]);
+  });
+
+  test("rejects replace when content is in use", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new ReplaceContentFileUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
+      userRepository,
+    });
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Poster",
+      type: "IMAGE",
+      status: "IN_USE",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "poster.png", {
+      type: "image/png",
+    });
+    await expect(
+      useCase.execute({ id: "11111111-1111-4111-8111-111111111111", file }),
+    ).rejects.toBeInstanceOf(ContentInUseError);
+  });
+
+  test("surfaces metadata extraction errors while replacing content file", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new ReplaceContentFileUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: {
+        extract: async () => {
+          throw new Error("metadata failed");
+        },
+      },
+      contentThumbnailGenerator: thumbnailGenerator,
+      userRepository,
+    });
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Poster",
+      type: "IMAGE",
+      status: "DRAFT",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "poster.png", {
+      type: "image/png",
+    });
+    await expect(
+      useCase.execute({ id: "11111111-1111-4111-8111-111111111111", file }),
+    ).rejects.toBeInstanceOf(ContentMetadataExtractionError);
+  });
+
+  test("retries thumbnail generation on failure and succeeds on third attempt", async () => {
+    const { repository } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+
+    let attempts = 0;
+    const useCase = new UploadContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: {
+        generate: async () => {
+          attempts++;
+          if (attempts < 3) {
+            throw new Error("Transient failure");
+          }
+          return new Uint8Array([1, 2, 3]);
+        },
+      },
+      userRepository,
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+
+    const result = await useCase.execute({
+      title: "Retry test",
+      file,
+      createdById: "user-1",
+    });
+
+    expect(attempts).toBe(3);
+    expect(storage.uploads).toHaveLength(2);
+    expect(storage.uploads[1]?.key).toBe(`content/thumbnails/${result.id}.jpg`);
+  });
+
+  test("accepts content without thumbnail after max retries fail", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+
+    let attempts = 0;
+    const useCase = new UploadContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: {
+        generate: async () => {
+          attempts++;
+          throw new Error("Persistent failure");
+        },
+      },
+      userRepository,
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+
+    const result = await useCase.execute({
+      title: "No thumbnail",
+      file,
+      createdById: "user-1",
+    });
+
+    expect(attempts).toBe(3);
+    expect(result).toBeDefined();
+    expect(storage.uploads).toHaveLength(1);
+    expect(records[0]?.thumbnailKey).toBeNull();
+  });
+
+  test("retries when thumbnail generator returns null", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+
+    let attempts = 0;
+    const useCase = new UploadContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: {
+        generate: async () => {
+          attempts++;
+          if (attempts < 2) {
+            return null;
+          }
+          return new Uint8Array([1, 2, 3]);
+        },
+      },
+      userRepository,
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+
+    const result = await useCase.execute({
+      title: "Null retry test",
+      file,
+      createdById: "user-1",
+    });
+
+    expect(attempts).toBe(2);
+    expect(storage.uploads).toHaveLength(2);
+    expect(records[0]?.thumbnailKey).toBe(
+      `content/thumbnails/${result.id}.jpg`,
+    );
   });
 });

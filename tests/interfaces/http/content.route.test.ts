@@ -41,7 +41,22 @@ const makeRepository = () => {
       },
       update: async (
         id: string,
-        input: Partial<Pick<ContentRecord, "title" | "status">>,
+        input: Partial<
+          Pick<
+            ContentRecord,
+            | "title"
+            | "status"
+            | "fileKey"
+            | "thumbnailKey"
+            | "type"
+            | "mimeType"
+            | "fileSize"
+            | "width"
+            | "height"
+            | "duration"
+            | "checksum"
+          >
+        >,
       ) => {
         const record = records.find((item) => item.id === id);
         if (!record) return null;
@@ -386,5 +401,91 @@ describe("Content routes", () => {
     );
 
     expect(response.status).toBe(403);
+  });
+
+  test("PUT /content/:id/file replaces content file", async () => {
+    const { app, issueToken, records } = await makeApp(["content:update"]);
+    const token = await issueToken();
+    const id = "11111111-1111-4111-8111-111111111111";
+    records.push({
+      id,
+      title: "Old PDF",
+      type: "PDF",
+      status: "DRAFT",
+      fileKey: `content/documents/${id}.pdf`,
+      checksum: "old",
+      mimeType: "application/pdf",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const form = new FormData();
+    form.set(
+      "file",
+      new File([new TextEncoder().encode("video")], "clip.mp4", {
+        type: "video/mp4",
+      }),
+    );
+    form.set("title", "New Video");
+    form.set("status", "IN_USE");
+
+    const response = await app.request(`/content/${id}/file`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      title: string;
+      type: string;
+      status: string;
+      mimeType: string;
+    }>(response);
+    expect(body.title).toBe("New Video");
+    expect(body.type).toBe("VIDEO");
+    expect(body.status).toBe("IN_USE");
+    expect(body.mimeType).toBe("video/mp4");
+  });
+
+  test("PUT /content/:id/file returns 409 when content is in use", async () => {
+    const { app, issueToken, records } = await makeApp(["content:update"]);
+    const token = await issueToken();
+    const id = "11111111-1111-4111-8111-111111111111";
+    records.push({
+      id,
+      title: "In Use",
+      type: "IMAGE",
+      status: "IN_USE",
+      fileKey: `content/images/${id}.png`,
+      checksum: "old",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const form = new FormData();
+    form.set(
+      "file",
+      new File([new TextEncoder().encode("hello")], "poster.png", {
+        type: "image/png",
+      }),
+    );
+
+    const response = await app.request(`/content/${id}/file`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+
+    expect(response.status).toBe(409);
   });
 });

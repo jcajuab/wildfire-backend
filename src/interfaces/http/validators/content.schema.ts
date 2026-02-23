@@ -60,6 +60,20 @@ export const createUploadContentSchema = (maxBytes: number) =>
       ),
   });
 
+export const createReplaceContentFileSchema = (maxBytes: number) =>
+  z.object({
+    file: z
+      .instanceof(File)
+      .refine((file) => file.size > 0, "File is required")
+      .refine((file) => isSupportedMimeType(file.type), "Unsupported file type")
+      .refine(
+        (file) => file.size <= maxBytes,
+        `File exceeds ${maxBytes} bytes`,
+      ),
+    title: z.string().min(1).optional(),
+    status: contentStatusSchema.optional(),
+  });
+
 export const downloadUrlResponseSchema = z.object({
   downloadUrl: z.string().url(),
 });
@@ -89,4 +103,15 @@ export const contentUploadRequestBodySchema: OpenAPIV3_1.SchemaObject = {
     file: { type: "string", format: "binary" },
   },
   required: ["title", "file"],
+};
+
+export const replaceContentFileRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    file: { type: "string", format: "binary" },
+    title: { type: "string", minLength: 1 },
+    status: { type: "string", enum: ["DRAFT", "IN_USE"] },
+  },
+  required: ["file"],
+  additionalProperties: false,
 };

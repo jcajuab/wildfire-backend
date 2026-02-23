@@ -20,7 +20,9 @@ import {
   contentIdParamSchema,
   contentSchema,
   contentUploadRequestBodySchema,
+  createReplaceContentFileSchema,
   createUploadContentSchema,
+  replaceContentFileRequestBodySchema,
   updateContentRequestBodySchema,
   updateContentSchema,
 } from "#/interfaces/http/validators/content.schema";
@@ -44,6 +46,8 @@ export const registerContentWriteRoutes = (args: {
 }) => {
   const { router, useCases, requirePermission, maxUploadBytes } = args;
   const uploadSchema = createUploadContentSchema(maxUploadBytes);
+  const replaceContentFileSchema =
+    createReplaceContentFileSchema(maxUploadBytes);
 
   router.post(
     "/",
@@ -189,6 +193,83 @@ export const registerContentWriteRoutes = (args: {
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
+    ),
+  );
+
+  router.put(
+    "/:id/file",
+    setAction("content.content.replace-file", {
+      route: "/content/:id/file",
+      resourceType: "content",
+    }),
+    requirePermission("content:update"),
+    validateParams(contentIdParamSchema),
+    bodyLimit({ maxSize: maxUploadBytes }),
+    validateForm(replaceContentFileSchema),
+    describeRoute({
+      description: "Replace content file and metadata",
+      tags: contentTags,
+      requestBody: {
+        content: {
+          "multipart/form-data": {
+            schema: replaceContentFileRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Content updated",
+          content: {
+            "application/json": {
+              schema: resolver(contentSchema),
+            },
+          },
+        },
+        400: {
+          description: "Invalid request",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        409: {
+          description: "Conflict (content is currently in use)",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const body = c.req.valid("form");
+        c.set("resourceId", params.id);
+        c.set("fileId", params.id);
+        const result = await useCases.replaceContentFile.execute({
+          id: params.id,
+          file: body.file,
+          title: body.title,
+          status: body.status,
+        });
+        return c.json(result, 200);
+      },
+      ...applicationErrorMappers,
+      mapErrorToResponse(ContentInUseError, conflict),
+      mapErrorToResponse(InvalidContentTypeError, badRequest),
+      mapErrorToResponse(ContentMetadataExtractionError, badRequest),
     ),
   );
 

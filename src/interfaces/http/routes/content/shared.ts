@@ -15,6 +15,7 @@ import {
   GetContentDownloadUrlUseCase,
   GetContentUseCase,
   ListContentUseCase,
+  ReplaceContentFileUseCase,
   UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
@@ -41,6 +42,7 @@ export interface ContentRouterDeps {
 
 export interface ContentRouterUseCases {
   uploadContent: UploadContentUseCase;
+  replaceContentFile: ReplaceContentFileUseCase;
   listContent: ListContentUseCase;
   getContent: GetContentUseCase;
   updateContent: UpdateContentUseCase;
@@ -64,7 +66,10 @@ export const createContentUseCases = (
       route: string;
       contentId: string;
       fileKey: string;
-      failurePhase: "upload_rollback_delete" | "delete_after_metadata_remove";
+      failurePhase:
+        | "upload_rollback_delete"
+        | "delete_after_metadata_remove"
+        | "replace_cleanup_delete";
       error: unknown;
     }) {
       logger.error(
@@ -82,6 +87,14 @@ export const createContentUseCases = (
 
   return {
     uploadContent: new UploadContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      contentStorage: deps.storage,
+      contentMetadataExtractor: deps.contentMetadataExtractor,
+      contentThumbnailGenerator: deps.contentThumbnailGenerator,
+      userRepository: deps.repositories.userRepository,
+      cleanupFailureLogger,
+    }),
+    replaceContentFile: new ReplaceContentFileUseCase({
       contentRepository: deps.repositories.contentRepository,
       contentStorage: deps.storage,
       contentMetadataExtractor: deps.contentMetadataExtractor,

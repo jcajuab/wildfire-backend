@@ -146,7 +146,22 @@ export class ContentDbRepository implements ContentRepository {
 
   async update(
     id: string,
-    input: Partial<Pick<ContentRecord, "title" | "status">>,
+    input: Partial<
+      Pick<
+        ContentRecord,
+        | "title"
+        | "status"
+        | "fileKey"
+        | "thumbnailKey"
+        | "type"
+        | "mimeType"
+        | "fileSize"
+        | "width"
+        | "height"
+        | "duration"
+        | "checksum"
+      >
+    >,
   ): Promise<ContentRecord | null> {
     await db.update(content).set(input).where(eq(content.id, id));
     return this.findById(id);

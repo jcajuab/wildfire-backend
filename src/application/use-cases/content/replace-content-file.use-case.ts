@@ -1,6 +1,5 @@
 import {
   type ContentMetadataExtractor,
-  type ContentRecord,
   type ContentRepository,
   type ContentStorage,
   type ContentThumbnailGenerator,
@@ -11,17 +10,19 @@ import { sha256Hex } from "#/domain/content/checksum";
 import {
   buildContentFileKey,
   buildContentThumbnailKey,
+  type ContentStatus,
   resolveContentType,
 } from "#/domain/content/content";
 import { toContentView } from "./content-view";
 import {
+  ContentInUseError,
   ContentMetadataExtractionError,
   ContentStorageCleanupError,
   InvalidContentTypeError,
   NotFoundError,
 } from "./errors";
 
-export class UploadContentUseCase {
+export class ReplaceContentFileUseCase {
   constructor(
     private readonly deps: {
       contentRepository: ContentRepository;
@@ -33,10 +34,20 @@ export class UploadContentUseCase {
     },
   ) {}
 
-  async execute(input: { title: string; file: File; createdById: string }) {
-    const user = await this.deps.userRepository.findById(input.createdById);
-    if (!user) {
-      throw new NotFoundError("User not found");
+  async execute(input: {
+    id: string;
+    file: File;
+    title?: string;
+    status?: ContentStatus;
+  }) {
+    const existing = await this.deps.contentRepository.findById(input.id);
+    if (!existing) {
+      throw new NotFoundError("Content not found");
+    }
+    if (existing.status !== "DRAFT") {
+      throw new ContentInUseError(
+        "Cannot replace file when content is in use. Set to Draft first.",
+      );
     }
 
     const mimeType = input.file.type;
@@ -45,11 +56,11 @@ export class UploadContentUseCase {
       throw new InvalidContentTypeError("Unsupported content type");
     }
 
-    const id = crypto.randomUUID();
-    const fileKey = buildContentFileKey({ id, type, mimeType });
+    const fileKey = buildContentFileKey({ id: input.id, type, mimeType });
     const buffer = await input.file.arrayBuffer();
     const checksum = await sha256Hex(buffer);
     const data = new Uint8Array(buffer);
+
     let extractedMetadata: Awaited<
       ReturnType<ContentMetadataExtractor["extract"]>
     >;
@@ -96,7 +107,7 @@ export class UploadContentUseCase {
     let thumbnailKey: string | null = null;
 
     if (generatedThumbnail) {
-      const candidateThumbnailKey = buildContentThumbnailKey(id);
+      const candidateThumbnailKey = buildContentThumbnailKey(input.id);
       try {
         await this.deps.contentStorage.upload({
           key: candidateThumbnailKey,
@@ -110,57 +121,52 @@ export class UploadContentUseCase {
       }
     }
 
-    let record: ContentRecord;
-    try {
-      record = await this.deps.contentRepository.create({
-        id,
-        title: input.title,
-        type,
-        status: "DRAFT",
-        fileKey,
-        thumbnailKey,
-        checksum,
-        mimeType,
-        fileSize: input.file.size,
-        width: extractedMetadata.width,
-        height: extractedMetadata.height,
-        duration: extractedMetadata.duration,
-        createdById: user.id,
-      });
-    } catch (error) {
-      const uploadedKeys = thumbnailKey ? [fileKey, thumbnailKey] : [fileKey];
-      const cleanupFailures: Array<{ key: string; error: unknown }> = [];
+    const protectedKeys = new Set(
+      thumbnailKey ? [fileKey, thumbnailKey] : [fileKey],
+    );
+    const keysToDelete = [existing.fileKey, existing.thumbnailKey]
+      .filter((key): key is string => Boolean(key))
+      .filter((key) => !protectedKeys.has(key));
 
-      for (const key of uploadedKeys) {
-        try {
-          await this.deps.contentStorage.delete(key);
-        } catch (cleanupError) {
-          cleanupFailures.push({ key, error: cleanupError });
-          this.deps.cleanupFailureLogger?.logContentCleanupFailure({
-            route: "/content",
-            contentId: id,
-            fileKey: key,
-            failurePhase: "upload_rollback_delete",
-            error: cleanupError,
-          });
-        }
-      }
-
-      if (cleanupFailures.length > 0) {
-        const failure = cleanupFailures[0];
-        if (!failure) {
-          throw error;
-        }
+    for (const key of keysToDelete) {
+      try {
+        await this.deps.contentStorage.delete(key);
+      } catch (cleanupError) {
+        this.deps.cleanupFailureLogger?.logContentCleanupFailure({
+          route: "/content/:id/file",
+          contentId: input.id,
+          fileKey: key,
+          failurePhase: "replace_cleanup_delete",
+          error: cleanupError,
+        });
         throw new ContentStorageCleanupError(
-          "Content creation failed and uploaded file cleanup did not complete.",
-          { contentId: id, fileKey: failure.key },
-          { cause: failure.error },
+          "Content file was replaced but previous file cleanup did not complete.",
+          { contentId: input.id, fileKey: key },
+          { cause: cleanupError },
         );
       }
-
-      throw error;
     }
 
-    return toContentView(record, user.name);
+    const updated = await this.deps.contentRepository.update(input.id, {
+      fileKey,
+      thumbnailKey,
+      type,
+      mimeType,
+      fileSize: input.file.size,
+      width: extractedMetadata.width,
+      height: extractedMetadata.height,
+      duration: extractedMetadata.duration,
+      checksum,
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+    });
+    if (!updated) {
+      throw new NotFoundError("Content not found");
+    }
+
+    const creator = await this.deps.userRepository.findById(
+      updated.createdById,
+    );
+    return toContentView(updated, creator?.name ?? null);
   }
 }
