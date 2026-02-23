@@ -16,6 +16,7 @@ const mapRowsToGroups = (
   rows: Array<{
     id: string;
     name: string;
+    colorIndex: number;
     createdAt: Date | string;
     updatedAt: Date | string;
     deviceId: string | null;
@@ -28,6 +29,7 @@ const mapRowsToGroups = (
       byId.set(row.id, {
         id: row.id,
         name: row.name,
+        colorIndex: row.colorIndex,
         createdAt: toIso(row.createdAt),
         updatedAt: toIso(row.updatedAt),
         deviceIds: row.deviceId ? [row.deviceId] : [],
@@ -45,6 +47,7 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
       .select({
         id: deviceGroups.id,
         name: deviceGroups.name,
+        colorIndex: deviceGroups.colorIndex,
         createdAt: deviceGroups.createdAt,
         updatedAt: deviceGroups.updatedAt,
         deviceId: deviceGroupMemberships.deviceId,
@@ -62,6 +65,7 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
       .select({
         id: deviceGroups.id,
         name: deviceGroups.name,
+        colorIndex: deviceGroups.colorIndex,
         createdAt: deviceGroups.createdAt,
         updatedAt: deviceGroups.updatedAt,
         deviceId: deviceGroupMemberships.deviceId,
@@ -81,6 +85,7 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
       .select({
         id: deviceGroups.id,
         name: deviceGroups.name,
+        colorIndex: deviceGroups.colorIndex,
         createdAt: deviceGroups.createdAt,
         updatedAt: deviceGroups.updatedAt,
         deviceId: deviceGroupMemberships.deviceId,
@@ -95,18 +100,23 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
     return mapped[0] ?? null;
   }
 
-  async create(input: { name: string }): Promise<DeviceGroupRecord> {
+  async create(input: {
+    name: string;
+    colorIndex: number;
+  }): Promise<DeviceGroupRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
     await db.insert(deviceGroups).values({
       id,
       name: input.name,
+      colorIndex: input.colorIndex,
       createdAt: now,
       updatedAt: now,
     });
     return {
       id,
       name: input.name,
+      colorIndex: input.colorIndex,
       deviceIds: [],
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -115,19 +125,21 @@ export class DeviceGroupDbRepository implements DeviceGroupRepository {
 
   async update(
     id: string,
-    input: { name?: string },
+    input: { name?: string; colorIndex?: number },
   ): Promise<DeviceGroupRecord | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
     const nextName = input.name ?? existing.name;
+    const nextColorIndex = input.colorIndex ?? existing.colorIndex;
     const now = new Date();
     await db
       .update(deviceGroups)
-      .set({ name: nextName, updatedAt: now })
+      .set({ name: nextName, colorIndex: nextColorIndex, updatedAt: now })
       .where(eq(deviceGroups.id, id));
     return {
       ...existing,
       name: nextName,
+      colorIndex: nextColorIndex,
       updatedAt: now.toISOString(),
     };
   }

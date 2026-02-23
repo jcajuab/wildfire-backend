@@ -33,6 +33,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
   const deviceGroups = [] as Array<{
     id: string;
     name: string;
+    colorIndex: number;
     deviceIds: string[];
     createdAt: string;
     updatedAt: string;
@@ -144,10 +145,11 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         deviceGroups.find((group) => group.id === id) ?? null,
       findByName: async (name: string) =>
         deviceGroups.find((group) => group.name === name) ?? null,
-      create: async (input: { name: string }) => {
+      create: async (input: { name: string; colorIndex: number }) => {
         const record = {
           id: crypto.randomUUID(),
           name: input.name,
+          colorIndex: input.colorIndex,
           deviceIds: [],
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
@@ -155,10 +157,14 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         deviceGroups.push(record);
         return record;
       },
-      update: async (id: string, input: { name?: string }) => {
+      update: async (
+        id: string,
+        input: { name?: string; colorIndex?: number },
+      ) => {
         const group = deviceGroups.find((item) => item.id === id);
         if (!group) return null;
         if (input.name !== undefined) group.name = input.name;
+        if (input.colorIndex !== undefined) group.colorIndex = input.colorIndex;
         group.updatedAt = "2025-01-02T00:00:00.000Z";
         return group;
       },

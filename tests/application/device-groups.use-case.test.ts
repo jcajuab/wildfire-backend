@@ -49,10 +49,11 @@ const makeDeviceGroupRepository = (
       groups.find((group) => group.id === id) ?? null,
     findByName: async (name: string) =>
       groups.find((group) => group.name === name) ?? null,
-    create: async (input: { name: string }) => {
+    create: async (input: { name: string; colorIndex: number }) => {
       const created: DeviceGroupRecord = {
         id: crypto.randomUUID(),
         name: input.name,
+        colorIndex: input.colorIndex,
         deviceIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -60,11 +61,17 @@ const makeDeviceGroupRepository = (
       groups.push(created);
       return created;
     },
-    update: async (id: string, input: { name?: string }) => {
+    update: async (
+      id: string,
+      input: { name?: string; colorIndex?: number },
+    ) => {
       const group = groups.find((item) => item.id === id);
       if (!group) return null;
       if (input.name !== undefined) {
         group.name = input.name;
+      }
+      if (input.colorIndex !== undefined) {
+        group.colorIndex = input.colorIndex;
       }
       group.updatedAt = "2025-01-02T00:00:00.000Z";
       return group;
@@ -82,6 +89,7 @@ describe("Device group use cases", () => {
       {
         id: "group-1",
         name: "Lobby",
+        colorIndex: 2,
         deviceIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -95,13 +103,15 @@ describe("Device group use cases", () => {
 
     expect(result.id).toBe("group-1");
     expect(result.name).toBe("Lobby");
+    expect(result.colorIndex).toBe(2);
   });
 
-  test("UpdateDeviceGroupUseCase rejects case-insensitive rename conflicts", async () => {
+  test("CreateDeviceGroupUseCase assigns next cycled color index when omitted", async () => {
     const groupRepository = makeDeviceGroupRepository([
       {
         id: "group-1",
         name: "Lobby",
+        colorIndex: 10,
         deviceIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -109,6 +119,35 @@ describe("Device group use cases", () => {
       {
         id: "group-2",
         name: "Office",
+        colorIndex: 11,
+        deviceIds: [],
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    ]);
+    const useCase = new CreateDeviceGroupUseCase({
+      deviceGroupRepository: groupRepository,
+    });
+
+    const created = await useCase.execute({ name: "Cafeteria" });
+
+    expect(created.colorIndex).toBe(0);
+  });
+
+  test("UpdateDeviceGroupUseCase rejects case-insensitive rename conflicts", async () => {
+    const groupRepository = makeDeviceGroupRepository([
+      {
+        id: "group-1",
+        name: "Lobby",
+        colorIndex: 0,
+        deviceIds: [],
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "group-2",
+        name: "Office",
+        colorIndex: 1,
         deviceIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -128,6 +167,7 @@ describe("Device group use cases", () => {
       {
         id: "group-1",
         name: "Lobby",
+        colorIndex: 0,
         deviceIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -135,6 +175,7 @@ describe("Device group use cases", () => {
       {
         id: "group-2",
         name: "Office",
+        colorIndex: 1,
         deviceIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",

@@ -61,10 +61,12 @@ export const patchDeviceSchema = z.object({
 
 export const createDeviceGroupSchema = z.object({
   name: z.string().min(1).max(120),
+  colorIndex: z.number().int().min(0).optional(),
 });
 
 export const updateDeviceGroupSchema = z.object({
   name: z.string().min(1).max(120).optional(),
+  colorIndex: z.number().int().min(0).optional(),
 });
 
 export const setDeviceGroupsSchema = z.object({
@@ -74,6 +76,7 @@ export const setDeviceGroupsSchema = z.object({
 export const deviceGroupSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  colorIndex: z.number().int().nonnegative(),
   deviceIds: z.array(z.string().uuid()),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -87,6 +90,7 @@ export const createDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
+    colorIndex: { type: "integer", minimum: 0 },
   },
   required: ["name"],
 };
@@ -95,6 +99,7 @@ export const updateDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
+    colorIndex: { type: "integer", minimum: 0 },
   },
 };
 

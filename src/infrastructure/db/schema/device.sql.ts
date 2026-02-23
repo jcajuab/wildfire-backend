@@ -42,6 +42,7 @@ export const deviceGroups = mysqlTable(
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 120 }).notNull(),
+    colorIndex: int("color_index").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

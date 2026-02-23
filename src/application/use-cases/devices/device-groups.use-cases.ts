@@ -14,6 +14,19 @@ const collapseWhitespace = (value: string): string =>
 const normalizeName = (value: string): string =>
   collapseWhitespace(value).toLowerCase();
 
+const GROUP_PALETTE_SIZE = 12;
+
+const normalizeColorIndex = (value: number): number =>
+  ((value % GROUP_PALETTE_SIZE) + GROUP_PALETTE_SIZE) % GROUP_PALETTE_SIZE;
+
+const getNextColorIndex = (
+  groups: readonly { colorIndex: number }[],
+): number => {
+  if (groups.length === 0) return 0;
+  const maxColorIndex = Math.max(...groups.map((group) => group.colorIndex));
+  return normalizeColorIndex(maxColorIndex + 1);
+};
+
 export class ListDeviceGroupsUseCase {
   constructor(
     private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
@@ -29,10 +42,13 @@ export class CreateDeviceGroupUseCase {
     private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
   ) {}
 
-  async execute(input: { name: string }) {
+  async execute(input: { name: string; colorIndex?: number }) {
     const displayName = collapseWhitespace(input.name);
     if (displayName.length === 0) {
       throw new ValidationError("Group name is required");
+    }
+    if (input.colorIndex !== undefined && !Number.isInteger(input.colorIndex)) {
+      throw new ValidationError("Group color index must be an integer");
     }
     const normalizedInputName = normalizeName(displayName);
     const existingGroups = await this.deps.deviceGroupRepository.list();
@@ -40,7 +56,14 @@ export class CreateDeviceGroupUseCase {
       (group) => normalizeName(group.name) === normalizedInputName,
     );
     if (existing) return existing;
-    return this.deps.deviceGroupRepository.create({ name: displayName });
+    const nextColorIndex =
+      input.colorIndex !== undefined
+        ? normalizeColorIndex(input.colorIndex)
+        : getNextColorIndex(existingGroups);
+    return this.deps.deviceGroupRepository.create({
+      name: displayName,
+      colorIndex: nextColorIndex,
+    });
   }
 }
 
@@ -49,11 +72,20 @@ export class UpdateDeviceGroupUseCase {
     private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
   ) {}
 
-  async execute(input: { id: string; name?: string }) {
+  async execute(input: { id: string; name?: string; colorIndex?: number }) {
     const name =
       input.name === undefined ? undefined : collapseWhitespace(input.name);
     if (name !== undefined && name.length === 0) {
       throw new ValidationError("Group name is required");
+    }
+    const colorIndex =
+      input.colorIndex === undefined
+        ? undefined
+        : Number.isInteger(input.colorIndex)
+          ? normalizeColorIndex(input.colorIndex)
+          : null;
+    if (colorIndex === null) {
+      throw new ValidationError("Group color index must be an integer");
     }
 
     if (name !== undefined) {
@@ -76,6 +108,7 @@ export class UpdateDeviceGroupUseCase {
 
     const updated = await this.deps.deviceGroupRepository.update(input.id, {
       name,
+      colorIndex: colorIndex ?? undefined,
     });
     if (!updated) throw new NotFoundError("Device group not found");
     return updated;

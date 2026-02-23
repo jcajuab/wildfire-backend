@@ -333,6 +333,7 @@ export const registerDeviceStaffRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.createDeviceGroup.execute({
           name: payload.name,
+          colorIndex: payload.colorIndex,
         });
         c.set("resourceId", result.id);
         return c.json(result);
@@ -383,6 +384,7 @@ export const registerDeviceStaffRoutes = (args: {
         const result = await useCases.updateDeviceGroup.execute({
           id: params.groupId,
           name: payload.name,
+          colorIndex: payload.colorIndex,
         });
         c.set("resourceId", result.id);
         return c.json(result);
