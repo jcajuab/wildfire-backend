@@ -1,8 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { ScheduleConflictError } from "#/application/use-cases/schedules";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import { conflict, errorResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
+  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
@@ -74,6 +76,7 @@ export const registerScheduleCommandRoutes = (args: {
         }
         return c.json({ items: result }, 201);
       },
+      mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
     ),
   );
@@ -121,6 +124,7 @@ export const registerScheduleCommandRoutes = (args: {
         });
         return c.json(result);
       },
+      mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
     ),
   );
@@ -168,6 +172,7 @@ export const registerScheduleCommandRoutes = (args: {
         });
         return c.json({ items: result });
       },
+      mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
     ),
   );

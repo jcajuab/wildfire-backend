@@ -18,11 +18,24 @@ import {
   isValidTime,
   selectActiveSchedule,
 } from "#/domain/schedules/schedule";
-import { NotFoundError } from "./errors";
+import { NotFoundError, ScheduleConflictError } from "./errors";
 import { toScheduleView } from "./schedule-view";
 
 const DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
 const DAY_SECONDS = 24 * 60 * 60;
+const SCHEDULE_OVERLAP_MESSAGE =
+  "This schedule overlaps with an existing schedule on the selected display.";
+
+type ScheduleWindow = {
+  id?: string;
+  seriesId?: string;
+  deviceId: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  dayOfWeek: number;
+};
 
 const parseTimeToSeconds = (value: string): number => {
   const [hourRaw, minuteRaw] = value.split(":");
@@ -45,6 +58,104 @@ const computeWindowDurationSeconds = (startTime: string, endTime: string) => {
   }
   return 0;
 };
+
+const toDailyTimeSegments = (
+  startTime: string,
+  endTime: string,
+): ReadonlyArray<readonly [number, number]> => {
+  const startSeconds = parseTimeToSeconds(startTime);
+  const endSeconds = parseTimeToSeconds(endTime);
+  if (startSeconds === endSeconds) {
+    return [];
+  }
+  if (startSeconds < endSeconds) {
+    return [[startSeconds, endSeconds]];
+  }
+  return [
+    [startSeconds, DAY_SECONDS],
+    [0, endSeconds],
+  ];
+};
+
+const hasDateRangeOverlap = (left: ScheduleWindow, right: ScheduleWindow) =>
+  left.startDate <= right.endDate && right.startDate <= left.endDate;
+
+const hasTimeRangeOverlap = (left: ScheduleWindow, right: ScheduleWindow) => {
+  const leftSegments = toDailyTimeSegments(left.startTime, left.endTime);
+  const rightSegments = toDailyTimeSegments(right.startTime, right.endTime);
+  return leftSegments.some(([leftStart, leftEnd]) =>
+    rightSegments.some(
+      ([rightStart, rightEnd]) => leftStart < rightEnd && rightStart < leftEnd,
+    ),
+  );
+};
+
+const windowsConflict = (left: ScheduleWindow, right: ScheduleWindow) => {
+  if (left.deviceId !== right.deviceId) {
+    return false;
+  }
+  if (left.dayOfWeek !== right.dayOfWeek) {
+    return false;
+  }
+  return hasDateRangeOverlap(left, right) && hasTimeRangeOverlap(left, right);
+};
+
+const ensureNoScheduleConflicts = (input: {
+  candidates: readonly ScheduleWindow[];
+  existing: readonly ScheduleWindow[];
+  excludeScheduleIds?: ReadonlySet<string>;
+  excludeSeriesIds?: ReadonlySet<string>;
+}) => {
+  for (const candidate of input.candidates) {
+    for (const current of input.existing) {
+      if (current.id && input.excludeScheduleIds?.has(current.id)) {
+        continue;
+      }
+      if (current.seriesId && input.excludeSeriesIds?.has(current.seriesId)) {
+        continue;
+      }
+      if (windowsConflict(candidate, current)) {
+        throw new ScheduleConflictError(SCHEDULE_OVERLAP_MESSAGE);
+      }
+    }
+  }
+
+  for (let index = 0; index < input.candidates.length; index += 1) {
+    const left = input.candidates[index];
+    if (!left) continue;
+    for (
+      let nextIndex = index + 1;
+      nextIndex < input.candidates.length;
+      nextIndex += 1
+    ) {
+      const right = input.candidates[nextIndex];
+      if (!right) continue;
+      if (windowsConflict(left, right)) {
+        throw new ScheduleConflictError(SCHEDULE_OVERLAP_MESSAGE);
+      }
+    }
+  }
+};
+
+const toScheduleWindow = (schedule: {
+  id?: string;
+  seriesId?: string;
+  deviceId: string;
+  startDate?: string;
+  endDate?: string;
+  startTime: string;
+  endTime: string;
+  dayOfWeek: number;
+}): ScheduleWindow => ({
+  id: schedule.id,
+  seriesId: schedule.seriesId,
+  deviceId: schedule.deviceId,
+  startDate: schedule.startDate ?? "1970-01-01",
+  endDate: schedule.endDate ?? "2099-12-31",
+  startTime: schedule.startTime,
+  endTime: schedule.endTime,
+  dayOfWeek: schedule.dayOfWeek,
+});
 
 const normalizeDaysOfWeek = (value: readonly number[]): number[] => {
   return [...new Set(value)].sort((a, b) => a - b);
@@ -197,6 +308,24 @@ export class CreateScheduleUseCase {
         `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
       );
     }
+
+    const existingForDevice = await this.deps.scheduleRepository.listByDevice(
+      input.deviceId,
+    );
+    const candidateWindows = normalizedDays.map((dayOfWeek) =>
+      toScheduleWindow({
+        deviceId: input.deviceId,
+        startDate,
+        endDate,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        dayOfWeek,
+      }),
+    );
+    ensureNoScheduleConflicts({
+      candidates: candidateWindows,
+      existing: existingForDevice.map(toScheduleWindow),
+    });
 
     const seriesId = crypto.randomUUID();
     const schedules = await Promise.all(
@@ -374,6 +503,7 @@ export class UpdateScheduleUseCase {
 
     const nextStartTime = input.startTime ?? existing.startTime;
     const nextEndTime = input.endTime ?? existing.endTime;
+    const nextDayOfWeek = input.dayOfWeek ?? existing.dayOfWeek;
     const deviceWidth = resolvedDevice.screenWidth;
     const deviceHeight = resolvedDevice.screenHeight;
     const scrollPxPerSecond = await this.getScrollPxPerSecond();
@@ -394,6 +524,26 @@ export class UpdateScheduleUseCase {
         `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
       );
     }
+
+    const targetDeviceId = input.deviceId ?? existing.deviceId;
+    const existingForDevice =
+      await this.deps.scheduleRepository.listByDevice(targetDeviceId);
+    ensureNoScheduleConflicts({
+      candidates: [
+        toScheduleWindow({
+          id: existing.id,
+          seriesId: existing.seriesId,
+          deviceId: targetDeviceId,
+          startDate: nextStartDate,
+          endDate: nextEndDate,
+          startTime: nextStartTime,
+          endTime: nextEndTime,
+          dayOfWeek: nextDayOfWeek,
+        }),
+      ],
+      existing: existingForDevice.map(toScheduleWindow),
+      excludeScheduleIds: new Set([existing.id]),
+    });
 
     const schedule = await this.deps.scheduleRepository.update(input.id, {
       name: input.name,
@@ -590,6 +740,37 @@ export class UpdateScheduleSeriesUseCase {
     const targetDays = input.daysOfWeek
       ? normalizeDaysOfWeek(input.daysOfWeek)
       : normalizeDaysOfWeek(existingSchedules.map((entry) => entry.dayOfWeek));
+
+    const candidateSeriesWindows = targetDays.map((dayOfWeek) => {
+      const existingForDay = existingSchedules.find(
+        (entry) => entry.dayOfWeek === dayOfWeek,
+      );
+      return toScheduleWindow({
+        id: existingForDay?.id,
+        seriesId: input.seriesId,
+        deviceId: input.deviceId ?? existingForDay?.deviceId ?? base.deviceId,
+        startDate:
+          input.startDate ?? existingForDay?.startDate ?? base.startDate,
+        endDate: input.endDate ?? existingForDay?.endDate ?? base.endDate,
+        startTime:
+          input.startTime ?? existingForDay?.startTime ?? base.startTime,
+        endTime: input.endTime ?? existingForDay?.endTime ?? base.endTime,
+        dayOfWeek,
+      });
+    });
+    const targetDeviceIds = [
+      ...new Set(candidateSeriesWindows.map((entry) => entry.deviceId)),
+    ];
+    const schedulesByDevice = await Promise.all(
+      targetDeviceIds.map((deviceId) =>
+        this.deps.scheduleRepository.listByDevice(deviceId),
+      ),
+    );
+    ensureNoScheduleConflicts({
+      candidates: candidateSeriesWindows,
+      existing: schedulesByDevice.flat().map(toScheduleWindow),
+      excludeSeriesIds: new Set([input.seriesId]),
+    });
 
     const commonUpdate = {
       name: input.name,
