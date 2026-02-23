@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildContentFileKey,
+  buildContentThumbnailKey,
   parseContentStatus,
   parseContentType,
   resolveContentType,
@@ -61,5 +62,11 @@ describe("Content domain", () => {
         mimeType: "application/pdf",
       }),
     ).toBe("content/documents/content-3.pdf");
+  });
+
+  test("builds content thumbnail key", () => {
+    expect(buildContentThumbnailKey("content-1")).toBe(
+      "content/thumbnails/content-1.jpg",
+    );
   });
 });

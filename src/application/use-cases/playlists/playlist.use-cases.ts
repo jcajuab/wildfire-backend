@@ -17,7 +17,7 @@ import {
   isValidSequence,
   type PlaylistStatus,
 } from "#/domain/playlists/playlist";
-import { NotFoundError } from "./errors";
+import { NotFoundError, PlaylistInUseError } from "./errors";
 import { toPlaylistItemView, toPlaylistView } from "./playlist-view";
 
 const publishPlaylistUpdateEvents = async (
@@ -361,10 +361,29 @@ export class DeletePlaylistUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
+      scheduleRepository: ScheduleRepository;
+      deviceRepository: DeviceRepository;
     },
   ) {}
 
   async execute(input: { id: string }) {
+    const schedules = await this.deps.scheduleRepository.listByPlaylistId(
+      input.id,
+    );
+    if (schedules.length > 0) {
+      const deviceIds = Array.from(new Set(schedules.map((s) => s.deviceId)));
+      const devices = await this.deps.deviceRepository.findByIds(deviceIds);
+      const displayName =
+        devices.length === 0
+          ? "a display"
+          : devices[0].name?.trim() || devices[0].identifier || "a display";
+      const message =
+        deviceIds.length > 1
+          ? "Failed to delete playlist. This playlist is in use by multiple devices."
+          : `Failed to delete playlist. This playlist is in use by ${displayName}.`;
+      throw new PlaylistInUseError(message);
+    }
+
     const playlistItems = await this.deps.playlistRepository.listItems(
       input.id,
     );

@@ -6,6 +6,7 @@ export interface ContentRecord {
   type: ContentType;
   status: ContentStatus;
   fileKey: string;
+  thumbnailKey?: string | null;
   checksum: string;
   mimeType: string;
   fileSize: number;
@@ -64,4 +65,12 @@ export interface ContentMetadataExtractor {
     mimeType: string;
     data: Uint8Array;
   }): Promise<ExtractedContentMetadata>;
+}
+
+export interface ContentThumbnailGenerator {
+  generate(input: {
+    type: ContentType;
+    mimeType: string;
+    data: Uint8Array;
+  }): Promise<Uint8Array | null>;
 }

@@ -6,6 +6,7 @@ export interface ContentView {
   title: string;
   type: ContentType;
   status: ContentStatus;
+  thumbnailUrl?: string;
   mimeType: string;
   fileSize: number;
   checksum: string;
@@ -22,11 +23,15 @@ export interface ContentView {
 export const toContentView = (
   record: ContentRecord,
   creatorName: string | null,
+  input?: {
+    thumbnailUrl?: string;
+  },
 ): ContentView => ({
   id: record.id,
   title: record.title,
   type: record.type,
   status: record.status,
+  thumbnailUrl: input?.thumbnailUrl,
   mimeType: record.mimeType,
   fileSize: record.fileSize,
   checksum: record.checksum,

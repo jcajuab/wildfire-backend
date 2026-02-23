@@ -1,4 +1,4 @@
-export { NotFoundError } from "./errors";
+export { NotFoundError, PlaylistInUseError } from "./errors";
 export {
   AddPlaylistItemUseCase,
   CreatePlaylistUseCase,

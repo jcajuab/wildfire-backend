@@ -1,8 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { PlaylistInUseError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import { conflict, errorResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
+  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
@@ -207,6 +209,14 @@ export const registerPlaylistCrudRoutes = (args: {
             },
           },
         },
+        409: {
+          description: "Playlist is in use by one or more displays",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
       },
     }),
     withRouteErrorHandling(
@@ -217,6 +227,7 @@ export const registerPlaylistCrudRoutes = (args: {
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(PlaylistInUseError, conflict),
     ),
   );
 };

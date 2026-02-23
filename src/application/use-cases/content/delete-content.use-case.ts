@@ -36,23 +36,29 @@ export class DeleteContentUseCase {
     if (!deleted) {
       throw new NotFoundError("Content not found");
     }
+
     // Storage deletion after DB commit: orphan files are recoverable,
     // ghost DB records pointing to missing files are not.
-    try {
-      await this.deps.contentStorage.delete(record.fileKey);
-    } catch (cleanupError) {
-      this.deps.cleanupFailureLogger?.logContentCleanupFailure({
-        route: "/content/:id",
-        contentId: input.id,
-        fileKey: record.fileKey,
-        failurePhase: "delete_after_metadata_remove",
-        error: cleanupError,
-      });
-      throw new ContentStorageCleanupError(
-        "Content metadata was deleted but storage cleanup did not complete.",
-        { contentId: input.id, fileKey: record.fileKey },
-        { cause: cleanupError },
-      );
+    const keysToDelete = record.thumbnailKey
+      ? [record.fileKey, record.thumbnailKey]
+      : [record.fileKey];
+    for (const key of keysToDelete) {
+      try {
+        await this.deps.contentStorage.delete(key);
+      } catch (cleanupError) {
+        this.deps.cleanupFailureLogger?.logContentCleanupFailure({
+          route: "/content/:id",
+          contentId: input.id,
+          fileKey: key,
+          failurePhase: "delete_after_metadata_remove",
+          error: cleanupError,
+        });
+        throw new ContentStorageCleanupError(
+          "Content metadata was deleted but storage cleanup did not complete.",
+          { contentId: input.id, fileKey: key },
+          { cause: cleanupError },
+        );
+      }
     }
   }
 }

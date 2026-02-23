@@ -59,9 +59,11 @@ const makeApp = async (permissions: string[]) => {
     delete: async () => {},
     getPresignedDownloadUrl: async ({
       key,
+      expiresInSeconds: _expiresInSeconds,
       responseContentDisposition,
     }: {
       key: string;
+      expiresInSeconds: number;
       responseContentDisposition?: string;
     }) =>
       `https://example.com/${key}${
@@ -103,6 +105,7 @@ const makeApp = async (permissions: string[]) => {
     jwtSecret: "test-secret",
     maxUploadBytes: 5 * 1024 * 1024,
     downloadUrlExpiresInSeconds: 3600,
+    thumbnailUrlExpiresInSeconds: 3600,
     repositories: {
       contentRepository: repository,
       userRepository,
@@ -111,6 +114,9 @@ const makeApp = async (permissions: string[]) => {
     storage,
     contentMetadataExtractor: {
       extract: async () => ({ width: 1366, height: 768, duration: null }),
+    },
+    contentThumbnailGenerator: {
+      generate: async () => null,
     },
   });
   app.route("/content", router);

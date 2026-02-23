@@ -19,6 +19,7 @@ export interface ScheduleRepository {
   list(): Promise<ScheduleRecord[]>;
   listByDevice(deviceId: string): Promise<ScheduleRecord[]>;
   listBySeries(seriesId: string): Promise<ScheduleRecord[]>;
+  listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]>;
   findById(id: string): Promise<ScheduleRecord | null>;
   create(input: {
     seriesId: string;

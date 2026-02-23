@@ -46,6 +46,7 @@ const setup = async () => {
       type varchar(16) NOT NULL,
       status varchar(16) NOT NULL DEFAULT 'DRAFT',
       file_key varchar(512) NOT NULL,
+      thumbnail_key varchar(512) NULL,
       checksum varchar(128) NOT NULL,
       mime_type varchar(120) NOT NULL,
       file_size int NOT NULL,

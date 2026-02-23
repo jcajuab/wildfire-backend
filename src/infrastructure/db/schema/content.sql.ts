@@ -15,6 +15,7 @@ export const content = mysqlTable(
     type: varchar("type", { length: 16 }).notNull(),
     status: varchar("status", { length: 16 }).notNull().default("DRAFT"),
     fileKey: varchar("file_key", { length: 512 }).notNull(),
+    thumbnailKey: varchar("thumbnail_key", { length: 512 }),
     checksum: varchar("checksum", { length: 128 }).notNull(),
     mimeType: varchar("mime_type", { length: 120 }).notNull(),
     fileSize: int("file_size").notNull(),

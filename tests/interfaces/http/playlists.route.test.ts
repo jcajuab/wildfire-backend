@@ -12,7 +12,12 @@ const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 
 const makeApp = async (
   permissions: string[],
-  options?: { missingUser?: boolean; addPlaylistItemError?: Error },
+  options?: {
+    missingUser?: boolean;
+    addPlaylistItemError?: Error;
+    /** When set, listByPlaylistId returns a schedule for this id (playlist in use). */
+    inUsePlaylistId?: string;
+  },
 ) => {
   const app = new Hono();
   const playlists: Array<{
@@ -144,14 +149,34 @@ const makeApp = async (
       scheduleRepository: {
         list: async () => [],
         listByDevice: async () => [],
+        listBySeries: async () => [],
+        listByPlaylistId: async (id: string) =>
+          options?.inUsePlaylistId === id
+            ? [
+                {
+                  id: "schedule-1",
+                  seriesId: "series-1",
+                  name: "Morning",
+                  playlistId: id,
+                  deviceId: "device-1",
+                  startTime: "08:00",
+                  endTime: "18:00",
+                  dayOfWeek: 1,
+                  priority: 10,
+                  isActive: true,
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [],
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
         delete: async () => false,
-        countByPlaylistId: async () => 0,
-        listBySeries: async () => [],
+        countByPlaylistId: async (id: string) =>
+          options?.inUsePlaylistId === id ? 1 : 0,
         deleteBySeries: async () => 0,
       },
       deviceRepository: {
@@ -298,6 +323,25 @@ describe("Playlists routes", () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  test("DELETE /playlists/:id returns 409 when playlist is in use", async () => {
+    const { app, issueToken } = await makeApp(["playlists:delete"], {
+      inUsePlaylistId: playlistId,
+    });
+    const token = await issueToken();
+
+    const response = await app.request(`/playlists/${playlistId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(409);
+    const body = await parseJson<{ error: { code: string; message: string } }>(
+      response,
+    );
+    expect(body.error.code).toBe("CONFLICT");
+    expect(body.error.message).toContain("in use");
   });
 
   test("PATCH /playlists/:id/items/:itemId returns 400 for invalid payload", async () => {

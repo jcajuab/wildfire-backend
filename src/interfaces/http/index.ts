@@ -37,6 +37,7 @@ export const app = new Hono<{ Variables: RequestIdVariables }>();
 
 const tokenTtlSeconds = 60 * 60;
 const avatarUrlExpiresInSeconds = 60 * 60;
+const contentThumbnailUrlExpiresInSeconds = 60 * 60;
 const authSecurityStore = new InMemoryAuthSecurityStore();
 authSecurityStore.startCleanup();
 
@@ -191,6 +192,7 @@ const contentRouter = createContentRouter({
   authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
   downloadUrlExpiresInSeconds: 60 * 60,
+  thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
   repositories: {
     contentRepository: container.repositories.contentRepository,
     userRepository: container.repositories.userRepository,
@@ -198,6 +200,7 @@ const contentRouter = createContentRouter({
   },
   storage: container.storage.contentStorage,
   contentMetadataExtractor: container.storage.contentMetadataExtractor,
+  contentThumbnailGenerator: container.storage.contentThumbnailGenerator,
 });
 
 const rbacRouter = createRbacRouter({

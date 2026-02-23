@@ -52,6 +52,14 @@ export class ScheduleDbRepository implements ScheduleRepository {
     return rows.map(toRecord);
   }
 
+  async listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]> {
+    const rows = await db
+      .select()
+      .from(schedules)
+      .where(eq(schedules.playlistId, playlistId));
+    return rows.map(toRecord);
+  }
+
   async findById(id: string): Promise<ScheduleRecord | null> {
     const rows = await db
       .select()

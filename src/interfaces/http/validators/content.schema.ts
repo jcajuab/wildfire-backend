@@ -10,6 +10,7 @@ export const contentSchema = z.object({
   title: z.string(),
   type: contentTypeSchema,
   status: contentStatusSchema,
+  thumbnailUrl: z.string().url().optional(),
   mimeType: z.string(),
   fileSize: z.number().int(),
   checksum: z.string(),

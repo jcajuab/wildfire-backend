@@ -68,3 +68,6 @@ export const buildContentFileKey = (input: {
 
   return `content/${directory}/${input.id}.${extension}`;
 };
+
+export const buildContentThumbnailKey = (id: string): string =>
+  `content/thumbnails/${id}.jpg`;

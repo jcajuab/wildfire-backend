@@ -1,17 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import { type ContentRecord } from "#/application/ports/content";
+import { type DeviceRepository } from "#/application/ports/devices";
 import {
   type PlaylistItemRecord,
   type PlaylistRecord,
   type PlaylistRepository,
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   AddPlaylistItemUseCase,
   CreatePlaylistUseCase,
+  DeletePlaylistUseCase,
   GetPlaylistUseCase,
   ListPlaylistsUseCase,
   NotFoundError,
+  PlaylistInUseError,
 } from "#/application/use-cases/playlists";
 
 const makeDeps = () => {
@@ -409,6 +413,7 @@ describe("Playlists use cases", () => {
       },
       delete: async () => false,
       countByPlaylistId: async () => 0,
+      listByPlaylistId: async () => [],
       listBySeries: async () => [],
       deleteBySeries: async () => 0,
     };
@@ -480,5 +485,226 @@ describe("Playlists use cases", () => {
       duration: 5,
     });
     expect(updates.some((entry) => entry.id === "schedule-1")).toBe(true);
+  });
+
+  test("DeletePlaylistUseCase throws PlaylistInUseError when playlist is in use by one device", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+
+    const scheduleRepository: ScheduleRepository = {
+      list: async () => [],
+      listByDevice: async () => [],
+      listBySeries: async () => [],
+      listByPlaylistId: async () => [
+        {
+          id: "s1",
+          seriesId: "series-1",
+          name: "Morning",
+          playlistId: playlist.id,
+          deviceId: "device-1",
+          startTime: "08:00",
+          endTime: "18:00",
+          dayOfWeek: 1,
+          priority: 10,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+      findById: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      delete: async () => false,
+      countByPlaylistId: async () => 1,
+      deleteBySeries: async () => 0,
+    };
+
+    const deviceRepository: DeviceRepository = {
+      list: async () => [],
+      findByIds: async (ids: string[]) =>
+        ids.map((id) => ({
+          id,
+          name: "Lobby TV",
+          identifier: "AA:BB",
+          location: null,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        })),
+      findById: async () => null,
+      findByIdentifier: async () => null,
+      findByFingerprint: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      bumpRefreshNonce: async () => false,
+    };
+
+    const useCase = new DeletePlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+      scheduleRepository,
+      deviceRepository,
+    });
+
+    const err = await useCase.execute({ id: playlist.id }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(PlaylistInUseError);
+    expect((err as PlaylistInUseError).message).toContain("Lobby TV");
+  });
+
+  test("DeletePlaylistUseCase throws PlaylistInUseError with multiple devices message when in use by more than one device", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+
+    const scheduleRepository: ScheduleRepository = {
+      list: async () => [],
+      listByDevice: async () => [],
+      listBySeries: async () => [],
+      listByPlaylistId: async () => [
+        {
+          id: "s1",
+          seriesId: "series-1",
+          name: "Morning",
+          playlistId: playlist.id,
+          deviceId: "device-1",
+          startTime: "08:00",
+          endTime: "18:00",
+          dayOfWeek: 1,
+          priority: 10,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+        {
+          id: "s2",
+          seriesId: "series-2",
+          name: "Evening",
+          playlistId: playlist.id,
+          deviceId: "device-2",
+          startTime: "18:00",
+          endTime: "22:00",
+          dayOfWeek: 1,
+          priority: 10,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+      findById: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      delete: async () => false,
+      countByPlaylistId: async () => 2,
+      deleteBySeries: async () => 0,
+    };
+
+    const deviceRepository: DeviceRepository = {
+      list: async () => [],
+      findByIds: async (ids: string[]) =>
+        ids.map((id) => ({
+          id,
+          name: "Display",
+          identifier: "id",
+          location: null,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        })),
+      findById: async () => null,
+      findByIdentifier: async () => null,
+      findByFingerprint: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      bumpRefreshNonce: async () => false,
+    };
+
+    const useCase = new DeletePlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+      scheduleRepository,
+      deviceRepository,
+    });
+
+    const err = await useCase.execute({ id: playlist.id }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(PlaylistInUseError);
+    expect((err as PlaylistInUseError).message).toContain("multiple devices");
+  });
+
+  test("DeletePlaylistUseCase deletes when playlist is not in use", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+
+    let deleteCalled = false;
+    const playlistRepository = {
+      ...deps.playlistRepository,
+      delete: async (id: string) => {
+        if (id === playlist.id) {
+          deleteCalled = true;
+          return true;
+        }
+        return false;
+      },
+    };
+
+    const scheduleRepository: ScheduleRepository = {
+      list: async () => [],
+      listByDevice: async () => [],
+      listBySeries: async () => [],
+      listByPlaylistId: async () => [],
+      findById: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      delete: async () => false,
+      countByPlaylistId: async () => 0,
+      deleteBySeries: async () => 0,
+    };
+
+    const deviceRepository: DeviceRepository = {
+      list: async () => [],
+      findByIds: async () => [],
+      findById: async () => null,
+      findByIdentifier: async () => null,
+      findByFingerprint: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      bumpRefreshNonce: async () => false,
+    };
+
+    const useCase = new DeletePlaylistUseCase({
+      playlistRepository,
+      contentRepository: deps.contentRepository,
+      scheduleRepository,
+      deviceRepository,
+    });
+
+    await useCase.execute({ id: playlist.id });
+    expect(deleteCalled).toBe(true);
   });
 });

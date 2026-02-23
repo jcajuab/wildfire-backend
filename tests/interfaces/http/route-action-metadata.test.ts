@@ -165,6 +165,7 @@ const buildContentActionApp = async () => {
     jwtSecret: "test-secret",
     maxUploadBytes: 5 * 1024 * 1024,
     downloadUrlExpiresInSeconds: 3600,
+    thumbnailUrlExpiresInSeconds: 3600,
     repositories: {
       contentRepository: {
         create: async (input) => ({
@@ -200,6 +201,9 @@ const buildContentActionApp = async () => {
     },
     contentMetadataExtractor: {
       extract: async () => ({ width: 1366, height: 768, duration: null }),
+    },
+    contentThumbnailGenerator: {
+      generate: async () => null,
     },
   });
 

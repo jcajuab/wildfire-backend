@@ -4,6 +4,7 @@ import {
   type ContentMetadataExtractor,
   type ContentRepository,
   type ContentStorage,
+  type ContentThumbnailGenerator,
 } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
@@ -27,6 +28,7 @@ export interface ContentRouterDeps {
   authSessionDualMode?: boolean;
   maxUploadBytes: number;
   downloadUrlExpiresInSeconds: number;
+  thumbnailUrlExpiresInSeconds: number;
   repositories: {
     contentRepository: ContentRepository;
     userRepository: UserRepository;
@@ -34,6 +36,7 @@ export interface ContentRouterDeps {
   };
   storage: ContentStorage;
   contentMetadataExtractor: ContentMetadataExtractor;
+  contentThumbnailGenerator: ContentThumbnailGenerator;
 }
 
 export interface ContentRouterUseCases {
@@ -82,16 +85,21 @@ export const createContentUseCases = (
       contentRepository: deps.repositories.contentRepository,
       contentStorage: deps.storage,
       contentMetadataExtractor: deps.contentMetadataExtractor,
+      contentThumbnailGenerator: deps.contentThumbnailGenerator,
       userRepository: deps.repositories.userRepository,
       cleanupFailureLogger,
     }),
     listContent: new ListContentUseCase({
       contentRepository: deps.repositories.contentRepository,
       userRepository: deps.repositories.userRepository,
+      contentStorage: deps.storage,
+      thumbnailUrlExpiresInSeconds: deps.thumbnailUrlExpiresInSeconds,
     }),
     getContent: new GetContentUseCase({
       contentRepository: deps.repositories.contentRepository,
       userRepository: deps.repositories.userRepository,
+      contentStorage: deps.storage,
+      thumbnailUrlExpiresInSeconds: deps.thumbnailUrlExpiresInSeconds,
     }),
     updateContent: new UpdateContentUseCase({
       contentRepository: deps.repositories.contentRepository,

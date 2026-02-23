@@ -35,6 +35,7 @@ describe("createHttpContainer", () => {
     expect(container.auth.invitationEmailSender).toBeDefined();
     expect(container.auth.passwordResetEmailSender).toBeDefined();
     expect(container.storage.contentStorage).toBeDefined();
+    expect(container.storage.contentThumbnailGenerator).toBeDefined();
     expect(container.storage.minioEndpoint).toBe("http://localhost:9000");
   });
 

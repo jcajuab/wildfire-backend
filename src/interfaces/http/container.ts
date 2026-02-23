@@ -22,6 +22,7 @@ import { SystemSettingDbRepository } from "#/infrastructure/db/repositories/syst
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
+import { DefaultContentThumbnailGenerator } from "#/infrastructure/media/content-thumbnail.generator";
 import { LogInvitationEmailSender } from "#/infrastructure/notifications/log-invitation-email.sender";
 import { LogPasswordResetEmailSender } from "#/infrastructure/notifications/log-password-reset-email.sender";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
@@ -77,6 +78,7 @@ export interface HttpContainer {
   storage: {
     contentStorage: S3ContentStorage;
     contentMetadataExtractor: DefaultContentMetadataExtractor;
+    contentThumbnailGenerator: DefaultContentThumbnailGenerator;
     minioEndpoint: string;
   };
 }
@@ -128,6 +130,7 @@ export const createHttpContainer = (
     requestTimeoutMs: config.minio.requestTimeoutMs,
   });
   const contentMetadataExtractor = new DefaultContentMetadataExtractor();
+  const contentThumbnailGenerator = new DefaultContentThumbnailGenerator();
 
   return {
     repositories: {
@@ -163,6 +166,7 @@ export const createHttpContainer = (
     storage: {
       contentStorage,
       contentMetadataExtractor,
+      contentThumbnailGenerator,
       minioEndpoint,
     },
   };

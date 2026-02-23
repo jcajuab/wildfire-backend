@@ -4,6 +4,7 @@ import {
   type ContentRecord,
   type ContentRepository,
   type ContentStorage,
+  type ContentThumbnailGenerator,
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import {
@@ -93,15 +94,15 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
 
 const makeStorage = (options?: { deleteError?: Error }) => {
   type UploadInput = Parameters<ContentStorage["upload"]>[0];
-  let lastUpload: UploadInput | null = null;
-  let lastDeletedKey: string | null = null;
+  const uploads: UploadInput[] = [];
+  const deletedKeys: string[] = [];
 
   const storage: ContentStorage = {
     upload: async (input) => {
-      lastUpload = input;
+      uploads.push(input);
     },
     delete: async (key) => {
-      lastDeletedKey = key;
+      deletedKeys.push(key);
       if (options?.deleteError) {
         throw options.deleteError;
       }
@@ -111,11 +112,17 @@ const makeStorage = (options?: { deleteError?: Error }) => {
 
   return {
     storage,
+    get uploads() {
+      return uploads;
+    },
+    get deletedKeys() {
+      return deletedKeys;
+    },
     get lastUpload() {
-      return lastUpload;
+      return uploads[uploads.length - 1] ?? null;
     },
     get lastDeletedKey() {
-      return lastDeletedKey;
+      return deletedKeys[deletedKeys.length - 1] ?? null;
     },
   };
 };
@@ -129,6 +136,10 @@ const metadataExtractor: ContentMetadataExtractor = {
   },
 };
 
+const thumbnailGenerator: ContentThumbnailGenerator = {
+  generate: async () => null,
+};
+
 describe("Content use cases", () => {
   test("uploads content and returns content view", async () => {
     const { repository } = makeContentRepository();
@@ -138,6 +149,7 @@ describe("Content use cases", () => {
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
       userRepository,
     });
 
@@ -161,6 +173,39 @@ describe("Content use cases", () => {
     expect(storage.lastUpload?.key).toBe(`content/images/${result.id}.png`);
   });
 
+  test("uploads generated thumbnail when available", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new UploadContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: {
+        generate: async () => new Uint8Array([1, 2, 3]),
+      },
+      userRepository,
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+
+    const result = await useCase.execute({
+      title: "Welcome",
+      file,
+      createdById: "user-1",
+    });
+
+    expect(storage.uploads).toHaveLength(2);
+    expect(storage.uploads[0]?.key).toBe(`content/images/${result.id}.png`);
+    expect(storage.uploads[1]?.key).toBe(`content/thumbnails/${result.id}.jpg`);
+    expect(storage.uploads[1]?.contentType).toBe("image/jpeg");
+    expect(records[0]?.thumbnailKey).toBe(
+      `content/thumbnails/${result.id}.jpg`,
+    );
+  });
+
   test("rejects unsupported file types", async () => {
     const { repository } = makeContentRepository();
     const storage = makeStorage();
@@ -169,6 +214,7 @@ describe("Content use cases", () => {
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
       userRepository,
     });
 
@@ -189,6 +235,7 @@ describe("Content use cases", () => {
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
       userRepository,
     });
 
@@ -203,6 +250,7 @@ describe("Content use cases", () => {
 
   test("lists content with pagination and creator names", async () => {
     const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
     const userRepository = makeUserRepository([
       { id: "user-1", name: "Ada" },
       { id: "user-2", name: "Grace" },
@@ -214,6 +262,8 @@ describe("Content use cases", () => {
         type: "IMAGE",
         status: "DRAFT",
         fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+        thumbnailKey:
+          "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
         checksum: "abc",
         mimeType: "image/png",
         fileSize: 10,
@@ -243,6 +293,8 @@ describe("Content use cases", () => {
     const useCase = new ListContentUseCase({
       contentRepository: repository,
       userRepository,
+      contentStorage: storage.storage,
+      thumbnailUrlExpiresInSeconds: 3600,
     });
 
     const result = await useCase.execute({ page: 1, pageSize: 1 });
@@ -253,14 +305,20 @@ describe("Content use cases", () => {
       id: "user-1",
       name: "Ada",
     });
+    expect(result.items[0]?.thumbnailUrl).toBe(
+      "https://example.com/content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+    );
   });
 
   test("gets content by id", async () => {
     const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
     const useCase = new GetContentUseCase({
       contentRepository: repository,
       userRepository,
+      contentStorage: storage.storage,
+      thumbnailUrlExpiresInSeconds: 3600,
     });
 
     records.push({
@@ -269,6 +327,8 @@ describe("Content use cases", () => {
       type: "IMAGE",
       status: "DRAFT",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      thumbnailKey:
+        "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -284,14 +344,20 @@ describe("Content use cases", () => {
     });
     expect(result.id).toBe("11111111-1111-4111-8111-111111111111");
     expect(result.createdBy.name).toBe("Ada");
+    expect(result.thumbnailUrl).toBe(
+      "https://example.com/content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+    );
   });
 
   test("throws when content is missing", async () => {
     const { repository } = makeContentRepository();
+    const storage = makeStorage();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
     const useCase = new GetContentUseCase({
       contentRepository: repository,
       userRepository,
+      contentStorage: storage.storage,
+      thumbnailUrlExpiresInSeconds: 3600,
     });
 
     await expect(useCase.execute({ id: "missing" })).rejects.toBeInstanceOf(
@@ -330,6 +396,42 @@ describe("Content use cases", () => {
     expect(storage.lastDeletedKey).toBe(
       "content/images/11111111-1111-4111-8111-111111111111.png",
     );
+  });
+
+  test("deletes main file and thumbnail when both exist", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const useCase = new DeleteContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      cleanupFailureLogger: {
+        logContentCleanupFailure: () => undefined,
+      },
+    });
+
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Poster",
+      type: "IMAGE",
+      status: "DRAFT",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      thumbnailKey:
+        "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    await useCase.execute({ id: "11111111-1111-4111-8111-111111111111" });
+    expect(storage.deletedKeys).toEqual([
+      "content/images/11111111-1111-4111-8111-111111111111.png",
+      "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+    ]);
   });
 
   test("throws cleanup error when storage delete fails after metadata deletion", async () => {
@@ -396,6 +498,7 @@ describe("Content use cases", () => {
       },
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
       userRepository,
       cleanupFailureLogger: {
         logContentCleanupFailure: (input) => {

@@ -106,6 +106,8 @@ export const createPlaylistsUseCases = (
     deletePlaylist: new DeletePlaylistUseCase({
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
+      scheduleRepository: deps.repositories.scheduleRepository,
+      deviceRepository: deps.repositories.deviceRepository,
     }),
     addPlaylistItem: new AddPlaylistItemUseCase({
       playlistRepository: deps.repositories.playlistRepository,
