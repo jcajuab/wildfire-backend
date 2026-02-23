@@ -16,6 +16,13 @@ export class AuthSessionDbRepository implements AuthSessionRepository {
     });
   }
 
+  async extendExpiry(sessionId: string, expiresAt: Date): Promise<void> {
+    await db
+      .update(authSessions)
+      .set({ expiresAt })
+      .where(eq(authSessions.id, sessionId));
+  }
+
   async revokeById(sessionId: string): Promise<void> {
     await db
       .update(authSessions)

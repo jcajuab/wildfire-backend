@@ -80,6 +80,7 @@ const buildAuthActionApp = () => {
   };
   const authSessionRepository: AuthSessionRepository = {
     create: async () => {},
+    extendExpiry: async () => {},
     revokeById: async () => {},
     revokeAllForUser: async () => {},
     isActive: async () => true,

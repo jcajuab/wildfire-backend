@@ -29,6 +29,7 @@ export interface Clock {
 
 export interface AuthSessionRepository {
   create(input: { id: string; userId: string; expiresAt: Date }): Promise<void>;
+  extendExpiry(sessionId: string, expiresAt: Date): Promise<void>;
   revokeById(sessionId: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
   isActive(sessionId: string, now: Date): Promise<boolean>;

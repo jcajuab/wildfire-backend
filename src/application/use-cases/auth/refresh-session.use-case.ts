@@ -54,6 +54,8 @@ export class RefreshSessionUseCase {
       (await this.deps.userRepository.update(input.userId, {
         lastSeenAt,
       })) ?? existingUser;
+
+    let sessionId: string;
     if (input.currentSessionId) {
       const isOwnedByUser = this.deps.authSessionRepository.isOwnedByUser
         ? await this.deps.authSessionRepository.isOwnedByUser(
@@ -65,14 +67,20 @@ export class RefreshSessionUseCase {
       if (!isOwnedByUser) {
         throw new InvalidCredentialsError();
       }
-      await this.deps.authSessionRepository.revokeById(input.currentSessionId);
+      await this.deps.authSessionRepository.extendExpiry(
+        input.currentSessionId,
+        new Date(expiresAt * 1000),
+      );
+      sessionId = input.currentSessionId;
+    } else {
+      sessionId = crypto.randomUUID();
+      await this.deps.authSessionRepository.create({
+        id: sessionId,
+        userId: user.id,
+        expiresAt: new Date(expiresAt * 1000),
+      });
     }
-    const sessionId = crypto.randomUUID();
-    await this.deps.authSessionRepository.create({
-      id: sessionId,
-      userId: user.id,
-      expiresAt: new Date(expiresAt * 1000),
-    });
+
     const token = await this.deps.tokenIssuer.issueToken({
       subject: user.id,
       issuedAt,

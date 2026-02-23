@@ -248,6 +248,10 @@ const buildApp = (opts?: {
       sessions.set(id, { userId, expiresAt });
       revoked.delete(id);
     },
+    extendExpiry: async (sessionId, expiresAt) => {
+      const session = sessions.get(sessionId);
+      if (session) sessions.set(sessionId, { ...session, expiresAt });
+    },
     revokeById: async (sessionId) => {
       revoked.add(sessionId);
     },
