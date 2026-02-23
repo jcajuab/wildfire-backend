@@ -32,6 +32,7 @@ const makeRepository = () => {
         total: records.length,
       }),
       countPlaylistReferences: async () => 0,
+      listPlaylistsReferencingContent: async () => [],
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
         if (index === -1) return false;

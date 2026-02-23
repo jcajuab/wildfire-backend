@@ -221,6 +221,14 @@ export const registerContentWriteRoutes = (args: {
             },
           },
         },
+        409: {
+          description: "Content is in use by one or more playlists",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
       },
     }),
     withRouteErrorHandling(
@@ -232,6 +240,7 @@ export const registerContentWriteRoutes = (args: {
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(ContentInUseError, conflict),
     ),
   );
 };

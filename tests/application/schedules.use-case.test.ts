@@ -78,6 +78,8 @@ const makeDeps = () => {
     },
     countByPlaylistId: async (playlistId: string) =>
       schedules.filter((schedule) => schedule.playlistId === playlistId).length,
+    listByPlaylistId: async (playlistId: string) =>
+      schedules.filter((schedule) => schedule.playlistId === playlistId),
   };
 
   const playlistRepository: PlaylistRepository = {
@@ -210,6 +212,7 @@ describe("Schedules use cases", () => {
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => {
@@ -305,6 +308,7 @@ describe("Schedules use cases", () => {
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
     });
@@ -365,6 +369,7 @@ describe("Schedules use cases", () => {
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
     });
@@ -414,6 +419,7 @@ describe("Schedules use cases", () => {
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
     });
@@ -465,6 +471,7 @@ describe("Schedules use cases", () => {
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
     });
@@ -534,6 +541,7 @@ describe("Schedules use cases", () => {
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
     });
@@ -596,6 +604,7 @@ describe("Schedules use cases", () => {
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
     });

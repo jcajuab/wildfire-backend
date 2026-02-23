@@ -41,6 +41,9 @@ export interface ContentRepository {
     input: Partial<Pick<ContentRecord, "title" | "status">>,
   ): Promise<ContentRecord | null>;
   countPlaylistReferences(contentId: string): Promise<number>;
+  listPlaylistsReferencingContent(
+    contentId: string,
+  ): Promise<{ id: string; name: string }[]>;
   delete(id: string): Promise<boolean>;
 }
 

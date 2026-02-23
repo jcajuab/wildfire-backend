@@ -113,6 +113,7 @@ const makeApp = async (
         },
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },

@@ -6,6 +6,7 @@ import {
 import { parseContentStatus, parseContentType } from "#/domain/content/content";
 import { db } from "#/infrastructure/db/client";
 import { content } from "#/infrastructure/db/schema/content.sql";
+import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 
 const toRecord = (row: typeof content.$inferSelect): ContentRecord => {
@@ -157,6 +158,18 @@ export class ContentDbRepository implements ContentRepository {
       .from(playlistItems)
       .where(eq(playlistItems.contentId, contentId));
     return result[0]?.value ?? 0;
+  }
+
+  async listPlaylistsReferencingContent(
+    contentId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    const result = await db
+      .selectDistinct({ id: playlists.id, name: playlists.name })
+      .from(playlistItems)
+      .innerJoin(playlists, eq(playlistItems.playlistId, playlists.id))
+      .where(eq(playlistItems.contentId, contentId))
+      .limit(10);
+    return result;
   }
 
   async delete(id: string): Promise<boolean> {

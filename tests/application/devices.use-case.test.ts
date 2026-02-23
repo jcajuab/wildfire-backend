@@ -460,6 +460,7 @@ describe("Devices use cases", () => {
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => [],
@@ -490,6 +491,7 @@ describe("Devices use cases", () => {
         },
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -539,6 +541,7 @@ describe("Devices use cases", () => {
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => [],
@@ -569,6 +572,7 @@ describe("Devices use cases", () => {
         },
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -635,6 +639,7 @@ describe("Devices use cases", () => {
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => [],
@@ -696,6 +701,7 @@ describe("Devices use cases", () => {
         },
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -784,6 +790,7 @@ describe("Devices use cases", () => {
       },
       list: async () => ({ items: [], total: 0 }),
       countPlaylistReferences: async () => 0,
+      listPlaylistsReferencingContent: async () => [],
       delete: async () => false,
     };
 
@@ -815,6 +822,7 @@ describe("Devices use cases", () => {
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => [],
@@ -941,6 +949,7 @@ describe("Devices use cases", () => {
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => [],
@@ -1036,6 +1045,7 @@ describe("Devices use cases", () => {
         },
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },

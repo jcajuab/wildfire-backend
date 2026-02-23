@@ -115,6 +115,7 @@ const makeDeps = () => {
     },
     list: async () => ({ items: [], total: 0 }),
     countPlaylistReferences: async () => 0,
+    listPlaylistsReferencingContent: async () => [],
     delete: async () => false,
     update: async () => null,
   };
@@ -312,6 +313,7 @@ describe("Playlists use cases", () => {
       },
       list: async () => ({ items: [], total: 0 }),
       countPlaylistReferences: async () => 0,
+      listPlaylistsReferencingContent: async () => [],
       delete: async () => false,
     };
 

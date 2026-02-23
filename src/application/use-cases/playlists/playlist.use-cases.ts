@@ -373,10 +373,11 @@ export class DeletePlaylistUseCase {
     if (schedules.length > 0) {
       const deviceIds = Array.from(new Set(schedules.map((s) => s.deviceId)));
       const devices = await this.deps.deviceRepository.findByIds(deviceIds);
+      const firstDevice = devices[0];
       const displayName =
-        devices.length === 0
+        devices.length === 0 || !firstDevice
           ? "a display"
-          : devices[0].name?.trim() || devices[0].identifier || "a display";
+          : firstDevice.name?.trim() || firstDevice.identifier || "a display";
       const message =
         deviceIds.length > 1
           ? "Failed to delete playlist. This playlist is in use by multiple devices."

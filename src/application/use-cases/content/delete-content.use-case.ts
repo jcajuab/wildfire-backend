@@ -24,12 +24,18 @@ export class DeleteContentUseCase {
       throw new NotFoundError("Content not found");
     }
 
-    const playlistReferences =
-      await this.deps.contentRepository.countPlaylistReferences(input.id);
-    if (playlistReferences > 0) {
-      throw new ContentInUseError(
-        `Content is used by ${playlistReferences} playlist item(s). Remove dependencies before deleting.`,
+    const referencingPlaylists =
+      await this.deps.contentRepository.listPlaylistsReferencingContent(
+        input.id,
       );
+    if (referencingPlaylists.length > 0) {
+      const firstPlaylist = referencingPlaylists[0];
+      const playlistName = firstPlaylist?.name?.trim() || "a playlist";
+      const message =
+        referencingPlaylists.length > 1
+          ? "Failed to delete content. This content is in use by multiple playlists."
+          : `Failed to delete content. This content is in use by ${playlistName}.`;
+      throw new ContentInUseError(message);
     }
 
     const deleted = await this.deps.contentRepository.delete(input.id);

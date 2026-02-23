@@ -103,6 +103,8 @@ const makeApp = async (
           schedules.splice(0, schedules.length, ...remaining);
           return before - schedules.length;
         },
+        listByPlaylistId: async (playlistId: string) =>
+          schedules.filter((schedule) => schedule.playlistId === playlistId),
       },
       playlistRepository: {
         list: async () => [...playlists],
@@ -157,6 +159,7 @@ const makeApp = async (
         list: async () => ({ items: [], total: 0 }),
         update: async () => null,
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
       systemSettingRepository: {

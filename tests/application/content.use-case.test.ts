@@ -39,6 +39,7 @@ const makeContentRepository = () => {
       total: records.length,
     }),
     countPlaylistReferences: async () => 0,
+    listPlaylistsReferencingContent: async () => [],
     delete: async (id) => {
       const index = records.findIndex((item) => item.id === id);
       if (index === -1) return false;
@@ -493,6 +494,7 @@ describe("Content use cases", () => {
         findByIds: async () => [],
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },

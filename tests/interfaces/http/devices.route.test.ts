@@ -296,6 +296,7 @@ const makeApp = async (
         countByPlaylistId: async () => 0,
         listBySeries: async () => [],
         deleteBySeries: async () => 0,
+        listByPlaylistId: async () => [],
       },
       playlistRepository: {
         list: async () => playlists,
@@ -341,6 +342,7 @@ const makeApp = async (
         },
         list: async () => ({ items: [], total: 0 }),
         countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
