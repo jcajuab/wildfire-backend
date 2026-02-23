@@ -67,6 +67,7 @@ const makeDeps = () => {
       tokenTtlSeconds,
       authSessionRepository: {
         create: async () => {},
+        extendExpiry: async () => {},
         revokeById: async () => {},
         revokeAllForUser: async () => {},
         isActive: async () => true,
