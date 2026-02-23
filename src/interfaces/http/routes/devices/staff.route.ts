@@ -1,9 +1,12 @@
 import { type MiddlewareHandler } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
+import { DeviceGroupConflictError } from "#/application/use-cases/devices";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { conflict } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
+  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
@@ -320,6 +323,9 @@ export const registerDeviceStaffRoutes = (args: {
             },
           },
         },
+        409: {
+          description: "Group name already exists",
+        },
       },
     }),
     withRouteErrorHandling(
@@ -332,6 +338,7 @@ export const registerDeviceStaffRoutes = (args: {
         return c.json(result);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(DeviceGroupConflictError, conflict),
     ),
   );
 
@@ -364,6 +371,9 @@ export const registerDeviceStaffRoutes = (args: {
             },
           },
         },
+        409: {
+          description: "Group name already exists",
+        },
       },
     }),
     withRouteErrorHandling(
@@ -378,6 +388,7 @@ export const registerDeviceStaffRoutes = (args: {
         return c.json(result);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(DeviceGroupConflictError, conflict),
     ),
   );
 

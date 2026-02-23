@@ -15,4 +15,4 @@ export {
   SetDeviceGroupsUseCase,
   UpdateDeviceGroupUseCase,
 } from "./device-groups.use-cases";
-export { NotFoundError } from "./errors";
+export { DeviceGroupConflictError, NotFoundError } from "./errors";

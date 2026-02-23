@@ -3,9 +3,16 @@ import {
   type DeviceGroupRepository,
   type DeviceRepository,
 } from "#/application/ports/devices";
-import { NotFoundError } from "#/application/use-cases/devices/errors";
+import {
+  DeviceGroupConflictError,
+  NotFoundError,
+} from "#/application/use-cases/devices/errors";
 
-const normalizeName = (value: string): string => value.trim();
+const collapseWhitespace = (value: string): string =>
+  value.trim().replace(/\s+/g, " ");
+
+const normalizeName = (value: string): string =>
+  collapseWhitespace(value).toLowerCase();
 
 export class ListDeviceGroupsUseCase {
   constructor(
@@ -23,11 +30,17 @@ export class CreateDeviceGroupUseCase {
   ) {}
 
   async execute(input: { name: string }) {
-    const name = normalizeName(input.name);
-    if (name.length === 0) throw new ValidationError("Group name is required");
-    const existing = await this.deps.deviceGroupRepository.findByName(name);
+    const displayName = collapseWhitespace(input.name);
+    if (displayName.length === 0) {
+      throw new ValidationError("Group name is required");
+    }
+    const normalizedInputName = normalizeName(displayName);
+    const existingGroups = await this.deps.deviceGroupRepository.list();
+    const existing = existingGroups.find(
+      (group) => normalizeName(group.name) === normalizedInputName,
+    );
     if (existing) return existing;
-    return this.deps.deviceGroupRepository.create({ name });
+    return this.deps.deviceGroupRepository.create({ name: displayName });
   }
 }
 
@@ -38,10 +51,29 @@ export class UpdateDeviceGroupUseCase {
 
   async execute(input: { id: string; name?: string }) {
     const name =
-      input.name === undefined ? undefined : normalizeName(input.name);
+      input.name === undefined ? undefined : collapseWhitespace(input.name);
     if (name !== undefined && name.length === 0) {
       throw new ValidationError("Group name is required");
     }
+
+    if (name !== undefined) {
+      const groups = await this.deps.deviceGroupRepository.list();
+      const normalizedName = normalizeName(name);
+      const existing = groups.find((group) => group.id === input.id);
+      if (!existing) {
+        throw new NotFoundError("Device group not found");
+      }
+      const conflictingGroup = groups.find(
+        (group) =>
+          group.id !== input.id && normalizeName(group.name) === normalizedName,
+      );
+      if (conflictingGroup) {
+        throw new DeviceGroupConflictError(
+          "A device group with this name already exists",
+        );
+      }
+    }
+
     const updated = await this.deps.deviceGroupRepository.update(input.id, {
       name,
     });
@@ -72,17 +104,18 @@ export class SetDeviceGroupsUseCase {
   async execute(input: { deviceId: string; groupIds: string[] }) {
     const device = await this.deps.deviceRepository.findById(input.deviceId);
     if (!device) throw new NotFoundError("Device not found");
+    const uniqueGroupIds = [...new Set(input.groupIds)];
 
-    if (input.groupIds.length > 0) {
+    if (uniqueGroupIds.length > 0) {
       const groups = await this.deps.deviceGroupRepository.list();
       const existingIds = new Set(groups.map((g) => g.id));
-      const unknown = input.groupIds.find((id) => !existingIds.has(id));
+      const unknown = uniqueGroupIds.find((id) => !existingIds.has(id));
       if (unknown) throw new NotFoundError("Device group not found");
     }
 
     await this.deps.deviceGroupRepository.setDeviceGroups(
       input.deviceId,
-      input.groupIds,
+      uniqueGroupIds,
     );
   }
 }

@@ -46,10 +46,13 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     createdAt: Date;
     updatedAt: Date;
   }>;
+  const setDeviceGroupsCalls: Array<{ deviceId: string; groupIds: string[] }> =
+    [];
 
   return {
     devices,
     deviceGroups,
+    setDeviceGroupsCalls,
     issuePairingCode: (code: string, expiresAt?: Date) => {
       pairingCodes.push({
         id: crypto.randomUUID(),
@@ -166,6 +169,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         return true;
       },
       setDeviceGroups: async (deviceId: string, groupIds: string[]) => {
+        setDeviceGroupsCalls.push({ deviceId, groupIds: [...groupIds] });
         for (const group of deviceGroups) {
           group.deviceIds = group.deviceIds.filter((id) => id !== deviceId);
         }
@@ -241,6 +245,7 @@ const makeApp = async (
   const app = new Hono();
   const {
     devices,
+    setDeviceGroupsCalls,
     issuePairingCode,
     deviceRepository,
     deviceGroupRepository,
@@ -378,7 +383,7 @@ const makeApp = async (
       issuer: undefined,
     });
 
-  return { app, issueToken, devices, issuePairingCode };
+  return { app, issueToken, devices, setDeviceGroupsCalls, issuePairingCode };
 };
 
 describe("Devices routes", () => {
@@ -874,6 +879,162 @@ describe("Devices routes", () => {
       listResponse,
     );
     expect(json.items.some((group) => group.name === "Lobby Group")).toBe(true);
+  });
+
+  test("PATCH /devices/groups/:groupId returns 409 for case-insensitive rename conflicts", async () => {
+    const { app, issueToken } = await makeApp(["devices:update"]);
+    const token = await issueToken();
+
+    const firstCreate = await app.request("/devices/groups", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Lobby" }),
+    });
+    const secondCreate = await app.request("/devices/groups", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Office" }),
+    });
+
+    expect(firstCreate.status).toBe(200);
+    expect(secondCreate.status).toBe(200);
+    const second = await parseJson<{ id: string }>(secondCreate);
+
+    const response = await app.request(`/devices/groups/${second.id}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "  LOBBY  " }),
+    });
+
+    expect(response.status).toBe(409);
+  });
+
+  test("PUT /devices/:id/groups deduplicates duplicate group ids", async () => {
+    const { app, issueToken, devices, setDeviceGroupsCalls } = await makeApp([
+      "devices:update",
+    ]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      deviceFingerprint: null,
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      refreshNonce: 0,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const token = await issueToken();
+
+    const create = await app.request("/devices/groups", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Lobby Group" }),
+    });
+    expect(create.status).toBe(200);
+    const created = await parseJson<{ id: string }>(create);
+
+    const response = await app.request(`/devices/${deviceId}/groups`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        groupIds: [created.id, created.id, created.id],
+      }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(setDeviceGroupsCalls).toEqual([
+      {
+        deviceId,
+        groupIds: [created.id],
+      },
+    ]);
+  });
+
+  test("DELETE /devices/groups/:groupId removes the group and blocks future assignment", async () => {
+    const { app, issueToken, devices } = await makeApp([
+      "devices:update",
+      "devices:read",
+    ]);
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      deviceFingerprint: null,
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      refreshNonce: 0,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const token = await issueToken();
+
+    const create = await app.request("/devices/groups", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Temp Group" }),
+    });
+    expect(create.status).toBe(200);
+    const created = await parseJson<{ id: string }>(create);
+
+    const assign = await app.request(`/devices/${deviceId}/groups`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ groupIds: [created.id] }),
+    });
+    expect(assign.status).toBe(204);
+
+    const remove = await app.request(`/devices/groups/${created.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(remove.status).toBe(204);
+
+    const list = await app.request("/devices/groups", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(list.status).toBe(200);
+    const groupsList = await parseJson<{ items: Array<{ id: string }> }>(list);
+    expect(groupsList.items.some((group) => group.id === created.id)).toBe(
+      false,
+    );
+
+    const reassignDeleted = await app.request(`/devices/${deviceId}/groups`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ groupIds: [created.id] }),
+    });
+    expect(reassignDeleted.status).toBe(404);
   });
 
   test("GET /devices/:id/manifest returns empty manifest", async () => {
