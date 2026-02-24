@@ -9,14 +9,13 @@ import {
   ListSchedulesUseCase,
   NotFoundError,
   ScheduleConflictError,
-  UpdateScheduleSeriesUseCase,
   UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 
 const makeDeps = () => {
   const schedules = [] as Array<{
     id: string;
-    seriesId: string;
+    seriesId?: string;
     name: string;
     playlistId: string;
     deviceId: string;
@@ -24,7 +23,7 @@ const makeDeps = () => {
     endDate?: string;
     startTime: string;
     endTime: string;
-    dayOfWeek: number;
+    dayOfWeek?: number;
     priority: number;
     isActive: boolean;
     createdAt: string;
@@ -549,69 +548,6 @@ describe("Schedules use cases", () => {
     await expect(
       useCase.execute({
         id: "schedule-b",
-        startTime: "08:30",
-        endTime: "09:30",
-      }),
-    ).rejects.toBeInstanceOf(ScheduleConflictError);
-  });
-
-  test("UpdateScheduleSeriesUseCase rejects overlapping schedules", async () => {
-    const deps = makeDeps();
-    deps.schedules.push(
-      {
-        id: "series-entry-1",
-        seriesId: "series-a",
-        name: "Series A",
-        playlistId: "playlist-1",
-        deviceId: "device-1",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
-        startTime: "08:00",
-        endTime: "09:00",
-        dayOfWeek: 1,
-        priority: 1,
-        isActive: true,
-        createdAt: "2025-01-01T00:00:00.000Z",
-        updatedAt: "2025-01-01T00:00:00.000Z",
-      },
-      {
-        id: "series-entry-2",
-        seriesId: "series-b",
-        name: "Series B",
-        playlistId: "playlist-1",
-        deviceId: "device-1",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
-        startTime: "10:00",
-        endTime: "11:00",
-        dayOfWeek: 1,
-        priority: 1,
-        isActive: true,
-        createdAt: "2025-01-01T00:00:00.000Z",
-        updatedAt: "2025-01-01T00:00:00.000Z",
-      },
-    );
-    const useCase = new UpdateScheduleSeriesUseCase({
-      scheduleRepository: deps.scheduleRepository,
-      playlistRepository: deps.playlistRepository,
-      deviceRepository: deps.deviceRepository,
-      contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-      },
-    });
-
-    await expect(
-      useCase.execute({
-        seriesId: "series-b",
         startTime: "08:30",
         endTime: "09:30",
       }),

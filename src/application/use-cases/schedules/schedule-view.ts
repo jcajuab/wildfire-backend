@@ -8,7 +8,6 @@ export const toScheduleView = (
   device: DeviceRecord | null,
 ) => ({
   id: schedule.id,
-  seriesId: schedule.seriesId,
   name: schedule.name,
   playlistId: schedule.playlistId,
   deviceId: schedule.deviceId,
@@ -16,7 +15,6 @@ export const toScheduleView = (
   endDate: schedule.endDate ?? "",
   startTime: schedule.startTime,
   endTime: schedule.endTime,
-  dayOfWeek: schedule.dayOfWeek,
   priority: schedule.priority,
   isActive: schedule.isActive,
   createdAt: schedule.createdAt,

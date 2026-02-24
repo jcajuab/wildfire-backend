@@ -3,10 +3,6 @@ const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 export const isValidTime = (value: string) => timeRegex.test(value);
 
-export const isValidDaysOfWeek = (value: number[]) =>
-  value.length > 0 &&
-  value.every((day) => Number.isInteger(day) && day >= 0 && day <= 6);
-
 export const isValidDate = (value: string) => isoDateRegex.test(value);
 
 const toMinutes = (value: string) => {
@@ -17,39 +13,22 @@ const toMinutes = (value: string) => {
   return hours * 60 + minutes;
 };
 
-const weekdayToNumber: Record<string, number> = {
-  Sun: 0,
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-};
-
-const toZonedDayAndTime = (now: Date, timeZone: string) => {
+const toZonedTimeString = (now: Date, timeZone: string) => {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
-    weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
   const parts = formatter.formatToParts(now);
-  const weekday = parts.find((part) => part.type === "weekday")?.value;
   const hour = parts.find((part) => part.type === "hour")?.value;
   const minute = parts.find((part) => part.type === "minute")?.value;
 
-  if (!weekday || !hour || !minute) {
-    throw new Error(`Unable to resolve zoned date parts for ${timeZone}`);
+  if (!hour || !minute) {
+    throw new Error(`Unable to resolve zoned time parts for ${timeZone}`);
   }
 
-  const day = weekdayToNumber[weekday];
-  if (day === undefined) {
-    throw new Error(`Unsupported weekday value: ${weekday}`);
-  }
-
-  return { day, time: `${hour}:${minute}` };
+  return `${hour}:${minute}`;
 };
 
 const toZonedDateString = (now: Date, timeZone: string) => {
@@ -109,8 +88,6 @@ export const selectActiveSchedule = <
     isActive: boolean;
     startDate?: string;
     endDate?: string;
-    dayOfWeek?: number;
-    daysOfWeek?: number[];
     startTime: string;
     endTime: string;
     priority: number;
@@ -120,17 +97,8 @@ export const selectActiveSchedule = <
   now: Date,
   timeZone = "UTC",
 ) => {
-  const { day, time } = toZonedDayAndTime(now, timeZone);
+  const time = toZonedTimeString(now, timeZone);
   const date = toZonedDateString(now, timeZone);
-  const matchesDay = (schedule: T): boolean => {
-    if (typeof schedule.dayOfWeek === "number") {
-      return schedule.dayOfWeek === day;
-    }
-    if (Array.isArray(schedule.daysOfWeek)) {
-      return schedule.daysOfWeek.includes(day);
-    }
-    return false;
-  };
 
   return (
     schedules
@@ -141,7 +109,6 @@ export const selectActiveSchedule = <
         }
         return isWithinDateWindow(date, schedule.startDate, schedule.endDate);
       })
-      .filter(matchesDay)
       .filter((schedule) =>
         isWithinTimeWindow(time, schedule.startTime, schedule.endTime),
       )

@@ -8,7 +8,6 @@ import { schedules } from "#/infrastructure/db/schema/schedule.sql";
 
 const toRecord = (row: typeof schedules.$inferSelect): ScheduleRecord => ({
   id: row.id,
-  seriesId: row.seriesId,
   name: row.name,
   playlistId: row.playlistId,
   deviceId: row.deviceId,
@@ -16,7 +15,6 @@ const toRecord = (row: typeof schedules.$inferSelect): ScheduleRecord => ({
   endDate: row.endDate,
   startTime: row.startTime,
   endTime: row.endTime,
-  dayOfWeek: row.dayOfWeek,
   priority: row.priority,
   isActive: row.isActive,
   createdAt:
@@ -43,15 +41,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
     return rows.map(toRecord);
   }
 
-  async listBySeries(seriesId: string): Promise<ScheduleRecord[]> {
-    const rows = await db
-      .select()
-      .from(schedules)
-      .where(eq(schedules.seriesId, seriesId))
-      .orderBy(desc(schedules.priority));
-    return rows.map(toRecord);
-  }
-
   async listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]> {
     const rows = await db
       .select()
@@ -70,7 +59,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
   }
 
   async create(input: {
-    seriesId: string;
+    seriesId?: string;
     name: string;
     playlistId: string;
     deviceId: string;
@@ -78,7 +67,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
     endDate?: string;
     startTime: string;
     endTime: string;
-    dayOfWeek: number;
+    dayOfWeek?: number;
     priority: number;
     isActive: boolean;
   }): Promise<ScheduleRecord> {
@@ -86,7 +75,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
     const now = new Date();
     await db.insert(schedules).values({
       id,
-      seriesId: input.seriesId,
       name: input.name,
       playlistId: input.playlistId,
       deviceId: input.deviceId,
@@ -94,7 +82,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
       endDate: input.endDate ?? "2099-12-31",
       startTime: input.startTime,
       endTime: input.endTime,
-      dayOfWeek: input.dayOfWeek,
       priority: input.priority,
       isActive: input.isActive,
       createdAt: now,
@@ -137,7 +124,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
       endDate: input.endDate ?? existing.endDate,
       startTime: input.startTime ?? existing.startTime,
       endTime: input.endTime ?? existing.endTime,
-      dayOfWeek: input.dayOfWeek ?? existing.dayOfWeek,
       priority: input.priority ?? existing.priority,
       isActive: input.isActive ?? existing.isActive,
     };
@@ -161,13 +147,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(schedules).where(eq(schedules.id, id));
     return result[0]?.affectedRows > 0;
-  }
-
-  async deleteBySeries(seriesId: string): Promise<number> {
-    const result = await db
-      .delete(schedules)
-      .where(eq(schedules.seriesId, seriesId));
-    return result[0]?.affectedRows ?? 0;
   }
 
   async countByPlaylistId(playlistId: string): Promise<number> {

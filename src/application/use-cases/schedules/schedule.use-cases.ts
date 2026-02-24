@@ -3,10 +3,7 @@ import { type ContentRepository } from "#/application/ports/content";
 import { type DeviceStreamEventPublisher } from "#/application/ports/device-stream-events";
 import { type DeviceRepository } from "#/application/ports/devices";
 import { type PlaylistRepository } from "#/application/ports/playlists";
-import {
-  type ScheduleRecord,
-  type ScheduleRepository,
-} from "#/application/ports/schedules";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
   type SystemSettingRepository,
@@ -14,7 +11,6 @@ import {
 import { paginate } from "#/application/use-cases/shared/pagination";
 import {
   isValidDate,
-  isValidDaysOfWeek,
   isValidTime,
   selectActiveSchedule,
 } from "#/domain/schedules/schedule";
@@ -28,13 +24,11 @@ const SCHEDULE_OVERLAP_MESSAGE =
 
 type ScheduleWindow = {
   id?: string;
-  seriesId?: string;
   deviceId: string;
   startDate: string;
   endDate: string;
   startTime: string;
   endTime: string;
-  dayOfWeek: number;
 };
 
 const parseTimeToSeconds = (value: string): number => {
@@ -94,9 +88,7 @@ const windowsConflict = (left: ScheduleWindow, right: ScheduleWindow) => {
   if (left.deviceId !== right.deviceId) {
     return false;
   }
-  if (left.dayOfWeek !== right.dayOfWeek) {
-    return false;
-  }
+
   return hasDateRangeOverlap(left, right) && hasTimeRangeOverlap(left, right);
 };
 
@@ -104,33 +96,13 @@ const ensureNoScheduleConflicts = (input: {
   candidates: readonly ScheduleWindow[];
   existing: readonly ScheduleWindow[];
   excludeScheduleIds?: ReadonlySet<string>;
-  excludeSeriesIds?: ReadonlySet<string>;
 }) => {
   for (const candidate of input.candidates) {
     for (const current of input.existing) {
       if (current.id && input.excludeScheduleIds?.has(current.id)) {
         continue;
       }
-      if (current.seriesId && input.excludeSeriesIds?.has(current.seriesId)) {
-        continue;
-      }
       if (windowsConflict(candidate, current)) {
-        throw new ScheduleConflictError(SCHEDULE_OVERLAP_MESSAGE);
-      }
-    }
-  }
-
-  for (let index = 0; index < input.candidates.length; index += 1) {
-    const left = input.candidates[index];
-    if (!left) continue;
-    for (
-      let nextIndex = index + 1;
-      nextIndex < input.candidates.length;
-      nextIndex += 1
-    ) {
-      const right = input.candidates[nextIndex];
-      if (!right) continue;
-      if (windowsConflict(left, right)) {
         throw new ScheduleConflictError(SCHEDULE_OVERLAP_MESSAGE);
       }
     }
@@ -139,30 +111,19 @@ const ensureNoScheduleConflicts = (input: {
 
 const toScheduleWindow = (schedule: {
   id?: string;
-  seriesId?: string;
   deviceId: string;
   startDate?: string;
   endDate?: string;
   startTime: string;
   endTime: string;
-  dayOfWeek: number;
 }): ScheduleWindow => ({
   id: schedule.id,
-  seriesId: schedule.seriesId,
   deviceId: schedule.deviceId,
   startDate: schedule.startDate ?? "1970-01-01",
   endDate: schedule.endDate ?? "2099-12-31",
   startTime: schedule.startTime,
   endTime: schedule.endTime,
-  dayOfWeek: schedule.dayOfWeek,
 });
-
-const normalizeDaysOfWeek = (value: readonly number[]): number[] => {
-  return [...new Set(value)].sort((a, b) => a - b);
-};
-
-const isValidDayOfWeek = (value: number): boolean =>
-  Number.isInteger(value) && value >= 0 && value <= 6;
 
 const computeRequiredMinDurationSeconds = async (input: {
   playlistRepository: PlaylistRepository;
@@ -254,7 +215,7 @@ export class CreateScheduleUseCase {
     endDate?: string;
     startTime: string;
     endTime: string;
-    daysOfWeek: number[];
+    daysOfWeek?: number[];
     priority: number;
     isActive: boolean;
   }) {
@@ -269,11 +230,7 @@ export class CreateScheduleUseCase {
     if (startDate > endDate) {
       throw new ValidationError("Invalid date range");
     }
-    if (!isValidDaysOfWeek(input.daysOfWeek)) {
-      throw new ValidationError("Invalid days of week");
-    }
 
-    const normalizedDays = normalizeDaysOfWeek(input.daysOfWeek);
     const [playlist, device] = await Promise.all([
       this.deps.playlistRepository.findById(input.playlistId),
       this.deps.deviceRepository.findById(input.deviceId),
@@ -312,39 +269,30 @@ export class CreateScheduleUseCase {
     const existingForDevice = await this.deps.scheduleRepository.listByDevice(
       input.deviceId,
     );
-    const candidateWindows = normalizedDays.map((dayOfWeek) =>
-      toScheduleWindow({
-        deviceId: input.deviceId,
-        startDate,
-        endDate,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        dayOfWeek,
-      }),
-    );
     ensureNoScheduleConflicts({
-      candidates: candidateWindows,
-      existing: existingForDevice.map(toScheduleWindow),
-    });
-
-    const seriesId = crypto.randomUUID();
-    const schedules = await Promise.all(
-      normalizedDays.map((dayOfWeek) =>
-        this.deps.scheduleRepository.create({
-          seriesId,
-          name: input.name,
-          playlistId: input.playlistId,
+      candidates: [
+        toScheduleWindow({
           deviceId: input.deviceId,
           startDate,
           endDate,
           startTime: input.startTime,
           endTime: input.endTime,
-          dayOfWeek,
-          priority: input.priority,
-          isActive: input.isActive,
         }),
-      ),
-    );
+      ],
+      existing: existingForDevice.map(toScheduleWindow),
+    });
+
+    const schedule = await this.deps.scheduleRepository.create({
+      name: input.name,
+      playlistId: input.playlistId,
+      deviceId: input.deviceId,
+      startDate,
+      endDate,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      priority: input.priority,
+      isActive: input.isActive,
+    });
     await this.deps.playlistRepository.updateStatus(input.playlistId, "IN_USE");
     this.deps.deviceEventPublisher?.publish({
       type: "schedule_updated",
@@ -352,9 +300,7 @@ export class CreateScheduleUseCase {
       reason: "schedule_created",
     });
 
-    return schedules.map((schedule) =>
-      toScheduleView(schedule, playlist, device),
-    );
+    return [toScheduleView(schedule, playlist, device)];
   }
 
   private async getScrollPxPerSecond(): Promise<number> {
@@ -421,9 +367,6 @@ export class UpdateScheduleUseCase {
     ) {
       throw new ValidationError("Invalid time range");
     }
-    if (input.dayOfWeek !== undefined && !isValidDayOfWeek(input.dayOfWeek)) {
-      throw new ValidationError("Invalid day of week");
-    }
     if (
       (input.startDate && !isValidDate(input.startDate)) ||
       (input.endDate && !isValidDate(input.endDate))
@@ -433,22 +376,6 @@ export class UpdateScheduleUseCase {
 
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
-
-    if (
-      input.dayOfWeek !== undefined &&
-      input.dayOfWeek !== existing.dayOfWeek
-    ) {
-      const seriesSchedules = await this.deps.scheduleRepository.listBySeries(
-        existing.seriesId,
-      );
-      const hasDuplicateDay = seriesSchedules.some(
-        (entry) =>
-          entry.id !== existing.id && entry.dayOfWeek === input.dayOfWeek,
-      );
-      if (hasDuplicateDay) {
-        throw new ValidationError("Schedule series already includes this day");
-      }
-    }
 
     const nextStartDate = input.startDate ?? existing.startDate ?? "";
     const nextEndDate = input.endDate ?? existing.endDate ?? "";
@@ -503,7 +430,6 @@ export class UpdateScheduleUseCase {
 
     const nextStartTime = input.startTime ?? existing.startTime;
     const nextEndTime = input.endTime ?? existing.endTime;
-    const nextDayOfWeek = input.dayOfWeek ?? existing.dayOfWeek;
     const deviceWidth = resolvedDevice.screenWidth;
     const deviceHeight = resolvedDevice.screenHeight;
     const scrollPxPerSecond = await this.getScrollPxPerSecond();
@@ -532,13 +458,11 @@ export class UpdateScheduleUseCase {
       candidates: [
         toScheduleWindow({
           id: existing.id,
-          seriesId: existing.seriesId,
           deviceId: targetDeviceId,
           startDate: nextStartDate,
           endDate: nextEndDate,
           startTime: nextStartTime,
           endTime: nextEndTime,
-          dayOfWeek: nextDayOfWeek,
         }),
       ],
       existing: existingForDevice.map(toScheduleWindow),
@@ -553,7 +477,6 @@ export class UpdateScheduleUseCase {
       endDate: input.endDate,
       startTime: input.startTime,
       endTime: input.endTime,
-      dayOfWeek: input.dayOfWeek,
       priority: input.priority,
       isActive: input.isActive,
     });
@@ -602,280 +525,6 @@ export class UpdateScheduleUseCase {
   }
 }
 
-export class UpdateScheduleSeriesUseCase {
-  constructor(
-    private readonly deps: {
-      scheduleRepository: ScheduleRepository;
-      playlistRepository: PlaylistRepository;
-      deviceRepository: DeviceRepository;
-      contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
-      deviceEventPublisher?: DeviceStreamEventPublisher;
-    },
-  ) {}
-
-  async execute(input: {
-    seriesId: string;
-    name?: string;
-    playlistId?: string;
-    deviceId?: string;
-    startDate?: string;
-    endDate?: string;
-    startTime?: string;
-    endTime?: string;
-    daysOfWeek?: number[];
-    priority?: number;
-    isActive?: boolean;
-  }) {
-    if (
-      (input.startTime && !isValidTime(input.startTime)) ||
-      (input.endTime && !isValidTime(input.endTime))
-    ) {
-      throw new ValidationError("Invalid time range");
-    }
-    if (input.daysOfWeek && !isValidDaysOfWeek(input.daysOfWeek)) {
-      throw new ValidationError("Invalid days of week");
-    }
-    if (
-      (input.startDate && !isValidDate(input.startDate)) ||
-      (input.endDate && !isValidDate(input.endDate))
-    ) {
-      throw new ValidationError("Invalid date range");
-    }
-
-    const existingSchedules = await this.deps.scheduleRepository.listBySeries(
-      input.seriesId,
-    );
-    if (existingSchedules.length === 0) {
-      throw new NotFoundError("Schedule series not found");
-    }
-
-    const base = existingSchedules[0];
-    if (!base) {
-      throw new NotFoundError("Schedule series not found");
-    }
-
-    const nextStartDate = input.startDate ?? base.startDate ?? "";
-    const nextEndDate = input.endDate ?? base.endDate ?? "";
-    if (
-      nextStartDate.length > 0 &&
-      nextEndDate.length > 0 &&
-      nextStartDate > nextEndDate
-    ) {
-      throw new ValidationError("Invalid date range");
-    }
-
-    const [
-      playlistForUpdate,
-      deviceForUpdate,
-      existingDevice,
-      existingPlaylist,
-    ] = await Promise.all([
-      input.playlistId
-        ? this.deps.playlistRepository.findById(input.playlistId)
-        : Promise.resolve(undefined),
-      input.deviceId
-        ? this.deps.deviceRepository.findById(input.deviceId)
-        : Promise.resolve(undefined),
-      this.deps.deviceRepository.findById(base.deviceId),
-      this.deps.playlistRepository.findById(base.playlistId),
-    ]);
-    if (input.playlistId && !playlistForUpdate) {
-      throw new NotFoundError("Playlist not found");
-    }
-    if (input.deviceId && !deviceForUpdate) {
-      throw new NotFoundError("Device not found");
-    }
-
-    const resolvedDevice = input.deviceId ? deviceForUpdate : existingDevice;
-    if (!resolvedDevice) {
-      throw new NotFoundError("Device not found");
-    }
-    if (
-      typeof resolvedDevice.screenWidth !== "number" ||
-      typeof resolvedDevice.screenHeight !== "number"
-    ) {
-      throw new ValidationError(
-        "Device resolution is required before scheduling",
-      );
-    }
-
-    const resolvedPlaylist = input.playlistId
-      ? playlistForUpdate
-      : existingPlaylist;
-    if (!resolvedPlaylist) {
-      throw new NotFoundError("Playlist not found");
-    }
-
-    const nextStartTime = input.startTime ?? base.startTime;
-    const nextEndTime = input.endTime ?? base.endTime;
-    const deviceWidth = resolvedDevice.screenWidth;
-    const deviceHeight = resolvedDevice.screenHeight;
-    const scrollPxPerSecond = await this.getScrollPxPerSecond();
-    const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
-      playlistRepository: this.deps.playlistRepository,
-      contentRepository: this.deps.contentRepository,
-      playlistId: resolvedPlaylist.id,
-      deviceWidth,
-      deviceHeight,
-      scrollPxPerSecond,
-    });
-    const windowDurationSeconds = computeWindowDurationSeconds(
-      nextStartTime,
-      nextEndTime,
-    );
-    if (windowDurationSeconds < requiredMinDurationSeconds) {
-      throw new ValidationError(
-        `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
-      );
-    }
-
-    const beforePlaylistIds = new Set(
-      existingSchedules.map((entry) => entry.playlistId),
-    );
-    const beforeDeviceIds = new Set(
-      existingSchedules.map((entry) => entry.deviceId),
-    );
-
-    const targetDays = input.daysOfWeek
-      ? normalizeDaysOfWeek(input.daysOfWeek)
-      : normalizeDaysOfWeek(existingSchedules.map((entry) => entry.dayOfWeek));
-
-    const candidateSeriesWindows = targetDays.map((dayOfWeek) => {
-      const existingForDay = existingSchedules.find(
-        (entry) => entry.dayOfWeek === dayOfWeek,
-      );
-      return toScheduleWindow({
-        id: existingForDay?.id,
-        seriesId: input.seriesId,
-        deviceId: input.deviceId ?? existingForDay?.deviceId ?? base.deviceId,
-        startDate:
-          input.startDate ?? existingForDay?.startDate ?? base.startDate,
-        endDate: input.endDate ?? existingForDay?.endDate ?? base.endDate,
-        startTime:
-          input.startTime ?? existingForDay?.startTime ?? base.startTime,
-        endTime: input.endTime ?? existingForDay?.endTime ?? base.endTime,
-        dayOfWeek,
-      });
-    });
-    const targetDeviceIds = [
-      ...new Set(candidateSeriesWindows.map((entry) => entry.deviceId)),
-    ];
-    const schedulesByDevice = await Promise.all(
-      targetDeviceIds.map((deviceId) =>
-        this.deps.scheduleRepository.listByDevice(deviceId),
-      ),
-    );
-    ensureNoScheduleConflicts({
-      candidates: candidateSeriesWindows,
-      existing: schedulesByDevice.flat().map(toScheduleWindow),
-      excludeSeriesIds: new Set([input.seriesId]),
-    });
-
-    const commonUpdate = {
-      name: input.name,
-      playlistId: input.playlistId,
-      deviceId: input.deviceId,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      startTime: input.startTime,
-      endTime: input.endTime,
-      priority: input.priority,
-      isActive: input.isActive,
-    };
-
-    const existingByDay = new Map(
-      existingSchedules.map((entry) => [entry.dayOfWeek, entry]),
-    );
-
-    const updated: ScheduleRecord[] = [];
-    for (const dayOfWeek of targetDays) {
-      const existingForDay = existingByDay.get(dayOfWeek);
-      if (existingForDay) {
-        const row = await this.deps.scheduleRepository.update(
-          existingForDay.id,
-          {
-            ...commonUpdate,
-            dayOfWeek,
-          },
-        );
-        if (row) {
-          updated.push(row);
-        }
-      } else {
-        const row = await this.deps.scheduleRepository.create({
-          seriesId: input.seriesId,
-          name: input.name ?? base.name,
-          playlistId: input.playlistId ?? base.playlistId,
-          deviceId: input.deviceId ?? base.deviceId,
-          startDate: input.startDate ?? base.startDate,
-          endDate: input.endDate ?? base.endDate,
-          startTime: input.startTime ?? base.startTime,
-          endTime: input.endTime ?? base.endTime,
-          dayOfWeek,
-          priority: input.priority ?? base.priority,
-          isActive: input.isActive ?? base.isActive,
-        });
-        updated.push(row);
-      }
-    }
-
-    const targetSet = new Set(targetDays);
-    for (const existingForDay of existingSchedules) {
-      if (!targetSet.has(existingForDay.dayOfWeek)) {
-        await this.deps.scheduleRepository.delete(existingForDay.id);
-      }
-    }
-
-    for (const playlistId of beforePlaylistIds) {
-      const stillReferenced = updated.some(
-        (entry) => entry.playlistId === playlistId,
-      );
-      if (stillReferenced) {
-        continue;
-      }
-      const remaining =
-        await this.deps.scheduleRepository.countByPlaylistId(playlistId);
-      if (remaining === 0) {
-        await this.deps.playlistRepository.updateStatus(playlistId, "DRAFT");
-      }
-    }
-
-    const afterPlaylistIds = new Set(updated.map((entry) => entry.playlistId));
-    for (const playlistId of afterPlaylistIds) {
-      await this.deps.playlistRepository.updateStatus(playlistId, "IN_USE");
-    }
-
-    const affectedDeviceIds = new Set<string>([
-      ...beforeDeviceIds,
-      ...updated.map((entry) => entry.deviceId),
-    ]);
-    for (const deviceId of affectedDeviceIds) {
-      this.deps.deviceEventPublisher?.publish({
-        type: "schedule_updated",
-        deviceId,
-        reason: "schedule_series_updated",
-      });
-    }
-
-    return updated
-      .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-      .map((schedule) =>
-        toScheduleView(schedule, resolvedPlaylist, resolvedDevice),
-      );
-  }
-
-  private async getScrollPxPerSecond(): Promise<number> {
-    const setting = await this.deps.systemSettingRepository?.findByKey(
-      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-    );
-    const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
-    return Number.isInteger(parsed) && parsed > 0
-      ? parsed
-      : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
-  }
-}
-
 export class DeleteScheduleUseCase {
   constructor(
     private readonly deps: {
@@ -906,50 +555,6 @@ export class DeleteScheduleUseCase {
       deviceId: existing.deviceId,
       reason: "schedule_deleted",
     });
-  }
-}
-
-export class DeleteScheduleSeriesUseCase {
-  constructor(
-    private readonly deps: {
-      scheduleRepository: ScheduleRepository;
-      playlistRepository: PlaylistRepository;
-      deviceEventPublisher?: DeviceStreamEventPublisher;
-    },
-  ) {}
-
-  async execute(input: { seriesId: string }) {
-    const existing = await this.deps.scheduleRepository.listBySeries(
-      input.seriesId,
-    );
-    if (existing.length === 0) {
-      throw new NotFoundError("Schedule series not found");
-    }
-
-    const deleted = await this.deps.scheduleRepository.deleteBySeries(
-      input.seriesId,
-    );
-    if (deleted === 0) {
-      throw new NotFoundError("Schedule series not found");
-    }
-
-    const playlistIds = new Set(existing.map((entry) => entry.playlistId));
-    for (const playlistId of playlistIds) {
-      const remaining =
-        await this.deps.scheduleRepository.countByPlaylistId(playlistId);
-      if (remaining === 0) {
-        await this.deps.playlistRepository.updateStatus(playlistId, "DRAFT");
-      }
-    }
-
-    const deviceIds = new Set(existing.map((entry) => entry.deviceId));
-    for (const deviceId of deviceIds) {
-      this.deps.deviceEventPublisher?.publish({
-        type: "schedule_updated",
-        deviceId,
-        reason: "schedule_series_deleted",
-      });
-    }
   }
 }
 

@@ -12,9 +12,7 @@ import {
   scheduleIdParamSchema,
   scheduleItemsResponseSchema,
   scheduleSchema,
-  scheduleSeriesIdParamSchema,
   updateScheduleSchema,
-  updateScheduleSeriesSchema,
 } from "#/interfaces/http/validators/schedules.schema";
 import {
   validateJson,
@@ -67,7 +65,6 @@ export const registerScheduleCommandRoutes = (args: {
           endDate: payload.endDate,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          daysOfWeek: payload.daysOfWeek,
           priority: payload.priority,
           isActive: payload.isActive ?? true,
         });
@@ -118,59 +115,10 @@ export const registerScheduleCommandRoutes = (args: {
           endDate: payload.endDate,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          dayOfWeek: payload.dayOfWeek,
           priority: payload.priority,
           isActive: payload.isActive,
         });
         return c.json(result);
-      },
-      mapErrorToResponse(ScheduleConflictError, conflict),
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.patch(
-    "/series/:seriesId",
-    setAction("schedules.schedule-series.update", {
-      route: "/schedules/series/:seriesId",
-      resourceType: "schedule",
-    }),
-    ...authorize("schedules:update"),
-    validateParams(scheduleSeriesIdParamSchema),
-    validateJson(updateScheduleSeriesSchema),
-    describeRoute({
-      description: "Update schedule series",
-      tags: scheduleTags,
-      responses: {
-        200: {
-          description: "Schedule series updated",
-          content: {
-            "application/json": {
-              schema: resolver(scheduleItemsResponseSchema),
-            },
-          },
-        },
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const params = c.req.valid("param");
-        c.set("resourceId", params.seriesId);
-        const payload = c.req.valid("json");
-        const result = await useCases.updateScheduleSeries.execute({
-          seriesId: params.seriesId,
-          name: payload.name,
-          playlistId: payload.playlistId,
-          deviceId: payload.deviceId,
-          startDate: payload.startDate,
-          endDate: payload.endDate,
-          startTime: payload.startTime,
-          endTime: payload.endTime,
-          daysOfWeek: payload.daysOfWeek,
-          priority: payload.priority,
-          isActive: payload.isActive,
-        });
-        return c.json({ items: result });
       },
       mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
@@ -205,42 +153,6 @@ export const registerScheduleCommandRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         await useCases.deleteSchedule.execute({ id: params.id });
-        return c.body(null, 204);
-      },
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.delete(
-    "/series/:seriesId",
-    setAction("schedules.schedule-series.delete", {
-      route: "/schedules/series/:seriesId",
-      resourceType: "schedule",
-    }),
-    ...authorize("schedules:delete"),
-    validateParams(scheduleSeriesIdParamSchema),
-    describeRoute({
-      description: "Delete schedule series",
-      tags: scheduleTags,
-      responses: {
-        204: { description: "Deleted" },
-        404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const params = c.req.valid("param");
-        c.set("resourceId", params.seriesId);
-        await useCases.deleteScheduleSeries.execute({
-          seriesId: params.seriesId,
-        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

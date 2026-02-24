@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  isValidDaysOfWeek,
   isValidTime,
   isWithinTimeWindow,
   selectActiveSchedule,
@@ -14,26 +13,20 @@ describe("schedule helpers", () => {
     expect(isValidTime("8:00")).toBe(false);
   });
 
-  test("validates days of week", () => {
-    expect(isValidDaysOfWeek([0, 1, 2])).toBe(true);
-    expect(isValidDaysOfWeek([])).toBe(false);
-    expect(isValidDaysOfWeek([7])).toBe(false);
-  });
-
   test("checks time window including overnight", () => {
     expect(isWithinTimeWindow("09:00", "08:00", "17:00")).toBe(true);
     expect(isWithinTimeWindow("18:00", "08:00", "17:00")).toBe(false);
     expect(isWithinTimeWindow("01:00", "22:00", "02:00")).toBe(true);
   });
 
-  test("selects schedule using configured timezone for both day and time", () => {
-    const monday = 1;
+  test("selects schedule using configured timezone for time", () => {
     const mondayMorningUtc = new Date("2025-01-06T09:30:00.000Z");
     const schedules = [
       {
         id: "manila-evening",
         isActive: true,
-        daysOfWeek: [monday],
+        startDate: "2025-01-06",
+        endDate: "2025-01-06",
         startTime: "17:00",
         endTime: "18:00",
         priority: 10,
@@ -41,7 +34,8 @@ describe("schedule helpers", () => {
       {
         id: "utc-morning",
         isActive: true,
-        daysOfWeek: [monday],
+        startDate: "2025-01-06",
+        endDate: "2025-01-06",
         startTime: "09:00",
         endTime: "10:00",
         priority: 5,
@@ -66,7 +60,6 @@ describe("schedule helpers", () => {
         isActive: true,
         startDate: "2025-01-01",
         endDate: "2025-01-01",
-        daysOfWeek: [3],
         startTime: "00:00",
         endTime: "23:59",
         priority: 10,
@@ -76,7 +69,6 @@ describe("schedule helpers", () => {
         isActive: true,
         startDate: "2024-12-31",
         endDate: "2024-12-31",
-        daysOfWeek: [3],
         startTime: "00:00",
         endTime: "23:59",
         priority: 5,

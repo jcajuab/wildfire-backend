@@ -479,13 +479,13 @@ export class GetDeviceActiveScheduleUseCase {
 
     return {
       id: active.id,
-      seriesId: active.seriesId,
       name: active.name,
       playlistId: active.playlistId,
       deviceId: active.deviceId,
+      startDate: active.startDate,
+      endDate: active.endDate,
       startTime: active.startTime,
       endTime: active.endTime,
-      dayOfWeek: active.dayOfWeek,
       priority: active.priority,
       isActive: active.isActive,
       createdAt: active.createdAt,

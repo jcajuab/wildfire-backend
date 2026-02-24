@@ -16,7 +16,7 @@ const makeApp = async (
   const app = new Hono();
   const schedules: Array<{
     id: string;
-    seriesId: string;
+    seriesId?: string;
     name: string;
     playlistId: string;
     deviceId: string;
@@ -24,7 +24,7 @@ const makeApp = async (
     endDate?: string;
     startTime: string;
     endTime: string;
-    dayOfWeek: number;
+    dayOfWeek?: number;
     priority: number;
     isActive: boolean;
     createdAt: string;
@@ -439,122 +439,5 @@ describe("Schedules routes", () => {
     });
 
     expect(conflict.status).toBe(409);
-  });
-
-  test("PATCH /schedules/series/:seriesId returns 409 when update creates overlap", async () => {
-    const { app, issueToken } = await makeApp([
-      "schedules:create",
-      "schedules:update",
-    ]);
-    const token = await issueToken();
-
-    const first = await app.request("/schedules", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Morning",
-        playlistId,
-        deviceId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
-        startTime: "08:00",
-        endTime: "10:00",
-        daysOfWeek: [1],
-        priority: 10,
-        isActive: true,
-      }),
-    });
-    expect(first.status).toBe(201);
-
-    const second = await app.request("/schedules", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Series B",
-        playlistId,
-        deviceId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
-        startTime: "11:00",
-        endTime: "12:00",
-        daysOfWeek: [1, 2],
-        priority: 10,
-        isActive: true,
-      }),
-    });
-    const secondJson = await parseJson<{ items: Array<{ seriesId: string }> }>(
-      second,
-    );
-    const secondSeriesId = secondJson.items[0]?.seriesId;
-    expect(secondSeriesId).toBeDefined();
-
-    const conflict = await app.request(`/schedules/series/${secondSeriesId}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        startTime: "09:00",
-        endTime: "11:30",
-      }),
-    });
-
-    expect(conflict.status).toBe(409);
-  });
-
-  test("DELETE /schedules/series/:seriesId deletes all rows in a series", async () => {
-    const { app, issueToken } = await makeApp([
-      "schedules:create",
-      "schedules:delete",
-      "schedules:read",
-    ]);
-    const token = await issueToken();
-
-    const createResponse = await app.request("/schedules", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Weekdays",
-        playlistId,
-        deviceId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
-        startTime: "08:00",
-        endTime: "17:00",
-        daysOfWeek: [1, 2, 3, 4, 5],
-        priority: 10,
-        isActive: true,
-      }),
-    });
-    expect(createResponse.status).toBe(201);
-    const created = await parseJson<{ items: Array<{ seriesId: string }> }>(
-      createResponse,
-    );
-    const seriesId = created.items[0]?.seriesId;
-    expect(seriesId).toBeDefined();
-
-    const deleteResponse = await app.request(`/schedules/series/${seriesId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    expect(deleteResponse.status).toBe(204);
-
-    const listResponse = await app.request("/schedules", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const listed = await parseJson<{ items: Array<{ id: string }> }>(
-      listResponse,
-    );
-    expect(listed.items).toHaveLength(0);
   });
 });
