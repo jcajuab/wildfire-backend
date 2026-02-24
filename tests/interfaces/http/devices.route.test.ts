@@ -13,6 +13,7 @@ const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 const hashPairingCode = (code: string): string =>
   createHash("sha256").update(code).digest("hex");
+const utcDayOfWeekNow = () => new Date().getUTCDay();
 
 const makeRepositories = (options?: { registerDeviceError?: Error }) => {
   const devices = [] as Array<{
@@ -246,7 +247,23 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
 
 const makeApp = async (
   permissions: string[] = [],
-  options?: { registerDeviceError?: Error },
+  options?: {
+    registerDeviceError?: Error;
+    schedules?: Array<{
+      id: string;
+      seriesId: string;
+      name: string;
+      playlistId: string;
+      deviceId: string;
+      startTime: string;
+      endTime: string;
+      dayOfWeek: number;
+      priority: number;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  },
 ) => {
   const app = new Hono();
   const {
@@ -288,6 +305,7 @@ const makeApp = async (
     findPermissionsForUser: async () =>
       permissions.map((permission) => Permission.parse(permission)),
   };
+  const schedules = options?.schedules ?? [];
 
   const router = createDevicesRouter({
     jwtSecret: "test-secret",
@@ -296,8 +314,9 @@ const makeApp = async (
     repositories: {
       deviceRepository,
       scheduleRepository: {
-        list: async () => [],
-        listByDevice: async () => [],
+        list: async () => schedules,
+        listByDevice: async (deviceId: string) =>
+          schedules.filter((schedule) => schedule.deviceId === deviceId),
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
@@ -412,8 +431,14 @@ describe("Devices routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const json = await parseJson<{ id: string }>(response);
+    const json = await parseJson<{
+      id: string;
+      onlineStatus: "READY" | "LIVE" | "DOWN";
+      lastSeenAt: string | null;
+    }>(response);
     expect(json.id).toBeDefined();
+    expect(json.onlineStatus).toBe("READY");
+    expect(json.lastSeenAt).not.toBeNull();
   });
 
   test("POST /devices returns 400 without pairing code", async () => {
@@ -661,7 +686,7 @@ describe("Devices routes", () => {
     expect(json.pageSize).toBe(50);
   });
 
-  test("GET /devices returns READY for stale but previously seen devices", async () => {
+  test("GET /devices returns DOWN for stale but previously seen devices", async () => {
     const { app, issueToken, devices } = await makeApp(["devices:read"]);
     devices.push({
       id: deviceId,
@@ -692,8 +717,56 @@ describe("Devices routes", () => {
         lastSeenAt: string | null;
       }>;
     }>(response);
-    expect(json.items[0]?.onlineStatus).toBe("READY");
+    expect(json.items[0]?.onlineStatus).toBe("DOWN");
     expect(json.items[0]?.lastSeenAt).toBe("2025-01-01T00:00:00.000Z");
+  });
+
+  test("GET /devices returns LIVE for recently seen devices with active schedule", async () => {
+    const nowIso = new Date().toISOString();
+    const { app, issueToken, devices } = await makeApp(["devices:read"], {
+      schedules: [
+        {
+          id: "schedule-live",
+          seriesId: "series-live",
+          name: "Always on",
+          playlistId,
+          deviceId,
+          startTime: "00:00",
+          endTime: "23:59",
+          dayOfWeek: utcDayOfWeekNow(),
+          priority: 100,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    devices.push({
+      id: deviceId,
+      name: "Lobby",
+      identifier: "AA:BB",
+      deviceFingerprint: null,
+      location: null,
+      screenWidth: null,
+      screenHeight: null,
+      outputType: null,
+      orientation: null,
+      lastSeenAt: nowIso,
+      refreshNonce: 0,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request("/devices", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{
+      items: Array<{ onlineStatus: "READY" | "LIVE" | "DOWN" }>;
+    }>(response);
+    expect(json.items[0]?.onlineStatus).toBe("LIVE");
   });
 
   test("GET /devices/:id returns device", async () => {

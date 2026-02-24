@@ -17,6 +17,8 @@ import {
   UpdateDeviceUseCase,
 } from "#/application/use-cases/devices";
 
+const utcDayOfWeekNow = () => new Date().getUTCDay();
+
 const makeRepository = () => {
   const records: DeviceRecord[] = [];
 
@@ -158,7 +160,23 @@ const makePairingRepository = () => {
 describe("Devices use cases", () => {
   test("ListDevicesUseCase returns devices", async () => {
     const { repo } = makeRepository();
-    const listDevices = new ListDevicesUseCase({ deviceRepository: repo });
+    const listDevices = new ListDevicesUseCase({
+      deviceRepository: repo,
+      scheduleRepository: {
+        list: async () => [],
+        listByDevice: async () => [],
+        listBySeries: async () => [],
+        listByPlaylistId: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        deleteBySeries: async () => 0,
+        countByPlaylistId: async () => 0,
+      },
+    });
 
     await repo.create({
       name: "Lobby",
@@ -170,9 +188,40 @@ describe("Devices use cases", () => {
     expect(result.items).toHaveLength(1);
   });
 
-  test("ListDevicesUseCase maps onlineStatus from lastSeenAt", async () => {
+  test("ListDevicesUseCase maps onlineStatus from connectivity and schedules", async () => {
     const { repo, records } = makeRepository();
-    const listDevices = new ListDevicesUseCase({ deviceRepository: repo });
+    const listDevices = new ListDevicesUseCase({
+      deviceRepository: repo,
+      scheduleRepository: {
+        list: async () => [
+          {
+            id: "schedule-live",
+            seriesId: "series-live",
+            name: "Always on",
+            playlistId: "playlist-live",
+            deviceId: "device-2",
+            startTime: "00:00",
+            endTime: "23:59",
+            dayOfWeek: utcDayOfWeekNow(),
+            priority: 100,
+            isActive: true,
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        listByDevice: async () => [],
+        listBySeries: async () => [],
+        listByPlaylistId: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        deleteBySeries: async () => 0,
+        countByPlaylistId: async () => 0,
+      },
+    });
 
     await repo.create({
       name: "Never seen",
@@ -189,6 +238,11 @@ describe("Devices use cases", () => {
       identifier: "AA:BB:CC:00:00:03",
       location: null,
     });
+    await repo.create({
+      name: "Ready device",
+      identifier: "AA:BB:CC:00:00:04",
+      location: null,
+    });
 
     const recentSeenAt = new Date(Date.now() - 60 * 1000).toISOString();
     const staleSeenAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
@@ -200,14 +254,18 @@ describe("Devices use cases", () => {
     const staleHeartbeat = records.find(
       (record) => record.name === "Stale heartbeat",
     );
+    const readyDevice = records.find(
+      (record) => record.name === "Ready device",
+    );
 
-    if (!neverSeen || !recentlySeen || !staleHeartbeat) {
+    if (!neverSeen || !recentlySeen || !staleHeartbeat || !readyDevice) {
       throw new Error("Expected seeded device records to exist");
     }
 
     neverSeen.lastSeenAt = null;
     recentlySeen.lastSeenAt = recentSeenAt;
     staleHeartbeat.lastSeenAt = staleSeenAt;
+    readyDevice.lastSeenAt = recentSeenAt;
 
     const result = await listDevices.execute();
     const statusByIdentifier = new Map(
@@ -216,12 +274,29 @@ describe("Devices use cases", () => {
 
     expect(statusByIdentifier.get(neverSeen.identifier)).toBe("DOWN");
     expect(statusByIdentifier.get(recentlySeen.identifier)).toBe("LIVE");
-    expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("READY");
+    expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("DOWN");
+    expect(statusByIdentifier.get(readyDevice.identifier)).toBe("READY");
   });
 
   test("GetDeviceUseCase throws when missing", async () => {
     const { repo } = makeRepository();
-    const getDevice = new GetDeviceUseCase({ deviceRepository: repo });
+    const getDevice = new GetDeviceUseCase({
+      deviceRepository: repo,
+      scheduleRepository: {
+        list: async () => [],
+        listByDevice: async () => [],
+        listBySeries: async () => [],
+        listByPlaylistId: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        deleteBySeries: async () => 0,
+        countByPlaylistId: async () => 0,
+      },
+    });
 
     await expect(getDevice.execute({ id: "missing" })).rejects.toBeInstanceOf(
       NotFoundError,
@@ -248,6 +323,8 @@ describe("Devices use cases", () => {
     });
 
     expect(device.identifier).toBe("AA:BB");
+    expect(device.onlineStatus).toBe("READY");
+    expect(device.lastSeenAt).not.toBeNull();
   });
 
   test("RegisterDeviceUseCase updates existing device", async () => {
@@ -402,6 +479,20 @@ describe("Devices use cases", () => {
 
     const updateDevice = new UpdateDeviceUseCase({
       deviceRepository: repo,
+      scheduleRepository: {
+        list: async () => [],
+        listByDevice: async () => [],
+        listBySeries: async () => [],
+        listByPlaylistId: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        deleteBySeries: async () => 0,
+        countByPlaylistId: async () => 0,
+      },
     });
     const updated = await updateDevice.execute({
       id: created.id,

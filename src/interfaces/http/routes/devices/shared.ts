@@ -104,12 +104,18 @@ export const createDevicesUseCases = (
   return {
     listDevices: new ListDevicesUseCase({
       deviceRepository: deps.repositories.deviceRepository,
+      scheduleRepository: deps.repositories.scheduleRepository,
+      scheduleTimeZone: deps.scheduleTimeZone,
     }),
     getDevice: new GetDeviceUseCase({
       deviceRepository: deps.repositories.deviceRepository,
+      scheduleRepository: deps.repositories.scheduleRepository,
+      scheduleTimeZone: deps.scheduleTimeZone,
     }),
     updateDevice: new UpdateDeviceUseCase({
       deviceRepository: deps.repositories.deviceRepository,
+      scheduleRepository: deps.repositories.scheduleRepository,
+      scheduleTimeZone: deps.scheduleTimeZone,
     }),
     requestDeviceRefresh: new RequestDeviceRefreshUseCase({
       deviceRepository: deps.repositories.deviceRepository,

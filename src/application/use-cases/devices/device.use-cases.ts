@@ -86,16 +86,25 @@ const isDuplicatePairingCodeError = (error: unknown): boolean => {
   );
 };
 
-function withTelemetry(device: DeviceRecord) {
-  const lastSeenAt = device.lastSeenAt ?? null;
+const isRecentlySeen = (lastSeenAt: string | null, now: Date): boolean => {
   const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.NaN;
-  const onlineStatus =
-    lastSeenAt === null
-      ? "DOWN"
-      : Number.isFinite(lastSeenMs) &&
-          Date.now() - lastSeenMs <= ONLINE_WINDOW_MS
-        ? "LIVE"
-        : "READY";
+  return (
+    Number.isFinite(lastSeenMs) &&
+    now.getTime() - lastSeenMs <= ONLINE_WINDOW_MS
+  );
+};
+
+function withTelemetry(
+  device: DeviceRecord,
+  input: { now: Date; hasActiveSchedule: boolean },
+) {
+  const lastSeenAt = device.lastSeenAt ?? null;
+  const connected = isRecentlySeen(lastSeenAt, input.now);
+  const onlineStatus = !connected
+    ? "DOWN"
+    : input.hasActiveSchedule
+      ? "LIVE"
+      : "READY";
   return {
     ...device,
     ipAddress: device.ipAddress ?? null,
@@ -110,22 +119,68 @@ function withTelemetry(device: DeviceRecord) {
 }
 
 export class ListDevicesUseCase {
-  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+  constructor(
+    private readonly deps: {
+      deviceRepository: DeviceRepository;
+      scheduleRepository: ScheduleRepository;
+      scheduleTimeZone?: string;
+    },
+  ) {}
 
   async execute(input?: { page?: number; pageSize?: number }) {
-    const all = await this.deps.deviceRepository.list();
-    const withStatus = all.map(withTelemetry);
+    const now = new Date();
+    const [all, schedules] = await Promise.all([
+      this.deps.deviceRepository.list(),
+      this.deps.scheduleRepository.list(),
+    ]);
+    const schedulesByDeviceId = new Map<string, typeof schedules>();
+    for (const schedule of schedules) {
+      const grouped = schedulesByDeviceId.get(schedule.deviceId);
+      if (grouped) {
+        grouped.push(schedule);
+        continue;
+      }
+      schedulesByDeviceId.set(schedule.deviceId, [schedule]);
+    }
+
+    const withStatus = all.map((device) => {
+      const activeSchedule = selectActiveSchedule(
+        schedulesByDeviceId.get(device.id) ?? [],
+        now,
+        this.deps.scheduleTimeZone ?? "UTC",
+      );
+      return withTelemetry(device, {
+        now,
+        hasActiveSchedule: activeSchedule !== null,
+      });
+    });
     return paginate(withStatus, input);
   }
 }
 
 export class GetDeviceUseCase {
-  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+  constructor(
+    private readonly deps: {
+      deviceRepository: DeviceRepository;
+      scheduleRepository: ScheduleRepository;
+      scheduleTimeZone?: string;
+    },
+  ) {}
 
   async execute(input: { id: string }) {
+    const now = new Date();
     const device = await this.deps.deviceRepository.findById(input.id);
     if (!device) throw new NotFoundError("Device not found");
-    return withTelemetry(device);
+    const schedules = await this.deps.scheduleRepository.listByDevice(input.id);
+    const activeSchedule = selectActiveSchedule(
+      schedules,
+      now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
+    return withTelemetry(device, {
+      now,
+      hasActiveSchedule: activeSchedule !== null,
+    });
   }
 }
 
@@ -138,6 +193,7 @@ export class RegisterDeviceUseCase {
   ) {}
 
   async execute(input: DeviceInput & { pairingCode: string }) {
+    const now = new Date();
     const pairingCode = input.pairingCode.trim();
     if (!/^\d{6}$/.test(pairingCode)) {
       throw new ValidationError("Pairing code must be a 6-digit number");
@@ -214,7 +270,11 @@ export class RegisterDeviceUseCase {
       if (!updated) {
         throw new NotFoundError("Device not found");
       }
-      return withTelemetry(updated);
+      await this.deps.deviceRepository.touchSeen?.(updated.id, now);
+      return withTelemetry(
+        { ...updated, lastSeenAt: now.toISOString() },
+        { now, hasActiveSchedule: false },
+      );
     }
 
     const created = await this.deps.deviceRepository.create({
@@ -240,9 +300,18 @@ export class RegisterDeviceUseCase {
         outputType: props.outputType,
         orientation: props.orientation,
       });
-      return withTelemetry(enriched ?? created);
+      const connectedDevice = enriched ?? created;
+      await this.deps.deviceRepository.touchSeen?.(connectedDevice.id, now);
+      return withTelemetry(
+        { ...connectedDevice, lastSeenAt: now.toISOString() },
+        { now, hasActiveSchedule: false },
+      );
     }
-    return withTelemetry(created);
+    await this.deps.deviceRepository.touchSeen?.(created.id, now);
+    return withTelemetry(
+      { ...created, lastSeenAt: now.toISOString() },
+      { now, hasActiveSchedule: false },
+    );
   }
 }
 
@@ -278,7 +347,13 @@ export class IssueDevicePairingCodeUseCase {
 }
 
 export class UpdateDeviceUseCase {
-  constructor(private readonly deps: { deviceRepository: DeviceRepository }) {}
+  constructor(
+    private readonly deps: {
+      deviceRepository: DeviceRepository;
+      scheduleRepository: ScheduleRepository;
+      scheduleTimeZone?: string;
+    },
+  ) {}
 
   async execute(input: {
     id: string;
@@ -342,7 +417,17 @@ export class UpdateDeviceUseCase {
       orientation: input.orientation,
     });
     if (!updated) throw new NotFoundError("Device not found");
-    return withTelemetry(updated);
+    const now = new Date();
+    const schedules = await this.deps.scheduleRepository.listByDevice(input.id);
+    const activeSchedule = selectActiveSchedule(
+      schedules,
+      now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
+    return withTelemetry(updated, {
+      now,
+      hasActiveSchedule: activeSchedule !== null,
+    });
   }
 }
 
