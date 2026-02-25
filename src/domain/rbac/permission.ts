@@ -13,14 +13,8 @@ export class Permission {
   }
 
   matches(required: Permission): boolean {
-    const resourceMatches =
-      this.resource === "*" || this.resource === required.resource;
-    if (!resourceMatches) return false;
-
-    if (this.action === "manage") {
-      return true;
-    }
-
-    return this.action === required.action;
+    return (
+      this.resource === required.resource && this.action === required.action
+    );
   }
 }

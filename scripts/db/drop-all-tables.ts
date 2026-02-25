@@ -7,6 +7,7 @@ const TABLES = [
   "content",
   "device_group_memberships",
   "device_groups",
+  "displays",
   "devices",
   "invitations",
   "password_reset_tokens",

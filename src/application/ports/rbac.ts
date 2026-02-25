@@ -25,6 +25,7 @@ export interface PermissionRecord {
   id: string;
   resource: string;
   action: string;
+  isRoot?: boolean;
 }
 
 export type PolicyHistoryChangeType = "role_permissions" | "user_roles";
@@ -114,7 +115,9 @@ export interface PermissionRepository {
   create(input: {
     resource: string;
     action: string;
+    isRoot?: boolean;
   }): Promise<PermissionRecord>;
+  updateIsRoot?: (id: string, isRoot: boolean) => Promise<void>;
 }
 
 export interface UserRoleRepository {
@@ -198,4 +201,5 @@ export interface RoleDeletionRequestRepository {
 
 export interface AuthorizationRepository {
   findPermissionsForUser(userId: string): Promise<Permission[]>;
+  isRootUser?: (userId: string) => Promise<boolean>;
 }

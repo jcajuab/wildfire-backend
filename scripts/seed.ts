@@ -4,19 +4,20 @@ import { buildSeedStages, runSeedStages } from "./seed/runner";
 import { resolveTargetEmail } from "./seed/target-email";
 
 const usage = [
-  "Usage: bun run db:seed -- [--mode=full|baseline|super-admin-only] [--email=user@example.com] [--dry-run] [--strict]",
+  "Usage: bun run db:seed -- [--mode=full|baseline|root-only|permissions-only] [--email=user@example.com] [--dry-run] [--strict]",
   "",
   "Defaults:",
   "  --mode=full",
   "",
   "Modes:",
   "  full              Seed permissions, roles, demo users, assignments, and htshadow entries.",
-  "  baseline          Seed permissions and Super Admin role; optional --email assignment.",
-  "  super-admin-only  Seed only Super Admin role/wildcard permission; optional --email assignment.",
+  "  baseline          Seed permissions and Root role; optional --email assignment.",
+  "  root-only         Seed only Root role/root permission; optional --email assignment.",
+  "  permissions-only  Seed only permissions and Root role/root permission.",
   "",
   "Flags:",
   "  --mode=<value>    Seed mode to run.",
-  "  --email=<value>   Target user email for Super Admin assignment stage.",
+  "  --email=<value>   Target user email for Root assignment stage.",
   "  --dry-run         Show actions without writing DB/files.",
   "  --strict          Fail when expected data is missing instead of skipping.",
   "  --help, -h        Print this help and exit.",
@@ -24,7 +25,7 @@ const usage = [
   "Examples:",
   "  bun run db:seed",
   "  bun run db:seed -- --mode=baseline --email=admin@example.com",
-  "  bun run db:seed -- --mode=super-admin-only --dry-run",
+  "  bun run db:seed -- --mode=root-only --dry-run",
 ].join("\n");
 
 let exitCode = 0;

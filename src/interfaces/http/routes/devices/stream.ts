@@ -91,7 +91,7 @@ export const subscribeToDeviceStream = (
   streamSubscribers.set(deviceId, subscribers);
   logger.info(
     {
-      route: "/devices/:id/stream",
+      route: "/displays/:id/stream",
       deviceId,
       subscriberCount: subscribers.size,
     },
@@ -106,7 +106,7 @@ export const subscribeToDeviceStream = (
       streamSubscribers.delete(deviceId);
       logger.info(
         {
-          route: "/devices/:id/stream",
+          route: "/displays/:id/stream",
           deviceId,
           subscriberCount: 0,
         },
@@ -116,7 +116,7 @@ export const subscribeToDeviceStream = (
     }
     logger.info(
       {
-        route: "/devices/:id/stream",
+        route: "/displays/:id/stream",
         deviceId,
         subscriberCount: current.size,
       },
@@ -130,7 +130,7 @@ export const publishDeviceStreamEvent = (event: DeviceStreamEvent): void => {
   if (!subscribers) return;
   logger.info(
     {
-      route: "/devices/:id/stream",
+      route: "/displays/:id/stream",
       deviceId: event.deviceId,
       eventType: event.type,
       subscriberCount: subscribers.size,

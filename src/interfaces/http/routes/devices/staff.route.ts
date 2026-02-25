@@ -58,8 +58,8 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.get(
     "/",
-    setAction("devices.device.list", { route: "/devices" }),
-    ...authorize("devices:read"),
+    setAction("displays.device.list", { route: "/displays" }),
+    ...authorize("displays:read"),
     describeRoute({
       description: "List devices",
       tags: deviceTags,
@@ -93,11 +93,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.post(
     "/pairing-codes",
-    setAction("devices.pairing-code.create", {
-      route: "/devices/pairing-codes",
+    setAction("displays.pairing-code.create", {
+      route: "/displays/pairing-codes",
       resourceType: "device",
     }),
-    ...authorize("devices:create"),
+    ...authorize("displays:create"),
     describeRoute({
       description: "Issue one-time pairing code for device registration",
       tags: deviceTags,
@@ -131,11 +131,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.get(
     "/:id{[0-9a-fA-F-]{36}}",
-    setAction("devices.device.get", {
-      route: "/devices/:id",
+    setAction("displays.device.get", {
+      route: "/displays/:id",
       resourceType: "device",
     }),
-    ...authorize("devices:read"),
+    ...authorize("displays:read"),
     validateParams(deviceIdParamSchema),
     describeRoute({
       description: "Get device",
@@ -167,11 +167,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.patch(
     "/:id{[0-9a-fA-F-]{36}}",
-    setAction("devices.device.update", {
-      route: "/devices/:id",
+    setAction("displays.device.update", {
+      route: "/displays/:id",
       resourceType: "device",
     }),
-    ...authorize("devices:update"),
+    ...authorize("displays:update"),
     validateParams(deviceIdParamSchema),
     validateJson(patchDeviceSchema),
     describeRoute({
@@ -232,11 +232,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.post(
     "/:id{[0-9a-fA-F-]{36}}/refresh",
-    setAction("devices.device.refresh", {
-      route: "/devices/:id/refresh",
+    setAction("displays.device.refresh", {
+      route: "/displays/:id/refresh",
       resourceType: "device",
     }),
-    ...authorize("devices:update"),
+    ...authorize("displays:update"),
     validateParams(deviceIdParamSchema),
     describeRoute({
       description: "Queue a refresh signal for a device",
@@ -267,11 +267,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.get(
     "/groups",
-    setAction("devices.group.list", {
-      route: "/devices/groups",
+    setAction("displays.group.list", {
+      route: "/displays/groups",
       resourceType: "device-group",
     }),
-    ...authorize("devices:read"),
+    ...authorize("displays:read"),
     describeRoute({
       description: "List device groups",
       tags: deviceTags,
@@ -297,11 +297,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.post(
     "/groups",
-    setAction("devices.group.create", {
-      route: "/devices/groups",
+    setAction("displays.group.create", {
+      route: "/displays/groups",
       resourceType: "device-group",
     }),
-    ...authorize("devices:update"),
+    ...authorize("displays:update"),
     validateJson(createDeviceGroupSchema),
     describeRoute({
       description: "Create device group",
@@ -345,11 +345,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.patch(
     "/groups/:groupId",
-    setAction("devices.group.update", {
-      route: "/devices/groups/:groupId",
+    setAction("displays.group.update", {
+      route: "/displays/groups/:groupId",
       resourceType: "device-group",
     }),
-    ...authorize("devices:update"),
+    ...authorize("displays:update"),
     validateParams(deviceGroupIdParamSchema),
     validateJson(updateDeviceGroupSchema),
     describeRoute({
@@ -396,11 +396,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.delete(
     "/groups/:groupId",
-    setAction("devices.group.delete", {
-      route: "/devices/groups/:groupId",
+    setAction("displays.group.delete", {
+      route: "/displays/groups/:groupId",
       resourceType: "device-group",
     }),
-    ...authorize("devices:update"),
+    ...authorize("displays:update"),
     validateParams(deviceGroupIdParamSchema),
     describeRoute({
       description: "Delete device group",
@@ -421,11 +421,11 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.put(
     "/:id{[0-9a-fA-F-]{36}}/groups",
-    setAction("devices.group.set", {
-      route: "/devices/:id/groups",
+    setAction("displays.group.set", {
+      route: "/displays/:id/groups",
       resourceType: "device",
     }),
-    ...authorize("devices:update"),
+    ...authorize("displays:update"),
     validateParams(deviceIdParamSchema),
     validateJson(setDeviceGroupsSchema),
     describeRoute({

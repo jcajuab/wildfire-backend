@@ -1,13 +1,13 @@
-import { SUPER_ADMIN_ROLE_NAME } from "../constants";
+import { ROOT_ROLE_NAME } from "../constants";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
 
-export async function runAssignSuperAdminEmail(
+export async function runAssignRootEmail(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
   const email = ctx.targetEmail;
   if (!email) {
     return {
-      name: "assign-super-admin-email",
+      name: "assign-root-email",
       created: 0,
       updated: 0,
       skipped: 1,
@@ -22,7 +22,7 @@ export async function runAssignSuperAdminEmail(
     }
 
     return {
-      name: "assign-super-admin-email",
+      name: "assign-root-email",
       created: 0,
       updated: 0,
       skipped: 1,
@@ -31,12 +31,10 @@ export async function runAssignSuperAdminEmail(
   }
 
   const roles = await ctx.repos.roleRepository.list();
-  const superAdminRole = roles.find(
-    (role) => role.name === SUPER_ADMIN_ROLE_NAME,
-  );
-  if (!superAdminRole) {
+  const rootRole = roles.find((role) => role.name === ROOT_ROLE_NAME);
+  if (!rootRole) {
     throw new Error(
-      `Role ${SUPER_ADMIN_ROLE_NAME} not found. Run super-admin seeding first.`,
+      `Role ${ROOT_ROLE_NAME} not found. Run root seeding first.`,
     );
   }
 
@@ -45,33 +43,31 @@ export async function runAssignSuperAdminEmail(
   );
   const currentRoleIds = assignments.map((assignment) => assignment.roleId);
   const alreadyAssigned =
-    currentRoleIds.length === 1 && currentRoleIds[0] === superAdminRole.id;
+    currentRoleIds.length === 1 && currentRoleIds[0] === rootRole.id;
 
   if (alreadyAssigned) {
     return {
-      name: "assign-super-admin-email",
+      name: "assign-root-email",
       created: 0,
       updated: 0,
       skipped: 1,
-      notes: [`${email} already has only Super Admin role`],
+      notes: [`${email} already has only Root role`],
     };
   }
 
   if (!ctx.args.dryRun) {
-    await ctx.repos.userRoleRepository.setUserRoles(user.id, [
-      superAdminRole.id,
-    ]);
+    await ctx.repos.userRoleRepository.setUserRoles(user.id, [rootRole.id]);
   }
 
   return {
-    name: "assign-super-admin-email",
+    name: "assign-root-email",
     created: 0,
     updated: 1,
     skipped: 0,
     notes: [
       ctx.args.dryRun
-        ? `Dry-run: would assign Super Admin to ${email}`
-        : `Assigned Super Admin to ${email}`,
+        ? `Dry-run: would assign Root to ${email}`
+        : `Assigned Root to ${email}`,
     ],
   };
 }

@@ -275,15 +275,15 @@ app.use("*", requestId());
 app.use("*", createAuditTrailMiddleware({ auditQueue }));
 app.use("*", requestLogger);
 
-app.route("/", healthRouter);
-app.route("/auth", authRouter);
-app.route("/playlists", playlistsRouter);
-app.route("/schedules", schedulesRouter);
-app.route("/devices", devicesRouter);
-app.route("/content", contentRouter);
-app.route("/audit", auditRouter);
-app.route("/settings", settingsRouter);
-app.route("/", rbacRouter);
+app.route("/api/v1/health", healthRouter);
+app.route("/api/v1/auth", authRouter);
+app.route("/api/v1/playlists", playlistsRouter);
+app.route("/api/v1/schedules", schedulesRouter);
+app.route("/api/v1/displays", devicesRouter);
+app.route("/api/v1/content", contentRouter);
+app.route("/api/v1/audit", auditRouter);
+app.route("/api/v1/settings", settingsRouter);
+app.route("/api/v1", rbacRouter);
 
 app.onError((err, c) => {
   const status = err instanceof HTTPException ? err.status : 500;

@@ -360,13 +360,13 @@ describe("Auth routes", () => {
         email: string;
         name: string;
         timezone: string | null;
+        isRoot: boolean;
       };
       permissions: string[];
     }>(response);
 
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       type: "bearer",
-      token: expect.any(String),
       expiresAt: new Date(
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
@@ -375,9 +375,11 @@ describe("Auth routes", () => {
         email: "test1@example.com",
         name: "Test One",
         timezone: null,
+        isRoot: false,
       },
       permissions: ["roles:read", "roles:create"],
     });
+    expect(typeof body.token).toBe("string");
   });
 
   test("POST /auth/login returns 401 for invalid credentials", async () => {
@@ -459,13 +461,13 @@ describe("Auth routes", () => {
         email: string;
         name: string;
         timezone: string | null;
+        isRoot: boolean;
       };
       permissions: string[];
     }>(response);
 
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       type: "bearer",
-      token: expect.any(String),
       expiresAt: new Date(
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
       ).toISOString(),
@@ -474,9 +476,11 @@ describe("Auth routes", () => {
         email: "test1@example.com",
         name: "Test One",
         timezone: null,
+        isRoot: false,
       },
       permissions: ["roles:read", "roles:create"],
     });
+    expect(typeof body.token).toBe("string");
   });
 
   test("GET /auth/session returns 401 for invalid token payload", async () => {

@@ -396,7 +396,7 @@ const makeApp = async (
     },
   });
 
-  app.route("/devices", router);
+  app.route("/displays", router);
 
   const nowSeconds = Math.floor(Date.now() / 1000);
   const issueToken = async () =>
@@ -411,11 +411,11 @@ const makeApp = async (
   return { app, issueToken, devices, setDeviceGroupsCalls, issuePairingCode };
 };
 
-describe("Devices routes", () => {
-  test("POST /devices registers device with pairing code", async () => {
+describe("Displays routes", () => {
+  test("POST /displays registers device with pairing code", async () => {
     const { app, issuePairingCode } = await makeApp();
     issuePairingCode("123456");
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -441,9 +441,9 @@ describe("Devices routes", () => {
     expect(json.lastSeenAt).not.toBeNull();
   });
 
-  test("POST /devices returns 400 without pairing code", async () => {
+  test("POST /displays returns 400 without pairing code", async () => {
     const { app } = await makeApp();
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "Lobby", identifier: "AA:BB" }),
@@ -452,12 +452,12 @@ describe("Devices routes", () => {
     expect(response.status).toBe(400);
   });
 
-  test("POST /devices returns 500 on unexpected repository failure", async () => {
+  test("POST /displays returns 500 on unexpected repository failure", async () => {
     const { app, issuePairingCode } = await makeApp([], {
       registerDeviceError: new Error("db unavailable"),
     });
     issuePairingCode("223456");
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -474,10 +474,10 @@ describe("Devices routes", () => {
     expect(response.status).toBe(500);
   });
 
-  test("POST /devices reuses existing device when fingerprint matches", async () => {
+  test("POST /displays reuses existing device when fingerprint matches", async () => {
     const { app, devices, issuePairingCode } = await makeApp();
     issuePairingCode("323456");
-    const first = await app.request("/devices", {
+    const first = await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -494,7 +494,7 @@ describe("Devices routes", () => {
     const firstBody = await parseJson<{ id: string }>(first);
 
     issuePairingCode("423456");
-    const second = await app.request("/devices", {
+    const second = await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -518,11 +518,11 @@ describe("Devices routes", () => {
     expect(devices).toHaveLength(1);
   });
 
-  test("POST /devices rejects conflicting identifier and fingerprint", async () => {
+  test("POST /displays rejects conflicting identifier and fingerprint", async () => {
     const { app, issuePairingCode } = await makeApp();
 
     issuePairingCode("523456");
-    await app.request("/devices", {
+    await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -538,7 +538,7 @@ describe("Devices routes", () => {
     });
 
     issuePairingCode("623456");
-    await app.request("/devices", {
+    await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -554,7 +554,7 @@ describe("Devices routes", () => {
     });
 
     issuePairingCode("723456");
-    const conflict = await app.request("/devices", {
+    const conflict = await app.request("/displays", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -572,10 +572,10 @@ describe("Devices routes", () => {
     expect(conflict.status).toBe(400);
   });
 
-  test("POST /devices/pairing-codes issues code with devices:create permission", async () => {
-    const { app, issueToken } = await makeApp(["devices:create"]);
+  test("POST /displays/pairing-codes issues code with displays:create permission", async () => {
+    const { app, issueToken } = await makeApp(["displays:create"]);
     const token = await issueToken();
-    const response = await app.request("/devices/pairing-codes", {
+    const response = await app.request("/displays/pairing-codes", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -586,10 +586,10 @@ describe("Devices routes", () => {
     expect(Date.parse(json.expiresAt)).toBeGreaterThan(Date.now());
   });
 
-  test("POST /devices/pairing-codes returns 403 without devices:create", async () => {
-    const { app, issueToken } = await makeApp(["devices:read"]);
+  test("POST /displays/pairing-codes returns 403 without displays:create", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"]);
     const token = await issueToken();
-    const response = await app.request("/devices/pairing-codes", {
+    const response = await app.request("/displays/pairing-codes", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -597,36 +597,36 @@ describe("Devices routes", () => {
     expect(response.status).toBe(403);
   });
 
-  test("GET /devices/:id/manifest returns 401 without API key", async () => {
+  test("GET /displays/:id/manifest returns 401 without API key", async () => {
     const { app } = await makeApp();
-    const response = await app.request(`/devices/${deviceId}/manifest`);
+    const response = await app.request(`/displays/${deviceId}/manifest`);
     expect(response.status).toBe(401);
   });
 
-  test("GET /devices/:id/active-schedule returns 401 without API key", async () => {
+  test("GET /displays/:id/active-schedule returns 401 without API key", async () => {
     const { app } = await makeApp();
-    const response = await app.request(`/devices/${deviceId}/active-schedule`);
+    const response = await app.request(`/displays/${deviceId}/active-schedule`);
     expect(response.status).toBe(401);
   });
 
-  test("GET /devices/:id/stream-token returns 401 without API key", async () => {
+  test("GET /displays/:id/stream-token returns 401 without API key", async () => {
     const { app } = await makeApp();
-    const response = await app.request(`/devices/${deviceId}/stream-token`);
+    const response = await app.request(`/displays/${deviceId}/stream-token`);
     expect(response.status).toBe(401);
   });
 
-  test("GET /devices/:id/stream rejects invalid stream token", async () => {
+  test("GET /displays/:id/stream rejects invalid stream token", async () => {
     const { app } = await makeApp();
     const response = await app.request(
-      `/devices/${deviceId}/stream?streamToken=invalid`,
+      `/displays/${deviceId}/stream?streamToken=invalid`,
     );
     expect(response.status).toBe(401);
   });
 
-  test("GET /devices/:id/stream returns event-stream for valid token", async () => {
+  test("GET /displays/:id/stream returns event-stream for valid token", async () => {
     const { app } = await makeApp();
     const tokenResponse = await app.request(
-      `/devices/${deviceId}/stream-token`,
+      `/displays/${deviceId}/stream-token`,
       {
         headers: { "X-API-Key": "device-key" },
       },
@@ -635,24 +635,24 @@ describe("Devices routes", () => {
     const tokenBody = await parseJson<{ token: string }>(tokenResponse);
 
     const response = await app.request(
-      `/devices/${deviceId}/stream?streamToken=${encodeURIComponent(tokenBody.token)}`,
+      `/displays/${deviceId}/stream?streamToken=${encodeURIComponent(tokenBody.token)}`,
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
   });
 
-  test("GET /devices requires permission", async () => {
+  test("GET /displays requires permission", async () => {
     const { app, issueToken } = await makeApp([]);
     const token = await issueToken();
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(response.status).toBe(403);
   });
 
-  test("GET /devices returns list with permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+  test("GET /displays returns list with permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:read"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -669,7 +669,7 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -686,8 +686,8 @@ describe("Devices routes", () => {
     expect(json.pageSize).toBe(50);
   });
 
-  test("GET /devices returns DOWN for stale but previously seen devices", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+  test("GET /displays returns DOWN for stale but previously seen devices", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:read"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -705,7 +705,7 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -721,9 +721,9 @@ describe("Devices routes", () => {
     expect(json.items[0]?.lastSeenAt).toBe("2025-01-01T00:00:00.000Z");
   });
 
-  test("GET /devices returns LIVE for recently seen devices with active schedule", async () => {
+  test("GET /displays returns LIVE for recently seen devices with active schedule", async () => {
     const nowIso = new Date().toISOString();
-    const { app, issueToken, devices } = await makeApp(["devices:read"], {
+    const { app, issueToken, devices } = await makeApp(["displays:read"], {
       schedules: [
         {
           id: "schedule-live",
@@ -758,7 +758,7 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request("/devices", {
+    const response = await app.request("/displays", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -769,8 +769,8 @@ describe("Devices routes", () => {
     expect(json.items[0]?.onlineStatus).toBe("LIVE");
   });
 
-  test("GET /devices/:id returns device", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+  test("GET /displays/:id returns device", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:read"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -787,15 +787,15 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request(`/devices/${deviceId}`, {
+    const response = await app.request(`/displays/${deviceId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(response.status).toBe(200);
   });
 
-  test("PATCH /devices/:id updates device with devices:update permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:update"]);
+  test("PATCH /displays/:id updates device with displays:update permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:update"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -812,7 +812,7 @@ describe("Devices routes", () => {
     });
     const token = await issueToken();
 
-    const response = await app.request(`/devices/${deviceId}`, {
+    const response = await app.request(`/displays/${deviceId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -845,8 +845,8 @@ describe("Devices routes", () => {
     expect(json.orientation).toBe("LANDSCAPE");
   });
 
-  test("POST /devices/:id/refresh queues refresh with devices:update permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:update"]);
+  test("POST /displays/:id/refresh queues refresh with displays:update permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:update"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -863,7 +863,7 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request(`/devices/${deviceId}/refresh`, {
+    const response = await app.request(`/displays/${deviceId}/refresh`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -872,8 +872,8 @@ describe("Devices routes", () => {
     expect(devices[0]?.refreshNonce).toBe(1);
   });
 
-  test("POST /devices/:id/refresh returns 403 without permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+  test("POST /displays/:id/refresh returns 403 without permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:read"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -890,7 +890,7 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request(`/devices/${deviceId}/refresh`, {
+    const response = await app.request(`/displays/${deviceId}/refresh`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -898,11 +898,11 @@ describe("Devices routes", () => {
     expect(response.status).toBe(403);
   });
 
-  test("POST /devices/:id/refresh returns 404 for missing device", async () => {
-    const { app, issueToken } = await makeApp(["devices:update"]);
+  test("POST /displays/:id/refresh returns 404 for missing device", async () => {
+    const { app, issueToken } = await makeApp(["displays:update"]);
     const token = await issueToken();
 
-    const response = await app.request(`/devices/${deviceId}/refresh`, {
+    const response = await app.request(`/displays/${deviceId}/refresh`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -910,8 +910,8 @@ describe("Devices routes", () => {
     expect(response.status).toBe(404);
   });
 
-  test("GET /devices/groups returns groups with devices:read permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["devices:read"]);
+  test("GET /displays/groups returns groups with displays:read permission", async () => {
+    const { app, issueToken, devices } = await makeApp(["displays:read"]);
     devices.push({
       id: deviceId,
       name: "Lobby",
@@ -928,7 +928,7 @@ describe("Devices routes", () => {
     });
 
     const token = await issueToken();
-    const createResponse = await app.request("/devices/groups", {
+    const createResponse = await app.request("/displays/groups", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -938,9 +938,9 @@ describe("Devices routes", () => {
     });
     expect(createResponse.status).toBe(403);
 
-    const elevated = await makeApp(["devices:read", "devices:update"]);
+    const elevated = await makeApp(["displays:read", "displays:update"]);
     const elevatedToken = await elevated.issueToken();
-    const createOk = await elevated.app.request("/devices/groups", {
+    const createOk = await elevated.app.request("/displays/groups", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${elevatedToken}`,
@@ -950,7 +950,7 @@ describe("Devices routes", () => {
     });
     expect(createOk.status).toBe(200);
 
-    const listResponse = await elevated.app.request("/devices/groups", {
+    const listResponse = await elevated.app.request("/displays/groups", {
       headers: { Authorization: `Bearer ${elevatedToken}` },
     });
     expect(listResponse.status).toBe(200);
@@ -960,11 +960,11 @@ describe("Devices routes", () => {
     expect(json.items.some((group) => group.name === "Lobby Group")).toBe(true);
   });
 
-  test("PATCH /devices/groups/:groupId returns 409 for case-insensitive rename conflicts", async () => {
-    const { app, issueToken } = await makeApp(["devices:update"]);
+  test("PATCH /displays/groups/:groupId returns 409 for case-insensitive rename conflicts", async () => {
+    const { app, issueToken } = await makeApp(["displays:update"]);
     const token = await issueToken();
 
-    const firstCreate = await app.request("/devices/groups", {
+    const firstCreate = await app.request("/displays/groups", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -972,7 +972,7 @@ describe("Devices routes", () => {
       },
       body: JSON.stringify({ name: "Lobby" }),
     });
-    const secondCreate = await app.request("/devices/groups", {
+    const secondCreate = await app.request("/displays/groups", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -985,7 +985,7 @@ describe("Devices routes", () => {
     expect(secondCreate.status).toBe(200);
     const second = await parseJson<{ id: string }>(secondCreate);
 
-    const response = await app.request(`/devices/groups/${second.id}`, {
+    const response = await app.request(`/displays/groups/${second.id}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -997,9 +997,9 @@ describe("Devices routes", () => {
     expect(response.status).toBe(409);
   });
 
-  test("PUT /devices/:id/groups deduplicates duplicate group ids", async () => {
+  test("PUT /displays/:id/groups deduplicates duplicate group ids", async () => {
     const { app, issueToken, devices, setDeviceGroupsCalls } = await makeApp([
-      "devices:update",
+      "displays:update",
     ]);
     devices.push({
       id: deviceId,
@@ -1017,7 +1017,7 @@ describe("Devices routes", () => {
     });
     const token = await issueToken();
 
-    const create = await app.request("/devices/groups", {
+    const create = await app.request("/displays/groups", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1028,7 +1028,7 @@ describe("Devices routes", () => {
     expect(create.status).toBe(200);
     const created = await parseJson<{ id: string }>(create);
 
-    const response = await app.request(`/devices/${deviceId}/groups`, {
+    const response = await app.request(`/displays/${deviceId}/groups`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1048,10 +1048,10 @@ describe("Devices routes", () => {
     ]);
   });
 
-  test("DELETE /devices/groups/:groupId removes the group and blocks future assignment", async () => {
+  test("DELETE /displays/groups/:groupId removes the group and blocks future assignment", async () => {
     const { app, issueToken, devices } = await makeApp([
-      "devices:update",
-      "devices:read",
+      "displays:update",
+      "displays:read",
     ]);
     devices.push({
       id: deviceId,
@@ -1069,7 +1069,7 @@ describe("Devices routes", () => {
     });
     const token = await issueToken();
 
-    const create = await app.request("/devices/groups", {
+    const create = await app.request("/displays/groups", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1080,7 +1080,7 @@ describe("Devices routes", () => {
     expect(create.status).toBe(200);
     const created = await parseJson<{ id: string }>(create);
 
-    const assign = await app.request(`/devices/${deviceId}/groups`, {
+    const assign = await app.request(`/displays/${deviceId}/groups`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1090,13 +1090,13 @@ describe("Devices routes", () => {
     });
     expect(assign.status).toBe(204);
 
-    const remove = await app.request(`/devices/groups/${created.id}`, {
+    const remove = await app.request(`/displays/groups/${created.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(remove.status).toBe(204);
 
-    const list = await app.request("/devices/groups", {
+    const list = await app.request("/displays/groups", {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(list.status).toBe(200);
@@ -1105,7 +1105,7 @@ describe("Devices routes", () => {
       false,
     );
 
-    const reassignDeleted = await app.request(`/devices/${deviceId}/groups`, {
+    const reassignDeleted = await app.request(`/displays/${deviceId}/groups`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1116,7 +1116,7 @@ describe("Devices routes", () => {
     expect(reassignDeleted.status).toBe(404);
   });
 
-  test("GET /devices/:id/manifest returns empty manifest", async () => {
+  test("GET /displays/:id/manifest returns empty manifest", async () => {
     const { app, devices } = await makeApp();
     devices.push({
       id: deviceId,
@@ -1133,7 +1133,7 @@ describe("Devices routes", () => {
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
 
-    const response = await app.request(`/devices/${deviceId}/manifest`, {
+    const response = await app.request(`/displays/${deviceId}/manifest`, {
       headers: { "X-API-Key": "device-key" },
     });
 
@@ -1142,7 +1142,7 @@ describe("Devices routes", () => {
     expect(json.playlistId).toBeNull();
   });
 
-  test("GET /devices/:id/active-schedule returns null when none", async () => {
+  test("GET /displays/:id/active-schedule returns null when none", async () => {
     const { app, devices } = await makeApp();
     devices.push({
       id: deviceId,
@@ -1159,9 +1159,12 @@ describe("Devices routes", () => {
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
 
-    const response = await app.request(`/devices/${deviceId}/active-schedule`, {
-      headers: { "X-API-Key": "device-key" },
-    });
+    const response = await app.request(
+      `/displays/${deviceId}/active-schedule`,
+      {
+        headers: { "X-API-Key": "device-key" },
+      },
+    );
 
     expect(response.status).toBe(200);
     const json = await parseJson<unknown>(response);

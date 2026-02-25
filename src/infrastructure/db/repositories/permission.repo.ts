@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   type PermissionRecord,
   type PermissionRepository,
@@ -19,13 +19,20 @@ export class PermissionDbRepository implements PermissionRepository {
   async create(input: {
     resource: string;
     action: string;
+    isRoot?: boolean;
   }): Promise<PermissionRecord> {
     const id = crypto.randomUUID();
+    const isRoot = input.isRoot ?? false;
     await db.insert(permissions).values({
       id,
       resource: input.resource,
       action: input.action,
+      isRoot,
     });
-    return { id, resource: input.resource, action: input.action };
+    return { id, resource: input.resource, action: input.action, isRoot };
+  }
+
+  async updateIsRoot(id: string, isRoot: boolean): Promise<void> {
+    await db.update(permissions).set({ isRoot }).where(eq(permissions.id, id));
   }
 }

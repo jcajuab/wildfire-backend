@@ -1,14 +1,5 @@
-import {
-  EDITOR_ROLE_NAME,
-  SUPER_ADMIN_PERMISSION,
-  VIEWER_ROLE_NAME,
-} from "../constants";
-import {
-  mapPermissionsByKey,
-  permissionKey,
-  type SeedContext,
-  type SeedStageResult,
-} from "../stage-types";
+import { EDITOR_ROLE_NAME, VIEWER_ROLE_NAME } from "../constants";
+import { type SeedContext, type SeedStageResult } from "../stage-types";
 
 const sameIdSet = (left: string[], right: string[]): boolean => {
   if (left.length !== right.length) return false;
@@ -17,26 +8,29 @@ const sameIdSet = (left: string[], right: string[]): boolean => {
 };
 
 const resolvePermissionIds = (ctx: {
-  permissions: Array<{ id: string; resource: string; action: string }>;
+  permissions: Array<{
+    id: string;
+    resource: string;
+    action: string;
+    isRoot?: boolean;
+  }>;
 }) => {
-  const map = mapPermissionsByKey(ctx.permissions);
-  if (!map.has(permissionKey(SUPER_ADMIN_PERMISSION))) {
-    throw new Error(
-      "Missing wildcard permission *:manage before seeding demo roles",
-    );
-  }
-
   const readPermissionIds = ctx.permissions
-    .filter((permission) => permission.action === "read")
+    .filter(
+      (permission) =>
+        permission.action === "read" && permission.isRoot !== true,
+    )
     .map((permission) => permission.id);
 
   const editorPermissionIds = ctx.permissions
     .filter(
       (permission) =>
-        permission.action === "read" ||
-        permission.action === "create" ||
-        permission.action === "update" ||
-        (permission.resource !== "*" && permission.action === "delete"),
+        permission.isRoot !== true &&
+        (permission.action === "read" ||
+          permission.action === "create" ||
+          permission.action === "update" ||
+          permission.action === "delete" ||
+          permission.action === "download"),
     )
     .map((permission) => permission.id);
 

@@ -1,6 +1,9 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
 import {
+  type AuthorizationRepository,
+  type PermissionRepository,
   type PolicyHistoryRepository,
+  type RolePermissionRepository,
   type RoleRepository,
   type UserRepository,
   type UserRoleRepository,
@@ -78,32 +81,27 @@ export class GetUserUseCase {
   }
 }
 
-async function ensureCallerCanModifySuperAdminUser(
+async function ensureCallerCanModifyRootUser(
   deps: {
-    userRoleRepository: UserRoleRepository;
-    roleRepository: RoleRepository;
+    authorizationRepository: AuthorizationRepository;
   },
   targetUserId: string,
   callerUserId: string | undefined,
   forbiddenMessage: string,
 ): Promise<void> {
-  const allRoles = await deps.roleRepository.list();
-  const systemRole = allRoles.find((r) => r.isSystem);
-  if (!systemRole) return;
-
-  const targetAssignments =
-    await deps.userRoleRepository.listRolesByUserId(targetUserId);
-  const targetRoleIds = targetAssignments.map((a) => a.roleId);
-  if (!targetRoleIds.includes(systemRole.id)) return;
+  const targetIsRoot = deps.authorizationRepository.isRootUser
+    ? await deps.authorizationRepository.isRootUser(targetUserId)
+    : false;
+  if (!targetIsRoot) return;
 
   if (callerUserId === undefined) {
     throw new ForbiddenError(forbiddenMessage);
   }
 
-  const callerAssignments =
-    await deps.userRoleRepository.listRolesByUserId(callerUserId);
-  const callerRoleIds = callerAssignments.map((a) => a.roleId);
-  if (!callerRoleIds.includes(systemRole.id)) {
+  const callerIsRoot = deps.authorizationRepository.isRootUser
+    ? await deps.authorizationRepository.isRootUser(callerUserId)
+    : false;
+  if (!callerIsRoot) {
     throw new ForbiddenError(forbiddenMessage);
   }
 }
@@ -112,8 +110,7 @@ export class UpdateUserUseCase {
   constructor(
     private readonly deps: {
       userRepository: UserRepository;
-      userRoleRepository: UserRoleRepository;
-      roleRepository: RoleRepository;
+      authorizationRepository: AuthorizationRepository;
     },
   ) {}
 
@@ -124,11 +121,11 @@ export class UpdateUserUseCase {
     isActive?: boolean;
     callerUserId?: string;
   }) {
-    await ensureCallerCanModifySuperAdminUser(
+    await ensureCallerCanModifyRootUser(
       this.deps,
       input.id,
       input.callerUserId,
-      "Cannot modify a Super Admin user",
+      "Cannot modify a Root user",
     );
 
     const user = await this.deps.userRepository.update(input.id, {
@@ -145,17 +142,16 @@ export class DeleteUserUseCase {
   constructor(
     private readonly deps: {
       userRepository: UserRepository;
-      userRoleRepository: UserRoleRepository;
-      roleRepository: RoleRepository;
+      authorizationRepository: AuthorizationRepository;
     },
   ) {}
 
   async execute(input: { id: string; callerUserId?: string }) {
-    await ensureCallerCanModifySuperAdminUser(
+    await ensureCallerCanModifyRootUser(
       this.deps,
       input.id,
       input.callerUserId,
-      "Cannot delete a Super Admin user",
+      "Cannot delete a Root user",
     );
 
     const deleted = await this.deps.userRepository.delete(input.id);
@@ -180,6 +176,9 @@ export class SetUserRolesUseCase {
       roleRepository: RoleRepository;
       userRoleRepository: UserRoleRepository;
       policyHistoryRepository: PolicyHistoryRepository;
+      permissionRepository: PermissionRepository;
+      rolePermissionRepository: RolePermissionRepository;
+      authorizationRepository: AuthorizationRepository;
     },
   ) {}
 
@@ -198,21 +197,45 @@ export class SetUserRolesUseCase {
     const currentRoleIds = new Set(currentAssignments.map((a) => a.roleId));
     const nextRoleIds = new Set(input.roleIds);
 
-    const allRoles = await this.deps.roleRepository.list();
-    const systemRole = allRoles.find((r) => r.isSystem);
-    if (systemRole) {
-      if (input.roleIds.includes(systemRole.id)) {
-        throw new ForbiddenError(
-          "Cannot assign Super Admin role via the application. Use the provided script.",
-        );
-      }
-      const currentRoleIdsList = [...currentRoleIds];
+    const targetIsRoot = this.deps.authorizationRepository.isRootUser
+      ? await this.deps.authorizationRepository.isRootUser(input.userId)
+      : false;
+    if (targetIsRoot) {
+      throw new ForbiddenError(
+        "Cannot modify roles for a Root user via the application. Use the provided script.",
+      );
+    }
+
+    const selectedPermissionIds = [
+      ...new Set(
+        (
+          await Promise.all(
+            input.roleIds.map(async (roleId) =>
+              (
+                await this.deps.rolePermissionRepository.listPermissionsByRoleId(
+                  roleId,
+                )
+              ).map((assignment) => assignment.permissionId),
+            ),
+          )
+        ).flat(),
+      ),
+    ];
+    if (selectedPermissionIds.length > 0) {
+      const selectedPermissions =
+        await this.deps.permissionRepository.findByIds(selectedPermissionIds);
+      const rootPermissionIds = new Set(
+        selectedPermissions
+          .filter((permission) => permission.isRoot === true)
+          .map((permission) => permission.id),
+      );
       if (
-        currentRoleIdsList.includes(systemRole.id) &&
-        !nextRoleIds.has(systemRole.id)
+        selectedPermissionIds.some((permissionId) =>
+          rootPermissionIds.has(permissionId),
+        )
       ) {
         throw new ForbiddenError(
-          "Cannot remove Super Admin role via the application. Use the provided script.",
+          "Cannot assign Root role via the application. Use the provided script.",
         );
       }
     }

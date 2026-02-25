@@ -9,7 +9,7 @@ import {
 } from "drizzle-orm/mysql-core";
 
 export const devices = mysqlTable(
-  "devices",
+  "displays",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
@@ -28,11 +28,11 @@ export const devices = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    identifierUnique: uniqueIndex("devices_identifier_unique").on(
+    identifierUnique: uniqueIndex("displays_identifier_unique").on(
       table.identifier,
     ),
     deviceFingerprintUnique: uniqueIndex(
-      "devices_device_fingerprint_unique",
+      "displays_device_fingerprint_unique",
     ).on(table.deviceFingerprint),
   }),
 );

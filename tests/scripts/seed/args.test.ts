@@ -28,14 +28,9 @@ describe("parseSeedArgs", () => {
   });
 
   test("parses spaced mode and email flags", () => {
-    const parsed = parseSeedArgs([
-      "--mode",
-      "super-admin-only",
-      "--email",
-      "a@b.com",
-    ]);
+    const parsed = parseSeedArgs(["--mode", "root-only", "--email", "a@b.com"]);
 
-    expect(parsed.mode).toBe("super-admin-only");
+    expect(parsed.mode).toBe("root-only");
     expect(parsed.email).toBe("a@b.com");
   });
 

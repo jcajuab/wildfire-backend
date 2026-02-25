@@ -9,16 +9,28 @@ export async function runSeedStandardPermissions(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
   const existing = await ctx.repos.permissionRepository.list();
-  const existingKeys = new Set(
-    existing.map((permission) => permissionKey(permission)),
+  const existingByKey = new Map(
+    existing.map((permission) => [permissionKey(permission), permission]),
   );
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
   for (const permission of STANDARD_RESOURCE_ACTIONS) {
     const key = permissionKey(permission);
-    if (existingKeys.has(key)) {
-      skipped += 1;
+    const existingPermission = existingByKey.get(key);
+    if (existingPermission) {
+      if (existingPermission.isRoot === true) {
+        if (!ctx.args.dryRun && ctx.repos.permissionRepository.updateIsRoot) {
+          await ctx.repos.permissionRepository.updateIsRoot(
+            existingPermission.id,
+            false,
+          );
+        }
+        updated += 1;
+      } else {
+        skipped += 1;
+      }
       continue;
     }
 
@@ -26,13 +38,12 @@ export async function runSeedStandardPermissions(
       await ctx.repos.permissionRepository.create(permission);
     }
     created += 1;
-    existingKeys.add(key);
   }
 
   return {
     name: "seed-standard-permissions",
     created,
-    updated: 0,
+    updated,
     skipped,
   };
 }

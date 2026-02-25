@@ -29,12 +29,12 @@ describe("buildSeedStages", () => {
     const stages = buildSeedStages("full");
     expect(stages.map((stage) => stage.name)).toEqual([
       "seed-standard-permissions",
-      "seed-super-admin",
+      "seed-root",
       "seed-demo-roles",
       "seed-demo-users",
       "assign-demo-roles",
       "sync-htshadow",
-      "assign-super-admin-email",
+      "assign-root-email",
     ]);
   });
 
@@ -42,16 +42,16 @@ describe("buildSeedStages", () => {
     const stages = buildSeedStages("baseline");
     expect(stages.map((stage) => stage.name)).toEqual([
       "seed-standard-permissions",
-      "seed-super-admin",
-      "assign-super-admin-email",
+      "seed-root",
+      "assign-root-email",
     ]);
   });
 
-  test("builds super-admin-only mode stages", () => {
-    const stages = buildSeedStages("super-admin-only");
+  test("builds root-only mode stages", () => {
+    const stages = buildSeedStages("root-only");
     expect(stages.map((stage) => stage.name)).toEqual([
-      "seed-super-admin",
-      "assign-super-admin-email",
+      "seed-root",
+      "assign-root-email",
     ]);
   });
 });

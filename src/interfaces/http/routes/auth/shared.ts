@@ -96,6 +96,7 @@ export const authResponseSchema = z.object({
     id: z.string(),
     email: z.string().email(),
     name: z.string(),
+    isRoot: z.boolean(),
     timezone: z.string().nullable().optional(),
     avatarUrl: z.string().url().optional(),
   }),
@@ -184,10 +185,12 @@ const enrichUserWithAvatarUrl = async (
   user: AuthResultUser,
   storage: ContentStorage,
   expiresInSeconds: number,
+  isRoot: boolean,
 ): Promise<{
   id: string;
   email: string;
   name: string;
+  isRoot: boolean;
   timezone?: string | null;
   avatarUrl?: string;
 }> => {
@@ -195,6 +198,7 @@ const enrichUserWithAvatarUrl = async (
     id: user.id,
     email: user.email,
     name: user.name,
+    isRoot,
     timezone: user.timezone ?? null,
   };
 
@@ -214,6 +218,9 @@ export const buildAuthResponse = async (
   deps: AuthRouterDeps,
   result: AuthResultBase,
 ) => {
+  const isRoot = deps.authorizationRepository.isRootUser
+    ? await deps.authorizationRepository.isRootUser(result.user.id)
+    : false;
   const permissions = await deps.authorizationRepository.findPermissionsForUser(
     result.user.id,
   );
@@ -222,6 +229,7 @@ export const buildAuthResponse = async (
     result.user,
     deps.avatarStorage,
     deps.avatarUrlExpiresInSeconds,
+    isRoot,
   );
 
   return {

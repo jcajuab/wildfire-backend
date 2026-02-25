@@ -111,11 +111,11 @@ export const createRbacUseCases = (
   }),
   deleteRole: new DeleteRoleUseCase({
     roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
   }),
   createRoleDeletionRequest: new CreateRoleDeletionRequestUseCase({
     roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
     roleDeletionRequestRepository:
       deps.repositories.roleDeletionRequestRepository,
   }),
@@ -125,13 +125,12 @@ export const createRbacUseCases = (
   }),
   approveRoleDeletionRequest: new ApproveRoleDeletionRequestUseCase({
     roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
     roleDeletionRequestRepository:
       deps.repositories.roleDeletionRequestRepository,
   }),
   rejectRoleDeletionRequest: new RejectRoleDeletionRequestUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
     roleDeletionRequestRepository:
       deps.repositories.roleDeletionRequestRepository,
   }),
@@ -163,19 +162,20 @@ export const createRbacUseCases = (
   }),
   updateUser: new UpdateUserUseCase({
     userRepository: deps.repositories.userRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-    roleRepository: deps.repositories.roleRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
   }),
   deleteUser: new DeleteUserUseCase({
     userRepository: deps.repositories.userRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-    roleRepository: deps.repositories.roleRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
   }),
   setUserRoles: new SetUserRolesUseCase({
     userRepository: deps.repositories.userRepository,
     roleRepository: deps.repositories.roleRepository,
     userRoleRepository: deps.repositories.userRoleRepository,
     policyHistoryRepository: deps.repositories.policyHistoryRepository,
+    permissionRepository: deps.repositories.permissionRepository,
+    rolePermissionRepository: deps.repositories.rolePermissionRepository,
+    authorizationRepository: deps.repositories.authorizationRepository,
   }),
   getUserRoles: new GetUserRolesUseCase({
     userRepository: deps.repositories.userRepository,

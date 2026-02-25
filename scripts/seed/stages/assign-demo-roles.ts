@@ -1,7 +1,7 @@
 import {
   DUMMY_USERS,
   EDITOR_ROLE_NAME,
-  SUPER_ADMIN_ROLE_NAME,
+  ROOT_ROLE_NAME,
   VIEWER_ROLE_NAME,
 } from "../constants";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
@@ -16,15 +16,13 @@ export async function runAssignDemoRoles(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
   const roles = await ctx.repos.roleRepository.list();
-  const superAdminRole = roles.find(
-    (role) => role.name === SUPER_ADMIN_ROLE_NAME,
-  );
+  const rootRole = roles.find((role) => role.name === ROOT_ROLE_NAME);
   const editorRole = roles.find((role) => role.name === EDITOR_ROLE_NAME);
   const viewerRole = roles.find((role) => role.name === VIEWER_ROLE_NAME);
 
-  if (!superAdminRole || !editorRole || !viewerRole) {
+  if (!rootRole || !editorRole || !viewerRole) {
     throw new Error(
-      "Missing Super Admin, Editor, or Viewer role. Run role seeding stages first.",
+      "Missing Root, Editor, or Viewer role. Run role seeding stages first.",
     );
   }
 
@@ -44,8 +42,8 @@ export async function runAssignDemoRoles(
     );
   }
 
-  const superAdminEmail = DUMMY_USERS[0]?.email;
-  if (!superAdminEmail) {
+  const rootEmail = DUMMY_USERS[0]?.email;
+  if (!rootEmail) {
     return {
       name: "assign-demo-roles",
       created: 0,
@@ -66,8 +64,8 @@ export async function runAssignDemoRoles(
     }
 
     let desiredRoleId = viewerRole.id;
-    if (user.email === superAdminEmail) {
-      desiredRoleId = superAdminRole.id;
+    if (user.email === rootEmail) {
+      desiredRoleId = rootRole.id;
     } else if (editorSlots > 0) {
       desiredRoleId = editorRole.id;
       editorSlots -= 1;

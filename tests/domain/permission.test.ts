@@ -22,25 +22,17 @@ describe("Permission", () => {
     expect(owned.matches(required)).toBe(true);
   });
 
-  test("manage on resource allows any action on resource", () => {
-    const owned = Permission.parse("content:manage");
+  test("does not match when action differs", () => {
+    const owned = Permission.parse("content:read");
     const required = Permission.parse("content:delete");
 
-    expect(owned.matches(required)).toBe(true);
+    expect(owned.matches(required)).toBe(false);
   });
 
-  test("wildcard manage allows any resource action", () => {
-    const owned = Permission.parse("*:manage");
+  test("does not match when resource differs", () => {
+    const owned = Permission.parse("content:update");
     const required = Permission.parse("users:update");
 
-    expect(owned.matches(required)).toBe(true);
-  });
-
-  test("wildcard read allows read on any resource", () => {
-    const owned = Permission.parse("*:read");
-    const required = Permission.parse("content:read");
-
-    expect(owned.matches(required)).toBe(true);
-    expect(owned.matches(Permission.parse("content:update"))).toBe(false);
+    expect(owned.matches(required)).toBe(false);
   });
 });

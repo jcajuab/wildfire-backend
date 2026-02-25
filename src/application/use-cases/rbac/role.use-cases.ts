@@ -1,5 +1,6 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
 import {
+  type AuthorizationRepository,
   type PermissionRepository,
   type PolicyHistoryRepository,
   type RoleDeletionRequestRepository,
@@ -86,7 +87,7 @@ export class DeleteRoleUseCase {
   constructor(
     private readonly deps: {
       roleRepository: RoleRepository;
-      userRoleRepository: UserRoleRepository;
+      authorizationRepository: AuthorizationRepository;
     },
   ) {}
 
@@ -96,14 +97,13 @@ export class DeleteRoleUseCase {
     if (role.isSystem) {
       throw new ForbiddenError("Cannot delete system role");
     }
-    const callerIsSuperAdmin = await isUserSuperAdmin({
-      roleRepository: this.deps.roleRepository,
-      userRoleRepository: this.deps.userRoleRepository,
-      userId: input.callerUserId,
-    });
-    if (!callerIsSuperAdmin) {
+    const callerIsRoot = await isUserRoot(
+      this.deps.authorizationRepository,
+      input.callerUserId,
+    );
+    if (!callerIsRoot) {
       throw new ForbiddenError(
-        "Only Super Admin can delete roles directly. Submit a deletion request.",
+        "Only Root can delete roles directly. Submit a deletion request.",
       );
     }
     const deleted = await this.deps.roleRepository.delete(input.id);
@@ -111,26 +111,19 @@ export class DeleteRoleUseCase {
   }
 }
 
-const isUserSuperAdmin = async (input: {
-  roleRepository: RoleRepository;
-  userRoleRepository: UserRoleRepository;
-  userId?: string;
-}): Promise<boolean> => {
-  if (!input.userId) return false;
-  const roles = await input.roleRepository.list();
-  const systemRole = roles.find((role) => role.isSystem);
-  if (!systemRole) return false;
-  const assignments = await input.userRoleRepository.listRolesByUserId(
-    input.userId,
-  );
-  return assignments.some((assignment) => assignment.roleId === systemRole.id);
+const isUserRoot = async (
+  authorizationRepository: AuthorizationRepository,
+  userId?: string,
+): Promise<boolean> => {
+  if (!userId || !authorizationRepository.isRootUser) return false;
+  return authorizationRepository.isRootUser(userId);
 };
 
 export class CreateRoleDeletionRequestUseCase {
   constructor(
     private readonly deps: {
       roleRepository: RoleRepository;
-      userRoleRepository: UserRoleRepository;
+      authorizationRepository: AuthorizationRepository;
       roleDeletionRequestRepository: RoleDeletionRequestRepository;
     },
   ) {}
@@ -146,14 +139,13 @@ export class CreateRoleDeletionRequestUseCase {
       throw new ForbiddenError("Cannot request deletion for system role");
     }
 
-    const requesterIsSuperAdmin = await isUserSuperAdmin({
-      roleRepository: this.deps.roleRepository,
-      userRoleRepository: this.deps.userRoleRepository,
-      userId: input.requestedByUserId,
-    });
-    if (requesterIsSuperAdmin) {
+    const requesterIsRoot = await isUserRoot(
+      this.deps.authorizationRepository,
+      input.requestedByUserId,
+    );
+    if (requesterIsRoot) {
       throw new ForbiddenError(
-        "Super Admin can delete roles directly without a request.",
+        "Root can delete roles directly without a request.",
       );
     }
 
@@ -215,19 +207,18 @@ export class ApproveRoleDeletionRequestUseCase {
   constructor(
     private readonly deps: {
       roleRepository: RoleRepository;
-      userRoleRepository: UserRoleRepository;
+      authorizationRepository: AuthorizationRepository;
       roleDeletionRequestRepository: RoleDeletionRequestRepository;
     },
   ) {}
 
   async execute(input: { requestId: string; approvedByUserId: string }) {
-    const approverIsSuperAdmin = await isUserSuperAdmin({
-      roleRepository: this.deps.roleRepository,
-      userRoleRepository: this.deps.userRoleRepository,
-      userId: input.approvedByUserId,
-    });
-    if (!approverIsSuperAdmin) {
-      throw new ForbiddenError("Only Super Admin can approve role deletion.");
+    const approverIsRoot = await isUserRoot(
+      this.deps.authorizationRepository,
+      input.approvedByUserId,
+    );
+    if (!approverIsRoot) {
+      throw new ForbiddenError("Only Root can approve role deletion.");
     }
 
     const request = await this.deps.roleDeletionRequestRepository.findById(
@@ -260,8 +251,7 @@ export class ApproveRoleDeletionRequestUseCase {
 export class RejectRoleDeletionRequestUseCase {
   constructor(
     private readonly deps: {
-      roleRepository: RoleRepository;
-      userRoleRepository: UserRoleRepository;
+      authorizationRepository: AuthorizationRepository;
       roleDeletionRequestRepository: RoleDeletionRequestRepository;
     },
   ) {}
@@ -271,13 +261,12 @@ export class RejectRoleDeletionRequestUseCase {
     approvedByUserId: string;
     reason?: string;
   }) {
-    const approverIsSuperAdmin = await isUserSuperAdmin({
-      roleRepository: this.deps.roleRepository,
-      userRoleRepository: this.deps.userRoleRepository,
-      userId: input.approvedByUserId,
-    });
-    if (!approverIsSuperAdmin) {
-      throw new ForbiddenError("Only Super Admin can reject role deletion.");
+    const approverIsRoot = await isUserRoot(
+      this.deps.authorizationRepository,
+      input.approvedByUserId,
+    );
+    if (!approverIsRoot) {
+      throw new ForbiddenError("Only Root can reject role deletion.");
     }
 
     const request = await this.deps.roleDeletionRequestRepository.findById(
@@ -353,6 +342,15 @@ export class SetRolePermissionsUseCase {
       await this.deps.rolePermissionRepository.listPermissionsByRoleId(
         input.roleId,
       );
+    const selectedPermissions = await this.deps.permissionRepository.findByIds(
+      input.permissionIds,
+    );
+    if (selectedPermissions.some((permission) => permission.isRoot)) {
+      throw new ForbiddenError(
+        "Cannot assign Root permission via the application. Use the provided script.",
+      );
+    }
+
     const currentPermissionIds = new Set(
       currentAssignments.map((item) => item.permissionId),
     );
@@ -383,7 +381,7 @@ export class SetRolePermissionsUseCase {
       });
     }
 
-    return this.deps.permissionRepository.findByIds(input.permissionIds);
+    return selectedPermissions;
   }
 }
 

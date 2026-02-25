@@ -158,7 +158,7 @@ export const registerRbacUserCrudRoutes = (args: {
           },
         },
         403: {
-          description: "Forbidden (e.g. cannot modify a Super Admin user)",
+          description: "Forbidden (e.g. cannot modify a Root user)",
           content: {
             "application/json": {
               schema: resolver(errorResponseSchema),
@@ -205,7 +205,7 @@ export const registerRbacUserCrudRoutes = (args: {
       responses: {
         204: { description: "Deleted" },
         403: {
-          description: "Forbidden (e.g. cannot delete a Super Admin user)",
+          description: "Forbidden (e.g. cannot delete a Root user)",
           content: {
             "application/json": {
               schema: resolver(errorResponseSchema),

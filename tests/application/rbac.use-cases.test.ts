@@ -82,8 +82,7 @@ describe("RBAC use cases", () => {
   test("UpdateUserUseCase throws when user missing", async () => {
     const useCase = new UpdateUserUseCase({
       userRepository: { update: async () => null } as never,
-      userRoleRepository: { listRolesByUserId: async () => [] } as never,
-      roleRepository: { list: async () => [] } as never,
+      authorizationRepository: { isRootUser: async () => false } as never,
     });
 
     await expect(useCase.execute({ id: "user-1" })).rejects.toBeInstanceOf(
@@ -91,8 +90,7 @@ describe("RBAC use cases", () => {
     );
   });
 
-  test("UpdateUserUseCase throws ForbiddenError when target is Super Admin and caller is not", async () => {
-    const systemRoleId = "role-sys";
+  test("UpdateUserUseCase throws ForbiddenError when target is Root and caller is not", async () => {
     const targetUserId = "user-super";
     const callerUserId = "user-other";
     const useCase = new UpdateUserUseCase({
@@ -104,29 +102,8 @@ describe("RBAC use cases", () => {
           isActive: true,
         }),
       } as never,
-      userRoleRepository: {
-        listRolesByUserId: async (userId: string) =>
-          userId === targetUserId
-            ? [{ userId: targetUserId, roleId: systemRoleId }]
-            : userId === callerUserId
-              ? [{ userId: callerUserId, roleId: "role-other" }]
-              : [],
-      } as never,
-      roleRepository: {
-        list: async () => [
-          {
-            id: systemRoleId,
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-          {
-            id: "role-other",
-            name: "Editor",
-            description: null,
-            isSystem: false,
-          },
-        ],
+      authorizationRepository: {
+        isRootUser: async (userId: string) => userId === targetUserId,
       } as never,
     });
 
@@ -139,8 +116,7 @@ describe("RBAC use cases", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  test("UpdateUserUseCase succeeds when target is Super Admin and caller is Super Admin", async () => {
-    const systemRoleId = "role-sys";
+  test("UpdateUserUseCase succeeds when target is Root and caller is Root", async () => {
     const targetUserId = "user-super";
     const callerUserId = "user-admin";
     const updatedUser = {
@@ -151,21 +127,9 @@ describe("RBAC use cases", () => {
     };
     const useCase = new UpdateUserUseCase({
       userRepository: { update: async () => updatedUser } as never,
-      userRoleRepository: {
-        listRolesByUserId: async (userId: string) =>
-          userId === targetUserId || userId === callerUserId
-            ? [{ userId, roleId: systemRoleId }]
-            : [],
-      } as never,
-      roleRepository: {
-        list: async () => [
-          {
-            id: systemRoleId,
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-        ],
+      authorizationRepository: {
+        isRootUser: async (userId: string) =>
+          userId === targetUserId || userId === callerUserId,
       } as never,
     });
 
@@ -181,8 +145,7 @@ describe("RBAC use cases", () => {
   test("DeleteUserUseCase throws when user missing", async () => {
     const useCase = new DeleteUserUseCase({
       userRepository: { delete: async () => false } as never,
-      userRoleRepository: { listRolesByUserId: async () => [] } as never,
-      roleRepository: { list: async () => [] } as never,
+      authorizationRepository: { isRootUser: async () => false } as never,
     });
 
     await expect(useCase.execute({ id: "user-1" })).rejects.toBeInstanceOf(
@@ -190,35 +153,13 @@ describe("RBAC use cases", () => {
     );
   });
 
-  test("DeleteUserUseCase throws ForbiddenError when target is Super Admin and caller is not", async () => {
-    const systemRoleId = "role-sys";
+  test("DeleteUserUseCase throws ForbiddenError when target is Root and caller is not", async () => {
     const targetUserId = "user-super";
     const callerUserId = "user-other";
     const useCase = new DeleteUserUseCase({
       userRepository: { delete: async () => true } as never,
-      userRoleRepository: {
-        listRolesByUserId: async (userId: string) =>
-          userId === targetUserId
-            ? [{ userId: targetUserId, roleId: systemRoleId }]
-            : userId === callerUserId
-              ? [{ userId: callerUserId, roleId: "role-other" }]
-              : [],
-      } as never,
-      roleRepository: {
-        list: async () => [
-          {
-            id: systemRoleId,
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-          {
-            id: "role-other",
-            name: "Editor",
-            description: null,
-            isSystem: false,
-          },
-        ],
+      authorizationRepository: {
+        isRootUser: async (userId: string) => userId === targetUserId,
       } as never,
     });
 
@@ -227,27 +168,14 @@ describe("RBAC use cases", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  test("DeleteUserUseCase succeeds when target is Super Admin and caller is Super Admin", async () => {
-    const systemRoleId = "role-sys";
+  test("DeleteUserUseCase succeeds when target is Root and caller is Root", async () => {
     const targetUserId = "user-super";
     const callerUserId = "user-admin";
     const useCase = new DeleteUserUseCase({
       userRepository: { delete: async () => true } as never,
-      userRoleRepository: {
-        listRolesByUserId: async (userId: string) =>
-          userId === targetUserId || userId === callerUserId
-            ? [{ userId, roleId: systemRoleId }]
-            : [],
-      } as never,
-      roleRepository: {
-        list: async () => [
-          {
-            id: systemRoleId,
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-        ],
+      authorizationRepository: {
+        isRootUser: async (userId: string) =>
+          userId === targetUserId || userId === callerUserId,
       } as never,
     });
 
@@ -269,6 +197,11 @@ describe("RBAC use cases", () => {
         listRolesByUserId: async () => [],
         setUserRoles: async () => undefined,
       } as never,
+      permissionRepository: { findByIds: async () => [] } as never,
+      rolePermissionRepository: {
+        listPermissionsByRoleId: async () => [],
+      } as never,
+      authorizationRepository: { isRootUser: async () => false } as never,
       policyHistoryRepository: {
         create: async () => undefined,
         list: async () => [],
@@ -370,11 +303,8 @@ describe("RBAC use cases", () => {
       roleRepository: {
         findById: async () => null,
         delete: async () => false,
-        list: async () => [],
       } as never,
-      userRoleRepository: {
-        listRolesByUserId: async () => [],
-      } as never,
+      authorizationRepository: { isRootUser: async () => false } as never,
     });
 
     await expect(useCase.execute({ id: "role-1" })).rejects.toBeInstanceOf(
@@ -382,7 +312,7 @@ describe("RBAC use cases", () => {
     );
   });
 
-  test("CreateRoleDeletionRequestUseCase creates request for non-super-admin", async () => {
+  test("CreateRoleDeletionRequestUseCase creates request for non-root", async () => {
     const useCase = new CreateRoleDeletionRequestUseCase({
       roleRepository: {
         findById: async () => ({
@@ -391,18 +321,8 @@ describe("RBAC use cases", () => {
           description: null,
           isSystem: false,
         }),
-        list: async () => [
-          {
-            id: "role-sys",
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-        ],
       } as never,
-      userRoleRepository: {
-        listRolesByUserId: async () => [],
-      } as never,
+      authorizationRepository: { isRootUser: async () => false } as never,
       roleDeletionRequestRepository: {
         findPendingByRoleId: async () => null,
         createPending: async () => undefined,
@@ -414,21 +334,10 @@ describe("RBAC use cases", () => {
     ).resolves.toBeUndefined();
   });
 
-  test("ApproveRoleDeletionRequestUseCase rejects non-super-admin approver", async () => {
+  test("ApproveRoleDeletionRequestUseCase rejects non-root approver", async () => {
     const useCase = new ApproveRoleDeletionRequestUseCase({
-      roleRepository: {
-        list: async () => [
-          {
-            id: "role-sys",
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-        ],
-      } as never,
-      userRoleRepository: {
-        listRolesByUserId: async () => [],
-      } as never,
+      roleRepository: {} as never,
+      authorizationRepository: { isRootUser: async () => false } as never,
       roleDeletionRequestRepository: {
         findById: async () => null,
       } as never,
@@ -473,23 +382,9 @@ describe("RBAC use cases", () => {
     expect(result.items).toHaveLength(1);
   });
 
-  test("RejectRoleDeletionRequestUseCase allows super-admin to reject", async () => {
+  test("RejectRoleDeletionRequestUseCase allows root to reject", async () => {
     const useCase = new RejectRoleDeletionRequestUseCase({
-      roleRepository: {
-        list: async () => [
-          {
-            id: "role-sys",
-            name: "Super Admin",
-            description: null,
-            isSystem: true,
-          },
-        ],
-      } as never,
-      userRoleRepository: {
-        listRolesByUserId: async () => [
-          { userId: "user-1", roleId: "role-sys" },
-        ],
-      } as never,
+      authorizationRepository: { isRootUser: async () => true } as never,
       roleDeletionRequestRepository: {
         findById: async () => ({
           id: "req-1",

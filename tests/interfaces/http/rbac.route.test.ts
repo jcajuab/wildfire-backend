@@ -14,7 +14,7 @@ const roleId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
 /** Second user (no roles) for tests that assign non-system roles. */
 const userIdNoRoles = "33333333-3333-4333-8333-333333333333";
-/** Editor role (non-system) for tests where caller has users:update but is not Super Admin. */
+/** Editor role (non-system) for tests where caller has users:update but is not Root. */
 const editorRoleId = "44444444-4444-4444-8444-444444444444";
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 
@@ -96,6 +96,7 @@ const makeStore = () => {
       id: string;
       resource: string;
       action: string;
+      isRoot?: boolean;
     }>,
     userRoles: [] as Array<{ userId: string; roleId: string }>,
     rolePermissions: [] as Array<{ roleId: string; permissionId: string }>,
@@ -140,18 +141,18 @@ const makeStore = () => {
   });
   store.roles.push({
     id: roleId,
-    name: "Super Admin",
+    name: "Root",
     description: "All access",
     isSystem: true,
   });
   store.permissions.push(
-    { id: "perm-1", resource: "*", action: "manage" },
+    { id: "perm-root", resource: "root", action: "access", isRoot: true },
     { id: "perm-2", resource: "roles", action: "read" },
     { id: "perm-3", resource: "roles", action: "create" },
     { id: "perm-4", resource: "users", action: "read" },
   );
   store.userRoles.push({ userId, roleId });
-  store.rolePermissions.push({ roleId, permissionId: "perm-1" });
+  store.rolePermissions.push({ roleId, permissionId: "perm-root" });
 
   const repositories = {
     userRepository: {
@@ -499,10 +500,26 @@ const makeStore = () => {
           .filter((item) => roleIds.includes(item.roleId))
           .map((item) => item.permissionId);
         return store.permissions
-          .filter((permission) => permissionIds.includes(permission.id))
+          .filter(
+            (permission) =>
+              permissionIds.includes(permission.id) &&
+              permission.isRoot !== true,
+          )
           .map((permission) =>
             Permission.parse(`${permission.resource}:${permission.action}`),
           );
+      },
+      isRootUser: async (userId: string) => {
+        const roleIds = store.userRoles
+          .filter((item) => item.userId === userId)
+          .map((item) => item.roleId);
+        const permissionIds = store.rolePermissions
+          .filter((item) => roleIds.includes(item.roleId))
+          .map((item) => item.permissionId);
+        return store.permissions.some(
+          (permission) =>
+            permissionIds.includes(permission.id) && permission.isRoot === true,
+        );
       },
     },
   };
@@ -510,10 +527,10 @@ const makeStore = () => {
   return { store, repositories };
 };
 
-const buildApp = (permissions: string[] = ["*:manage"]) => {
+const buildApp = (permissions?: string[]) => {
   const { store, repositories } = makeStore();
 
-  if (!permissions.includes("*:manage")) {
+  if (permissions !== undefined) {
     store.permissions = permissions.map((permission, index) => {
       const [resource, action] = permission.split(":");
       if (!resource || !action) {
@@ -523,6 +540,7 @@ const buildApp = (permissions: string[] = ["*:manage"]) => {
         id: `perm-${index + 1}`,
         resource,
         action,
+        isRoot: false,
       };
     });
     store.rolePermissions = store.permissions.map((permission) => ({
@@ -605,7 +623,7 @@ describe("RBAC routes", () => {
       total: number;
     }>(response);
     expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.name).toBe("Super Admin");
+    expect(body.items[0]?.name).toBe("Root");
   });
 
   test("POST /roles creates a role", async () => {
@@ -722,7 +740,7 @@ describe("RBAC routes", () => {
   });
 
   test("DELETE /roles/:id removes non-system role", async () => {
-    const { app, issueToken } = buildApp(["roles:delete", "roles:create"]);
+    const { app, issueToken } = buildApp();
     const token = await issueToken();
 
     const createRes = await app.request("/roles", {
@@ -745,7 +763,7 @@ describe("RBAC routes", () => {
     expect(response.status).toBe(204);
   });
 
-  test("DELETE /roles/:id returns 403 for non-super-admin", async () => {
+  test("DELETE /roles/:id returns 403 for non-root", async () => {
     const { app, issueToken, issueTokenForEditor } = buildAppWithEditorUser();
     const superToken = await issueToken();
 
@@ -768,7 +786,7 @@ describe("RBAC routes", () => {
     expect(response.status).toBe(403);
   });
 
-  test("role deletion requests require super-admin approval", async () => {
+  test("role deletion requests require root approval", async () => {
     const { app, issueToken, issueTokenForEditor, store } =
       buildAppWithEditorUser();
     const superToken = await issueToken();
@@ -1184,7 +1202,7 @@ describe("RBAC routes", () => {
     expect(body.name).toBe("Updated");
   });
 
-  test("PATCH /users/:id returns 403 when target is Super Admin and caller is not", async () => {
+  test("PATCH /users/:id returns 403 when target is Root and caller is not", async () => {
     const { app, issueTokenForEditor } = buildAppWithEditorUser();
     const token = await issueTokenForEditor();
 
@@ -1202,7 +1220,7 @@ describe("RBAC routes", () => {
       response,
     );
     expect(body.error.code).toBe("FORBIDDEN");
-    expect(body.error.message).toContain("Super Admin");
+    expect(body.error.message).toContain("Root");
   });
 
   test("DELETE /users/:id removes user", async () => {
@@ -1217,7 +1235,7 @@ describe("RBAC routes", () => {
     expect(response.status).toBe(204);
   });
 
-  test("DELETE /users/:id returns 403 when target is Super Admin and caller is not", async () => {
+  test("DELETE /users/:id returns 403 when target is Root and caller is not", async () => {
     const { app, issueTokenForEditor } = buildAppWithEditorUser();
     const token = await issueTokenForEditor();
 
@@ -1231,14 +1249,14 @@ describe("RBAC routes", () => {
       response,
     );
     expect(body.error.code).toBe("FORBIDDEN");
-    expect(body.error.message).toContain("Super Admin");
+    expect(body.error.message).toContain("Root");
   });
 
-  test("PUT /users/:id/roles returns 403 when assigning Super Admin", async () => {
-    const { app, issueToken } = buildApp(["users:update"]);
+  test("PUT /users/:id/roles returns 403 when assigning Root", async () => {
+    const { app, issueToken } = buildApp();
     const token = await issueToken();
 
-    const response = await app.request(`/users/${userId}/roles`, {
+    const response = await app.request(`/users/${userIdNoRoles}/roles`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1252,7 +1270,7 @@ describe("RBAC routes", () => {
       response,
     );
     expect(body.error.code).toBe("FORBIDDEN");
-    expect(body.error.message).toContain("Super Admin");
+    expect(body.error.message).toContain("Root");
   });
 
   test("PUT /users/:id/roles assigns non-system roles", async () => {

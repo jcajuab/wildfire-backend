@@ -66,6 +66,10 @@ Common status codes:
 - 404 `NOT_FOUND`
 - 500 `INTERNAL_ERROR`
 
+All HTTP route examples in this document are relative to the versioned API base path:
+
+- `/api/v1`
+
 ### Request Validation
 
 Validation failures return:
@@ -251,9 +255,9 @@ type Permission = { id: string; resource: string; action: string };
 
 ### 2) Device Playback Sync Workflow
 
-1. Device registers (or updates) itself via `POST /devices` with `x-api-key`.
-2. Device fetches active schedule via `GET /devices/:id/active-schedule` (optional; returns `Schedule | null`).
-3. Device fetches manifest via `GET /devices/:id/manifest`.
+1. Device registers (or updates) itself via `POST /displays` with `x-api-key`.
+2. Device fetches active schedule via `GET /displays/:id/active-schedule` (optional; returns `Schedule | null`).
+3. Device fetches manifest via `GET /displays/:id/manifest`.
 4. Device compares `playlistVersion` and/or content `checksum` values to decide what to download.
 5. Device downloads content via the manifest `downloadUrl` fields.
 
@@ -334,7 +338,7 @@ Response 200:
 }
 ```
 
-#### GET `/audit/events/export` (JWT + `audit:export`)
+#### GET `/audit/events/export` (JWT + `audit:download`)
 
 Returns `text/csv` attachment with the same filter fields as `/audit/events` (excluding pagination).
 
@@ -487,9 +491,9 @@ Permission strings are `resource:action` (example: `playlists:read`).
 
 Matching rules (`src/domain/rbac/permission.ts`):
 
-- Resource matches if equal or stored resource is `"*"`
-- Action matches if equal, OR stored action is `"manage"` (wildcard for actions)
-- Example: `"*:manage"` grants all permissions
+- Non-Root users must match `resource` and `action` exactly.
+- Root authorization is separate from normal permission matching and is resolved via `permissions.is_root` (`authorizationRepository.isRootUser(...)`).
+- There is no wildcard permission (`*`) and no `manage` action.
 
 ### Seed Data (Canonical)
 
@@ -499,13 +503,14 @@ Seeding is consolidated into one command:
 
 Modes:
 
-- `full` (default): seeds standard permissions, Super Admin role (`*:manage`), demo Editor/Viewer roles, 15 demo users, role assignments, and htshadow credentials.
-- `baseline`: seeds standard permissions + Super Admin role. Use `--email` to assign Super Admin to a specific user.
-- `super-admin-only`: only ensures the Super Admin role + wildcard permission; optionally assigns the role to `--email`.
+- `full` (default): seeds standard permissions, Root role (`root:access` marked with `is_root=true`), demo Editor/Viewer roles, 15 demo users, role assignments, and htshadow credentials.
+- `baseline`: seeds standard permissions + Root role. Use `--email` to assign Root to a specific user.
+- `root-only`: only ensures the Root role + Root permission; optionally assigns the role to `--email`.
+- `permissions-only`: seeds only standard permissions + Root role/Root permission.
 
 Flags:
 
-- `--mode=full|baseline|super-admin-only`
+- `--mode=full|baseline|root-only|permissions-only`
 - `--email=user@example.com`
 - `--dry-run` (no writes)
 - `--strict` (fails on missing required data such as a target user)
@@ -514,7 +519,7 @@ Examples:
 
 - `bun run db:seed`
 - `bun run db:seed -- --mode=baseline --email=admin@example.com`
-- `bun run db:seed -- --mode=super-admin-only --dry-run`
+- `bun run db:seed -- --mode=root-only --dry-run`
 
 ### Database integrity check (before constraint rollout)
 
@@ -522,7 +527,7 @@ Run `bun run db:integrity` before applying schema hardening. It checks for:
 
 - orphan creator references (`content.created_by_id`, `playlists.created_by_id`)
 - orphan join-table references (`user_roles`, `role_permissions`)
-- duplicate values that violate unique constraints (`users.email`, `roles.name`, `permissions(resource,action)`, `devices.identifier`)
+- duplicate values that violate unique constraints (`users.email`, `roles.name`, `permissions(resource,action)`, `displays.identifier`)
 
 ### Endpoints (JWT + permission required)
 
@@ -556,7 +561,7 @@ All RBAC endpoints use `authorize("<permission>")`, which means:
 
 - DELETE `/roles/:id` requires `roles:delete`
   - Response 204
-  - Response 403 if the role is a system role (e.g. Super Admin); system roles cannot be deleted
+  - Response 403 if the role is a system role (e.g. Root); system roles cannot be deleted
 
 - GET `/roles/:id/permissions` requires `roles:read`
   - Response 200: `Permission[]`
@@ -942,13 +947,13 @@ Response 204
 
 ---
 
-## Devices Module
+## Displays Module
 
-Router: `src/interfaces/http/routes/devices.route.ts` mounted at `/devices`.
+Router implementation: `src/interfaces/http/routes/devices.route.ts`, mounted in HTTP index at `/api/v1/displays`.
 
 ### Purpose
 
-- Register devices (by stable `identifier`)
+- Register displays (by stable `identifier`)
 - Provide device inventory endpoints for staff
 - Provide device polling endpoints (active schedule + manifest)
 
@@ -958,22 +963,22 @@ There are two access modes:
 
 1. Device mode (shared API key):
 
-- `POST /devices`
-- `GET /devices/:id/active-schedule`
-- `GET /devices/:id/manifest`
+- `POST /displays`
+- `GET /displays/:id/active-schedule`
+- `GET /displays/:id/manifest`
 
 2. Staff mode (JWT + RBAC permission):
 
-- `GET /devices` requires `devices:read`
-- `GET /devices/:id` requires `devices:read`
+- `GET /displays` requires `displays:read`
+- `GET /displays/:id` requires `displays:read`
 
 ### Observability Actions
 
-- `devices.device.register`
-- `devices.device.list`
-- `devices.device.get`
-- `devices.schedule.read`
-- `devices.manifest.read`
+- `displays.device.register`
+- `displays.device.list`
+- `displays.device.get`
+- `displays.schedule.read`
+- `displays.manifest.read`
 
 These actions also set `actorType` to `"device"` for device-authenticated endpoints.
 
@@ -990,7 +995,7 @@ Both `name` and `identifier` are trimmed; empty values are rejected.
 
 ### Endpoints
 
-#### POST `/devices` (Device API key required)
+#### POST `/displays` (Device API key required)
 
 Headers:
 
@@ -1009,7 +1014,7 @@ Errors:
 - 401 if API key missing/invalid
 - 400 if request invalid or name/identifier empty after trimming
 
-#### GET `/devices` (JWT + `devices:read`)
+#### GET `/displays` (JWT + `displays:read`)
 
 Response 200:
 
@@ -1017,12 +1022,12 @@ Response 200:
 { "items": [Device] }
 ```
 
-#### GET `/devices/:id` (JWT + `devices:read`)
+#### GET `/displays/:id` (JWT + `displays:read`)
 
 Response 200: `Device`
 404 if missing.
 
-#### GET `/devices/:id/active-schedule` (Device API key required)
+#### GET `/displays/:id/active-schedule` (Device API key required)
 
 Headers:
 
@@ -1037,13 +1042,13 @@ Response 200:
 
 Selection uses the "Active Schedule Selection Rules" described in the Schedules module.
 
-#### GET `/devices/:id/manifest` (Device API key required)
+#### GET `/displays/:id/manifest` (Device API key required)
 
 Headers:
 
 - `x-api-key: <DEVICE_API_KEY>`
 
-Response 200 (`src/interfaces/http/validators/devices.schema.ts`):
+Response 200 (`src/interfaces/http/validators/displays.schema.ts`):
 
 ```ts
 type DeviceManifest = {

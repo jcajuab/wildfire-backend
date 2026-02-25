@@ -12,6 +12,7 @@
     "db:integrity": "dotenvx run -- bun run scripts/db-integrity-check.ts",
     "db:push": "dotenvx run -- drizzle-kit push",
     "db:seed": "dotenvx run -- bun run scripts/seed.ts",
+    "db:seed:permissions": "dotenvx run -- bun run scripts/seed.ts -- --mode=permissions-only",
     "db:studio": "dotenvx run -- drizzle-kit studio",
     "dev": "dotenvx run -- bun run --hot src/index.ts",
     "format": "prettier --write \"**/*.{md,yaml}\"",

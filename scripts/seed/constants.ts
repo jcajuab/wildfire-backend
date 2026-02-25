@@ -1,11 +1,15 @@
 export const DEFAULT_PASSWORD = "password";
 export const BCRYPT_SALT_ROUNDS = 10;
 
-export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
+export const ROOT_ROLE_NAME = "Root";
 export const EDITOR_ROLE_NAME = "Editor";
 export const VIEWER_ROLE_NAME = "Viewer";
 
-export const SUPER_ADMIN_PERMISSION = { resource: "*", action: "manage" };
+export const ROOT_PERMISSION = {
+  resource: "root",
+  action: "access",
+  isRoot: true,
+} as const;
 
 export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   resource: string;
@@ -24,10 +28,10 @@ export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   { resource: "schedules", action: "create" },
   { resource: "schedules", action: "update" },
   { resource: "schedules", action: "delete" },
-  { resource: "devices", action: "read" },
-  { resource: "devices", action: "create" },
-  { resource: "devices", action: "update" },
-  { resource: "devices", action: "delete" },
+  { resource: "displays", action: "read" },
+  { resource: "displays", action: "create" },
+  { resource: "displays", action: "update" },
+  { resource: "displays", action: "delete" },
   { resource: "users", action: "read" },
   { resource: "users", action: "create" },
   { resource: "users", action: "update" },
@@ -37,7 +41,7 @@ export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   { resource: "roles", action: "update" },
   { resource: "roles", action: "delete" },
   { resource: "audit", action: "read" },
-  { resource: "audit", action: "export" },
+  { resource: "audit", action: "download" },
   { resource: "settings", action: "read" },
   { resource: "settings", action: "update" },
 ];

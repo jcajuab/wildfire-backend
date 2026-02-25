@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { Permission } from "#/domain/rbac/permission";
 import { db } from "#/infrastructure/db/client";
@@ -18,8 +18,20 @@ export class AuthorizationDbRepository implements AuthorizationRepository {
       .from(userRoles)
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
       .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(eq(userRoles.userId, userId));
+      .where(and(eq(userRoles.userId, userId), eq(permissions.isRoot, false)));
 
     return rows.map((row) => Permission.parse(`${row.resource}:${row.action}`));
+  }
+
+  async isRootUser(userId: string): Promise<boolean> {
+    const rows = await db
+      .select({ permissionId: permissions.id })
+      .from(userRoles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(and(eq(userRoles.userId, userId), eq(permissions.isRoot, true)))
+      .limit(1);
+
+    return rows.length > 0;
   }
 }

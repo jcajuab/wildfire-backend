@@ -6,18 +6,28 @@ import {
   type SeedStageResult,
 } from "./stage-types";
 import { runAssignDemoRoles } from "./stages/assign-demo-roles";
-import { runAssignSuperAdminEmail } from "./stages/assign-super-admin-email";
+import { runAssignRootEmail } from "./stages/assign-root-email";
 import { runSeedDemoRoles } from "./stages/seed-demo-roles";
 import { runSeedDemoUsers } from "./stages/seed-demo-users";
+import { runSeedRoot } from "./stages/seed-root";
 import { runSeedStandardPermissions } from "./stages/seed-standard-permissions";
-import { runSeedSuperAdmin } from "./stages/seed-super-admin";
 import { runSyncHtshadow } from "./stages/sync-htshadow";
 
 export const buildSeedStages = (mode: SeedMode): SeedStage[] => {
-  if (mode === "super-admin-only") {
+  if (mode === "permissions-only") {
     return [
-      { name: "seed-super-admin", execute: runSeedSuperAdmin },
-      { name: "assign-super-admin-email", execute: runAssignSuperAdminEmail },
+      {
+        name: "seed-standard-permissions",
+        execute: runSeedStandardPermissions,
+      },
+      { name: "seed-root", execute: runSeedRoot },
+    ];
+  }
+
+  if (mode === "root-only") {
+    return [
+      { name: "seed-root", execute: runSeedRoot },
+      { name: "assign-root-email", execute: runAssignRootEmail },
     ];
   }
 
@@ -27,8 +37,8 @@ export const buildSeedStages = (mode: SeedMode): SeedStage[] => {
         name: "seed-standard-permissions",
         execute: runSeedStandardPermissions,
       },
-      { name: "seed-super-admin", execute: runSeedSuperAdmin },
-      { name: "assign-super-admin-email", execute: runAssignSuperAdminEmail },
+      { name: "seed-root", execute: runSeedRoot },
+      { name: "assign-root-email", execute: runAssignRootEmail },
     ];
   }
 
@@ -37,12 +47,12 @@ export const buildSeedStages = (mode: SeedMode): SeedStage[] => {
       name: "seed-standard-permissions",
       execute: runSeedStandardPermissions,
     },
-    { name: "seed-super-admin", execute: runSeedSuperAdmin },
+    { name: "seed-root", execute: runSeedRoot },
     { name: "seed-demo-roles", execute: runSeedDemoRoles },
     { name: "seed-demo-users", execute: runSeedDemoUsers },
     { name: "assign-demo-roles", execute: runAssignDemoRoles },
     { name: "sync-htshadow", execute: runSyncHtshadow },
-    { name: "assign-super-admin-email", execute: runAssignSuperAdminEmail },
+    { name: "assign-root-email", execute: runAssignRootEmail },
   ];
 };
 

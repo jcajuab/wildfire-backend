@@ -124,7 +124,7 @@ const runChecks = async (): Promise<IntegrityCheck[]> => {
       count: duplicatePermissionPairs,
     },
     {
-      name: "duplicate devices.identifier",
+      name: "duplicate displays.identifier",
       count: duplicateDeviceIdentifiers,
     },
     { name: "orphan content.created_by_id", count: orphanContentCreators },

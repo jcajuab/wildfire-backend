@@ -80,4 +80,4 @@ Integration test run command: `bun run test:integration`
 - [x] Tests (unit + route + middleware + queue)
 - [x] Integration tests (gated)
 - [x] Observability per action
-- [x] Export endpoint (`audit:export`) with cap
+- [x] Export endpoint (`audit:download`) with cap

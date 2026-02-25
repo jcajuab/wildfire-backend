@@ -1,4 +1,4 @@
-export type SeedMode = "full" | "baseline" | "super-admin-only";
+export type SeedMode = "full" | "baseline" | "root-only" | "permissions-only";
 
 export interface SeedArgs {
   mode: SeedMode;
@@ -8,7 +8,12 @@ export interface SeedArgs {
   help?: boolean;
 }
 
-const VALID_MODES = new Set<SeedMode>(["full", "baseline", "super-admin-only"]);
+const VALID_MODES = new Set<SeedMode>([
+  "full",
+  "baseline",
+  "root-only",
+  "permissions-only",
+]);
 
 const parseFlagValue = (
   argv: string[],
@@ -90,7 +95,7 @@ export function parseSeedArgs(argv: string[]): SeedArgs {
       const { value, consumed } = parseFlagValue(argv, i, "--mode");
       if (!VALID_MODES.has(value as SeedMode)) {
         throw new Error(
-          `Invalid --mode value: ${value}. Valid modes: full, baseline, super-admin-only`,
+          `Invalid --mode value: ${value}. Valid modes: full, baseline, root-only, permissions-only`,
         );
       }
       parsed.mode = value as SeedMode;

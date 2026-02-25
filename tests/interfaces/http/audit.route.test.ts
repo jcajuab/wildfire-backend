@@ -232,7 +232,7 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns CSV when authorized", async () => {
-    const { app, issueToken } = await makeApp(["audit:export"]);
+    const { app, issueToken } = await makeApp(["audit:download"]);
     const token = await issueToken();
 
     const response = await app.request("/audit/events/export", {
@@ -263,7 +263,7 @@ describe("Audit routes", () => {
       count: async () => 1,
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:export")],
+      findPermissionsForUser: async () => [Permission.parse("audit:download")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
@@ -294,7 +294,7 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns 401 without token", async () => {
-    const { app } = await makeApp(["audit:export"]);
+    const { app } = await makeApp(["audit:download"]);
     const response = await app.request("/audit/events/export");
     expect(response.status).toBe(401);
   });
@@ -315,7 +315,7 @@ describe("Audit routes", () => {
       count: async () => 3,
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:export")],
+      findPermissionsForUser: async () => [Permission.parse("audit:download")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
@@ -349,7 +349,7 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns 400 when from is after to", async () => {
-    const { app, issueToken } = await makeApp(["audit:export"]);
+    const { app, issueToken } = await makeApp(["audit:download"]);
     const token = await issueToken();
     const response = await app.request(
       "/audit/events/export?from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z",
@@ -370,7 +370,7 @@ describe("Audit routes", () => {
       count: async () => 1,
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:export")],
+      findPermissionsForUser: async () => [Permission.parse("audit:download")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
@@ -414,7 +414,7 @@ describe("Audit routes", () => {
       },
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:export")],
+      findPermissionsForUser: async () => [Permission.parse("audit:download")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",

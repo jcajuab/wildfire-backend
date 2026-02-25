@@ -90,8 +90,7 @@ export const registerRbacUserRoleRoutes = (args: {
           },
         },
         403: {
-          description:
-            "Forbidden (e.g. cannot assign or remove Super Admin role)",
+          description: "Forbidden (e.g. cannot assign or remove Root role)",
           content: {
             "application/json": {
               schema: resolver(errorResponseSchema),

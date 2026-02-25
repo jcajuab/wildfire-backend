@@ -168,11 +168,11 @@ export const registerAuditExportRoute = (args: {
 
   router.get(
     "/events/export",
-    setAction("audit.event.export", {
+    setAction("audit.event.download", {
       route: "/audit/events/export",
       resourceType: "audit-event",
     }),
-    ...authorize("audit:export"),
+    ...authorize("audit:download"),
     validateQuery(auditEventExportQuerySchema),
     describeRoute({
       description: "Export audit events as CSV",

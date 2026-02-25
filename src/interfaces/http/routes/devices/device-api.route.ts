@@ -45,8 +45,8 @@ export const registerDeviceApiRoutes = (args: {
 
   router.post(
     "/",
-    setAction("devices.device.register", {
-      route: "/devices",
+    setAction("displays.device.register", {
+      route: "/displays",
       actorType: "device",
       resourceType: "device",
     }),
@@ -115,8 +115,8 @@ export const registerDeviceApiRoutes = (args: {
 
   router.get(
     "/:id/stream-token",
-    setAction("devices.stream.token", {
-      route: "/devices/:id/stream-token",
+    setAction("displays.stream.token", {
+      route: "/displays/:id/stream-token",
       actorType: "device",
       resourceType: "device",
     }),
@@ -153,8 +153,8 @@ export const registerDeviceApiRoutes = (args: {
 
   router.get(
     "/:id/stream",
-    setAction("devices.stream.read", {
-      route: "/devices/:id/stream",
+    setAction("displays.stream.read", {
+      route: "/displays/:id/stream",
       actorType: "device",
       resourceType: "device",
     }),
@@ -220,8 +220,8 @@ export const registerDeviceApiRoutes = (args: {
 
   router.get(
     "/:id/active-schedule",
-    setAction("devices.schedule.read", {
-      route: "/devices/:id/active-schedule",
+    setAction("displays.schedule.read", {
+      route: "/displays/:id/active-schedule",
       actorType: "device",
       resourceType: "device",
     }),
@@ -274,8 +274,8 @@ export const registerDeviceApiRoutes = (args: {
 
   router.get(
     "/:id/manifest",
-    setAction("devices.manifest.read", {
-      route: "/devices/:id/manifest",
+    setAction("displays.manifest.read", {
+      route: "/displays/:id/manifest",
       actorType: "device",
       resourceType: "device",
     }),

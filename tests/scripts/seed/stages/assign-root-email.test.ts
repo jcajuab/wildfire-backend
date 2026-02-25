@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { SUPER_ADMIN_ROLE_NAME } from "../../../../scripts/seed/constants";
+import { ROOT_ROLE_NAME } from "../../../../scripts/seed/constants";
 import { type SeedContext } from "../../../../scripts/seed/stage-types";
-import { runAssignSuperAdminEmail } from "../../../../scripts/seed/stages/assign-super-admin-email";
+import { runAssignRootEmail } from "../../../../scripts/seed/stages/assign-root-email";
 
 const makeContext = (input: {
   targetEmail?: string;
@@ -14,7 +14,7 @@ const makeContext = (input: {
   const roles = [
     {
       id: "role-1",
-      name: SUPER_ADMIN_ROLE_NAME,
+      name: ROOT_ROLE_NAME,
       description: "All access",
       isSystem: true,
     },
@@ -86,10 +86,10 @@ const makeContext = (input: {
   return { ctx, assignments };
 };
 
-describe("runAssignSuperAdminEmail", () => {
+describe("runAssignRootEmail", () => {
   test("skips when no target email", async () => {
     const { ctx } = makeContext({});
-    const result = await runAssignSuperAdminEmail(ctx);
+    const result = await runAssignRootEmail(ctx);
 
     expect(result.skipped).toBe(1);
     expect(result.updated).toBe(0);
@@ -101,17 +101,17 @@ describe("runAssignSuperAdminEmail", () => {
       strict: true,
     });
 
-    await expect(runAssignSuperAdminEmail(ctx)).rejects.toThrow(
+    await expect(runAssignRootEmail(ctx)).rejects.toThrow(
       "Target user not found: missing@example.com",
     );
   });
 
-  test("assigns super admin role to target user", async () => {
+  test("assigns root role to target user", async () => {
     const { ctx, assignments } = makeContext({
       targetEmail: "user@example.com",
     });
 
-    const result = await runAssignSuperAdminEmail(ctx);
+    const result = await runAssignRootEmail(ctx);
 
     expect(result.updated).toBe(1);
     expect(assignments.get("user-1")).toEqual(["role-1"]);
