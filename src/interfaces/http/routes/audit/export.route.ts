@@ -5,7 +5,10 @@ import { type DisplayRepository } from "#/application/ports/displays";
 import { type UserRepository } from "#/application/ports/rbac";
 import { ExportLimitExceededError } from "#/application/use-cases/audit";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { badRequest, errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  errorResponseSchema,
+  validationError,
+} from "#/interfaces/http/responses";
 import {
   auditEventExportQuerySchema,
   auditEventSchema,
@@ -186,7 +189,7 @@ export const registerAuditExportRoute = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -278,10 +281,10 @@ export const registerAuditExportRoute = (args: {
         });
       } catch (error) {
         if (error instanceof ExportLimitExceededError) {
-          return badRequest(c, error.message);
+          return validationError(c, error.message);
         }
         if (error instanceof ValidationError) {
-          return badRequest(c, error.message);
+          return validationError(c, error.message);
         }
         throw error;
       }

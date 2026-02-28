@@ -6,8 +6,8 @@ import {
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
   forbiddenResponse,
-  invalidRequestResponse,
   unauthorizedResponse,
+  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   auditEventListQuerySchema,
@@ -48,8 +48,8 @@ export const registerAuditQueryRoutes = (args: {
             },
           },
         },
-        400: {
-          ...invalidRequestResponse,
+        422: {
+          ...validationErrorResponse,
         },
         401: {
           ...unauthorizedResponse,

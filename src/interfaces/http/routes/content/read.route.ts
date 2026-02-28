@@ -6,9 +6,9 @@ import {
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
   forbiddenResponse,
-  invalidRequestResponse,
   notFoundResponse,
   unauthorizedResponse,
+  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   contentIdParamSchema,
@@ -54,8 +54,8 @@ export const registerContentReadRoutes = (args: {
             },
           },
         },
-        400: {
-          ...invalidRequestResponse,
+        422: {
+          ...validationErrorResponse,
         },
         401: {
           ...unauthorizedResponse,
@@ -95,8 +95,8 @@ export const registerContentReadRoutes = (args: {
             },
           },
         },
-        400: {
-          ...invalidRequestResponse,
+        422: {
+          ...validationErrorResponse,
         },
         404: {
           ...notFoundResponse,

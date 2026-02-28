@@ -1,88 +1,317 @@
 import { type Context } from "hono";
 import { z } from "zod";
 
+export const apiFieldErrorSchema = z.object({
+  field: z.string(),
+  message: z.string(),
+  code: z.string(),
+});
+
 export const errorResponseSchema = z.object({
   error: z.object({
     code: z.string(),
     message: z.string(),
+    details: z.array(apiFieldErrorSchema).optional(),
   }),
 });
 
+export interface ApiFieldError {
+  field: string;
+  message: string;
+  code: string;
+}
+
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
-export const notImplemented = (c: Context, message: string) =>
-  c.json<ErrorResponse>(
-    {
-      error: {
-        code: "NOT_IMPLEMENTED",
-        message,
-      },
-    },
-    501,
+export interface ApiMeta {
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface ApiLinks {
+  self: string;
+  first?: string;
+  prev?: string;
+  next?: string;
+  last?: string;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+}
+
+export interface ApiListResponse<T> {
+  data: T[];
+  meta: ApiMeta;
+  links?: ApiLinks;
+}
+
+export const apiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.object({
+    data: dataSchema,
+  });
+
+export const apiListResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.object({
+    data: z.array(itemSchema),
+    meta: z.object({
+      total: z.number().int().nonnegative(),
+      page: z.number().int().positive(),
+      per_page: z.number().int().positive(),
+      total_pages: z.number().int().nonnegative(),
+    }),
+    links: z
+      .object({
+        self: z.string(),
+        first: z.string(),
+        last: z.string(),
+        prev: z.string().optional(),
+        next: z.string().optional(),
+      })
+      .partial(),
+  });
+
+type UnknownPayload = Record<string, unknown>;
+
+const isObject = (value: unknown): value is UnknownPayload =>
+  value != null && typeof value === "object" && !Array.isArray(value);
+
+const isPositiveInt = (value: unknown): value is number => {
+  if (typeof value !== "number") {
+    return false;
+  }
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    return false;
+  }
+  return value > 0;
+};
+
+const isNonNegativeInt = (value: unknown): value is number => {
+  if (typeof value !== "number") {
+    return false;
+  }
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    return false;
+  }
+  return value >= 0;
+};
+
+const parsePositiveInt = (value: unknown): number | undefined => {
+  if (typeof value === "number" && isPositiveInt(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const parseNonNegativeInt = (value: unknown): number | undefined => {
+  if (typeof value === "number" && isNonNegativeInt(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const hasDataEnvelope = (payload: unknown): payload is UnknownPayload => {
+  return isObject(payload) && Object.hasOwn(payload, "data");
+};
+
+const isErrorEnvelope = (payload: unknown): payload is ErrorResponse => {
+  if (!isObject(payload)) {
+    return false;
+  }
+  if (!Object.hasOwn(payload, "error")) {
+    return false;
+  }
+  const err = payload.error;
+  return (
+    isObject(err) && Object.hasOwn(err, "code") && Object.hasOwn(err, "message")
   );
+};
+
+const isPaginatedPayload = (payload: UnknownPayload): boolean => {
+  if (!Array.isArray(payload.items)) {
+    return false;
+  }
+
+  if (
+    parsePositiveInt(payload.page) == null ||
+    parseNonNegativeInt(payload.total) == null
+  ) {
+    return false;
+  }
+
+  return (
+    parsePositiveInt(payload.per_page) != null ||
+    parsePositiveInt(payload.pageSize) != null
+  );
+};
+
+const isItemsPayload = (payload: UnknownPayload): boolean =>
+  Object.keys(payload).length === 1 &&
+  Array.isArray(payload.items) &&
+  Object.hasOwn(payload, "items");
+
+const buildListLinks = (
+  reqUrl: URL,
+  page: number,
+  pageSize: number,
+  totalPages: number,
+): ApiLinks => {
+  const base = new URL(reqUrl);
+
+  const withPage = (value: number) => {
+    const next = new URL(base);
+    next.searchParams.set("page", String(value));
+    next.searchParams.set("per_page", String(pageSize));
+    return `${next.pathname}${next.search ? `?${next.searchParams.toString()}` : ""}`;
+  };
+
+  return {
+    self: withPage(page),
+    first: withPage(1),
+    last: withPage(totalPages),
+    prev: page > 1 ? withPage(page - 1) : undefined,
+    next: page < totalPages ? withPage(page + 1) : undefined,
+  };
+};
+
+export const normalizeApiPayload = (
+  payload: unknown,
+  options: {
+    requestUrl: string;
+  },
+): unknown => {
+  if (!isObject(payload)) {
+    if (Array.isArray(payload)) {
+      return { data: payload } as ApiResponse<unknown>;
+    }
+    return payload;
+  }
+
+  const objectPayload = payload as UnknownPayload;
+
+  if (
+    hasDataEnvelope(payload) ||
+    isErrorEnvelope(objectPayload) ||
+    "error" in objectPayload
+  ) {
+    return payload;
+  }
+
+  if (isPaginatedPayload(objectPayload)) {
+    const page = parsePositiveInt(objectPayload.page) ?? 1;
+    const total = parseNonNegativeInt(objectPayload.total) ?? 0;
+    const pageSize =
+      parsePositiveInt(objectPayload.per_page ?? objectPayload.pageSize) ?? 20;
+    const items = Array.isArray(objectPayload.items) ? objectPayload.items : [];
+    const totalPages =
+      pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+
+    return {
+      data: items,
+      meta: {
+        total,
+        page,
+        per_page: pageSize,
+        total_pages: totalPages,
+      },
+      links: buildListLinks(
+        new URL(options.requestUrl),
+        page,
+        pageSize,
+        totalPages,
+      ),
+    } as ApiListResponse<unknown>;
+  }
+
+  if (isItemsPayload(objectPayload)) {
+    const items = Array.isArray(objectPayload.items) ? objectPayload.items : [];
+
+    return { data: items } as ApiResponse<unknown[]>;
+  }
+
+  return {
+    data: payload,
+  } as ApiResponse<unknown>;
+};
+
+const buildErrorPayload = (
+  code: string,
+  message: string,
+  details: ApiFieldError[] = [],
+): ErrorResponse => ({
+  error: {
+    code,
+    message,
+    ...(details.length > 0 ? { details } : {}),
+  },
+});
+
+export const parseValidationDetails = (
+  issues: readonly unknown[] | undefined,
+): ApiFieldError[] => {
+  if (!Array.isArray(issues) || issues.length === 0) {
+    return [];
+  }
+
+  return issues.map((issue) => {
+    if (!isObject(issue)) {
+      return {
+        field: "body",
+        message: String(issue),
+        code: "invalid_value",
+      };
+    }
+
+    const i = issue as { path?: unknown; message?: string; code?: string };
+    const path = Array.isArray(i.path) ? i.path.map(String).join(".") : "body";
+
+    return {
+      field: path,
+      message: String(i.message ?? "Invalid value"),
+      code: String(i.code ?? "invalid_value"),
+    };
+  });
+};
 
 export const badRequest = (c: Context, message: string) =>
+  c.json<ErrorResponse>(buildErrorPayload("INVALID_REQUEST", message), 400);
+
+export const validationError = (
+  c: Context,
+  message: string,
+  details: ApiFieldError[] = [],
+) =>
   c.json<ErrorResponse>(
-    {
-      error: {
-        code: "INVALID_REQUEST",
-        message,
-      },
-    },
-    400,
+    buildErrorPayload("VALIDATION_ERROR", message, details),
+    422,
   );
+
+export const unprocessable = validationError;
+
+export const notImplemented = (c: Context, message: string) =>
+  c.json<ErrorResponse>(buildErrorPayload("NOT_IMPLEMENTED", message), 501);
 
 export const unauthorized = (c: Context, message: string) =>
-  c.json<ErrorResponse>(
-    {
-      error: {
-        code: "UNAUTHORIZED",
-        message,
-      },
-    },
-    401,
-  );
+  c.json<ErrorResponse>(buildErrorPayload("UNAUTHORIZED", message), 401);
 
 export const forbidden = (c: Context, message: string) =>
-  c.json<ErrorResponse>(
-    {
-      error: {
-        code: "FORBIDDEN",
-        message,
-      },
-    },
-    403,
-  );
+  c.json<ErrorResponse>(buildErrorPayload("FORBIDDEN", message), 403);
 
 export const notFound = (c: Context, message: string) =>
-  c.json<ErrorResponse>(
-    {
-      error: {
-        code: "NOT_FOUND",
-        message,
-      },
-    },
-    404,
-  );
+  c.json<ErrorResponse>(buildErrorPayload("NOT_FOUND", message), 404);
 
 export const conflict = (c: Context, message: string) =>
-  c.json<ErrorResponse>(
-    {
-      error: {
-        code: "CONFLICT",
-        message,
-      },
-    },
-    409,
-  );
+  c.json<ErrorResponse>(buildErrorPayload("CONFLICT", message), 409);
 
 export const internalServerError = (c: Context, message: string) =>
-  c.json<ErrorResponse>(
-    {
-      error: {
-        code: "INTERNAL_ERROR",
-        message,
-      },
-    },
-    500,
-  );
+  c.json<ErrorResponse>(buildErrorPayload("INTERNAL_ERROR", message), 500);

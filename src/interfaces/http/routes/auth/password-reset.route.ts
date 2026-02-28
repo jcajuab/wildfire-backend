@@ -99,7 +99,7 @@ export const registerAuthPasswordResetRoutes = (args: {
       tags: authTags,
       responses: {
         204: { description: "Password reset complete" },
-        400: {
+        422: {
           description: "Invalid or expired token",
           content: {
             "application/json": {

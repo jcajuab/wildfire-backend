@@ -81,7 +81,7 @@ export const registerRbacUserRoleRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "Roles assigned" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {

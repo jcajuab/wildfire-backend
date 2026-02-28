@@ -5,6 +5,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
 import { roleIdParamSchema } from "#/interfaces/http/validators/rbac.schema";
 import { validateParams } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -72,6 +73,9 @@ export const registerRbacRoleQueryRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Role" },
+        422: {
+          ...validationErrorResponse,
+        },
         404: {
           description: "Not found",
           content: {

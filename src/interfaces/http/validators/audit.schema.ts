@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const auditActorTypeSchema = z.enum(["user", "display"]);
 
@@ -41,9 +42,5 @@ export const auditEventExportQuerySchema = auditEventListQuerySchema.omit({
   pageSize: true,
 });
 
-export const auditEventListResponseSchema = z.object({
-  items: z.array(auditEventSchema),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-  total: z.number().int(),
-});
+export const auditEventListResponseSchema =
+  apiListResponseSchema(auditEventSchema);

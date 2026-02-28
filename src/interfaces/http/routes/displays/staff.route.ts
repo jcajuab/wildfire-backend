@@ -11,9 +11,9 @@ import {
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
   forbiddenResponse,
-  invalidRequestResponse,
   notFoundResponse,
   unauthorizedResponse,
+  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   createDisplayGroupRequestBodySchema,
@@ -194,8 +194,8 @@ export const registerDisplayStaffRoutes = (args: {
             },
           },
         },
-        400: {
-          ...invalidRequestResponse,
+        422: {
+          ...validationErrorResponse,
         },
         401: {
           ...unauthorizedResponse,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const createRoleSchema = z.object({
   name: z.string().min(1),
@@ -76,12 +77,9 @@ export const policyHistoryRecordSchema = z.object({
   removedCount: z.number().int().nonnegative(),
 });
 
-export const policyHistoryListResponseSchema = z.object({
-  items: z.array(policyHistoryRecordSchema),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
-  total: z.number().int().nonnegative(),
-});
+export const policyHistoryListResponseSchema = apiListResponseSchema(
+  policyHistoryRecordSchema,
+);
 
 export const createRoleDeletionRequestSchema = z.object({
   reason: z.string().trim().max(1024).optional(),
@@ -121,9 +119,6 @@ export const roleDeletionRequestRecordSchema = z.object({
   reason: z.string().nullable(),
 });
 
-export const roleDeletionRequestListResponseSchema = z.object({
-  items: z.array(roleDeletionRequestRecordSchema),
-  page: z.number().int().positive(),
-  pageSize: z.number().int().positive(),
-  total: z.number().int().nonnegative(),
-});
+export const roleDeletionRequestListResponseSchema = apiListResponseSchema(
+  roleDeletionRequestRecordSchema,
+);

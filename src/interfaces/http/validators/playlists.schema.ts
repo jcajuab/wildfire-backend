@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const playlistSchema = z.object({
   id: z.string(),
@@ -31,12 +32,7 @@ export const playlistWithItemsSchema = playlistSchema.extend({
   items: z.array(playlistItemSchema),
 });
 
-export const playlistListResponseSchema = z.object({
-  items: z.array(playlistSchema),
-  total: z.number().int(),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-});
+export const playlistListResponseSchema = apiListResponseSchema(playlistSchema);
 
 export const playlistListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

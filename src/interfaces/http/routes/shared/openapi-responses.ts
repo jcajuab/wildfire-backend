@@ -8,7 +8,12 @@ const jsonErrorContent = {
 } as const;
 
 export const invalidRequestResponse = {
-  description: "Invalid request",
+  description: "Bad request",
+  content: jsonErrorContent,
+} as const;
+
+export const validationErrorResponse = {
+  description: "Validation failed",
   content: jsonErrorContent,
 } as const;
 

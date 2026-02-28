@@ -46,7 +46,7 @@ export const registerRbacRoleDeletionRequestRoutes = (args: {
       tags: roleTags,
       responses: {
         204: { description: "Request created" },
-        400: {
+        422: {
           description: "Bad request",
           content: {
             "application/json": {

@@ -50,7 +50,7 @@ export const registerAuthPasswordRoute = (args: {
         204: {
           description: "Password updated",
         },
-        400: {
+        422: {
           description: "Invalid request (e.g. new password too short)",
           content: {
             "application/json": {

@@ -206,7 +206,7 @@ describe("Audit routes", () => {
     expect(response.status).toBe(403);
   });
 
-  test("GET /audit/events returns 400 for invalid query", async () => {
+  test("GET /audit/events returns 422 for invalid query", async () => {
     const { app, issueToken } = await makeApp(["audit:read"]);
     const token = await issueToken();
 
@@ -214,10 +214,10 @@ describe("Audit routes", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
-  test("GET /audit/events returns 400 when from is after to", async () => {
+  test("GET /audit/events returns 422 when from is after to", async () => {
     const { app, issueToken } = await makeApp(["audit:read"]);
     const token = await issueToken();
 
@@ -228,7 +228,7 @@ describe("Audit routes", () => {
       },
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
   test("GET /audit/events/export returns CSV when authorized", async () => {
@@ -345,10 +345,10 @@ describe("Audit routes", () => {
         Authorization: `Bearer ${token}`,
       },
     });
-    expect(overflowResponse.status).toBe(400);
+    expect(overflowResponse.status).toBe(422);
   });
 
-  test("GET /audit/events/export returns 400 when from is after to", async () => {
+  test("GET /audit/events/export returns 422 when from is after to", async () => {
     const { app, issueToken } = await makeApp(["audit:download"]);
     const token = await issueToken();
     const response = await app.request(
@@ -360,7 +360,7 @@ describe("Audit routes", () => {
       },
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
   test("GET /audit/events/export neutralizes spreadsheet formulas", async () => {

@@ -2,7 +2,11 @@ import { type Context } from "hono";
 import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
 import { ValidationError } from "#/application/errors/validation";
-import { badRequest, forbidden, notFound } from "#/interfaces/http/responses";
+import {
+  forbidden,
+  notFound,
+  validationError,
+} from "#/interfaces/http/responses";
 
 // Hono Context is heavily generic (Context<E, P, I>). Using bare `Context`
 // breaks type inference for handlers with validated params/body. The `any`
@@ -29,7 +33,7 @@ export const mapErrorToResponse = (
 };
 
 export const applicationErrorMappers: readonly ErrorMapper[] = [
-  mapErrorToResponse(ValidationError, badRequest),
+  mapErrorToResponse(ValidationError, validationError),
   mapErrorToResponse(ForbiddenError, forbidden),
   mapErrorToResponse(NotFoundError, notFound),
 ] as const;

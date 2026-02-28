@@ -52,7 +52,7 @@ export const registerAuthAvatarRoute = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request (e.g. not an image or too large)",
           content: {
             "application/json": {

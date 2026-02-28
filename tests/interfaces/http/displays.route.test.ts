@@ -452,7 +452,7 @@ describe("Displays routes", () => {
       body: JSON.stringify({ name: "Lobby", identifier: "AA:BB" }),
     });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
   test("POST /displays returns 500 on unexpected repository failure", async () => {
@@ -572,7 +572,7 @@ describe("Displays routes", () => {
       }),
     });
 
-    expect(conflict.status).toBe(400);
+    expect(conflict.status).toBe(422);
   });
 
   test("POST /displays/pairing-codes issues code with displays:create permission", async () => {

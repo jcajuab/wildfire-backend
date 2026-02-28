@@ -20,7 +20,10 @@ import {
   requestId,
   requestLogger,
 } from "#/interfaces/http/middleware/observability";
-import { internalServerError } from "#/interfaces/http/responses";
+import {
+  internalServerError,
+  normalizeApiPayload,
+} from "#/interfaces/http/responses";
 import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
@@ -274,6 +277,85 @@ app.use(
 app.use("*", requestId());
 app.use("*", createAuditTrailMiddleware({ auditQueue }));
 app.use("*", requestLogger);
+
+const getVar = <T = unknown>(
+  c: { get: (name: string) => T | undefined },
+  key: string,
+): T | undefined => {
+  return (c as { get: (name: string) => T | undefined }).get(key);
+};
+
+const parseIntHeader = (value: unknown): number | undefined => {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const isAuthCommandRoute = (path: string) =>
+  /^\/api\/v1\/auth\/(?:login|session|password|password-reset|forgot|invitations\/accept)\b/.test(
+    path,
+  );
+
+app.use("*", async (c, next) => {
+  const originalJson = c.json.bind(c) as (
+    body: unknown,
+    ...rest: unknown[]
+  ) => Response;
+  const getContextVar = <T = unknown>(key: string): T | undefined =>
+    getVar<T>(c, key);
+  const getJsonStatus = (init: unknown): number => {
+    if (typeof init === "number") {
+      return init;
+    }
+    if (init != null && typeof init === "object" && "status" in init) {
+      const status = (init as { status?: unknown }).status;
+      return typeof status === "number" ? status : 200;
+    }
+    return 200;
+  };
+  (c as { json: typeof originalJson }).json = ((
+    value: unknown,
+    init,
+    headers,
+  ) => {
+    const normalized = normalizeApiPayload(value, {
+      requestUrl: c.req.url,
+    });
+    const status = getJsonStatus(init);
+
+    if (status === 429) {
+      const limit =
+        parseIntHeader(getContextVar<string>("rateLimitLimit")) ?? 100;
+      const remaining =
+        parseIntHeader(getContextVar<string>("rateLimitRemaining")) ?? 0;
+      const reset = parseIntHeader(getContextVar<string>("rateLimitReset"));
+      const retryAfter =
+        parseIntHeader(getContextVar<string>("rateLimitRetryAfter")) ?? 60;
+      c.header("X-RateLimit-Limit", String(limit));
+      c.header("X-RateLimit-Remaining", String(Math.max(0, remaining)));
+      if (reset != null) {
+        c.header("X-RateLimit-Reset", String(reset));
+      }
+      c.header("Retry-After", String(retryAfter));
+    }
+
+    if (
+      status === 201 &&
+      !isAuthCommandRoute(c.req.path) &&
+      value != null &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.hasOwn(value, "id")
+    ) {
+      const id = (value as { id: unknown }).id;
+      if (typeof id === "string" && id.length > 0) {
+        c.header("Location", `${c.req.path}/${encodeURIComponent(id)}`);
+      }
+    }
+
+    return originalJson(normalized, init as unknown, headers as unknown);
+  }) as typeof originalJson;
+  await next();
+});
 
 app.route("/api/v1/health", healthRouter);
 app.route("/api/v1/auth", authRouter);

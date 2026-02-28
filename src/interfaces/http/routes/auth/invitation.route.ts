@@ -79,7 +79,7 @@ export const registerAuthInvitationRoutes = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -207,7 +207,7 @@ export const registerAuthInvitationRoutes = (args: {
       tags: authTags,
       responses: {
         204: { description: "Invitation accepted" },
-        400: {
+        422: {
           description: "Invalid or expired invitation",
           content: {
             "application/json": {

@@ -7,6 +7,7 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   createScheduleSchema,
   scheduleIdParamSchema,
@@ -51,6 +52,9 @@ export const registerScheduleCommandRoutes = (args: {
               schema: resolver(scheduleItemsResponseSchema),
             },
           },
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
@@ -98,6 +102,9 @@ export const registerScheduleCommandRoutes = (args: {
               schema: resolver(scheduleSchema),
             },
           },
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),

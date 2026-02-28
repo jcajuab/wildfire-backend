@@ -345,7 +345,7 @@ describe("Playlists routes", () => {
     expect(body.error.message).toContain("in use");
   });
 
-  test("PATCH /playlists/:id/items/:itemId returns 400 for invalid payload", async () => {
+  test("PATCH /playlists/:id/items/:itemId returns 422 for invalid payload", async () => {
     const { app, issueToken, playlists } = await makeApp(["playlists:update"]);
     playlists.push({
       id: playlistId,
@@ -369,7 +369,7 @@ describe("Playlists routes", () => {
       },
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
   test("POST /playlists/:id/items returns 500 on unexpected repository failure", async () => {

@@ -82,7 +82,7 @@ export const registerRbacPermissionRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Permissions updated" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {

@@ -1,6 +1,7 @@
 import { type OpenAPIV3_1 } from "openapi-types";
 import { z } from "zod";
 import { isSupportedMimeType } from "#/domain/content/content";
+import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF"]);
 export const contentStatusSchema = z.enum(["DRAFT", "IN_USE"]);
@@ -24,12 +25,7 @@ export const contentSchema = z.object({
   }),
 });
 
-export const contentListResponseSchema = z.object({
-  items: z.array(contentSchema),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-  total: z.number().int(),
-});
+export const contentListResponseSchema = apiListResponseSchema(contentSchema);
 
 export const contentIdParamSchema = z.object({
   id: z.string().uuid(),

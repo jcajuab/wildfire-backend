@@ -665,7 +665,7 @@ describe("RBAC routes", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
   test("PATCH /roles/:id returns 403 for system role", async () => {

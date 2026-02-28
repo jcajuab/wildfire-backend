@@ -7,9 +7,9 @@ import {
 } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
-  badRequest,
   conflict,
   errorResponseSchema,
+  validationError,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -78,7 +78,7 @@ export const registerContentWriteRoutes = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -118,8 +118,8 @@ export const registerContentWriteRoutes = (args: {
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
-      mapErrorToResponse(InvalidContentTypeError, badRequest),
-      mapErrorToResponse(ContentMetadataExtractionError, badRequest),
+      mapErrorToResponse(InvalidContentTypeError, validationError),
+      mapErrorToResponse(ContentMetadataExtractionError, validationError),
     ),
   );
 
@@ -152,7 +152,7 @@ export const registerContentWriteRoutes = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -226,7 +226,7 @@ export const registerContentWriteRoutes = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -268,8 +268,8 @@ export const registerContentWriteRoutes = (args: {
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
-      mapErrorToResponse(InvalidContentTypeError, badRequest),
-      mapErrorToResponse(ContentMetadataExtractionError, badRequest),
+      mapErrorToResponse(InvalidContentTypeError, validationError),
+      mapErrorToResponse(ContentMetadataExtractionError, validationError),
     ),
   );
 
@@ -286,7 +286,7 @@ export const registerContentWriteRoutes = (args: {
       tags: contentTags,
       responses: {
         204: { description: "Deleted" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {

@@ -50,7 +50,7 @@ export const registerAuthProfileRoute = (args: {
             },
           },
         },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {

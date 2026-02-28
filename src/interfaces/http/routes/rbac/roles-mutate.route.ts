@@ -38,7 +38,7 @@ export const registerRbacRoleMutateRoutes = (args: {
       tags: roleTags,
       responses: {
         201: { description: "Role created" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -89,7 +89,7 @@ export const registerRbacRoleMutateRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Role" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {

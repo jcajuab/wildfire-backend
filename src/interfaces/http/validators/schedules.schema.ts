@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  apiListResponseSchema,
+  apiResponseSchema,
+} from "#/interfaces/http/responses";
 
 export const scheduleSchema = z.object({
   id: z.string(),
@@ -23,16 +27,11 @@ export const scheduleSchema = z.object({
   }),
 });
 
-export const scheduleListResponseSchema = z.object({
-  items: z.array(scheduleSchema),
-  total: z.number().int(),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-});
+export const scheduleListResponseSchema = apiListResponseSchema(scheduleSchema);
 
-export const scheduleItemsResponseSchema = z.object({
-  items: z.array(scheduleSchema),
-});
+export const scheduleItemsResponseSchema = apiResponseSchema(
+  z.array(scheduleSchema),
+);
 
 export const scheduleIdParamSchema = z.object({
   id: z.string().uuid(),

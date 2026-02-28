@@ -78,7 +78,7 @@ export const registerRbacUserCrudRoutes = (args: {
       tags: userTags,
       responses: {
         201: { description: "User created" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {
@@ -149,7 +149,7 @@ export const registerRbacUserCrudRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User" },
-        400: {
+        422: {
           description: "Invalid request",
           content: {
             "application/json": {

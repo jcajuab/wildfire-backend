@@ -267,7 +267,7 @@ describe("Schedules routes", () => {
     expect(response.status).toBe(404);
   });
 
-  test("POST /schedules returns 400 for invalid time", async () => {
+  test("POST /schedules returns 422 for invalid time", async () => {
     const { app, issueToken } = await makeApp(["schedules:create"]);
     const token = await issueToken();
 
@@ -291,7 +291,7 @@ describe("Schedules routes", () => {
       }),
     });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   });
 
   test("POST /schedules returns 500 when repository fails unexpectedly", async () => {

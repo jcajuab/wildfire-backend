@@ -5,6 +5,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   addPlaylistItemSchema,
   playlistIdParamSchema,
@@ -52,6 +53,9 @@ export const registerPlaylistItemRoutes = (args: {
             },
           },
         },
+        422: {
+          ...validationErrorResponse,
+        },
       },
     }),
     withRouteErrorHandling(
@@ -91,6 +95,9 @@ export const registerPlaylistItemRoutes = (args: {
               schema: resolver(playlistItemSchema),
             },
           },
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
