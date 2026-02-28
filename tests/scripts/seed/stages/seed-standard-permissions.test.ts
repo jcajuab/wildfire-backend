@@ -16,11 +16,12 @@ const makeContext = (dryRun = false): SeedContext => {
 
   const ctx: SeedContext = {
     args: {
-      mode: "baseline",
       dryRun,
-      strict: false,
     },
-    targetEmail: "alice@example.com",
+    root: {
+      user: "admin@example.com",
+      password: "secret",
+    },
     htshadowPath: "/tmp/unused",
     repos: {
       permissionRepository: {
@@ -67,6 +68,7 @@ const makeContext = (dryRun = false): SeedContext => {
       },
     },
     io: {
+      readFile: async () => "",
       hashPassword: unused,
       writeFile: unused,
     },

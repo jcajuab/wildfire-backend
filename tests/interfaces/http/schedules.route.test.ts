@@ -376,6 +376,7 @@ describe("Schedules routes", () => {
     const { app, issueToken } = await makeApp([
       "schedules:create",
       "schedules:update",
+      "schedules:read",
     ]);
     const token = await issueToken();
 
@@ -421,7 +422,9 @@ describe("Schedules routes", () => {
     });
     expect(second.status).toBe(201);
 
-    const schedulesResponse = await app.request("/schedules");
+    const schedulesResponse = await app.request("/schedules", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const schedules = await parseJson<{
       data: Array<{ id: string; name: string }>;
     }>(schedulesResponse);

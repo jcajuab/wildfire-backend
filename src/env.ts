@@ -7,13 +7,31 @@ export const parseCorsOrigins = (value: string): string[] =>
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
+const buildDatabaseUrl = ({
+  host,
+  port,
+  database,
+  user,
+  password,
+}: {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+}): string =>
+  `mysql://${encodeURIComponent(user)}:${encodeURIComponent(
+    password,
+  )}@${host}:${port}/${database}`;
+
 export const env = createEnv({
   server: {
     PORT: z.coerce.number().default(3000),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    DATABASE_URL: z.string(),
+    ROOT_USER: z.string().email(),
+    ROOT_PASSWORD: z.string(),
     MYSQL_ROOT_PASSWORD: z.string(),
     MYSQL_HOST: z.string(),
     MYSQL_PORT: z.coerce.number().default(3306),
@@ -25,20 +43,16 @@ export const env = createEnv({
     MINIO_ENDPOINT: z.string().default("localhost"),
     MINIO_PORT: z.coerce.number().default(9000),
     MINIO_CONSOLE_PORT: z.coerce.number().default(9001),
-    MINIO_USE_SSL: z.string().optional().default("false").pipe(z.stringbool()),
+    MINIO_USE_SSL: z.string().default("false").pipe(z.stringbool()),
     MINIO_BUCKET: z.string().default("content"),
     MINIO_REGION: z.string().default("us-east-1"),
     MINIO_REQUEST_TIMEOUT_MS: z.coerce.number().default(15_000),
     CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(100 * 1024 * 1024),
     HTSHADOW_PATH: z.string().default("/etc/htshadow"),
     JWT_SECRET: z.string(),
-    JWT_ISSUER: z.string().optional(),
+    JWT_ISSUER: z.string().default("wildfire"),
     AUTH_SESSION_COOKIE_NAME: z.string().default("wildfire_session_token"),
-    AUTH_SESSION_DUAL_MODE: z
-      .string()
-      .optional()
-      .default("true")
-      .pipe(z.stringbool()),
+    AUTH_SESSION_DUAL_MODE: z.string().default("true").pipe(z.stringbool()),
     AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().default(10),
     AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     AUTH_LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().default(5),
@@ -51,12 +65,8 @@ export const env = createEnv({
       .string()
       .default("http://localhost:3000/reset-password"),
     LOG_LEVEL: z.string().default("info"),
-    LOG_PRETTY: z.string().optional().default("true").pipe(z.stringbool()),
-    AUDIT_QUEUE_ENABLED: z
-      .string()
-      .optional()
-      .default("true")
-      .pipe(z.stringbool()),
+    LOG_PRETTY: z.string().default("true").pipe(z.stringbool()),
+    AUDIT_QUEUE_ENABLED: z.string().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_CAPACITY: z.coerce.number().default(5000),
     AUDIT_FLUSH_BATCH_SIZE: z.coerce.number().default(100),
     AUDIT_FLUSH_INTERVAL_MS: z.coerce.number().default(250),
@@ -70,4 +80,12 @@ export const env = createEnv({
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
+});
+
+export const DATABASE_URL = buildDatabaseUrl({
+  host: env.MYSQL_HOST,
+  port: env.MYSQL_PORT,
+  database: env.MYSQL_DATABASE,
+  user: env.MYSQL_USER,
+  password: env.MYSQL_PASSWORD,
 });

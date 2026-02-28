@@ -2,47 +2,48 @@ import { describe, expect, test } from "bun:test";
 import { parseSeedArgs } from "../../../scripts/seed/args";
 
 describe("parseSeedArgs", () => {
-  test("uses full mode by default", () => {
+  test("uses defaults", () => {
     const parsed = parseSeedArgs([]);
 
-    expect(parsed.mode).toBe("full");
     expect(parsed.dryRun).toBe(false);
-    expect(parsed.strict).toBe(false);
-    expect(parsed.email).toBeUndefined();
+    expect(parsed.rootUser).toBeUndefined();
+    expect(parsed.rootPassword).toBeUndefined();
   });
 
-  test("parses explicit flags", () => {
+  test("parses root user and password flags", () => {
     const parsed = parseSeedArgs([
-      "--mode=baseline",
-      "--email=user@example.com",
+      "--root-user=user@example.com",
+      "--root-password=secret",
       "--dry-run",
-      "--strict",
     ]);
 
     expect(parsed).toEqual({
-      mode: "baseline",
-      email: "user@example.com",
       dryRun: true,
-      strict: true,
+      rootUser: "user@example.com",
+      rootPassword: "secret",
     });
   });
 
-  test("parses spaced mode and email flags", () => {
-    const parsed = parseSeedArgs(["--mode", "root-only", "--email", "a@b.com"]);
+  test("parses spaced root-user and root-password flags", () => {
+    const parsed = parseSeedArgs([
+      "--root-user",
+      "admin@example.com",
+      "--root-password",
+      "supersecret",
+    ]);
 
-    expect(parsed.mode).toBe("root-only");
-    expect(parsed.email).toBe("a@b.com");
+    expect(parsed.dryRun).toBe(false);
+    expect(parsed.rootUser).toBe("admin@example.com");
+    expect(parsed.rootPassword).toBe("supersecret");
   });
 
   test("supports --help flag", () => {
     const parsed = parseSeedArgs(["--help"]);
-
     expect(parsed.help).toBe(true);
   });
 
-  test("supports -h short flag", () => {
+  test("supports -h flag", () => {
     const parsed = parseSeedArgs(["-h"]);
-
     expect(parsed.help).toBe(true);
   });
 
@@ -50,9 +51,9 @@ describe("parseSeedArgs", () => {
     expect(() => parseSeedArgs(["--oops"])).toThrow("Unknown flag: --oops");
   });
 
-  test("throws for invalid mode", () => {
-    expect(() => parseSeedArgs(["--mode=bad"])).toThrow(
-      "Invalid --mode value: bad",
+  test("throws for invalid root user", () => {
+    expect(() => parseSeedArgs(["--root-user=invalid"])).toThrow(
+      "Invalid --root-user value",
     );
   });
 });

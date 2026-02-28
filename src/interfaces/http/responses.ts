@@ -181,6 +181,55 @@ const isErrorEnvelope = (payload: unknown): payload is ErrorResponse => {
   );
 };
 
+const isNumeric = (value: unknown): value is number =>
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  Number.isInteger(value);
+
+type LegacyPaginatedPayload = {
+  items: unknown[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+const isLegacyPaginatedPayload = (
+  payload: UnknownPayload,
+): payload is LegacyPaginatedPayload => {
+  if (
+    !isNumeric(payload.total) ||
+    !isNumeric(payload.page) ||
+    !isNumeric(payload.pageSize)
+  ) {
+    return false;
+  }
+  if (payload.total < 0 || payload.page < 1 || payload.pageSize < 1) {
+    return false;
+  }
+  if (!Array.isArray(payload.items)) {
+    return false;
+  }
+  return Object.hasOwn(payload, "items");
+};
+
+const normalizeLegacyListPayload = (
+  payload: LegacyPaginatedPayload,
+): ApiResponse<unknown[]> & { meta: ApiMeta } => {
+  const total = payload.total;
+  const page = payload.page;
+  const pageSize = payload.pageSize;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  return {
+    data: payload.items,
+    meta: {
+      total,
+      page,
+      per_page: pageSize,
+      total_pages: totalPages,
+    },
+  };
+};
+
 const buildListLinks = (
   reqUrl: URL,
   page: number,
@@ -247,6 +296,10 @@ export const normalizeApiPayload = (
     "error" in objectPayload
   ) {
     return payload;
+  }
+
+  if (isLegacyPaginatedPayload(objectPayload)) {
+    return normalizeLegacyListPayload(objectPayload);
   }
 
   return {

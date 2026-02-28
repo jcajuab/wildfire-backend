@@ -8,9 +8,6 @@ const maybeTest = runIntegration ? test : test.skip;
 describe("ContentDbRepository (integration)", () => {
   maybeTest("creates, lists, and deletes content records", async () => {
     setTestEnv({
-      DATABASE_URL:
-        process.env.DATABASE_URL ??
-        "mysql://user:pass@localhost:3306/wildfire_test",
       MYSQL_HOST: process.env.MYSQL_HOST ?? "127.0.0.1",
       MYSQL_PORT: process.env.MYSQL_PORT ?? "3306",
       MYSQL_DATABASE: process.env.MYSQL_DATABASE ?? "wildfire_test",

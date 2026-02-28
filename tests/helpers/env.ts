@@ -3,7 +3,8 @@ type EnvOverrides = Record<string, string>;
 export const setTestEnv = (overrides: EnvOverrides = {}) => {
   Object.assign(process.env, {
     PORT: "3000",
-    DATABASE_URL: "mysql://user:pass@localhost:3306/wildfire_test",
+    ROOT_USER: "root@example.com",
+    ROOT_PASSWORD: "root",
     MYSQL_ROOT_PASSWORD: "root",
     MYSQL_HOST: "127.0.0.1",
     MYSQL_PORT: "3306",

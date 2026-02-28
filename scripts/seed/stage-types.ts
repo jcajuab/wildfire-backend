@@ -10,7 +10,10 @@ import { type SeedArgs } from "./args";
 
 export interface SeedContext {
   args: SeedArgs;
-  targetEmail: string;
+  root: {
+    user: string;
+    password: string;
+  };
   htshadowPath: string;
   repos: {
     permissionRepository: PermissionRepository;
@@ -20,6 +23,7 @@ export interface SeedContext {
     userRoleRepository: UserRoleRepository;
   };
   io: {
+    readFile(path: string): Promise<string>;
     hashPassword(password: string, saltRounds: number): Promise<string>;
     writeFile(path: string, data: string): Promise<void>;
   };

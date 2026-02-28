@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import bcrypt from "bcryptjs";
 import { env } from "#/env";
 import { closeDbConnection } from "#/infrastructure/db/client";
@@ -8,6 +8,7 @@ import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/rol
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { type SeedArgs } from "./args";
+import { type SeedRootCredentials } from "./root-credentials";
 import { type SeedContext } from "./stage-types";
 
 export interface SeedRuntimeContext {
@@ -17,11 +18,11 @@ export interface SeedRuntimeContext {
 
 export const createSeedRuntimeContext = (input: {
   args: SeedArgs;
-  targetEmail: string;
+  root: SeedRootCredentials;
 }): SeedRuntimeContext => {
   const ctx: SeedContext = {
     args: input.args,
-    targetEmail: input.targetEmail,
+    root: input.root,
     htshadowPath: env.HTSHADOW_PATH,
     repos: {
       permissionRepository: new PermissionDbRepository(),
@@ -31,6 +32,7 @@ export const createSeedRuntimeContext = (input: {
       userRoleRepository: new UserRoleDbRepository(),
     },
     io: {
+      readFile: (path) => readFile(path, "utf-8"),
       hashPassword: (password, saltRounds) => bcrypt.hash(password, saltRounds),
       writeFile: (path, data) => writeFile(path, data, "utf-8"),
     },

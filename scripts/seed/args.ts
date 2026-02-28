@@ -1,19 +1,9 @@
-export type SeedMode = "full" | "baseline" | "root-only" | "permissions-only";
-
 export interface SeedArgs {
-  mode: SeedMode;
-  email?: string;
   dryRun: boolean;
-  strict: boolean;
+  rootUser?: string;
+  rootPassword?: string;
   help?: boolean;
 }
-
-const VALID_MODES = new Set<SeedMode>([
-  "full",
-  "baseline",
-  "root-only",
-  "permissions-only",
-]);
 
 const parseFlagValue = (
   argv: string[],
@@ -47,10 +37,18 @@ const parseFlagValue = (
 const assertEmail = (value: string): string => {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error("--email value must not be empty");
+    throw new Error("--root-user value must not be empty");
   }
   if (!normalized.includes("@")) {
-    throw new Error(`Invalid --email value: ${value}`);
+    throw new Error(`Invalid --root-user value: ${value}`);
+  }
+  return normalized;
+};
+
+const assertPassword = (value: string): string => {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error("--root-password value must not be empty");
   }
   return normalized;
 };
@@ -58,17 +56,13 @@ const assertEmail = (value: string): string => {
 export function parseSeedArgs(argv: string[]): SeedArgs {
   if (argv.includes("--help") || argv.includes("-h")) {
     return {
-      mode: "full",
       dryRun: false,
-      strict: false,
       help: true,
     };
   }
 
   const parsed: SeedArgs = {
-    mode: "full",
     dryRun: false,
-    strict: false,
   };
 
   let i = 0;
@@ -85,27 +79,16 @@ export function parseSeedArgs(argv: string[]): SeedArgs {
       continue;
     }
 
-    if (arg === "--strict") {
-      parsed.strict = true;
-      i += 1;
-      continue;
-    }
-
-    if (arg === "--mode" || arg.startsWith("--mode=")) {
-      const { value, consumed } = parseFlagValue(argv, i, "--mode");
-      if (!VALID_MODES.has(value as SeedMode)) {
-        throw new Error(
-          `Invalid --mode value: ${value}. Valid modes: full, baseline, root-only, permissions-only`,
-        );
-      }
-      parsed.mode = value as SeedMode;
+    if (arg === "--root-user" || arg.startsWith("--root-user=")) {
+      const { value, consumed } = parseFlagValue(argv, i, "--root-user");
+      parsed.rootUser = assertEmail(value);
       i += consumed;
       continue;
     }
 
-    if (arg === "--email" || arg.startsWith("--email=")) {
-      const { value, consumed } = parseFlagValue(argv, i, "--email");
-      parsed.email = assertEmail(value);
+    if (arg === "--root-password" || arg.startsWith("--root-password=")) {
+      const { value, consumed } = parseFlagValue(argv, i, "--root-password");
+      parsed.rootPassword = assertPassword(value);
       i += consumed;
       continue;
     }

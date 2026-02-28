@@ -25,33 +25,11 @@ const makeReporter = () => ({
 const fakeCtx = {} as SeedContext;
 
 describe("buildSeedStages", () => {
-  test("builds full mode stages", () => {
-    const stages = buildSeedStages("full");
+  test("builds bootstrap stages", () => {
+    const stages = buildSeedStages();
     expect(stages.map((stage) => stage.name)).toEqual([
       "seed-standard-permissions",
       "seed-root",
-      "seed-demo-roles",
-      "seed-demo-users",
-      "assign-demo-roles",
-      "sync-htshadow",
-      "assign-root-email",
-    ]);
-  });
-
-  test("builds baseline mode stages", () => {
-    const stages = buildSeedStages("baseline");
-    expect(stages.map((stage) => stage.name)).toEqual([
-      "seed-standard-permissions",
-      "seed-root",
-      "assign-root-email",
-    ]);
-  });
-
-  test("builds root-only mode stages", () => {
-    const stages = buildSeedStages("root-only");
-    expect(stages.map((stage) => stage.name)).toEqual([
-      "seed-root",
-      "assign-root-email",
     ]);
   });
 });

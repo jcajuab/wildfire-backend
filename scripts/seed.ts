@@ -1,31 +1,28 @@
 import { parseSeedArgs } from "./seed/args";
 import { consoleSeedReporter } from "./seed/reporter";
+import { resolveRootCredentials } from "./seed/root-credentials";
 import { buildSeedStages, runSeedStages } from "./seed/runner";
-import { resolveTargetEmail } from "./seed/target-email";
 
 const usage = [
-  "Usage: bun run db:seed -- [--mode=full|baseline|root-only|permissions-only] [--email=user@example.com] [--dry-run] [--strict]",
+  "Usage: bun run db:seed -- [--root-user=user@example.com] [--root-password=<password>] [--dry-run]",
   "",
-  "Defaults:",
-  "  --mode=full",
+  "Required:",
+  "  Set root credentials from environment or CLI flags.",
   "",
-  "Modes:",
-  "  full              Seed permissions, roles, demo users, assignments, and htshadow entries.",
-  "  baseline          Seed permissions and Root role; optional --email assignment.",
-  "  root-only         Seed only Root role/root permission; optional --email assignment.",
-  "  permissions-only  Seed only permissions and Root role/root permission.",
+  "Environment:",
+  "  ROOT_USER",
+  "  ROOT_PASSWORD",
   "",
   "Flags:",
-  "  --mode=<value>    Seed mode to run.",
-  "  --email=<value>   Target user email for Root assignment stage. Default: alice@example.com.",
-  "  --dry-run         Show actions without writing DB/files.",
-  "  --strict          Fail when expected data is missing instead of skipping.",
-  "  --help, -h        Print this help and exit.",
+  "  --root-user=<value>      Root account email.",
+  "  --root-password=<value>   Password for the root account in htshadow.",
+  "  --dry-run                Show actions without writing DB/files.",
+  "  --help, -h               Print this help and exit.",
   "",
   "Examples:",
   "  bun run db:seed",
-  "  bun run db:seed -- --mode=baseline --email=admin@example.com",
-  "  bun run db:seed -- --mode=root-only --dry-run",
+  "  bun run db:seed -- --root-user=admin@example.com --root-password=supersecret",
+  "  bun run db:seed -- --dry-run",
 ].join("\n");
 
 let exitCode = 0;
@@ -38,12 +35,15 @@ try {
     process.exit(0);
   }
 
-  const targetEmail = resolveTargetEmail(args.email);
+  const root = resolveRootCredentials({
+    rootUser: args.rootUser,
+    rootPassword: args.rootPassword,
+  });
   const { createSeedRuntimeContext } = await import("./seed/context");
-  const runtime = createSeedRuntimeContext({ args, targetEmail });
+  const runtime = createSeedRuntimeContext({ args, root });
   closeRuntime = runtime.close;
 
-  const stages = buildSeedStages(args.mode);
+  const stages = buildSeedStages();
 
   await runSeedStages({
     ctx: runtime.ctx,
