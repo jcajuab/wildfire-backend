@@ -168,6 +168,16 @@ const hasDataEnvelope = (payload: unknown): payload is UnknownPayload => {
   return isObject(payload) && Object.hasOwn(payload, "data");
 };
 
+const hasListPayloadWithoutMeta = (payload: UnknownPayload): boolean => {
+  if (!Object.hasOwn(payload, "data")) {
+    return false;
+  }
+  if (Object.hasOwn(payload, "meta")) {
+    return false;
+  }
+  return Array.isArray((payload as { data: unknown }).data);
+};
+
 const isErrorEnvelope = (payload: unknown): payload is ErrorResponse => {
   if (!isObject(payload)) {
     return false;
@@ -237,6 +247,13 @@ export const normalizeApiPayload = (
 ): unknown => {
   if (!isObject(payload)) {
     return payload;
+  }
+
+  if (hasListPayloadWithoutMeta(payload)) {
+    const requestUrl = _options.requestUrl;
+    throw new Error(
+      `Invalid list response contract from ${requestUrl}: missing meta envelope.`,
+    );
   }
 
   if (hasDataEnvelope(payload) || isErrorEnvelope(payload)) {

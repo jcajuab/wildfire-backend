@@ -1,3 +1,5 @@
+const DEFAULT_ROOT_USER = "alice@example.com";
+
 export interface SeedRootCredentials {
   user: string;
   password: string;
@@ -7,7 +9,11 @@ export const resolveRootCredentials = (input: {
   rootUser?: string;
   rootPassword?: string;
 }): SeedRootCredentials => {
-  const user = (input.rootUser ?? process.env.ROOT_USER)?.trim();
+  const user = (
+    input.rootUser ??
+    process.env.ROOT_USER ??
+    DEFAULT_ROOT_USER
+  ).trim();
   const password = input.rootPassword ?? process.env.ROOT_PASSWORD;
 
   if (!user) {

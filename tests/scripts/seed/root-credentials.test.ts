@@ -42,11 +42,14 @@ describe("resolveRootCredentials", () => {
     expect(result.password).toBe("from-env-password");
   });
 
-  test("requires a root user", () => {
+  test("defaults to alice@example.com when root user is not set", () => {
     delete process.env.ROOT_USER;
     process.env.ROOT_PASSWORD = "password";
 
-    expect(() => resolveRootCredentials({})).toThrow("Missing root user");
+    const result = resolveRootCredentials({});
+
+    expect(result.user).toBe("alice@example.com");
+    expect(result.password).toBe("password");
   });
 
   test("requires a root password", () => {
