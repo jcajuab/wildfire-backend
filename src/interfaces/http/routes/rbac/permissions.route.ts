@@ -146,7 +146,15 @@ export const registerRbacPermissionRoutes = (args: {
           actorId: c.get("userId"),
           requestId: c.get("requestId"),
         });
-        return c.json(permissions);
+        return c.json(
+          toApiListResponse({
+            items: permissions,
+            total: permissions.length,
+            page: 1,
+            pageSize: Math.max(1, permissions.length),
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),

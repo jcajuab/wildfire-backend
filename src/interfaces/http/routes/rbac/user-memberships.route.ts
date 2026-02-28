@@ -144,7 +144,15 @@ export const registerRbacUserMembershipRoutes = (args: {
           actorId: c.get("userId"),
           requestId: c.get("requestId"),
         });
-        return c.json(roles);
+        return c.json(
+          toApiListResponse({
+            items: roles,
+            total: roles.length,
+            page: 1,
+            pageSize: Math.max(1, roles.length),
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),

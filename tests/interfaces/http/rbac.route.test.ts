@@ -985,9 +985,17 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.id).toBe(permissionId);
+    const body = await parseJson<{
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
+    }>(response);
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.id).toBe(permissionId);
   });
 
   test("PUT /roles/:id/permissions writes policy history only when policyVersion is provided", async () => {
@@ -1353,9 +1361,17 @@ describe("RBAC routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<Array<{ id: string }>>(response);
-    expect(body.length).toBe(1);
-    expect(body[0]?.id).toBe(editorRoleId);
+    const body = await parseJson<{
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
+    }>(response);
+    expect(body.data.length).toBe(1);
+    expect(body.data[0]?.id).toBe(editorRoleId);
   });
 
   test("GET /policy-history returns versioned policy changes", async () => {
