@@ -63,7 +63,6 @@ const runPdftoppmToJpeg = async (input: {
   sourcePath: string;
   outputPathPrefix: string;
   maxWidth: number;
-  maxHeight: number;
 }): Promise<void> => {
   const args = [
     "-f",
@@ -73,7 +72,7 @@ const runPdftoppmToJpeg = async (input: {
     "-scale-to-x",
     String(input.maxWidth),
     "-scale-to-y",
-    String(input.maxHeight),
+    "-1",
     input.sourcePath,
     input.outputPathPrefix,
   ];
@@ -143,7 +142,6 @@ const generatePdfWithPdftoppm: GeneratePdfFn = async (input) => {
       sourcePath,
       outputPathPrefix,
       maxWidth: input.maxWidth,
-      maxHeight: input.maxHeight,
     });
     const output = await readFile(outputPath).catch(() => null);
     return output ? new Uint8Array(output) : null;
