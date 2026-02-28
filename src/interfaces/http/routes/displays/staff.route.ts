@@ -25,9 +25,9 @@ import {
   displayListQuerySchema,
   displayListResponseSchema,
   displaySchema,
-  pairingCodeResponseSchema,
   patchDisplayRequestBodySchema,
   patchDisplaySchema,
+  registrationCodeResponseSchema,
   setDisplayGroupsRequestBodySchema,
   setDisplayGroupsSchema,
   updateDisplayGroupRequestBodySchema,
@@ -105,21 +105,21 @@ export const registerDisplayStaffRoutes = (args: {
   );
 
   router.post(
-    "/pairing-codes",
-    setAction("displays.pairing-code.create", {
-      route: "/displays/pairing-codes",
+    "/registration-codes",
+    setAction("displays.registration-code.create", {
+      route: "/displays/registration-codes",
       resourceType: "display",
     }),
     ...authorize("displays:create"),
     describeRoute({
-      description: "Issue one-time pairing code for display registration",
+      description: "Issue one-time registration code for display registration",
       tags: displayTags,
       responses: {
         200: {
-          description: "Pairing code",
+          description: "Registration code",
           content: {
             "application/json": {
-              schema: resolver(pairingCodeResponseSchema),
+              schema: resolver(registrationCodeResponseSchema),
             },
           },
         },
@@ -272,6 +272,44 @@ export const registerDisplayStaffRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         await useCases.requestDisplayRefresh.execute({ id: params.id });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/:id{[0-9a-fA-F-]{36}}/unregister",
+    setAction("displays.display.unregister", {
+      route: "/displays/:id/unregister",
+      resourceType: "display",
+    }),
+    ...authorize("displays:update"),
+    validateParams(displayIdParamSchema),
+    describeRoute({
+      description: "Unregister display and revoke display authentication",
+      tags: displayTags,
+      responses: {
+        204: { description: "Display unregistered" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        await useCases.unregisterDisplay.execute({
+          id: params.id,
+          actorId: c.get("userId"),
+        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

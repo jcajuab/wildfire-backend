@@ -190,6 +190,7 @@ describe("Display group use cases", () => {
         id: "display-1",
         name: "Lobby Display",
         identifier: "AA:BB",
+        displaySlug: "display-1",
         location: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",

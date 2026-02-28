@@ -137,7 +137,7 @@ export class AuditEventDbRepository implements AuditEventRepository {
         userName: users.name,
         userEmail: users.email,
         displayName: displays.name,
-        displayIdentifier: displays.identifier,
+        displayIdentifier: displays.displaySlug,
       })
       .from(auditEvents)
       .leftJoin(users, eq(users.id, auditEvents.actorId))

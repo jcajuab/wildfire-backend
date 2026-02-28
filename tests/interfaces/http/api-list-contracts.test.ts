@@ -63,6 +63,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       name: "Lobby",
       identifier: "AA:BB",
+      displaySlug: "lobby-display",
       displayFingerprint: null,
       location: null,
       screenWidth: null,
@@ -241,6 +242,55 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       },
       consumeValidCode: async (_input: { codeHash: string; now: Date }) => null,
     },
+    displayKeyRepository: {
+      create: async (_input: {
+        displayId: string;
+        algorithm: "ed25519";
+        publicKey: string;
+      }) => ({
+        id: "key-1",
+        displayId: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        algorithm: "ed25519" as const,
+        publicKey: "test-public-key",
+        status: "active" as const,
+        revokedAt: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      }),
+      findActiveByKeyId: async (_keyId: string) => null,
+      findActiveByDisplayId: async (_displayId: string) => null,
+      revokeByDisplayId: async (_displayId: string, _at: Date) => {},
+    },
+    displayStateTransitionRepository: {
+      create: async (_input: {
+        displayId: string;
+        fromState:
+          | "unpaired"
+          | "pairing_in_progress"
+          | "registered"
+          | "active"
+          | "unregistered";
+        toState:
+          | "unpaired"
+          | "pairing_in_progress"
+          | "registered"
+          | "active"
+          | "unregistered";
+        reason: string;
+        actorType: "staff" | "display" | "system";
+        actorId?: string | null;
+        createdAt: Date;
+      }) => ({
+        id: "transition-1",
+        displayId: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        fromState: "active" as const,
+        toState: "unregistered" as const,
+        reason: "contract_test",
+        actorType: "system" as const,
+        actorId: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+      }),
+    },
     systemSettingRepository: {
       findByKey: async (_key: string) => null,
       upsert: async (_input: { key: string; value: string }) => ({
@@ -256,7 +306,6 @@ const makeDisplaysListApp = async (permissions: string[]) => {
     "/displays",
     createDisplaysRouter({
       jwtSecret: "test-secret",
-      displayApiKey: "display-key",
       downloadUrlExpiresInSeconds: 3600,
       repositories,
       storage: {

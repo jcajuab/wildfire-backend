@@ -38,6 +38,9 @@ const makeRepository = () => {
     create: async (input) => {
       const record: DisplayRecord = {
         id: `display-${records.length + 1}`,
+        displaySlug: input.identifier
+          .toLowerCase()
+          .replace(/[^a-z0-9-]+/g, "-"),
         name: input.name,
         identifier: input.identifier,
         displayFingerprint: input.displayFingerprint ?? null,

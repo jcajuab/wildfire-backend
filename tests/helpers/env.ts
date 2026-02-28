@@ -13,7 +13,6 @@ export const setTestEnv = (overrides: EnvOverrides = {}) => {
     MYSQL_USER: "wildfire",
     MYSQL_PASSWORD: "wildfire",
     JWT_SECRET: "test-secret",
-    DISPLAY_API_KEY: "display-api-key",
     ...overrides,
   });
 };

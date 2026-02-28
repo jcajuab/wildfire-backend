@@ -6,6 +6,7 @@ export {
   ListDisplaysUseCase,
   RegisterDisplayUseCase,
   RequestDisplayRefreshUseCase,
+  UnregisterDisplayUseCase,
   UpdateDisplayUseCase,
 } from "./display.use-cases";
 export {

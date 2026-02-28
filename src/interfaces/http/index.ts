@@ -27,6 +27,7 @@ import {
 import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
+import { createDisplayRouter } from "#/interfaces/http/routes/display.route";
 import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
 import { healthRouter } from "#/interfaces/http/routes/health.route";
 import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
@@ -171,7 +172,6 @@ const displaysRouter = createDisplaysRouter({
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
-  displayApiKey: env.DISPLAY_API_KEY,
   downloadUrlExpiresInSeconds: 60 * 60,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   repositories: {
@@ -183,7 +183,33 @@ const displaysRouter = createDisplaysRouter({
     displayGroupRepository: container.repositories.displayGroupRepository,
     displayPairingCodeRepository:
       container.repositories.displayPairingCodeRepository,
+    displayKeyRepository: container.repositories.displayKeyRepository,
+    displayStateTransitionRepository:
+      container.repositories.displayStateTransitionRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
+  },
+  storage: container.storage.contentStorage,
+});
+
+const displayRouter = createDisplayRouter({
+  jwtSecret: env.JWT_SECRET,
+  downloadUrlExpiresInSeconds: 60 * 60,
+  scheduleTimeZone: env.SCHEDULE_TIMEZONE,
+  repositories: {
+    displayRepository: container.repositories.displayRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
+    playlistRepository: container.repositories.playlistRepository,
+    contentRepository: container.repositories.contentRepository,
+    systemSettingRepository: container.repositories.systemSettingRepository,
+    displayPairingCodeRepository:
+      container.repositories.displayPairingCodeRepository,
+    displayPairingSessionRepository:
+      container.repositories.displayPairingSessionRepository,
+    displayKeyRepository: container.repositories.displayKeyRepository,
+    displayAuthNonceRepository:
+      container.repositories.displayAuthNonceRepository,
+    displayStateTransitionRepository:
+      container.repositories.displayStateTransitionRepository,
   },
   storage: container.storage.contentStorage,
 });
@@ -362,6 +388,7 @@ app.route("/api/v1/auth", authRouter);
 app.route("/api/v1/playlists", playlistsRouter);
 app.route("/api/v1/schedules", schedulesRouter);
 app.route("/api/v1/displays", displaysRouter);
+app.route("/api/v1/display", displayRouter);
 app.route("/api/v1/content", contentRouter);
 app.route("/api/v1/audit", auditRouter);
 app.route("/api/v1/settings", settingsRouter);

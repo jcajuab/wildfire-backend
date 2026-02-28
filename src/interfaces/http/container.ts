@@ -7,8 +7,12 @@ import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-s
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
+import { DisplayAuthNonceDbRepository } from "#/infrastructure/db/repositories/display-auth-nonce.repo";
 import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
+import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
 import { DisplayPairingCodeDbRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
+import { DisplayPairingSessionDbRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
+import { DisplayStateTransitionDbRepository } from "#/infrastructure/db/repositories/display-state-transition.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -62,6 +66,10 @@ export interface HttpContainer {
     displayRepository: DisplayDbRepository;
     displayGroupRepository: DisplayGroupDbRepository;
     displayPairingCodeRepository: DisplayPairingCodeDbRepository;
+    displayKeyRepository: DisplayKeyDbRepository;
+    displayPairingSessionRepository: DisplayPairingSessionDbRepository;
+    displayAuthNonceRepository: DisplayAuthNonceDbRepository;
+    displayStateTransitionRepository: DisplayStateTransitionDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
     invitationRepository: InvitationDbRepository;
     systemSettingRepository: SystemSettingDbRepository;
@@ -104,6 +112,12 @@ export const createHttpContainer = (
   const displayRepository = new DisplayDbRepository();
   const displayGroupRepository = new DisplayGroupDbRepository();
   const displayPairingCodeRepository = new DisplayPairingCodeDbRepository();
+  const displayKeyRepository = new DisplayKeyDbRepository();
+  const displayPairingSessionRepository =
+    new DisplayPairingSessionDbRepository();
+  const displayAuthNonceRepository = new DisplayAuthNonceDbRepository();
+  const displayStateTransitionRepository =
+    new DisplayStateTransitionDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
   const invitationRepository = new InvitationDbRepository();
   const systemSettingRepository = new SystemSettingDbRepository();
@@ -150,6 +164,10 @@ export const createHttpContainer = (
       displayRepository,
       displayGroupRepository,
       displayPairingCodeRepository,
+      displayKeyRepository,
+      displayPairingSessionRepository,
+      displayAuthNonceRepository,
+      displayStateTransitionRepository,
       passwordResetTokenRepository,
       invitationRepository,
       systemSettingRepository,

@@ -1,10 +1,13 @@
-import { timingSafeEqual } from "node:crypto";
-import { type Hono, type MiddlewareHandler } from "hono";
+import { type Hono } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import {
+  type DisplayKeyRepository,
+  type DisplayStateTransitionRepository,
+} from "#/application/ports/display-auth";
 import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import {
   type DisplayGroupRepository,
@@ -17,20 +20,17 @@ import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   CreateDisplayGroupUseCase,
   DeleteDisplayGroupUseCase,
-  GetDisplayActiveScheduleUseCase,
-  GetDisplayManifestUseCase,
   GetDisplayUseCase,
   IssueDisplayPairingCodeUseCase,
   ListDisplayGroupsUseCase,
   ListDisplaysUseCase,
-  RegisterDisplayUseCase,
   RequestDisplayRefreshUseCase,
   SetDisplayGroupsUseCase,
+  UnregisterDisplayUseCase,
   UpdateDisplayGroupUseCase,
   UpdateDisplayUseCase,
 } from "#/application/use-cases/displays";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
-import { unauthorized } from "#/interfaces/http/responses";
 import { publishDisplayStreamEvent } from "./stream";
 
 export interface DisplaysRouterDeps {
@@ -38,7 +38,6 @@ export interface DisplaysRouterDeps {
   authSessionRepository?: AuthSessionRepository;
   authSessionCookieName?: string;
   authSessionDualMode?: boolean;
-  displayApiKey: string;
   downloadUrlExpiresInSeconds: number;
   scheduleTimeZone?: string;
   repositories: {
@@ -49,6 +48,8 @@ export interface DisplaysRouterDeps {
     authorizationRepository: AuthorizationRepository;
     displayGroupRepository: DisplayGroupRepository;
     displayPairingCodeRepository: DisplayPairingCodeRepository;
+    displayKeyRepository: DisplayKeyRepository;
+    displayStateTransitionRepository: DisplayStateTransitionRepository;
     systemSettingRepository: SystemSettingRepository;
   };
   storage: ContentStorage;
@@ -58,23 +59,17 @@ export interface DisplaysRouterUseCases {
   listDisplays: ListDisplaysUseCase;
   getDisplay: GetDisplayUseCase;
   updateDisplay: UpdateDisplayUseCase;
-  registerDisplay: RegisterDisplayUseCase;
   issuePairingCode: IssueDisplayPairingCodeUseCase;
   listDisplayGroups: ListDisplayGroupsUseCase;
   createDisplayGroup: CreateDisplayGroupUseCase;
   updateDisplayGroup: UpdateDisplayGroupUseCase;
   deleteDisplayGroup: DeleteDisplayGroupUseCase;
   setDisplayGroups: SetDisplayGroupsUseCase;
-  getActiveSchedule: GetDisplayActiveScheduleUseCase;
-  getManifest: GetDisplayManifestUseCase;
   requestDisplayRefresh: RequestDisplayRefreshUseCase;
+  unregisterDisplay: UnregisterDisplayUseCase;
 }
 
 export type DisplaysRouter = Hono<{ Variables: JwtUserVariables }>;
-
-export type DisplayAuthMiddleware = MiddlewareHandler<{
-  Variables: JwtUserVariables;
-}>;
 
 export const displayTags = ["Displays"];
 
@@ -121,10 +116,11 @@ export const createDisplaysUseCases = (
       displayRepository: deps.repositories.displayRepository,
       displayEventPublisher,
     }),
-    registerDisplay: new RegisterDisplayUseCase({
+    unregisterDisplay: new UnregisterDisplayUseCase({
       displayRepository: deps.repositories.displayRepository,
-      displayPairingCodeRepository:
-        deps.repositories.displayPairingCodeRepository,
+      displayKeyRepository: deps.repositories.displayKeyRepository,
+      displayStateTransitionRepository:
+        deps.repositories.displayStateTransitionRepository,
     }),
     issuePairingCode: new IssueDisplayPairingCodeUseCase({
       displayPairingCodeRepository:
@@ -146,38 +142,5 @@ export const createDisplaysUseCases = (
       displayRepository: deps.repositories.displayRepository,
       displayGroupRepository: deps.repositories.displayGroupRepository,
     }),
-    getActiveSchedule: new GetDisplayActiveScheduleUseCase({
-      scheduleRepository: deps.repositories.scheduleRepository,
-      playlistRepository: deps.repositories.playlistRepository,
-      displayRepository: deps.repositories.displayRepository,
-      scheduleTimeZone: deps.scheduleTimeZone,
-    }),
-    getManifest: new GetDisplayManifestUseCase({
-      scheduleRepository: deps.repositories.scheduleRepository,
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      displayRepository: deps.repositories.displayRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
-      downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
-      scheduleTimeZone: deps.scheduleTimeZone,
-    }),
-  };
-};
-
-const safeCompare = (a: string, b: string): boolean => {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-};
-
-export const createRequireDisplayApiKey = (
-  apiKey: string,
-): DisplayAuthMiddleware => {
-  return async (c, next) => {
-    const header = c.req.header("x-api-key");
-    if (!header || !safeCompare(header, apiKey)) {
-      return unauthorized(c, "Invalid API key");
-    }
-    await next();
   };
 };

@@ -4,6 +4,10 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import {
+  type DisplayKeyRepository,
+  type DisplayStateTransitionRepository,
+} from "#/application/ports/display-auth";
 import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
@@ -452,6 +456,43 @@ export class RequestDisplayRefreshUseCase {
       type: "display_refresh_requested",
       displayId: input.id,
       reason: "refresh_nonce_bumped",
+    });
+  }
+}
+
+export class UnregisterDisplayUseCase {
+  constructor(
+    private readonly deps: {
+      displayRepository: DisplayRepository;
+      displayKeyRepository: DisplayKeyRepository;
+      displayStateTransitionRepository: DisplayStateTransitionRepository;
+    },
+  ) {}
+
+  async execute(input: { id: string; actorId: string }) {
+    const display = await this.deps.displayRepository.findById(input.id);
+    if (!display) {
+      throw new NotFoundError("Display not found");
+    }
+    if (display.registrationState === "unregistered") {
+      return;
+    }
+
+    const now = new Date();
+    await this.deps.displayKeyRepository.revokeByDisplayId(input.id, now);
+    await this.deps.displayRepository.setRegistrationState?.({
+      id: input.id,
+      state: "unregistered",
+      at: now,
+    });
+    await this.deps.displayStateTransitionRepository.create({
+      displayId: input.id,
+      fromState: display.registrationState ?? "active",
+      toState: "unregistered",
+      reason: "staff_unregistration",
+      actorType: "staff",
+      actorId: input.actorId,
+      createdAt: now,
     });
   }
 }

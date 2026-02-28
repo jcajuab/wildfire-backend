@@ -4,8 +4,18 @@ import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const displaySchema = z.object({
   id: z.string(),
+  displaySlug: z.string(),
   identifier: z.string(),
   displayFingerprint: z.string().nullable().optional(),
+  registrationState: z
+    .enum([
+      "unpaired",
+      "pairing_in_progress",
+      "registered",
+      "active",
+      "unregistered",
+    ])
+    .optional(),
   name: z.string(),
   location: z.string().nullable(),
   ipAddress: z.string().nullable(),
@@ -163,7 +173,7 @@ export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   ],
 };
 
-export const pairingCodeResponseSchema = z.object({
+export const registrationCodeResponseSchema = z.object({
   code: z.string().regex(/^\d{6}$/),
   expiresAt: z.string(),
 });

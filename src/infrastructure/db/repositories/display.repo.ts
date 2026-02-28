@@ -1,4 +1,5 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { type DisplayRegistrationState } from "#/application/ports/display-auth";
 import {
   type DisplayRecord,
   type DisplayRepository,
@@ -8,15 +9,25 @@ import { displays } from "#/infrastructure/db/schema/display.sql";
 
 const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
   id: row.id,
+  displaySlug: row.displaySlug,
   name: row.name,
-  identifier: row.identifier,
+  identifier: row.displaySlug,
   displayFingerprint: row.displayFingerprint ?? null,
+  registrationState:
+    row.registrationState === "unpaired" ||
+    row.registrationState === "pairing_in_progress" ||
+    row.registrationState === "registered" ||
+    row.registrationState === "active" ||
+    row.registrationState === "unregistered"
+      ? row.registrationState
+      : "unpaired",
   location: row.location ?? null,
   ipAddress: row.ipAddress ?? null,
   macAddress: row.macAddress ?? null,
   screenWidth: row.screenWidth ?? null,
   screenHeight: row.screenHeight ?? null,
-  outputType: row.outputType ?? null,
+  outputType: row.displayOutput ?? null,
+  displayOutput: row.displayOutput ?? null,
   orientation:
     row.orientation === "LANDSCAPE" || row.orientation === "PORTRAIT"
       ? row.orientation
@@ -26,6 +37,18 @@ const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
       ? row.lastSeenAt.toISOString()
       : (row.lastSeenAt ?? null),
   refreshNonce: row.refreshNonce,
+  registeredAt:
+    row.registeredAt instanceof Date
+      ? row.registeredAt.toISOString()
+      : (row.registeredAt ?? null),
+  activatedAt:
+    row.activatedAt instanceof Date
+      ? row.activatedAt.toISOString()
+      : (row.activatedAt ?? null),
+  unregisteredAt:
+    row.unregisteredAt instanceof Date
+      ? row.unregisteredAt.toISOString()
+      : (row.unregisteredAt ?? null),
   createdAt:
     row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
   updatedAt:
@@ -62,10 +85,14 @@ export class DisplayDbRepository implements DisplayRepository {
   }
 
   async findByIdentifier(identifier: string): Promise<DisplayRecord | null> {
+    return this.findBySlug(identifier);
+  }
+
+  async findBySlug(displaySlug: string): Promise<DisplayRecord | null> {
     const rows = await db
       .select()
       .from(displays)
-      .where(eq(displays.identifier, identifier))
+      .where(eq(displays.displaySlug, displaySlug))
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
@@ -75,6 +102,23 @@ export class DisplayDbRepository implements DisplayRepository {
       .select()
       .from(displays)
       .where(eq(displays.displayFingerprint, fingerprint))
+      .limit(1);
+    return rows[0] ? toRecord(rows[0]) : null;
+  }
+
+  async findByFingerprintAndOutput(
+    fingerprint: string,
+    displayOutput: string,
+  ): Promise<DisplayRecord | null> {
+    const rows = await db
+      .select()
+      .from(displays)
+      .where(
+        and(
+          eq(displays.displayFingerprint, fingerprint),
+          eq(displays.displayOutput, displayOutput),
+        ),
+      )
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
@@ -89,31 +133,78 @@ export class DisplayDbRepository implements DisplayRepository {
     const now = new Date();
     await db.insert(displays).values({
       id,
+      displaySlug: input.identifier,
       name: input.name,
-      identifier: input.identifier,
       displayFingerprint: input.displayFingerprint ?? null,
+      registrationState: "unpaired",
       location: input.location,
+      displayOutput: "unknown",
       createdAt: now,
       updatedAt: now,
     });
 
     return {
       id,
-      name: input.name,
+      displaySlug: input.identifier,
       identifier: input.identifier,
+      name: input.name,
       displayFingerprint: input.displayFingerprint ?? null,
+      registrationState: "unpaired",
       location: input.location,
       ipAddress: null,
       macAddress: null,
       screenWidth: null,
       screenHeight: null,
-      outputType: null,
+      outputType: "unknown",
+      displayOutput: "unknown",
       orientation: null,
       lastSeenAt: null,
       refreshNonce: 0,
+      registeredAt: null,
+      activatedAt: null,
+      unregisteredAt: null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
+  }
+
+  async createRegisteredDisplay(input: {
+    displaySlug: string;
+    name: string;
+    displayFingerprint: string;
+    displayOutput: string;
+    screenWidth: number;
+    screenHeight: number;
+    orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+    ipAddress?: string | null;
+    macAddress?: string | null;
+    location?: string | null;
+    now: Date;
+  }): Promise<DisplayRecord> {
+    const id = crypto.randomUUID();
+    await db.insert(displays).values({
+      id,
+      displaySlug: input.displaySlug,
+      name: input.name,
+      displayFingerprint: input.displayFingerprint,
+      registrationState: "registered",
+      location: input.location ?? null,
+      ipAddress: input.ipAddress ?? null,
+      macAddress: input.macAddress ?? null,
+      screenWidth: input.screenWidth,
+      screenHeight: input.screenHeight,
+      displayOutput: input.displayOutput,
+      orientation: input.orientation ?? null,
+      registeredAt: input.now,
+      createdAt: input.now,
+      updatedAt: input.now,
+    });
+
+    const created = await this.findById(id);
+    if (!created) {
+      throw new Error("Failed to load newly registered display");
+    }
+    return created;
   }
 
   async update(
@@ -136,7 +227,7 @@ export class DisplayDbRepository implements DisplayRepository {
 
     const next = {
       name: input.name ?? existing.name,
-      identifier: input.identifier ?? existing.identifier,
+      displaySlug: input.identifier ?? existing.displaySlug,
       displayFingerprint:
         input.displayFingerprint !== undefined
           ? input.displayFingerprint
@@ -155,8 +246,10 @@ export class DisplayDbRepository implements DisplayRepository {
         input.screenHeight !== undefined
           ? input.screenHeight
           : existing.screenHeight,
-      outputType:
-        input.outputType !== undefined ? input.outputType : existing.outputType,
+      displayOutput:
+        input.outputType !== undefined
+          ? (input.outputType ?? "unknown")
+          : (existing.displayOutput ?? "unknown"),
       orientation:
         input.orientation !== undefined
           ? input.orientation
@@ -168,14 +261,14 @@ export class DisplayDbRepository implements DisplayRepository {
       .update(displays)
       .set({
         name: next.name,
-        identifier: next.identifier,
+        displaySlug: next.displaySlug,
         displayFingerprint: next.displayFingerprint,
         location: next.location,
         ipAddress: next.ipAddress,
         macAddress: next.macAddress,
         screenWidth: next.screenWidth,
         screenHeight: next.screenHeight,
-        outputType: next.outputType,
+        displayOutput: next.displayOutput,
         orientation: next.orientation,
         updatedAt: now,
       })
@@ -184,8 +277,34 @@ export class DisplayDbRepository implements DisplayRepository {
     return {
       ...existing,
       ...next,
+      identifier: next.displaySlug,
+      outputType: next.displayOutput,
       updatedAt: now.toISOString(),
     };
+  }
+
+  async setRegistrationState(input: {
+    id: string;
+    state: DisplayRegistrationState;
+    at: Date;
+  }): Promise<void> {
+    const patch: {
+      registrationState: DisplayRegistrationState;
+      updatedAt: Date;
+      activatedAt?: Date | null;
+      unregisteredAt?: Date | null;
+    } = {
+      registrationState: input.state,
+      updatedAt: input.at,
+    };
+    if (input.state === "active") {
+      patch.activatedAt = input.at;
+      patch.unregisteredAt = null;
+    }
+    if (input.state === "unregistered") {
+      patch.unregisteredAt = input.at;
+    }
+    await db.update(displays).set(patch).where(eq(displays.id, input.id));
   }
 
   async bumpRefreshNonce(id: string): Promise<boolean> {

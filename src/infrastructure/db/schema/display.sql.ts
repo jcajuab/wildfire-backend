@@ -12,28 +12,36 @@ export const displays = mysqlTable(
   "displays",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
+    displaySlug: varchar("display_slug", { length: 120 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
-    identifier: varchar("identifier", { length: 255 }).notNull(),
     displayFingerprint: varchar("display_fingerprint", { length: 255 }),
+    registrationState: varchar("registration_state", { length: 32 })
+      .notNull()
+      .default("unpaired"),
     location: varchar("location", { length: 255 }),
     ipAddress: varchar("ip_address", { length: 128 }),
     macAddress: varchar("mac_address", { length: 64 }),
     screenWidth: int("screen_width"),
     screenHeight: int("screen_height"),
-    outputType: varchar("output_type", { length: 64 }),
+    displayOutput: varchar("display_output", { length: 64 })
+      .notNull()
+      .default("unknown"),
     orientation: varchar("orientation", { length: 16 }),
     lastSeenAt: timestamp("last_seen_at"),
     refreshNonce: int("refresh_nonce").notNull().default(0),
+    registeredAt: timestamp("registered_at"),
+    activatedAt: timestamp("activated_at"),
+    unregisteredAt: timestamp("unregistered_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    identifierUnique: uniqueIndex("displays_identifier_unique").on(
-      table.identifier,
+    slugUnique: uniqueIndex("displays_display_slug_unique").on(
+      table.displaySlug,
     ),
-    displayFingerprintUnique: uniqueIndex(
-      "displays_display_fingerprint_unique",
-    ).on(table.displayFingerprint),
+    fingerprintOutputUnique: uniqueIndex(
+      "displays_fingerprint_output_unique",
+    ).on(table.displayFingerprint, table.displayOutput),
   }),
 );
 

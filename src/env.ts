@@ -72,7 +72,6 @@ export const env = createEnv({
     AUDIT_FLUSH_INTERVAL_MS: z.coerce.number().default(250),
     AUDIT_EXPORT_MAX_ROWS: z.coerce.number().default(100000),
     SCHEDULE_TIMEZONE: z.string().default("UTC"),
-    DISPLAY_API_KEY: z.string().min(1),
     CORS_ORIGINS: z
       .string()
       .default("http://localhost:3000")
