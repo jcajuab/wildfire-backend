@@ -1,10 +1,10 @@
-export const resolveTargetEmail = (
-  explicitEmail?: string,
-): string | undefined => {
-  if (!explicitEmail) {
-    return undefined;
+import { DEFAULT_ROOT_EMAIL } from "./constants";
+
+export const resolveTargetEmail = (explicitEmail?: string): string => {
+  const normalized = explicitEmail?.trim();
+  if (normalized && normalized.length > 0) {
+    return normalized;
   }
 
-  const normalized = explicitEmail.trim();
-  return normalized.length > 0 ? normalized : undefined;
+  return DEFAULT_ROOT_EMAIL;
 };

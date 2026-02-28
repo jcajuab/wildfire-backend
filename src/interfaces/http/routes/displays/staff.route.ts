@@ -3,7 +3,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { DisplayGroupConflictError } from "#/application/use-cases/displays";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict } from "#/interfaces/http/responses";
+import { conflict, toApiListResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -90,7 +90,15 @@ export const registerDisplayStaffRoutes = (args: {
           page: query.page,
           pageSize: query.pageSize,
         });
-        return c.json(result);
+        return c.json(
+          toApiListResponse({
+            items: result.items,
+            total: result.total,
+            page: result.page,
+            pageSize: result.pageSize,
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -294,7 +302,7 @@ export const registerDisplayStaffRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const items = await useCases.listDisplayGroups.execute();
-        return c.json({ items });
+        return c.json({ data: items });
       },
       ...applicationErrorMappers,
     ),

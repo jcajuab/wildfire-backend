@@ -2,19 +2,25 @@ import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  apiListResponseSchema,
+  errorResponseSchema,
+  toApiListResponse,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
   invitationIdParamSchema,
+  invitationListQuerySchema,
   postAuthAcceptInvitationSchema,
   postAuthCreateInvitationSchema,
 } from "#/interfaces/http/validators/auth.schema";
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthRouter,
@@ -121,6 +127,7 @@ export const registerAuthInvitationRoutes = (args: {
       resourceType: "invitation",
     }),
     ...authorize("users:create"),
+    validateQuery(invitationListQuerySchema),
     describeRoute({
       description: "List recent invitation records",
       tags: authTags,
@@ -129,15 +136,27 @@ export const registerAuthInvitationRoutes = (args: {
           description: "Invitation records",
           content: {
             "application/json": {
-              schema: resolver(z.array(inviteListItemSchema)),
+              schema: resolver(apiListResponseSchema(inviteListItemSchema)),
             },
           },
         },
       },
     }),
     async (c) => {
-      const invitations = await useCases.listInvitations.execute();
-      return c.json(invitations, 200);
+      const query = c.req.valid("query");
+      const invitations = await useCases.listInvitations.execute({
+        limit: query.limit,
+      });
+      const pageSize = query.limit ?? 100;
+      return c.json(
+        toApiListResponse({
+          items: invitations,
+          total: invitations.length,
+          page: 1,
+          pageSize,
+          requestUrl: c.req.url,
+        }),
+      );
     },
   );
 

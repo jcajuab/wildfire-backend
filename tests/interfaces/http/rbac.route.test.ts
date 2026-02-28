@@ -619,11 +619,16 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ name: string }>;
-      total: number;
+      data: Array<{ name: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.name).toBe("Root");
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.name).toBe("Root");
   });
 
   test("POST /roles creates a role", async () => {
@@ -871,13 +876,16 @@ describe("RBAC routes", () => {
     });
     expect(listRes.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ roleId: string }>;
-      total: number;
+      data: Array<{ roleId: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(listRes);
-    expect(body.total).toBeGreaterThan(0);
-    expect(body.items.some((item) => item.roleId === createdRole.id)).toBe(
-      true,
-    );
+    expect(body.meta.total).toBeGreaterThan(0);
+    expect(body.data.some((item) => item.roleId === createdRole.id)).toBe(true);
   });
 
   test("GET /roles/deletion-requests returns 403 without roles:delete", async () => {
@@ -901,13 +909,16 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.total).toBeGreaterThan(0);
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.meta.total).toBeGreaterThan(0);
   });
 
   test("PUT /roles/:id/permissions returns 403 for system role", async () => {
@@ -1020,14 +1031,17 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.id).toBe(userId);
-    expect(body.total).toBeGreaterThan(0);
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.id).toBe(userId);
+    expect(body.meta.total).toBeGreaterThan(0);
   });
 
   test("GET /roles/:id/users returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
@@ -1040,19 +1054,22 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{
+      data: Array<{
         id: string;
         avatarUrl?: string;
         avatarKey?: string;
       }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.avatarUrl).toBe(presignedUrl);
-    expect(body.items[0]).not.toHaveProperty("avatarKey");
-    expect(body.total).toBeGreaterThan(0);
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.avatarUrl).toBe(presignedUrl);
+    expect(body.data[0]).not.toHaveProperty("avatarKey");
+    expect(body.meta.total).toBeGreaterThan(0);
   });
 
   test("GET /permissions returns permissions", async () => {
@@ -1065,10 +1082,15 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
+    expect(body.data.length).toBeGreaterThan(0);
   });
 
   test("GET /users returns users", async () => {
@@ -1081,11 +1103,16 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ email: string }>;
-      total: number;
+      data: Array<{ email: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.email).toBe("admin@example.com");
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.email).toBe("admin@example.com");
   });
 
   test("GET /users returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
@@ -1098,17 +1125,22 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{
+      data: Array<{
         id: string;
         email: string;
         avatarUrl?: string;
         avatarKey?: string;
       }>;
-      total: number;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.avatarUrl).toBe(presignedUrl);
-    expect(body.items[0]).not.toHaveProperty("avatarKey");
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.avatarUrl).toBe(presignedUrl);
+    expect(body.data[0]).not.toHaveProperty("avatarKey");
   });
 
   test("GET /users/:id returns avatarUrl and omits avatarKey when avatarStorage is provided", async () => {
@@ -1174,14 +1206,17 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items.length).toBeGreaterThan(0);
-    expect(body.items[0]?.id).toBe(roleId);
-    expect(body.total).toBeGreaterThan(0);
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.id).toBe(roleId);
+    expect(body.meta.total).toBeGreaterThan(0);
   });
 
   test("PATCH /users/:id updates user", async () => {
@@ -1356,11 +1391,16 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ changeType: string; policyVersion: number }>;
-      total: number;
+      data: Array<{ changeType: string; policyVersion: number }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.total).toBe(2);
-    expect(body.items.every((item) => item.policyVersion === 3)).toBe(true);
+    expect(body.meta.total).toBe(2);
+    expect(body.data.every((item) => item.policyVersion === 3)).toBe(true);
   });
 
   test("GET /roles returns 401 without token", async () => {

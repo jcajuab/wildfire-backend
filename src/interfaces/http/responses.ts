@@ -181,29 +181,6 @@ const isErrorEnvelope = (payload: unknown): payload is ErrorResponse => {
   );
 };
 
-const isPaginatedPayload = (payload: UnknownPayload): boolean => {
-  if (!Array.isArray(payload.items)) {
-    return false;
-  }
-
-  if (
-    parsePositiveInt(payload.page) == null ||
-    parseNonNegativeInt(payload.total) == null
-  ) {
-    return false;
-  }
-
-  return (
-    parsePositiveInt(payload.per_page) != null ||
-    parsePositiveInt(payload.pageSize) != null
-  );
-};
-
-const isItemsPayload = (payload: UnknownPayload): boolean =>
-  Object.keys(payload).length === 1 &&
-  Array.isArray(payload.items) &&
-  Object.hasOwn(payload, "items");
-
 const buildListLinks = (
   reqUrl: URL,
   page: number,
@@ -228,16 +205,37 @@ const buildListLinks = (
   };
 };
 
+export const toApiListResponse = <T>(input: {
+  items: readonly T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  requestUrl: string;
+}): ApiListResponse<T> => {
+  const page = parsePositiveInt(input.page) ?? 1;
+  const perPage = parsePositiveInt(input.pageSize) ?? 20;
+  const total = parseNonNegativeInt(input.total) ?? 0;
+  const totalPages = perPage > 0 ? Math.max(1, Math.ceil(total / perPage)) : 1;
+
+  return {
+    data: [...input.items],
+    meta: {
+      total,
+      page,
+      per_page: perPage,
+      total_pages: totalPages,
+    },
+    links: buildListLinks(new URL(input.requestUrl), page, perPage, totalPages),
+  };
+};
+
 export const normalizeApiPayload = (
   payload: unknown,
-  options: {
+  _options: {
     requestUrl: string;
   },
 ): unknown => {
   if (!isObject(payload)) {
-    if (Array.isArray(payload)) {
-      return { data: payload } as ApiResponse<unknown>;
-    }
     return payload;
   }
 
@@ -245,42 +243,10 @@ export const normalizeApiPayload = (
 
   if (
     hasDataEnvelope(payload) ||
-    isErrorEnvelope(objectPayload) ||
+    isErrorEnvelope(payload) ||
     "error" in objectPayload
   ) {
     return payload;
-  }
-
-  if (isPaginatedPayload(objectPayload)) {
-    const page = parsePositiveInt(objectPayload.page) ?? 1;
-    const total = parseNonNegativeInt(objectPayload.total) ?? 0;
-    const pageSize =
-      parsePositiveInt(objectPayload.per_page ?? objectPayload.pageSize) ?? 20;
-    const items = Array.isArray(objectPayload.items) ? objectPayload.items : [];
-    const totalPages =
-      pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
-
-    return {
-      data: items,
-      meta: {
-        total,
-        page,
-        per_page: pageSize,
-        total_pages: totalPages,
-      },
-      links: buildListLinks(
-        new URL(options.requestUrl),
-        page,
-        pageSize,
-        totalPages,
-      ),
-    } as ApiListResponse<unknown>;
-  }
-
-  if (isItemsPayload(objectPayload)) {
-    const items = Array.isArray(objectPayload.items) ? objectPayload.items : [];
-
-    return { data: items } as ApiResponse<unknown[]>;
   }
 
   return {

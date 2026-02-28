@@ -17,7 +17,7 @@ export interface SeedRuntimeContext {
 
 export const createSeedRuntimeContext = (input: {
   args: SeedArgs;
-  targetEmail?: string;
+  targetEmail: string;
 }): SeedRuntimeContext => {
   const ctx: SeedContext = {
     args: input.args,

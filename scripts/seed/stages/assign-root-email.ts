@@ -5,29 +5,10 @@ export async function runAssignRootEmail(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
   const email = ctx.targetEmail;
-  if (!email) {
-    return {
-      name: "assign-root-email",
-      created: 0,
-      updated: 0,
-      skipped: 1,
-      notes: ["No target email provided"],
-    };
-  }
 
   const user = await ctx.repos.userRepository.findByEmail(email);
   if (!user) {
-    if (ctx.args.strict) {
-      throw new Error(`Target user not found: ${email}`);
-    }
-
-    return {
-      name: "assign-root-email",
-      created: 0,
-      updated: 0,
-      skipped: 1,
-      notes: [`Target user not found and skipped: ${email}`],
-    };
+    throw new Error(`Target user not found: ${email}`);
   }
 
   const roles = await ctx.repos.roleRepository.list();
@@ -42,21 +23,29 @@ export async function runAssignRootEmail(
     user.id,
   );
   const currentRoleIds = assignments.map((assignment) => assignment.roleId);
-  const alreadyAssigned =
-    currentRoleIds.length === 1 && currentRoleIds[0] === rootRole.id;
+  const hasRootRole = currentRoleIds.includes(rootRole.id);
+  const roleIdsToAssign = hasRootRole
+    ? currentRoleIds
+    : [...new Set([rootRole.id, ...currentRoleIds])];
 
-  if (alreadyAssigned) {
+  if (hasRootRole) {
     return {
       name: "assign-root-email",
       created: 0,
       updated: 0,
       skipped: 1,
-      notes: [`${email} already has only Root role`],
+      notes: [
+        ctx.args.dryRun
+          ? `Dry-run: ${email} already has Root role`
+          : currentRoleIds.length > 0
+            ? `${email} already has Root role and existing roles were preserved`
+            : `${email} already has Root role`,
+      ],
     };
   }
 
   if (!ctx.args.dryRun) {
-    await ctx.repos.userRoleRepository.setUserRoles(user.id, [rootRole.id]);
+    await ctx.repos.userRoleRepository.setUserRoles(user.id, roleIdsToAssign);
   }
 
   return {
@@ -67,7 +56,7 @@ export async function runAssignRootEmail(
     notes: [
       ctx.args.dryRun
         ? `Dry-run: would assign Root to ${email}`
-        : `Assigned Root to ${email}`,
+        : `Assigned Root to ${email} while preserving existing roles`,
     ],
   };
 }

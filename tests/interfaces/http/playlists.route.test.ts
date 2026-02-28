@@ -239,15 +239,18 @@ describe("Playlists routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(Array.isArray(body.items)).toBe(true);
-    expect(typeof body.total).toBe("number");
-    expect(body.page).toBe(1);
-    expect(body.pageSize).toBe(20);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(typeof body.meta.total).toBe("number");
+    expect(body.meta.page).toBe(1);
+    expect(body.meta.per_page).toBe(20);
   });
 
   test("POST /playlists creates playlist", async () => {

@@ -75,7 +75,7 @@ export const registerScheduleCommandRoutes = (args: {
         if (result[0]) {
           c.set("resourceId", result[0].id);
         }
-        return c.json({ items: result }, 201);
+        return c.json(result, 201);
       },
       mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,

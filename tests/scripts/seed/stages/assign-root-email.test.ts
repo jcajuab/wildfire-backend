@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { ROOT_ROLE_NAME } from "../../../../scripts/seed/constants";
+import {
+  DEFAULT_ROOT_EMAIL,
+  ROOT_ROLE_NAME,
+} from "../../../../scripts/seed/constants";
 import { type SeedContext } from "../../../../scripts/seed/stage-types";
 import { runAssignRootEmail } from "../../../../scripts/seed/stages/assign-root-email";
 
@@ -7,9 +10,15 @@ const makeContext = (input: {
   targetEmail?: string;
   strict?: boolean;
   dryRun?: boolean;
+  users?: Array<{ id: string; email: string; name: string; isActive: boolean }>;
 }) => {
-  const users = [
-    { id: "user-1", email: "user@example.com", name: "User", isActive: true },
+  const users = input.users ?? [
+    {
+      id: "user-1",
+      email: "user@example.com",
+      name: "User",
+      isActive: true,
+    },
   ];
   const roles = [
     {
@@ -33,7 +42,7 @@ const makeContext = (input: {
       dryRun: input.dryRun ?? false,
       strict: input.strict ?? false,
     },
-    targetEmail: input.targetEmail,
+    targetEmail: input.targetEmail ?? DEFAULT_ROOT_EMAIL,
     htshadowPath: "/tmp/unused",
     repos: {
       permissionRepository: {
@@ -87,12 +96,22 @@ const makeContext = (input: {
 };
 
 describe("runAssignRootEmail", () => {
-  test("skips when no target email", async () => {
-    const { ctx } = makeContext({});
+  test("defaults target email to alice@example.com when omitted", async () => {
+    const { ctx, assignments } = makeContext({
+      users: [
+        {
+          id: "alice-1",
+          email: DEFAULT_ROOT_EMAIL,
+          name: "Alice Admin",
+          isActive: true,
+        },
+      ],
+      targetEmail: DEFAULT_ROOT_EMAIL,
+    });
     const result = await runAssignRootEmail(ctx);
 
-    expect(result.skipped).toBe(1);
-    expect(result.updated).toBe(0);
+    expect(result.updated).toBe(1);
+    expect(assignments.get("alice-1")).toEqual(["role-1"]);
   });
 
   test("throws in strict mode when user is missing", async () => {

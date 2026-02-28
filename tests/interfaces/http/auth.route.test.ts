@@ -699,23 +699,29 @@ describe("Auth routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body =
-        await parseJson<
-          {
-            id: string;
-            email: string;
-            status: string;
-            expiresAt: string;
-          }[]
-        >(response);
+      const body = await parseJson<{
+        data: {
+          id: string;
+          email: string;
+          status: string;
+          expiresAt: string;
+        }[];
+        meta: {
+          total: number;
+          page: number;
+          per_page: number;
+          total_pages: number;
+        };
+      }>(response);
       expect(
-        body.some((item) => item.email === "list.invite@example.com"),
+        body.data.some((item) => item.email === "list.invite@example.com"),
       ).toBe(true);
-      const listed = body.find(
+      const listed = body.data.find(
         (item) => item.email === "list.invite@example.com",
       );
       expect(listed?.status).toBe("pending");
       expect(listed?.expiresAt).toEqual(expect.any(String));
+      expect(body.meta.total).toBeGreaterThanOrEqual(1);
     } finally {
       process.env.NODE_ENV = previousNodeEnv;
     }

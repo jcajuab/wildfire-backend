@@ -151,15 +151,18 @@ describe("Audit routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      page: number;
-      pageSize: number;
-      total: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(body.items).toHaveLength(1);
-    expect(body.page).toBe(1);
-    expect(body.pageSize).toBe(50);
-    expect(body.total).toBe(1);
+    expect(body.data).toHaveLength(1);
+    expect(body.meta.page).toBe(1);
+    expect(body.meta.per_page).toBe(50);
+    expect(body.meta.total).toBe(1);
   });
 
   test("GET /audit/events forwards normalized filters to use case", async () => {

@@ -1,7 +1,7 @@
 import { describeRoute } from "hono-openapi";
 import { DuplicateEmailError } from "#/application/use-cases/rbac/errors";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict } from "#/interfaces/http/responses";
+import { conflict, toApiListResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -75,12 +75,15 @@ export const registerRbacUserResourceRoutes = (args: {
           result.items,
           deps,
         );
-        return c.json({
-          items: enrichedItems,
-          total: result.total,
-          page: result.page,
-          pageSize: result.pageSize,
-        });
+        return c.json(
+          toApiListResponse({
+            items: enrichedItems,
+            total: result.total,
+            page: result.page,
+            pageSize: result.pageSize,
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),

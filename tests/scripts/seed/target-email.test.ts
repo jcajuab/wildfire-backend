@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { DEFAULT_ROOT_EMAIL } from "../../../scripts/seed/constants";
 import { resolveTargetEmail } from "../../../scripts/seed/target-email";
 
 const originalSeedUserEmail = process.env.SEED_USER_EMAIL;
@@ -26,6 +27,6 @@ describe("resolveTargetEmail", () => {
 
     const result = resolveTargetEmail(undefined);
 
-    expect(result).toBeUndefined();
+    expect(result).toBe(DEFAULT_ROOT_EMAIL);
   });
 });

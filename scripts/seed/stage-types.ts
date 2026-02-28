@@ -10,7 +10,7 @@ import { type SeedArgs } from "./args";
 
 export interface SeedContext {
   args: SeedArgs;
-  targetEmail?: string;
+  targetEmail: string;
   htshadowPath: string;
   repos: {
     permissionRepository: PermissionRepository;

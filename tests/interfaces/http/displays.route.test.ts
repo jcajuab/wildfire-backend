@@ -680,15 +680,18 @@ describe("Displays routes", () => {
 
     expect(response.status).toBe(200);
     const json = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(json.items).toHaveLength(1);
-    expect(json.total).toBe(1);
-    expect(json.page).toBe(1);
-    expect(json.pageSize).toBe(50);
+    expect(json.data).toHaveLength(1);
+    expect(json.meta.total).toBe(1);
+    expect(json.meta.page).toBe(1);
+    expect(json.meta.per_page).toBe(50);
   });
 
   test("GET /displays returns DOWN for stale but previously seen displays", async () => {
@@ -716,14 +719,14 @@ describe("Displays routes", () => {
 
     expect(response.status).toBe(200);
     const json = await parseJson<{
-      items: Array<{
+      data: Array<{
         id: string;
         onlineStatus: "READY" | "LIVE" | "DOWN";
         lastSeenAt: string | null;
       }>;
     }>(response);
-    expect(json.items[0]?.onlineStatus).toBe("DOWN");
-    expect(json.items[0]?.lastSeenAt).toBe("2025-01-01T00:00:00.000Z");
+    expect(json.data[0]?.onlineStatus).toBe("DOWN");
+    expect(json.data[0]?.lastSeenAt).toBe("2025-01-01T00:00:00.000Z");
   });
 
   test("GET /displays returns LIVE for recently seen displays with active schedule", async () => {
@@ -769,9 +772,9 @@ describe("Displays routes", () => {
 
     expect(response.status).toBe(200);
     const json = await parseJson<{
-      items: Array<{ onlineStatus: "READY" | "LIVE" | "DOWN" }>;
+      data: Array<{ onlineStatus: "READY" | "LIVE" | "DOWN" }>;
     }>(response);
-    expect(json.items[0]?.onlineStatus).toBe("LIVE");
+    expect(json.data[0]?.onlineStatus).toBe("LIVE");
   });
 
   test("GET /displays/:id returns display", async () => {
@@ -959,10 +962,10 @@ describe("Displays routes", () => {
       headers: { Authorization: `Bearer ${elevatedToken}` },
     });
     expect(listResponse.status).toBe(200);
-    const json = await parseJson<{ items: Array<{ name: string }> }>(
+    const json = await parseJson<{ data: Array<{ name: string }> }>(
       listResponse,
     );
-    expect(json.items.some((group) => group.name === "Lobby Group")).toBe(true);
+    expect(json.data.some((group) => group.name === "Lobby Group")).toBe(true);
   });
 
   test("PATCH /displays/groups/:groupId returns 409 for case-insensitive rename conflicts", async () => {
@@ -1105,8 +1108,8 @@ describe("Displays routes", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(list.status).toBe(200);
-    const groupsList = await parseJson<{ items: Array<{ id: string }> }>(list);
-    expect(groupsList.items.some((group) => group.id === created.id)).toBe(
+    const groupsList = await parseJson<{ data: Array<{ id: string }> }>(list);
+    expect(groupsList.data.some((group) => group.id === created.id)).toBe(
       false,
     );
 

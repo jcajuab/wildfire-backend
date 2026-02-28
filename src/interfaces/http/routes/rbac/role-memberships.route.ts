@@ -1,5 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { toApiListResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -74,12 +75,15 @@ export const registerRbacRoleMembershipRoutes = (args: {
           pageSize: query.pageSize,
         });
         const enriched = await maybeEnrichUsersForResponse(result.items, deps);
-        return c.json({
-          items: enriched,
-          total: result.total,
-          page: result.page,
-          pageSize: result.pageSize,
-        });
+        return c.json(
+          toApiListResponse({
+            items: enriched,
+            total: result.total,
+            page: result.page,
+            pageSize: result.pageSize,
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),

@@ -20,6 +20,7 @@ const makeContext = (dryRun = false): SeedContext => {
       dryRun,
       strict: false,
     },
+    targetEmail: "alice@example.com",
     htshadowPath: "/tmp/unused",
     repos: {
       permissionRepository: {

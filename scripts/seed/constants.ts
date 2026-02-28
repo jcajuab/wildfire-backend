@@ -2,6 +2,7 @@ export const DEFAULT_PASSWORD = "password";
 export const BCRYPT_SALT_ROUNDS = 10;
 
 export const ROOT_ROLE_NAME = "Root";
+export const DEFAULT_ROOT_EMAIL = "alice@example.com";
 export const EDITOR_ROLE_NAME = "Editor";
 export const VIEWER_ROLE_NAME = "Viewer";
 
@@ -31,7 +32,6 @@ export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   { resource: "displays", action: "read" },
   { resource: "displays", action: "create" },
   { resource: "displays", action: "update" },
-  { resource: "displays", action: "delete" },
   { resource: "users", action: "read" },
   { resource: "users", action: "create" },
   { resource: "users", action: "update" },

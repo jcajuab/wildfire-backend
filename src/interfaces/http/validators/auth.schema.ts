@@ -35,6 +35,10 @@ export const postAuthAcceptInvitationSchema = z.object({
   name: z.string().trim().min(1).max(255).optional().nullable(),
 });
 
+export const invitationListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(250).optional(),
+});
+
 export const invitationIdParamSchema = z.object({
   id: z.string().uuid(),
 });

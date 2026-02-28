@@ -198,8 +198,16 @@ describe("Content routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{ items: unknown[] }>(response);
-    expect(body.items).toHaveLength(1);
+    const body = await parseJson<{
+      data: unknown[];
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
+    }>(response);
+    expect(body.data).toHaveLength(1);
   });
 
   test("GET /content/:id/file returns download URL", async () => {

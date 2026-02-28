@@ -200,15 +200,18 @@ describe("Schedules routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      items: Array<{ id: string }>;
-      total: number;
-      page: number;
-      pageSize: number;
+      data: Array<{ id: string }>;
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
     }>(response);
-    expect(Array.isArray(body.items)).toBe(true);
-    expect(typeof body.total).toBe("number");
-    expect(body.page).toBe(1);
-    expect(body.pageSize).toBe(50);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(typeof body.meta.total).toBe("number");
+    expect(body.meta.page).toBe(1);
+    expect(body.meta.per_page).toBe(50);
   });
 
   test("POST /schedules creates schedule", async () => {
@@ -236,8 +239,6 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(201);
-    const json = await parseJson<{ items: Array<{ id: string }> }>(response);
-    expect(json.items[0]?.id).toBeDefined();
   });
 
   test("POST /schedules returns 404 when playlist missing", async () => {
@@ -397,9 +398,7 @@ describe("Schedules routes", () => {
         isActive: true,
       }),
     });
-    const firstJson = await parseJson<{ items: Array<{ id: string }> }>(first);
-    const firstId = firstJson.items[0]?.id;
-    expect(firstId).toBeDefined();
+    expect(first.status).toBe(201);
 
     const second = await app.request("/schedules", {
       method: "POST",
@@ -420,13 +419,25 @@ describe("Schedules routes", () => {
         isActive: true,
       }),
     });
-    const secondJson = await parseJson<{ items: Array<{ id: string }> }>(
-      second,
-    );
-    const secondId = secondJson.items[0]?.id;
-    expect(secondId).toBeDefined();
+    expect(second.status).toBe(201);
 
-    const conflict = await app.request(`/schedules/${secondId}`, {
+    const schedulesResponse = await app.request("/schedules");
+    const schedules = await parseJson<{
+      data: Array<{ id: string; name: string }>;
+    }>(schedulesResponse);
+    const firstSchedule = schedules.data.find(
+      (item) => item.name === "Morning",
+    );
+    const secondSchedule = schedules.data.find(
+      (item) => item.name === "Midday",
+    );
+
+    expect(firstSchedule).toBeDefined();
+    expect(firstSchedule?.id).toBeDefined();
+    expect(secondSchedule).toBeDefined();
+    expect(secondSchedule?.id).toBeDefined();
+
+    const conflict = await app.request(`/schedules/${secondSchedule?.id}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,

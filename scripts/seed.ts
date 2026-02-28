@@ -17,7 +17,7 @@ const usage = [
   "",
   "Flags:",
   "  --mode=<value>    Seed mode to run.",
-  "  --email=<value>   Target user email for Root assignment stage.",
+  "  --email=<value>   Target user email for Root assignment stage. Default: alice@example.com.",
   "  --dry-run         Show actions without writing DB/files.",
   "  --strict          Fail when expected data is missing instead of skipping.",
   "  --help, -h        Print this help and exit.",

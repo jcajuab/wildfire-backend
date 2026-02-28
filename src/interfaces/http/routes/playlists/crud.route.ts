@@ -1,7 +1,11 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { PlaylistInUseError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict, errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  conflict,
+  errorResponseSchema,
+  toApiListResponse,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -65,7 +69,15 @@ export const registerPlaylistCrudRoutes = (args: {
           sortBy: query.sortBy,
           sortDirection: query.sortDirection,
         });
-        return c.json(result);
+        return c.json(
+          toApiListResponse({
+            items: result.items,
+            total: result.total,
+            page: result.page,
+            pageSize: result.pageSize,
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),
