@@ -1,173 +1,160 @@
-<INSTRUCTIONS>
-# Development Principles
+# AGENTS.md
 
-This document defines how to work in the Wildfire backend codebase. It is aligned with:
+## Purpose
 
-- `docs/overview.md`
-- `docs/best-practices.md`
+Defines how AI agents must operate in this backend.
 
-## Project Overview (Backend Only)
+This is a Bun + Hono modular monolith.
+Not Next.js.
+No frontend assumptions allowed.
 
-Wildfire is a **centralized backend platform** for managing digital signage content across a school campus. The system manages content uploads, playlists, schedules, and device polling for Raspberry Pi displays.
+---
 
-**Core flow:**
-Admin uploads content -> Content stored in MinIO (with checksum) -> Content placed into playlists -> Schedules assign playlists to devices -> Devices poll for manifests and play cached content.
+# PROJECT CONTEXT
 
-**Key entities:**
+Wildfire Backend:
 
-- Content (image/video/pdf in MinIO)
-- Playlist / PlaylistItem (ordered content + duration)
-- Schedule (time-based assignment)
-- Device (display unit)
+Admin → Upload Content → MinIO (checksum required)
+Content → Playlist → Schedule → Device Poll → Manifest
 
-**Architecture:**
+Entities:
 
-- Modular Monolith (6 bounded contexts)
+- Content
+- Playlist
+- PlaylistItem
+- Schedule
+- Display
+
+Stack:
+
 - Runtime: Bun
-- Framework: Hono
-- Database: MySQL + Drizzle ORM
-- Storage: MinIO (S3-compatible)
-- Auth: Hono JWT
+- HTTP: Hono
+- DB: MySQL + Drizzle
+- Storage: MinIO
+- Auth: JWT
 - Validation: Zod
-- Testing: Bun test runner
-- API Docs: Scalar
-
-**Note:** This is **not** a Next.js project. Do not apply Next.js or frontend rules.
+- Testing: Bun test
 
 ---
 
-## TDD First (Required)
+# AGENT OPERATING RULES
 
-Use Red-Green-Refactor for all behavior changes:
+When modifying code:
 
-1. Write a failing test
-2. Make it pass with the smallest change
-3. Refactor with tests still green
+1. Identify architectural layer
+2. Confirm dependency direction
+3. Write failing test first
+4. Implement minimal change
+5. Verify no boundary violations
+6. Run required commands
+7. Re-check architecture
 
-Testing alignment:
+Never:
 
-- Domain: fast unit tests (no I/O)
-- Use cases: unit tests with faked ports
-- Adapters: contract tests for mapping
-- Infrastructure: integration tests with real services
-
-Commands:
-
-- `bun test`
-- `bun test <path>`
-
-Always run in this order:
-
-1. `bun test`
-2. `bun run check`
-3. `bun run build`
+- Introduce cross-layer imports
+- Add framework logic to domain
+- Skip test creation
+- Modify multiple modules without justification
 
 ---
 
-## Clean Architecture + SOLID (Required)
+# ARCHITECTURE VALIDATION
 
-Dependencies point inward. Outer layers may depend on inner layers, never the reverse.
+## Dependency Direction
 
-Layers:
+No:
 
-1. Entities (domain rules)
-2. Use cases (application logic)
-3. Interface adapters (controllers, presenters, repositories)
-4. Frameworks & drivers (DB, storage, web server, external APIs)
+- infrastructure inside application/domain
+- domain importing application
+- use case importing concrete DB
 
-Folder guidance:
+## Use Case Purity
 
-- `domain/` -> entities, value objects, domain services
-- `application/` -> use cases, ports (interfaces)
-- `interfaces/` -> controllers, request/response mappers
-- `infrastructure/` -> DB, storage, external clients
+Use cases must:
 
-SOLID enforcement:
+- Accept injected interfaces
+- Not use Drizzle directly
+- Not call MinIO directly
 
-- SRP: one concept per entity/use case/adapter
-- OCP: extend via new implementations, not by modifying core use cases
-- LSP: adapters must satisfy their interface contracts
-- ISP: keep interfaces small and purpose-built
-- DIP: use cases depend on interfaces, not concrete services
+## Controller Rules
 
----
+Controllers must:
 
-## Security & Performance (Secondary)
-
-Security:
-
-- Validate all inputs at the boundary (controllers) with Zod
-- Keep secrets in environment variables
-- Enforce RBAC via use case boundaries
-- Never log secrets or PII
-
-Performance:
-
-- Prefer batch operations in repositories
-- Cache only at interface boundaries or infrastructure layer
-- Keep domain logic synchronous and side-effect free
+- Validate with Zod
+- Call a use case
+- Map errors consistently
+- Avoid business branching logic
 
 ---
 
-## API & Module Conventions
+# SECURITY CHECKS
 
-- Hono routes should be thin; call use cases for business logic
-- Keep consistent error shapes and HTTP status codes
-- Use JWT auth middleware + RBAC checks for protected routes
-- Use Drizzle for DB access through repository interfaces
-- Store binary content in MinIO; no server-side media processing
-- Playlists are scheduled, not individual content items
-
----
-
-## Backend Audit Prompt
-
-When auditing the codebase, use this checklist:
-
-1. **Architecture alignment**
-
-- Verify dependencies point inward (no infrastructure in use cases)
-- Validate folder boundaries and ports/adapters usage
-
-2. **Domain correctness**
-
-- Ensure entities and relationships match the overview (Content, Playlist, Schedule, Device)
-- Confirm schedules apply to playlists (not individual content)
-
-3. **API correctness**
-
-- Routes match documented modules (Auth, RBAC, Content, Playlists, Schedules, Devices)
-- Controllers validate inputs and return consistent error shapes
-
-4. **Security**
-
-- JWT + RBAC enforced on protected routes
-- No secrets or PII logged
-- Input validation at boundary
-
-5. **Storage & data integrity**
-
-- MinIO uploads store checksums
-- MySQL schema matches Drizzle models
-
-6. **Testing**
-
-- TDD followed for behavior changes
-- Tests aligned to architectural layers
-- Missing coverage flagged
-
-7. **Maintainability**
-
-- No unused code or dead paths
-- Interfaces remain small and cohesive
-- Avoid framework-specific logic in domain/use cases
+- JWT middleware on protected routes
+- RBAC enforced in use case
+- No secrets in logs
+- No raw body audit persistence
+- Checksums stored for uploads
 
 ---
 
-## Required Commands
+# STORAGE CONSISTENCY
 
-Always run these before delivery:
+Ensure:
 
-- `bun run check`
-- `bun test`
-  </INSTRUCTIONS>
+- MinIO object key stored in DB
+- Checksum persisted
+- No media transformations
+- Schedules assign playlists only
+
+---
+
+# TEST ENFORCEMENT
+
+Reject change if:
+
+- Behavior changed without test
+- Domain test touches I/O
+- Use case not tested with fakes
+
+---
+
+# CODE SMELL DETECTION
+
+Flag if:
+
+- God repository
+- Circular dependency
+- Repeated error mapping
+- Controller exceeds reasonable size
+- Mixed domain + infrastructure logic
+- Unused exports
+- Implicit any
+- Side effects in constructors
+
+---
+
+# DELIVERY GATES
+
+Always execute:
+
+bun test
+bun run check
+bun run build
+
+If any fail → do not proceed.
+
+---
+
+# STRICT AUDIT CHECKLIST
+
+When auditing:
+
+1. Architecture alignment
+2. Domain correctness
+3. API module boundaries
+4. JWT + RBAC enforcement
+5. Zod validation
+6. Drizzle schema alignment
+7. Checksum storage
+8. Layer-aligned tests
+9. No dead code
