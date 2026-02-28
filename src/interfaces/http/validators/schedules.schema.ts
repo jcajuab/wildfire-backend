@@ -33,9 +33,7 @@ export const scheduleListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 
-export const scheduleItemsResponseSchema = apiResponseSchema(
-  z.array(scheduleSchema),
-);
+export const scheduleResponseSchema = apiResponseSchema(scheduleSchema);
 
 export const scheduleIdParamSchema = z.object({
   id: z.string().uuid(),

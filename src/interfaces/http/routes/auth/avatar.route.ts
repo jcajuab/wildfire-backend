@@ -4,7 +4,10 @@ import { describeRoute, resolver } from "hono-openapi";
 import { logger } from "#/infrastructure/observability/logger";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  errorResponseSchema,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -48,7 +51,7 @@ export const registerAuthAvatarRoute = (args: {
           description: "Avatar updated; returns full auth payload",
           content: {
             "application/json": {
-              schema: resolver(authResponseSchema),
+              schema: resolver(apiResponseSchema(authResponseSchema)),
             },
           },
         },

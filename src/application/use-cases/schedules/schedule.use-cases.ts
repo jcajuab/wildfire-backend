@@ -216,7 +216,6 @@ export class CreateScheduleUseCase {
     endDate?: string;
     startTime: string;
     endTime: string;
-    daysOfWeek?: number[];
     priority: number;
     isActive: boolean;
   }) {
@@ -301,7 +300,7 @@ export class CreateScheduleUseCase {
       reason: "schedule_created",
     });
 
-    return [toScheduleView(schedule, playlist, display)];
+    return toScheduleView(schedule, playlist, display);
   }
 
   private async getScrollPxPerSecond(): Promise<number> {
@@ -358,7 +357,6 @@ export class UpdateScheduleUseCase {
     endDate?: string;
     startTime?: string;
     endTime?: string;
-    dayOfWeek?: number;
     priority?: number;
     isActive?: boolean;
   }) {

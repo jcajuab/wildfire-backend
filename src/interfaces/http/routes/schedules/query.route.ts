@@ -12,7 +12,7 @@ import {
   scheduleIdParamSchema,
   scheduleListQuerySchema,
   scheduleListResponseSchema,
-  scheduleSchema,
+  scheduleResponseSchema,
 } from "#/interfaces/http/validators/schedules.schema";
 import {
   validateParams,
@@ -88,7 +88,7 @@ export const registerScheduleQueryRoutes = (args: {
           description: "Schedule details",
           content: {
             "application/json": {
-              schema: resolver(scheduleSchema),
+              schema: resolver(scheduleResponseSchema),
             },
           },
         },

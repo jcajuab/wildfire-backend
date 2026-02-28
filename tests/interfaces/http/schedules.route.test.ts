@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
+import { normalizeApiPayload } from "#/interfaces/http/responses";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
@@ -14,9 +15,52 @@ const makeApp = async (
   options?: { createScheduleError?: Error },
 ) => {
   const app = new Hono();
+  app.use("*", async (c, next) => {
+    const originalJson = c.json.bind(c) as (
+      body: unknown,
+      ...rest: unknown[]
+    ) => Response;
+
+    const getJsonStatus = (init: unknown): number => {
+      if (typeof init === "number") return init;
+      if (init != null && typeof init === "object" && "status" in init) {
+        const status = (init as { status?: unknown }).status;
+        return typeof status === "number" ? status : 200;
+      }
+      return 200;
+    };
+
+    (c as { json: typeof originalJson }).json = ((
+      value: unknown,
+      init,
+      headers,
+    ) => {
+      const normalized = normalizeApiPayload(value, {
+        requestUrl: c.req.url,
+      });
+
+      const status = getJsonStatus(init);
+      if (
+        status === 201 &&
+        value != null &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        Object.hasOwn(value, "id")
+      ) {
+        const id = (value as { id: unknown }).id;
+        if (typeof id === "string" && id.length > 0) {
+          c.header("Location", `${c.req.path}/${encodeURIComponent(id)}`);
+        }
+      }
+
+      return originalJson(normalized, init as unknown, headers as unknown);
+    }) as typeof originalJson;
+
+    await next();
+  });
+
   const schedules: Array<{
     id: string;
-    seriesId?: string;
     name: string;
     playlistId: string;
     displayId: string;
@@ -24,7 +68,6 @@ const makeApp = async (
     endDate?: string;
     startTime: string;
     endTime: string;
-    dayOfWeek?: number;
     priority: number;
     isActive: boolean;
     createdAt: string;
@@ -61,8 +104,6 @@ const makeApp = async (
         list: async () => [...schedules],
         listByDisplay: async (displayId: string) =>
           schedules.filter((schedule) => schedule.displayId === displayId),
-        listBySeries: async (seriesId: string) =>
-          schedules.filter((schedule) => schedule.seriesId === seriesId),
         findById: async (id: string) =>
           schedules.find((schedule) => schedule.id === id) ?? null,
         create: async (input) => {
@@ -96,14 +137,6 @@ const makeApp = async (
         },
         countByPlaylistId: async (id) =>
           schedules.filter((schedule) => schedule.playlistId === id).length,
-        deleteBySeries: async (seriesId) => {
-          const before = schedules.length;
-          const remaining = schedules.filter(
-            (schedule) => schedule.seriesId !== seriesId,
-          );
-          schedules.splice(0, schedules.length, ...remaining);
-          return before - schedules.length;
-        },
         listByPlaylistId: async (playlistId: string) =>
           schedules.filter((schedule) => schedule.playlistId === playlistId),
       },
@@ -233,13 +266,18 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        daysOfWeek: [1, 2, 3],
         priority: 10,
         isActive: true,
       }),
     });
 
     expect(response.status).toBe(201);
+    const body = await parseJson<{ data: { id: string; name: string } }>(
+      response,
+    );
+    expect(typeof body.data.id).toBe("string");
+    expect(body.data.name).toBe("Morning");
+    expect(response.headers.get("Location")).toBe(`/schedules/${body.data.id}`);
   });
 
   test("POST /schedules returns 404 when playlist missing", async () => {
@@ -260,7 +298,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        daysOfWeek: [1, 2, 3],
         priority: 10,
         isActive: true,
       }),
@@ -287,7 +324,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "99:00",
         endTime: "17:00",
-        daysOfWeek: [1, 2, 3],
         priority: 10,
         isActive: true,
       }),
@@ -316,7 +352,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        daysOfWeek: [1, 2, 3],
         priority: 10,
         isActive: true,
       }),
@@ -343,7 +378,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "10:00",
-        daysOfWeek: [1],
         priority: 10,
         isActive: true,
       }),
@@ -364,7 +398,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "09:00",
         endTime: "11:00",
-        daysOfWeek: [1],
         priority: 10,
         isActive: true,
       }),
@@ -395,7 +428,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "10:00",
-        daysOfWeek: [1],
         priority: 10,
         isActive: true,
       }),
@@ -416,7 +448,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "11:00",
         endTime: "12:00",
-        daysOfWeek: [1],
         priority: 10,
         isActive: true,
       }),

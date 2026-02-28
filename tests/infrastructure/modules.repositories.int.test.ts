@@ -169,13 +169,11 @@ describe("Module repositories (integration)", () => {
 
     const scheduleRepo = new ScheduleDbRepository();
     const created = await scheduleRepo.create({
-      seriesId: "series-1",
       name: "Morning",
       playlistId: "playlist-1",
       displayId: "display-1",
       startTime: "08:00",
       endTime: "17:00",
-      dayOfWeek: 1,
       priority: 10,
       isActive: true,
     });

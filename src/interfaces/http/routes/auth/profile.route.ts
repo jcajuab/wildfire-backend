@@ -3,7 +3,11 @@ import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  errorResponseSchema,
+  unauthorized,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -46,7 +50,7 @@ export const registerAuthProfileRoute = (args: {
           description: "Profile updated; returns full auth payload",
           content: {
             "application/json": {
-              schema: resolver(authResponseSchema),
+              schema: resolver(apiResponseSchema(authResponseSchema)),
             },
           },
         },

@@ -391,13 +391,11 @@ describe("Playlists use cases", () => {
       list: async () => [
         {
           id: "schedule-1",
-          seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
           displayId: "display-1",
           startTime: "08:00",
           endTime: "08:01",
-          dayOfWeek: 1,
           priority: 10,
           isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
@@ -416,8 +414,6 @@ describe("Playlists use cases", () => {
       delete: async () => false,
       countByPlaylistId: async () => 0,
       listByPlaylistId: async () => [],
-      listBySeries: async () => [],
-      deleteBySeries: async () => 0,
     };
     const useCase = new AddPlaylistItemUseCase({
       playlistRepository: deps.playlistRepository,
@@ -501,17 +497,14 @@ describe("Playlists use cases", () => {
     const scheduleRepository: ScheduleRepository = {
       list: async () => [],
       listByDisplay: async () => [],
-      listBySeries: async () => [],
       listByPlaylistId: async () => [
         {
           id: "s1",
-          seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
           displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
-          dayOfWeek: 1,
           priority: 10,
           isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
@@ -525,7 +518,6 @@ describe("Playlists use cases", () => {
       update: async () => null,
       delete: async () => false,
       countByPlaylistId: async () => 1,
-      deleteBySeries: async () => 0,
     };
 
     const displayRepository: DisplayRepository = {
@@ -576,17 +568,14 @@ describe("Playlists use cases", () => {
     const scheduleRepository: ScheduleRepository = {
       list: async () => [],
       listByDisplay: async () => [],
-      listBySeries: async () => [],
       listByPlaylistId: async () => [
         {
           id: "s1",
-          seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
           displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
-          dayOfWeek: 1,
           priority: 10,
           isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
@@ -594,13 +583,11 @@ describe("Playlists use cases", () => {
         },
         {
           id: "s2",
-          seriesId: "series-2",
           name: "Evening",
           playlistId: playlist.id,
           displayId: "display-2",
           startTime: "18:00",
           endTime: "22:00",
-          dayOfWeek: 1,
           priority: 10,
           isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
@@ -614,7 +601,6 @@ describe("Playlists use cases", () => {
       update: async () => null,
       delete: async () => false,
       countByPlaylistId: async () => 2,
-      deleteBySeries: async () => 0,
     };
 
     const displayRepository: DisplayRepository = {
@@ -677,7 +663,6 @@ describe("Playlists use cases", () => {
     const scheduleRepository: ScheduleRepository = {
       list: async () => [],
       listByDisplay: async () => [],
-      listBySeries: async () => [],
       listByPlaylistId: async () => [],
       findById: async () => null,
       create: async () => {
@@ -686,7 +671,6 @@ describe("Playlists use cases", () => {
       update: async () => null,
       delete: async () => false,
       countByPlaylistId: async () => 0,
-      deleteBySeries: async () => 0,
     };
 
     const displayRepository: DisplayRepository = {

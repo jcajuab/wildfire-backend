@@ -1,6 +1,9 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  errorResponseSchema,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -49,7 +52,7 @@ export const registerPlaylistItemRoutes = (args: {
           description: "Playlist item created",
           content: {
             "application/json": {
-              schema: resolver(playlistItemSchema),
+              schema: resolver(apiResponseSchema(playlistItemSchema)),
             },
           },
         },
@@ -92,7 +95,7 @@ export const registerPlaylistItemRoutes = (args: {
           description: "Playlist item updated",
           content: {
             "application/json": {
-              schema: resolver(playlistItemSchema),
+              schema: resolver(apiResponseSchema(playlistItemSchema)),
             },
           },
         },

@@ -1,5 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { apiResponseSchema } from "#/interfaces/http/responses";
 import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 import {
   applicationErrorMappers,
@@ -29,7 +30,7 @@ export const registerSettingsCrudRoutes = (args: {
     "/display-runtime",
     setAction("settings.displayRuntime.read", {
       route: "/settings/display-runtime",
-      resourceType: "setting",
+      resourceType: "display-runtime",
     }),
     ...authorize("settings:read"),
     describeRoute({
@@ -40,7 +41,7 @@ export const registerSettingsCrudRoutes = (args: {
           description: "Current display runtime settings",
           content: {
             "application/json": {
-              schema: resolver(displayRuntimeSettingsSchema),
+              schema: resolver(apiResponseSchema(displayRuntimeSettingsSchema)),
             },
           },
         },
@@ -60,7 +61,7 @@ export const registerSettingsCrudRoutes = (args: {
     "/display-runtime",
     setAction("settings.displayRuntime.update", {
       route: "/settings/display-runtime",
-      resourceType: "setting",
+      resourceType: "display-runtime",
     }),
     ...authorize("settings:update"),
     validateJson(updateDisplayRuntimeSettingsSchema),
@@ -72,7 +73,7 @@ export const registerSettingsCrudRoutes = (args: {
           description: "Updated settings",
           content: {
             "application/json": {
-              schema: resolver(displayRuntimeSettingsSchema),
+              schema: resolver(apiResponseSchema(displayRuntimeSettingsSchema)),
             },
           },
         },

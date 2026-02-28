@@ -11,8 +11,7 @@ import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi
 import {
   createScheduleSchema,
   scheduleIdParamSchema,
-  scheduleItemsResponseSchema,
-  scheduleSchema,
+  scheduleResponseSchema,
   updateScheduleSchema,
 } from "#/interfaces/http/validators/schedules.schema";
 import {
@@ -46,10 +45,26 @@ export const registerScheduleCommandRoutes = (args: {
       tags: scheduleTags,
       responses: {
         201: {
-          description: "Schedule entries created",
+          description: "Schedule created",
           content: {
             "application/json": {
-              schema: resolver(scheduleItemsResponseSchema),
+              schema: resolver(scheduleResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        409: {
+          description: "Schedule overlaps an existing schedule",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
             },
           },
         },
@@ -72,9 +87,7 @@ export const registerScheduleCommandRoutes = (args: {
           priority: payload.priority,
           isActive: payload.isActive ?? true,
         });
-        if (result[0]) {
-          c.set("resourceId", result[0].id);
-        }
+        c.set("resourceId", result.id);
         return c.json(result, 201);
       },
       mapErrorToResponse(ScheduleConflictError, conflict),
@@ -99,7 +112,7 @@ export const registerScheduleCommandRoutes = (args: {
           description: "Schedule updated",
           content: {
             "application/json": {
-              schema: resolver(scheduleSchema),
+              schema: resolver(scheduleResponseSchema),
             },
           },
         },

@@ -150,19 +150,16 @@ const makeApp = async (
       scheduleRepository: {
         list: async () => [],
         listByDisplay: async () => [],
-        listBySeries: async () => [],
         listByPlaylistId: async (id: string) =>
           options?.inUsePlaylistId === id
             ? [
                 {
                   id: "schedule-1",
-                  seriesId: "series-1",
                   name: "Morning",
                   playlistId: id,
                   displayId: "display-1",
                   startTime: "08:00",
                   endTime: "18:00",
-                  dayOfWeek: 1,
                   priority: 10,
                   isActive: true,
                   createdAt: "2025-01-01T00:00:00.000Z",
@@ -178,7 +175,6 @@ const makeApp = async (
         delete: async () => false,
         countByPlaylistId: async (id: string) =>
           options?.inUsePlaylistId === id ? 1 : 0,
-        deleteBySeries: async () => 0,
       },
       displayRepository: {
         list: async () => [],

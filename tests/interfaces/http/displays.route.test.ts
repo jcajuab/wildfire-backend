@@ -46,13 +46,11 @@ const makeApp = async (
   options?: {
     schedules?: Array<{
       id: string;
-      seriesId: string;
       name: string;
       playlistId: string;
       displayId: string;
       startTime: string;
       endTime: string;
-      dayOfWeek: number;
       priority: number;
       isActive: boolean;
       createdAt: string;

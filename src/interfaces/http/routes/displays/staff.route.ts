@@ -3,7 +3,11 @@ import { describeRoute, resolver } from "hono-openapi";
 import { DisplayGroupConflictError } from "#/application/use-cases/displays";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict, toApiListResponse } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  conflict,
+  toApiListResponse,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -119,7 +123,9 @@ export const registerDisplayStaffRoutes = (args: {
           description: "Registration code",
           content: {
             "application/json": {
-              schema: resolver(registrationCodeResponseSchema),
+              schema: resolver(
+                apiResponseSchema(registrationCodeResponseSchema),
+              ),
             },
           },
         },
@@ -158,7 +164,7 @@ export const registerDisplayStaffRoutes = (args: {
           description: "Display details",
           content: {
             "application/json": {
-              schema: resolver(displaySchema),
+              schema: resolver(apiResponseSchema(displaySchema)),
             },
           },
         },
@@ -203,7 +209,7 @@ export const registerDisplayStaffRoutes = (args: {
           description: "Updated display",
           content: {
             "application/json": {
-              schema: resolver(displaySchema),
+              schema: resolver(apiResponseSchema(displaySchema)),
             },
           },
         },
@@ -378,7 +384,7 @@ export const registerDisplayStaffRoutes = (args: {
           description: "Display group",
           content: {
             "application/json": {
-              schema: resolver(displayGroupSchema),
+              schema: resolver(apiResponseSchema(displayGroupSchema)),
             },
           },
         },
@@ -427,7 +433,7 @@ export const registerDisplayStaffRoutes = (args: {
           description: "Display group",
           content: {
             "application/json": {
-              schema: resolver(displayGroupSchema),
+              schema: resolver(apiResponseSchema(displayGroupSchema)),
             },
           },
         },

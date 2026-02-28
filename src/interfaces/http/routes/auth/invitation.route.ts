@@ -4,6 +4,7 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import {
   apiListResponseSchema,
+  apiResponseSchema,
   errorResponseSchema,
   toApiListResponse,
 } from "#/interfaces/http/responses";
@@ -81,7 +82,7 @@ export const registerAuthInvitationRoutes = (args: {
           description: "Invitation created",
           content: {
             "application/json": {
-              schema: resolver(inviteCreatedSchema),
+              schema: resolver(apiResponseSchema(inviteCreatedSchema)),
             },
           },
         },
@@ -176,7 +177,7 @@ export const registerAuthInvitationRoutes = (args: {
           description: "Invitation resent",
           content: {
             "application/json": {
-              schema: resolver(inviteCreatedSchema),
+              schema: resolver(apiResponseSchema(inviteCreatedSchema)),
             },
           },
         },

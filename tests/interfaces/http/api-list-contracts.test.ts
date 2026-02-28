@@ -117,7 +117,6 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       listByPlaylistId: async (_playlistId: string) => [],
       findById: async (_id: string) => null,
       create: async (_input: {
-        seriesId?: string;
         name: string;
         playlistId: string;
         displayId: string;
@@ -125,7 +124,6 @@ const makeDisplaysListApp = async (permissions: string[]) => {
         endDate?: string;
         startTime: string;
         endTime: string;
-        dayOfWeek?: number;
         priority: number;
         isActive: boolean;
       }) => {
@@ -141,7 +139,6 @@ const makeDisplaysListApp = async (permissions: string[]) => {
           endDate?: string;
           startTime?: string;
           endTime?: string;
-          dayOfWeek?: number;
           priority?: number;
           isActive?: boolean;
         },

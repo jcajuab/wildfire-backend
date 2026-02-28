@@ -9,10 +9,7 @@ import {
   errorResponseSchema,
   validationError,
 } from "#/interfaces/http/responses";
-import {
-  auditEventExportQuerySchema,
-  auditEventSchema,
-} from "#/interfaces/http/validators/audit.schema";
+import { auditEventExportQuerySchema } from "#/interfaces/http/validators/audit.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuditRouter,
@@ -185,7 +182,10 @@ export const registerAuditExportRoute = (args: {
           description: "Audit event CSV export",
           content: {
             "text/csv": {
-              schema: resolver(auditEventSchema.array()),
+              schema: {
+                type: "string",
+                format: "binary",
+              },
             },
           },
         },

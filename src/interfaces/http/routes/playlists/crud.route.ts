@@ -2,6 +2,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { PlaylistInUseError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
+  apiResponseSchema,
   conflict,
   errorResponseSchema,
   toApiListResponse,
@@ -99,7 +100,7 @@ export const registerPlaylistCrudRoutes = (args: {
           description: "Playlist created",
           content: {
             "application/json": {
-              schema: resolver(playlistSchema),
+              schema: resolver(apiResponseSchema(playlistSchema)),
             },
           },
         },
@@ -136,7 +137,7 @@ export const registerPlaylistCrudRoutes = (args: {
           description: "Playlist details",
           content: {
             "application/json": {
-              schema: resolver(playlistWithItemsSchema),
+              schema: resolver(apiResponseSchema(playlistWithItemsSchema)),
             },
           },
         },
@@ -178,7 +179,7 @@ export const registerPlaylistCrudRoutes = (args: {
           description: "Playlist updated",
           content: {
             "application/json": {
-              schema: resolver(playlistSchema),
+              schema: resolver(apiResponseSchema(playlistSchema)),
             },
           },
         },

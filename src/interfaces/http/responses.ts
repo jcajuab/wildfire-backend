@@ -202,7 +202,7 @@ const buildListLinks = (
   const withPage = (value: number) => {
     const next = new URL(base);
     next.searchParams.set("page", String(value));
-    next.searchParams.set("per_page", String(pageSize));
+    next.searchParams.set("pageSize", String(pageSize));
     return `${next.pathname}${next.search ? `?${next.searchParams.toString()}` : ""}`;
   };
 

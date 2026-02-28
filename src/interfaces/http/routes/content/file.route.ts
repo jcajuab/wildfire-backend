@@ -1,6 +1,9 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  errorResponseSchema,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -40,7 +43,7 @@ export const registerContentFileRoutes = (args: {
           description: "Download URL",
           content: {
             "application/json": {
-              schema: resolver(downloadUrlResponseSchema),
+              schema: resolver(apiResponseSchema(downloadUrlResponseSchema)),
             },
           },
         },

@@ -59,7 +59,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
   }
 
   async create(input: {
-    seriesId?: string;
     name: string;
     playlistId: string;
     displayId: string;
@@ -67,7 +66,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
     endDate?: string;
     startTime: string;
     endTime: string;
-    dayOfWeek?: number;
     priority: number;
     isActive: boolean;
   }): Promise<ScheduleRecord> {
@@ -108,7 +106,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
       endDate?: string;
       startTime?: string;
       endTime?: string;
-      dayOfWeek?: number;
       priority?: number;
       isActive?: boolean;
     },

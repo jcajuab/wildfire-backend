@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { apiResponseSchema } from "#/interfaces/http/responses";
 
 export const healthRouter = new Hono();
 const healthTags = ["Health"];
@@ -19,7 +20,7 @@ healthRouter.get(
         description: "Service healthy",
         content: {
           "application/json": {
-            schema: resolver(healthResponseSchema),
+            schema: resolver(apiResponseSchema(healthResponseSchema)),
           },
         },
       },

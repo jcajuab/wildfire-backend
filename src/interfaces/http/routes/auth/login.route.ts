@@ -3,6 +3,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
+  apiResponseSchema,
   errorResponseSchema,
   tooManyRequests,
   unauthorized,
@@ -53,7 +54,7 @@ export const registerAuthLoginRoute = (args: {
           description: "Authenticated",
           content: {
             "application/json": {
-              schema: resolver(authResponseSchema),
+              schema: resolver(apiResponseSchema(authResponseSchema)),
             },
           },
         },

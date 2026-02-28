@@ -7,6 +7,7 @@ import {
 } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
+  apiResponseSchema,
   conflict,
   errorResponseSchema,
   validationError,
@@ -74,7 +75,7 @@ export const registerContentWriteRoutes = (args: {
           description: "Content created",
           content: {
             "application/json": {
-              schema: resolver(contentSchema),
+              schema: resolver(apiResponseSchema(contentSchema)),
             },
           },
         },
@@ -148,7 +149,7 @@ export const registerContentWriteRoutes = (args: {
           description: "Content updated",
           content: {
             "application/json": {
-              schema: resolver(contentSchema),
+              schema: resolver(apiResponseSchema(contentSchema)),
             },
           },
         },
@@ -222,7 +223,7 @@ export const registerContentWriteRoutes = (args: {
           description: "Content updated",
           content: {
             "application/json": {
-              schema: resolver(contentSchema),
+              schema: resolver(apiResponseSchema(contentSchema)),
             },
           },
         },

@@ -15,7 +15,6 @@ import {
 const makeDeps = () => {
   const schedules = [] as Array<{
     id: string;
-    seriesId?: string;
     name: string;
     playlistId: string;
     displayId: string;
@@ -23,7 +22,6 @@ const makeDeps = () => {
     endDate?: string;
     startTime: string;
     endTime: string;
-    dayOfWeek?: number;
     priority: number;
     isActive: boolean;
     createdAt: string;
@@ -34,8 +32,6 @@ const makeDeps = () => {
     list: async () => [...schedules],
     listByDisplay: async (displayId: string) =>
       schedules.filter((schedule) => schedule.displayId === displayId),
-    listBySeries: async (seriesId: string) =>
-      schedules.filter((schedule) => schedule.seriesId === seriesId),
     findById: async (id: string) =>
       schedules.find((schedule) => schedule.id === id) ?? null,
     create: async (input) => {
@@ -66,14 +62,6 @@ const makeDeps = () => {
       if (index === -1) return false;
       schedules.splice(index, 1);
       return true;
-    },
-    deleteBySeries: async (seriesId: string) => {
-      const before = schedules.length;
-      const remaining = schedules.filter(
-        (schedule) => schedule.seriesId !== seriesId,
-      );
-      schedules.splice(0, schedules.length, ...remaining);
-      return before - schedules.length;
     },
     countByPlaylistId: async (playlistId: string) =>
       schedules.filter((schedule) => schedule.playlistId === playlistId).length,
@@ -190,13 +178,11 @@ describe("Schedules use cases", () => {
         list: async () => [
           {
             id: "schedule-1",
-            seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
             displayId: "display-1",
             startTime: "08:00",
             endTime: "17:00",
-            dayOfWeek: 1,
             priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -211,8 +197,6 @@ describe("Schedules use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
-        listBySeries: async () => [],
-        deleteBySeries: async () => 0,
         listByPlaylistId: async () => [],
       },
       playlistRepository: {
@@ -322,7 +306,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "17:00",
-        daysOfWeek: [1, 2, 3],
         priority: 10,
         isActive: true,
       }),
@@ -383,7 +366,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "08:01",
-        daysOfWeek: [1],
         priority: 1,
         isActive: true,
       }),
@@ -394,7 +376,6 @@ describe("Schedules use cases", () => {
     const deps = makeDeps();
     deps.schedules.push({
       id: "schedule-existing",
-      seriesId: "series-existing",
       name: "Morning Block",
       playlistId: "playlist-1",
       displayId: "display-1",
@@ -402,7 +383,6 @@ describe("Schedules use cases", () => {
       endDate: "2025-12-31",
       startTime: "10:00",
       endTime: "11:00",
-      dayOfWeek: 1,
       priority: 1,
       isActive: true,
       createdAt: "2025-01-01T00:00:00.000Z",
@@ -435,7 +415,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-11-30",
         startTime: "10:30",
         endTime: "11:30",
-        daysOfWeek: [1],
         priority: 1,
         isActive: true,
       }),
@@ -446,7 +425,6 @@ describe("Schedules use cases", () => {
     const deps = makeDeps();
     deps.schedules.push({
       id: "schedule-existing",
-      seriesId: "series-existing",
       name: "Morning Block",
       playlistId: "playlist-1",
       displayId: "display-1",
@@ -454,7 +432,6 @@ describe("Schedules use cases", () => {
       endDate: "2025-12-31",
       startTime: "10:00",
       endTime: "11:00",
-      dayOfWeek: 1,
       priority: 1,
       isActive: true,
       createdAt: "2025-01-01T00:00:00.000Z",
@@ -487,7 +464,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-11-30",
         startTime: "11:00",
         endTime: "12:00",
-        daysOfWeek: [1],
         priority: 1,
         isActive: true,
       }),
@@ -499,7 +475,6 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "schedule-a",
-        seriesId: "series-a",
         name: "A",
         playlistId: "playlist-1",
         displayId: "display-1",
@@ -507,7 +482,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-12-31",
         startTime: "08:00",
         endTime: "09:00",
-        dayOfWeek: 1,
         priority: 1,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -515,7 +489,6 @@ describe("Schedules use cases", () => {
       },
       {
         id: "schedule-b",
-        seriesId: "series-b",
         name: "B",
         playlistId: "playlist-1",
         displayId: "display-1",
@@ -523,7 +496,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-12-31",
         startTime: "10:00",
         endTime: "11:00",
-        dayOfWeek: 1,
         priority: 1,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -562,13 +534,11 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "schedule-1",
-        seriesId: "series-1",
         name: "Morning",
         playlistId: "playlist-1",
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
-        dayOfWeek: 1,
         priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -576,13 +546,11 @@ describe("Schedules use cases", () => {
       },
       {
         id: "schedule-2",
-        seriesId: "series-2",
         name: "Emergency",
         playlistId: "playlist-1",
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
-        dayOfWeek: 1,
         priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -604,13 +572,11 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "schedule-manila",
-        seriesId: "series-manila",
         name: "Manila Evening",
         playlistId: "playlist-1",
         displayId: "display-1",
         startTime: "17:00",
         endTime: "18:00",
-        dayOfWeek: 1,
         priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -618,13 +584,11 @@ describe("Schedules use cases", () => {
       },
       {
         id: "schedule-utc",
-        seriesId: "series-utc",
         name: "UTC Morning",
         playlistId: "playlist-1",
         displayId: "display-1",
         startTime: "09:00",
         endTime: "10:00",
-        dayOfWeek: 1,
         priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -647,7 +611,6 @@ describe("Schedules use cases", () => {
     deps.schedules.push(
       {
         id: "local-date",
-        seriesId: "series-local",
         name: "Local Date Window",
         playlistId: "playlist-1",
         displayId: "display-1",
@@ -655,7 +618,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-01-01",
         startTime: "00:00",
         endTime: "23:59",
-        dayOfWeek: 3,
         priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -663,7 +625,6 @@ describe("Schedules use cases", () => {
       },
       {
         id: "utc-date",
-        seriesId: "series-utc",
         name: "UTC Date Window",
         playlistId: "playlist-1",
         displayId: "display-1",
@@ -671,7 +632,6 @@ describe("Schedules use cases", () => {
         endDate: "2024-12-31",
         startTime: "00:00",
         endTime: "23:59",
-        dayOfWeek: 3,
         priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
