@@ -1,6 +1,7 @@
 import { registerRbacRoleDeletionRequestRoutes } from "./role-deletion-requests.route";
-import { registerRbacRoleUserRoutes } from "./role-users.route";
-import { registerRbacRoleCrudRoutes } from "./roles-crud.route";
+import { registerRbacRoleMembershipRoutes } from "./role-memberships.route";
+import { registerRbacRoleReadRoutes } from "./roles-read.route";
+import { registerRbacRoleWriteRoutes } from "./roles-write.route";
 import {
   type AuthorizePermission,
   type RbacRouter,
@@ -15,6 +16,7 @@ export const registerRbacRoleRoutes = (args: {
   authorize: AuthorizePermission;
 }) => {
   registerRbacRoleDeletionRequestRoutes(args);
-  registerRbacRoleCrudRoutes(args);
-  registerRbacRoleUserRoutes(args);
+  registerRbacRoleReadRoutes(args);
+  registerRbacRoleWriteRoutes(args);
+  registerRbacRoleMembershipRoutes(args);
 };

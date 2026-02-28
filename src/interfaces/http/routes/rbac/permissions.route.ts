@@ -1,17 +1,27 @@
-import { describeRoute, resolver } from "hono-openapi";
+import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import { badRequest } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  forbiddenResponse,
+  invalidRequestResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
+  permissionListQuerySchema,
   roleIdParamSchema,
+  rolePermissionsListQuerySchema,
   setRolePermissionsSchema,
 } from "#/interfaces/http/validators/rbac.schema";
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
@@ -36,31 +46,35 @@ export const registerRbacPermissionRoutes = (args: {
     }),
     ...authorize("roles:read"),
     validateParams(roleIdParamSchema),
+    validateQuery(rolePermissionsListQuerySchema),
     describeRoute({
       description: "Get role permissions",
       tags: roleTags,
       responses: {
         200: { description: "Permissions" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
         },
       },
     }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
         c.set("resourceId", params.id);
+        const query = c.req.valid("query");
         const result = await useCases.getRolePermissions.execute({
           roleId: params.id,
-          page,
-          pageSize,
+          page: query.page,
+          pageSize: query.pageSize,
         });
         return c.json(result);
       },
@@ -82,29 +96,20 @@ export const registerRbacPermissionRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Permissions updated" },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+        400: {
+          ...invalidRequestResponse,
+        },
+        401: {
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden (e.g. cannot modify system role)",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
@@ -117,15 +122,9 @@ export const registerRbacPermissionRoutes = (args: {
           payload.permissionIds.length > 20 &&
           payload.policyVersion === undefined
         ) {
-          return c.json(
-            {
-              error: {
-                code: "INVALID_REQUEST",
-                message:
-                  "policyVersion is required when changing many permissions at once.",
-              },
-            },
-            400,
+          return badRequest(
+            c,
+            "policyVersion is required when changing many permissions at once.",
           );
         }
         if (payload.policyVersion !== undefined) {
@@ -152,20 +151,29 @@ export const registerRbacPermissionRoutes = (args: {
       resourceType: "permission",
     }),
     ...authorize("roles:read"),
+    validateQuery(permissionListQuerySchema),
     describeRoute({
       description: "List permissions",
       tags: permissionTags,
       responses: {
         200: { description: "Permissions" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
       },
     }),
     withRouteErrorHandling(
       async (c) => {
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
+        const query = c.req.valid("query");
         const result = await useCases.listPermissions.execute({
-          page,
-          pageSize,
+          page: query.page,
+          pageSize: query.pageSize,
         });
         return c.json(result);
       },

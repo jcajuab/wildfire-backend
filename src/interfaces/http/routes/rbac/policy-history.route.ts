@@ -5,6 +5,11 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  forbiddenResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
   policyHistoryListResponseSchema,
   policyHistoryQuerySchema,
 } from "#/interfaces/http/validators/rbac.schema";
@@ -42,6 +47,15 @@ export const registerRbacPolicyHistoryRoutes = (args: {
               schema: resolver(policyHistoryListResponseSchema),
             },
           },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),

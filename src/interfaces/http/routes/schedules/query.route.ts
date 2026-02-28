@@ -7,10 +7,14 @@ import {
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
   scheduleIdParamSchema,
+  scheduleListQuerySchema,
   scheduleListResponseSchema,
   scheduleSchema,
 } from "#/interfaces/http/validators/schedules.schema";
-import { validateParams } from "#/interfaces/http/validators/standard-validator";
+import {
+  validateParams,
+  validateQuery,
+} from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
   type SchedulesRouter,
@@ -29,6 +33,7 @@ export const registerScheduleQueryRoutes = (args: {
     "/",
     setAction("schedules.schedule.list", { route: "/schedules" }),
     ...authorize("schedules:read"),
+    validateQuery(scheduleListQuerySchema),
     describeRoute({
       description: "List schedules",
       tags: scheduleTags,
@@ -45,9 +50,11 @@ export const registerScheduleQueryRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
-        const result = await useCases.listSchedules.execute({ page, pageSize });
+        const query = c.req.valid("query");
+        const result = await useCases.listSchedules.execute({
+          page: query.page,
+          pageSize: query.pageSize,
+        });
         return c.json(result);
       },
       ...applicationErrorMappers,

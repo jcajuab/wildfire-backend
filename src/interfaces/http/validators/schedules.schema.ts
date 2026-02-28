@@ -28,6 +28,10 @@ export const scheduleSchema = z.object({
 });
 
 export const scheduleListResponseSchema = apiListResponseSchema(scheduleSchema);
+export const scheduleListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
 
 export const scheduleItemsResponseSchema = apiResponseSchema(
   z.array(scheduleSchema),

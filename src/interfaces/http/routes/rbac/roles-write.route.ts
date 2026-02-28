@@ -1,10 +1,15 @@
-import { describeRoute, resolver } from "hono-openapi";
+import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import {
+  forbiddenResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   createRoleSchema,
   roleIdParamSchema,
@@ -21,7 +26,7 @@ import {
   roleTags,
 } from "./shared";
 
-export const registerRbacRoleMutateRoutes = (args: {
+export const registerRbacRoleWriteRoutes = (args: {
   router: RbacRouter;
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
@@ -38,29 +43,14 @@ export const registerRbacRoleMutateRoutes = (args: {
       tags: roleTags,
       responses: {
         201: { description: "Role created" },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
         401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
@@ -89,29 +79,17 @@ export const registerRbacRoleMutateRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Role" },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+        401: {
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden (e.g. cannot modify system role)",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
         },
       },
     }),
@@ -143,21 +121,17 @@ export const registerRbacRoleMutateRoutes = (args: {
       tags: roleTags,
       responses: {
         204: { description: "Deleted" },
+        401: {
+          ...unauthorizedResponse,
+        },
         403: {
-          description: "Forbidden (e.g. cannot delete system role)",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),

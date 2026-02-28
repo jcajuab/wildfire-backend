@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { apiListResponseSchema } from "#/interfaces/http/responses";
 
+const baseListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export const createRoleSchema = z.object({
   name: z.string().min(1),
   description: z.string().trim().optional().nullable(),
@@ -9,6 +14,9 @@ export const createRoleSchema = z.object({
 export const roleIdParamSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const roleListQuerySchema = baseListQuerySchema;
+export const rolePermissionsListQuerySchema = baseListQuerySchema;
 
 export const roleDeletionRequestIdParamSchema = z.object({
   id: z.string().uuid(),
@@ -33,6 +41,7 @@ export const createUserSchema = z.object({
 export const userIdParamSchema = z.object({
   id: z.string().uuid(),
 });
+export const userListQuerySchema = baseListQuerySchema;
 
 export const updateUserSchema = z.object({
   email: z.string().email().optional(),
@@ -44,6 +53,7 @@ export const setUserRolesSchema = z.object({
   roleIds: z.array(z.string()).default([]),
   policyVersion: z.number().int().positive().optional(),
 });
+export const permissionListQuerySchema = baseListQuerySchema;
 
 export const policyHistoryChangeTypeSchema = z.enum([
   "role_permissions",

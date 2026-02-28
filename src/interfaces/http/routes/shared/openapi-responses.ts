@@ -31,3 +31,8 @@ export const notFoundResponse = {
   description: "Not found",
   content: jsonErrorContent,
 } as const;
+
+export const conflictResponse = {
+  description: "Conflict",
+  content: jsonErrorContent,
+} as const;

@@ -1,6 +1,50 @@
 import { type Context } from "hono";
 import { z } from "zod";
 
+type AppContextVariables = {
+  requestId: string;
+  jwtPayload: unknown;
+  userId: string;
+  userEmail: string;
+  sessionId: string;
+  fileId: string;
+  action: string;
+  route: string;
+  actorId: string;
+  actorType: "user" | "display";
+  resourceId: string;
+  resourceType: string;
+  rbacPolicyVersion: string;
+  rbacTargetCount: string;
+  deniedPermission: string;
+  denyErrorCode: string;
+  denyErrorType: string;
+};
+
+type ContextValue<K extends string> = K extends keyof AppContextVariables
+  ? AppContextVariables[K]
+  : unknown;
+
+export interface ResponseContext
+  extends Omit<
+    Context<
+      { Variables: Record<string, never> },
+      string,
+      Record<string, never>
+    >,
+    "set" | "get" | "var"
+  > {
+  set: <K extends string>(key: K, value: ContextValue<K>) => void;
+  get: <K extends string>(key: K) => ContextValue<K>;
+  var: Readonly<Record<string, unknown>> &
+    Readonly<
+      Omit<Partial<AppContextVariables>, "requestId" | "jwtPayload"> & {
+        requestId: string;
+        jwtPayload: unknown;
+      }
+    >;
+}
+
 export const apiFieldErrorSchema = z.object({
   field: z.string(),
   message: z.string(),
@@ -283,11 +327,11 @@ export const parseValidationDetails = (
   });
 };
 
-export const badRequest = (c: Context, message: string) =>
+export const badRequest = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("INVALID_REQUEST", message), 400);
 
 export const validationError = (
-  c: Context,
+  c: ResponseContext,
   message: string,
   details: ApiFieldError[] = [],
 ) =>
@@ -298,20 +342,20 @@ export const validationError = (
 
 export const unprocessable = validationError;
 
-export const notImplemented = (c: Context, message: string) =>
+export const notImplemented = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("NOT_IMPLEMENTED", message), 501);
 
-export const unauthorized = (c: Context, message: string) =>
+export const unauthorized = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("UNAUTHORIZED", message), 401);
 
-export const forbidden = (c: Context, message: string) =>
+export const forbidden = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("FORBIDDEN", message), 403);
 
-export const notFound = (c: Context, message: string) =>
+export const notFound = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("NOT_FOUND", message), 404);
 
-export const conflict = (c: Context, message: string) =>
+export const conflict = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("CONFLICT", message), 409);
 
-export const internalServerError = (c: Context, message: string) =>
+export const internalServerError = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("INTERNAL_ERROR", message), 500);

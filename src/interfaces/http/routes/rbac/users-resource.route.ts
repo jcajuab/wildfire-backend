@@ -1,20 +1,29 @@
-import { describeRoute, resolver } from "hono-openapi";
+import { describeRoute } from "hono-openapi";
 import { DuplicateEmailError } from "#/application/use-cases/rbac/errors";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict, errorResponseSchema } from "#/interfaces/http/responses";
+import { conflict } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  conflictResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
   createUserSchema,
   updateUserSchema,
   userIdParamSchema,
+  userListQuerySchema,
 } from "#/interfaces/http/validators/rbac.schema";
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
@@ -26,7 +35,7 @@ import {
   userTags,
 } from "./shared";
 
-export const registerRbacUserCrudRoutes = (args: {
+export const registerRbacUserResourceRoutes = (args: {
   router: RbacRouter;
   deps: RbacRouterDeps;
   useCases: RbacRouterUseCases;
@@ -38,18 +47,30 @@ export const registerRbacUserCrudRoutes = (args: {
     "/users",
     setAction("rbac.user.list", { route: "/users", resourceType: "user" }),
     ...authorize("users:read"),
+    validateQuery(userListQuerySchema),
     describeRoute({
       description: "List users",
       tags: userTags,
       responses: {
         200: { description: "Users" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
       },
     }),
     withRouteErrorHandling(
       async (c) => {
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
-        const result = await useCases.listUsers.execute({ page, pageSize });
+        const query = c.req.valid("query");
+        const result = await useCases.listUsers.execute({
+          page: query.page,
+          pageSize: query.pageSize,
+        });
         const enrichedItems = await maybeEnrichUsersForResponse(
           result.items,
           deps,
@@ -78,13 +99,17 @@ export const registerRbacUserCrudRoutes = (args: {
       tags: userTags,
       responses: {
         201: { description: "User created" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        409: {
+          ...conflictResponse,
+        },
         422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...validationErrorResponse,
         },
       },
     }),
@@ -113,13 +138,17 @@ export const registerRbacUserCrudRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
@@ -149,29 +178,17 @@ export const registerRbacUserCrudRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User" },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+        401: {
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden (e.g. cannot modify a Root user)",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
@@ -204,21 +221,14 @@ export const registerRbacUserCrudRoutes = (args: {
       tags: userTags,
       responses: {
         204: { description: "Deleted" },
+        401: {
+          ...unauthorizedResponse,
+        },
         403: {
-          description: "Forbidden (e.g. cannot delete a Root user)",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
         },
       },
     }),

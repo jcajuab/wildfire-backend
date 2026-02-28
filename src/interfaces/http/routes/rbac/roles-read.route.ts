@@ -1,13 +1,23 @@
-import { describeRoute, resolver } from "hono-openapi";
+import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
-import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
-import { roleIdParamSchema } from "#/interfaces/http/validators/rbac.schema";
-import { validateParams } from "#/interfaces/http/validators/standard-validator";
+import {
+  forbiddenResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
+  roleIdParamSchema,
+  roleListQuerySchema,
+} from "#/interfaces/http/validators/rbac.schema";
+import {
+  validateParams,
+  validateQuery,
+} from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
   type RbacRouter,
@@ -15,7 +25,7 @@ import {
   roleTags,
 } from "./shared";
 
-export const registerRbacRoleQueryRoutes = (args: {
+export const registerRbacRoleReadRoutes = (args: {
   router: RbacRouter;
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
@@ -26,34 +36,30 @@ export const registerRbacRoleQueryRoutes = (args: {
     "/roles",
     setAction("rbac.role.list", { route: "/roles", resourceType: "role" }),
     ...authorize("roles:read"),
+    validateQuery(roleListQuerySchema),
     describeRoute({
       description: "List roles",
       tags: roleTags,
       responses: {
         200: { description: "Roles" },
         401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
     withRouteErrorHandling(
       async (c) => {
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
-        const result = await useCases.listRoles.execute({ page, pageSize });
+        const query = c.req.valid("query");
+        const result = await useCases.listRoles.execute({
+          page: query.page,
+          pageSize: query.pageSize,
+        });
         return c.json(result);
       },
       ...applicationErrorMappers,
@@ -73,16 +79,17 @@ export const registerRbacRoleQueryRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Role" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
         422: {
           ...validationErrorResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
         },
       },
     }),

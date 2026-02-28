@@ -22,6 +22,7 @@ import {
   displayGroupListResponseSchema,
   displayGroupSchema,
   displayIdParamSchema,
+  displayListQuerySchema,
   displayListResponseSchema,
   displaySchema,
   pairingCodeResponseSchema,
@@ -35,6 +36,7 @@ import {
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type DisplaysRouter,
@@ -60,6 +62,7 @@ export const registerDisplayStaffRoutes = (args: {
     "/",
     setAction("displays.display.list", { route: "/displays" }),
     ...authorize("displays:read"),
+    validateQuery(displayListQuerySchema),
     describeRoute({
       description: "List displays",
       tags: displayTags,
@@ -82,9 +85,11 @@ export const registerDisplayStaffRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
-        const result = await useCases.listDisplays.execute({ page, pageSize });
+        const query = c.req.valid("query");
+        const result = await useCases.listDisplays.execute({
+          page: query.page,
+          pageSize: query.pageSize,
+        });
         return c.json(result);
       },
       ...applicationErrorMappers,

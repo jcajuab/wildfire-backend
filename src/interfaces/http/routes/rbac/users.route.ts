@@ -4,8 +4,8 @@ import {
   type RbacRouterDeps,
   type RbacRouterUseCases,
 } from "./shared";
-import { registerRbacUserRoleRoutes } from "./user-roles.route";
-import { registerRbacUserCrudRoutes } from "./users-crud.route";
+import { registerRbacUserMembershipRoutes } from "./user-memberships.route";
+import { registerRbacUserResourceRoutes } from "./users-resource.route";
 
 export const registerRbacUserRoutes = (args: {
   router: RbacRouter;
@@ -13,6 +13,6 @@ export const registerRbacUserRoutes = (args: {
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
-  registerRbacUserCrudRoutes(args);
-  registerRbacUserRoleRoutes(args);
+  registerRbacUserResourceRoutes(args);
+  registerRbacUserMembershipRoutes(args);
 };

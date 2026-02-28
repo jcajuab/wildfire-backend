@@ -24,6 +24,10 @@ export const displaySchema = z.object({
 });
 
 export const displayListResponseSchema = apiListResponseSchema(displaySchema);
+export const displayListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
 
 export const displayIdParamSchema = z.object({
   id: z.string().uuid(),

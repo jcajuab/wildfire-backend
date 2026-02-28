@@ -1,17 +1,26 @@
-import { describeRoute, resolver } from "hono-openapi";
+import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import { badRequest } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  forbiddenResponse,
+  invalidRequestResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
   setUserRolesSchema,
   userIdParamSchema,
+  userListQuerySchema,
 } from "#/interfaces/http/validators/rbac.schema";
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
@@ -20,7 +29,7 @@ import {
   userTags,
 } from "./shared";
 
-export const registerRbacUserRoleRoutes = (args: {
+export const registerRbacUserMembershipRoutes = (args: {
   router: RbacRouter;
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
@@ -35,31 +44,35 @@ export const registerRbacUserRoleRoutes = (args: {
     }),
     ...authorize("users:read"),
     validateParams(userIdParamSchema),
+    validateQuery(userListQuerySchema),
     describeRoute({
       description: "Get roles assigned to user",
       tags: userTags,
       responses: {
         200: { description: "Roles" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
-        const page = Number(c.req.query("page")) || undefined;
-        const pageSize = Number(c.req.query("pageSize")) || undefined;
+        const query = c.req.valid("query");
         c.set("resourceId", params.id);
         const result = await useCases.getUserRoles.execute({
           userId: params.id,
-          page,
-          pageSize,
+          page: query.page,
+          pageSize: query.pageSize,
         });
         return c.json(result);
       },
@@ -81,29 +94,20 @@ export const registerRbacUserRoleRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "Roles assigned" },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+        400: {
+          ...invalidRequestResponse,
+        },
+        401: {
+          ...unauthorizedResponse,
         },
         403: {
-          description: "Forbidden (e.g. cannot assign or remove Root role)",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...forbiddenResponse,
         },
         404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
         },
       },
     }),
@@ -116,15 +120,9 @@ export const registerRbacUserRoleRoutes = (args: {
           payload.roleIds.length > 20 &&
           payload.policyVersion === undefined
         ) {
-          return c.json(
-            {
-              error: {
-                code: "INVALID_REQUEST",
-                message:
-                  "policyVersion is required when changing many role assignments at once.",
-              },
-            },
-            400,
+          return badRequest(
+            c,
+            "policyVersion is required when changing many role assignments at once.",
           );
         }
         if (payload.policyVersion !== undefined) {
