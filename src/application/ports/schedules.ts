@@ -3,7 +3,7 @@ export interface ScheduleRecord {
   seriesId?: string;
   name: string;
   playlistId: string;
-  deviceId: string;
+  displayId: string;
   startDate?: string;
   endDate?: string;
   startTime: string;
@@ -17,7 +17,7 @@ export interface ScheduleRecord {
 
 export interface ScheduleRepository {
   list(): Promise<ScheduleRecord[]>;
-  listByDevice(deviceId: string): Promise<ScheduleRecord[]>;
+  listByDisplay(displayId: string): Promise<ScheduleRecord[]>;
   listBySeries?(seriesId: string): Promise<ScheduleRecord[]>;
   listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]>;
   findById(id: string): Promise<ScheduleRecord | null>;
@@ -25,7 +25,7 @@ export interface ScheduleRepository {
     seriesId?: string;
     name: string;
     playlistId: string;
-    deviceId: string;
+    displayId: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -39,7 +39,7 @@ export interface ScheduleRepository {
     input: {
       name?: string;
       playlistId?: string;
-      deviceId?: string;
+      displayId?: string;
       startDate?: string;
       endDate?: string;
       startTime?: string;

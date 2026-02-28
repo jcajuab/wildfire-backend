@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const deviceRuntimeSettingsSchema = z.object({
+export const displayRuntimeSettingsSchema = z.object({
   scrollPxPerSecond: z.number().int().min(1).max(200),
 });
 
-export const updateDeviceRuntimeSettingsSchema = z.object({
+export const updateDisplayRuntimeSettingsSchema = z.object({
   scrollPxPerSecond: z.number().int().min(1).max(200),
 });

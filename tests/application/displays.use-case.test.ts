@@ -1,46 +1,46 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
-import { type DevicePairingCodeRepository } from "#/application/ports/device-pairing";
+import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import {
-  type DeviceRecord,
-  type DeviceRepository,
-} from "#/application/ports/devices";
+  type DisplayRecord,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import {
-  GetDeviceManifestUseCase,
-  GetDeviceUseCase,
-  IssueDevicePairingCodeUseCase,
-  ListDevicesUseCase,
+  GetDisplayManifestUseCase,
+  GetDisplayUseCase,
+  IssueDisplayPairingCodeUseCase,
+  ListDisplaysUseCase,
   NotFoundError,
-  RegisterDeviceUseCase,
-  RequestDeviceRefreshUseCase,
-  UpdateDeviceUseCase,
-} from "#/application/use-cases/devices";
+  RegisterDisplayUseCase,
+  RequestDisplayRefreshUseCase,
+  UpdateDisplayUseCase,
+} from "#/application/use-cases/displays";
 
 const utcDayOfWeekNow = () => new Date().getUTCDay();
 
 const makeRepository = () => {
-  const records: DeviceRecord[] = [];
+  const records: DisplayRecord[] = [];
 
-  const repo: DeviceRepository = {
+  const repo: DisplayRepository = {
     list: async () => [...records],
     findByIds: async (ids: string[]) =>
       ids
         .map((id) => records.find((record) => record.id === id) ?? null)
-        .filter((record): record is DeviceRecord => record !== null),
+        .filter((record): record is DisplayRecord => record !== null),
     findById: async (id: string) =>
       records.find((record) => record.id === id) ?? null,
     findByIdentifier: async (identifier: string) =>
       records.find((record) => record.identifier === identifier) ?? null,
     findByFingerprint: async (fingerprint: string) =>
-      records.find((record) => record.deviceFingerprint === fingerprint) ??
+      records.find((record) => record.displayFingerprint === fingerprint) ??
       null,
     create: async (input) => {
-      const record: DeviceRecord = {
-        id: `device-${records.length + 1}`,
+      const record: DisplayRecord = {
+        id: `display-${records.length + 1}`,
         name: input.name,
         identifier: input.identifier,
-        deviceFingerprint: input.deviceFingerprint ?? null,
+        displayFingerprint: input.displayFingerprint ?? null,
         location: input.location,
         screenWidth: null,
         screenHeight: null,
@@ -58,8 +58,8 @@ const makeRepository = () => {
       if (!record) return null;
       if (input.name !== undefined) record.name = input.name;
       if (input.identifier !== undefined) record.identifier = input.identifier;
-      if (input.deviceFingerprint !== undefined)
-        record.deviceFingerprint = input.deviceFingerprint;
+      if (input.displayFingerprint !== undefined)
+        record.displayFingerprint = input.displayFingerprint;
       if (input.location !== undefined) record.location = input.location;
       if (input.screenWidth !== undefined)
         record.screenWidth = input.screenWidth;
@@ -96,7 +96,7 @@ const makePairingRepository = () => {
     updatedAt: Date;
   }> = [];
 
-  const repository: DevicePairingCodeRepository = {
+  const repository: DisplayPairingCodeRepository = {
     create: async (input) => {
       const now = new Date();
       const record = {
@@ -157,14 +157,14 @@ const makePairingRepository = () => {
   return { repository, issueCode, records };
 };
 
-describe("Devices use cases", () => {
-  test("ListDevicesUseCase returns devices", async () => {
+describe("Displays use cases", () => {
+  test("ListDisplaysUseCase returns displays", async () => {
     const { repo } = makeRepository();
-    const listDevices = new ListDevicesUseCase({
-      deviceRepository: repo,
+    const listDisplays = new ListDisplaysUseCase({
+      displayRepository: repo,
       scheduleRepository: {
         list: async () => [],
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         listBySeries: async () => [],
         listByPlaylistId: async () => [],
         findById: async () => null,
@@ -184,14 +184,14 @@ describe("Devices use cases", () => {
       location: null,
     });
 
-    const result = await listDevices.execute();
+    const result = await listDisplays.execute();
     expect(result.items).toHaveLength(1);
   });
 
-  test("ListDevicesUseCase maps onlineStatus from connectivity and schedules", async () => {
+  test("ListDisplaysUseCase maps onlineStatus from connectivity and schedules", async () => {
     const { repo, records } = makeRepository();
-    const listDevices = new ListDevicesUseCase({
-      deviceRepository: repo,
+    const listDisplays = new ListDisplaysUseCase({
+      displayRepository: repo,
       scheduleRepository: {
         list: async () => [
           {
@@ -199,7 +199,7 @@ describe("Devices use cases", () => {
             seriesId: "series-live",
             name: "Always on",
             playlistId: "playlist-live",
-            deviceId: "device-2",
+            displayId: "display-2",
             startTime: "00:00",
             endTime: "23:59",
             dayOfWeek: utcDayOfWeekNow(),
@@ -209,7 +209,7 @@ describe("Devices use cases", () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         listBySeries: async () => [],
         listByPlaylistId: async () => [],
         findById: async () => null,
@@ -239,7 +239,7 @@ describe("Devices use cases", () => {
       location: null,
     });
     await repo.create({
-      name: "Ready device",
+      name: "Ready display",
       identifier: "AA:BB:CC:00:00:04",
       location: null,
     });
@@ -254,20 +254,20 @@ describe("Devices use cases", () => {
     const staleHeartbeat = records.find(
       (record) => record.name === "Stale heartbeat",
     );
-    const readyDevice = records.find(
-      (record) => record.name === "Ready device",
+    const readyDisplay = records.find(
+      (record) => record.name === "Ready display",
     );
 
-    if (!neverSeen || !recentlySeen || !staleHeartbeat || !readyDevice) {
-      throw new Error("Expected seeded device records to exist");
+    if (!neverSeen || !recentlySeen || !staleHeartbeat || !readyDisplay) {
+      throw new Error("Expected seeded display records to exist");
     }
 
     neverSeen.lastSeenAt = null;
     recentlySeen.lastSeenAt = recentSeenAt;
     staleHeartbeat.lastSeenAt = staleSeenAt;
-    readyDevice.lastSeenAt = recentSeenAt;
+    readyDisplay.lastSeenAt = recentSeenAt;
 
-    const result = await listDevices.execute();
+    const result = await listDisplays.execute();
     const statusByIdentifier = new Map(
       result.items.map((item) => [item.identifier, item.onlineStatus]),
     );
@@ -275,16 +275,16 @@ describe("Devices use cases", () => {
     expect(statusByIdentifier.get(neverSeen.identifier)).toBe("DOWN");
     expect(statusByIdentifier.get(recentlySeen.identifier)).toBe("LIVE");
     expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("DOWN");
-    expect(statusByIdentifier.get(readyDevice.identifier)).toBe("READY");
+    expect(statusByIdentifier.get(readyDisplay.identifier)).toBe("READY");
   });
 
-  test("GetDeviceUseCase throws when missing", async () => {
+  test("GetDisplayUseCase throws when missing", async () => {
     const { repo } = makeRepository();
-    const getDevice = new GetDeviceUseCase({
-      deviceRepository: repo,
+    const getDisplay = new GetDisplayUseCase({
+      displayRepository: repo,
       scheduleRepository: {
         list: async () => [],
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         listBySeries: async () => [],
         listByPlaylistId: async () => [],
         findById: async () => null,
@@ -298,22 +298,22 @@ describe("Devices use cases", () => {
       },
     });
 
-    await expect(getDevice.execute({ id: "missing" })).rejects.toBeInstanceOf(
+    await expect(getDisplay.execute({ id: "missing" })).rejects.toBeInstanceOf(
       NotFoundError,
     );
   });
 
-  test("RegisterDeviceUseCase creates new device", async () => {
+  test("RegisterDisplayUseCase creates new display", async () => {
     const { repo } = makeRepository();
     const { repository: pairingCodeRepository, issueCode } =
       makePairingRepository();
     issueCode("123456");
-    const registerDevice = new RegisterDeviceUseCase({
-      deviceRepository: repo,
-      devicePairingCodeRepository: pairingCodeRepository,
+    const registerDisplay = new RegisterDisplayUseCase({
+      displayRepository: repo,
+      displayPairingCodeRepository: pairingCodeRepository,
     });
 
-    const device = await registerDevice.execute({
+    const display = await registerDisplay.execute({
       pairingCode: "123456",
       name: "Lobby",
       identifier: "AA:BB",
@@ -322,18 +322,18 @@ describe("Devices use cases", () => {
       screenHeight: 768,
     });
 
-    expect(device.identifier).toBe("AA:BB");
-    expect(device.onlineStatus).toBe("READY");
-    expect(device.lastSeenAt).not.toBeNull();
+    expect(display.identifier).toBe("AA:BB");
+    expect(display.onlineStatus).toBe("READY");
+    expect(display.lastSeenAt).not.toBeNull();
   });
 
-  test("RegisterDeviceUseCase updates existing device", async () => {
+  test("RegisterDisplayUseCase updates existing display", async () => {
     const { repo } = makeRepository();
     const { repository: pairingCodeRepository, issueCode } =
       makePairingRepository();
-    const registerDevice = new RegisterDeviceUseCase({
-      deviceRepository: repo,
-      devicePairingCodeRepository: pairingCodeRepository,
+    const registerDisplay = new RegisterDisplayUseCase({
+      displayRepository: repo,
+      displayPairingCodeRepository: pairingCodeRepository,
     });
 
     const created = await repo.create({
@@ -343,7 +343,7 @@ describe("Devices use cases", () => {
     });
 
     issueCode("234567");
-    const updated = await registerDevice.execute({
+    const updated = await registerDisplay.execute({
       pairingCode: "234567",
       name: "Lobby Display",
       identifier: "AA:BB",
@@ -357,32 +357,32 @@ describe("Devices use cases", () => {
     expect(updated.location).toBe("Hallway");
   });
 
-  test("RegisterDeviceUseCase reuses existing device by fingerprint", async () => {
+  test("RegisterDisplayUseCase reuses existing display by fingerprint", async () => {
     const { repo } = makeRepository();
     const { repository: pairingCodeRepository, issueCode } =
       makePairingRepository();
-    const registerDevice = new RegisterDeviceUseCase({
-      deviceRepository: repo,
-      devicePairingCodeRepository: pairingCodeRepository,
+    const registerDisplay = new RegisterDisplayUseCase({
+      displayRepository: repo,
+      displayPairingCodeRepository: pairingCodeRepository,
     });
 
     issueCode("345678");
-    const created = await registerDevice.execute({
+    const created = await registerDisplay.execute({
       pairingCode: "345678",
       name: "Lobby",
       identifier: "old-identifier",
-      deviceFingerprint: "fp-1",
+      displayFingerprint: "fp-1",
       location: null,
       screenWidth: 1366,
       screenHeight: 768,
     });
 
     issueCode("456789");
-    const updated = await registerDevice.execute({
+    const updated = await registerDisplay.execute({
       pairingCode: "456789",
       name: "Lobby Renamed",
       identifier: "new-identifier",
-      deviceFingerprint: "fp-1",
+      displayFingerprint: "fp-1",
       location: "Hallway",
       screenWidth: 1920,
       screenHeight: 1080,
@@ -390,34 +390,34 @@ describe("Devices use cases", () => {
 
     expect(updated.id).toBe(created.id);
     expect(updated.identifier).toBe("new-identifier");
-    expect(updated.deviceFingerprint).toBe("fp-1");
+    expect(updated.displayFingerprint).toBe("fp-1");
   });
 
-  test("RegisterDeviceUseCase rejects conflicting identifier and fingerprint", async () => {
+  test("RegisterDisplayUseCase rejects conflicting identifier and fingerprint", async () => {
     const { repo } = makeRepository();
     const { repository: pairingCodeRepository, issueCode } =
       makePairingRepository();
-    const registerDevice = new RegisterDeviceUseCase({
-      deviceRepository: repo,
-      devicePairingCodeRepository: pairingCodeRepository,
+    const registerDisplay = new RegisterDisplayUseCase({
+      displayRepository: repo,
+      displayPairingCodeRepository: pairingCodeRepository,
     });
 
     issueCode("567890");
-    await registerDevice.execute({
+    await registerDisplay.execute({
       pairingCode: "567890",
-      name: "Device A",
-      identifier: "device-a",
-      deviceFingerprint: "fp-a",
+      name: "Display A",
+      identifier: "display-a",
+      displayFingerprint: "fp-a",
       location: null,
       screenWidth: 1366,
       screenHeight: 768,
     });
     issueCode("678901");
-    await registerDevice.execute({
+    await registerDisplay.execute({
       pairingCode: "678901",
-      name: "Device B",
-      identifier: "device-b",
-      deviceFingerprint: "fp-b",
+      name: "Display B",
+      identifier: "display-b",
+      displayFingerprint: "fp-b",
       location: null,
       screenWidth: 1366,
       screenHeight: 768,
@@ -425,11 +425,11 @@ describe("Devices use cases", () => {
 
     issueCode("789012");
     await expect(
-      registerDevice.execute({
+      registerDisplay.execute({
         pairingCode: "789012",
         name: "Conflict",
-        identifier: "device-a",
-        deviceFingerprint: "fp-b",
+        identifier: "display-a",
+        displayFingerprint: "fp-b",
         location: null,
         screenWidth: 1366,
         screenHeight: 768,
@@ -437,16 +437,16 @@ describe("Devices use cases", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  test("RegisterDeviceUseCase rejects invalid pairing code", async () => {
+  test("RegisterDisplayUseCase rejects invalid pairing code", async () => {
     const { repo } = makeRepository();
     const { repository: pairingCodeRepository } = makePairingRepository();
-    const registerDevice = new RegisterDeviceUseCase({
-      deviceRepository: repo,
-      devicePairingCodeRepository: pairingCodeRepository,
+    const registerDisplay = new RegisterDisplayUseCase({
+      displayRepository: repo,
+      displayPairingCodeRepository: pairingCodeRepository,
     });
 
     await expect(
-      registerDevice.execute({
+      registerDisplay.execute({
         pairingCode: "111111",
         name: "Lobby",
         identifier: "AA:BB",
@@ -457,10 +457,10 @@ describe("Devices use cases", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  test("IssueDevicePairingCodeUseCase returns 6-digit code and expiry", async () => {
+  test("IssueDisplayPairingCodeUseCase returns 6-digit code and expiry", async () => {
     const { repository: pairingCodeRepository } = makePairingRepository();
-    const useCase = new IssueDevicePairingCodeUseCase({
-      devicePairingCodeRepository: pairingCodeRepository,
+    const useCase = new IssueDisplayPairingCodeUseCase({
+      displayPairingCodeRepository: pairingCodeRepository,
     });
 
     const result = await useCase.execute({ createdById: "user-1" });
@@ -469,7 +469,7 @@ describe("Devices use cases", () => {
     expect(Date.parse(result.expiresAt)).toBeGreaterThan(Date.now());
   });
 
-  test("UpdateDeviceUseCase updates mutable device fields", async () => {
+  test("UpdateDisplayUseCase updates mutable display fields", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -477,11 +477,11 @@ describe("Devices use cases", () => {
       location: null,
     });
 
-    const updateDevice = new UpdateDeviceUseCase({
-      deviceRepository: repo,
+    const updateDisplay = new UpdateDisplayUseCase({
+      displayRepository: repo,
       scheduleRepository: {
         list: async () => [],
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         listBySeries: async () => [],
         listByPlaylistId: async () => [],
         findById: async () => null,
@@ -494,7 +494,7 @@ describe("Devices use cases", () => {
         countByPlaylistId: async () => 0,
       },
     });
-    const updated = await updateDevice.execute({
+    const updated = await updateDisplay.execute({
       id: created.id,
       name: "Lobby TV",
       location: "Main Hall",
@@ -512,7 +512,7 @@ describe("Devices use cases", () => {
     expect(updated.orientation).toBe("LANDSCAPE");
   });
 
-  test("RequestDeviceRefreshUseCase increments refresh nonce", async () => {
+  test("RequestDisplayRefreshUseCase increments refresh nonce", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -520,8 +520,8 @@ describe("Devices use cases", () => {
       location: null,
     });
 
-    const useCase = new RequestDeviceRefreshUseCase({
-      deviceRepository: repo,
+    const useCase = new RequestDisplayRefreshUseCase({
+      displayRepository: repo,
     });
 
     await useCase.execute({ id: created.id });
@@ -530,7 +530,7 @@ describe("Devices use cases", () => {
     expect(refreshed?.refreshNonce).toBe(1);
   });
 
-  test("GetDeviceManifestUseCase returns empty when no schedule", async () => {
+  test("GetDisplayManifestUseCase returns empty when no schedule", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -538,9 +538,9 @@ describe("Devices use cases", () => {
       location: null,
     });
 
-    const useCase = new GetDeviceManifestUseCase({
+    const useCase = new GetDisplayManifestUseCase({
       scheduleRepository: {
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         list: async () => [],
         findById: async () => null,
         create: async () => {
@@ -591,7 +591,7 @@ describe("Devices use cases", () => {
         delete: async () => {},
         getPresignedDownloadUrl: async () => "",
       },
-      deviceRepository: repo,
+      displayRepository: repo,
       systemSettingRepository: {
         findByKey: async () => null,
         upsert: async () => {
@@ -602,7 +602,7 @@ describe("Devices use cases", () => {
     });
 
     const result = await useCase.execute({
-      deviceId: created.id,
+      displayId: created.id,
       now: new Date("2025-01-01T00:00:00.000Z"),
     });
 
@@ -611,7 +611,7 @@ describe("Devices use cases", () => {
     expect(result.runtimeSettings.scrollPxPerSecond).toBe(24);
   });
 
-  test("GetDeviceManifestUseCase uses persisted runtime scroll setting", async () => {
+  test("GetDisplayManifestUseCase uses persisted runtime scroll setting", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -619,9 +619,9 @@ describe("Devices use cases", () => {
       location: null,
     });
 
-    const useCase = new GetDeviceManifestUseCase({
+    const useCase = new GetDisplayManifestUseCase({
       scheduleRepository: {
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         list: async () => [],
         findById: async () => null,
         create: async () => {
@@ -672,10 +672,10 @@ describe("Devices use cases", () => {
         delete: async () => {},
         getPresignedDownloadUrl: async () => "",
       },
-      deviceRepository: repo,
+      displayRepository: repo,
       systemSettingRepository: {
         findByKey: async () => ({
-          key: "device_runtime_scroll_px_per_second",
+          key: "display_runtime_scroll_px_per_second",
           value: "36",
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
@@ -688,13 +688,13 @@ describe("Devices use cases", () => {
     });
 
     const result = await useCase.execute({
-      deviceId: created.id,
+      displayId: created.id,
       now: new Date("2025-01-01T00:00:00.000Z"),
     });
     expect(result.runtimeSettings.scrollPxPerSecond).toBe(36);
   });
 
-  test("GetDeviceManifestUseCase version changes after refresh request", async () => {
+  test("GetDisplayManifestUseCase version changes after refresh request", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -702,15 +702,15 @@ describe("Devices use cases", () => {
       location: null,
     });
 
-    const manifestUseCase = new GetDeviceManifestUseCase({
+    const manifestUseCase = new GetDisplayManifestUseCase({
       scheduleRepository: {
-        listByDevice: async () => [
+        listByDisplay: async () => [
           {
             id: "schedule-1",
             seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
-            deviceId: created.id,
+            displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
             dayOfWeek: 1,
@@ -801,7 +801,7 @@ describe("Devices use cases", () => {
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/file",
       },
-      deviceRepository: repo,
+      displayRepository: repo,
       systemSettingRepository: {
         findByKey: async () => null,
         upsert: async () => {
@@ -811,24 +811,24 @@ describe("Devices use cases", () => {
       downloadUrlExpiresInSeconds: 3600,
     });
 
-    const refreshUseCase = new RequestDeviceRefreshUseCase({
-      deviceRepository: repo,
+    const refreshUseCase = new RequestDisplayRefreshUseCase({
+      displayRepository: repo,
     });
 
     const before = await manifestUseCase.execute({
-      deviceId: created.id,
+      displayId: created.id,
       now: new Date("2025-01-06T00:00:00.000Z"),
     });
     await refreshUseCase.execute({ id: created.id });
     const after = await manifestUseCase.execute({
-      deviceId: created.id,
+      displayId: created.id,
       now: new Date("2025-01-06T00:00:00.000Z"),
     });
 
     expect(before.playlistVersion).not.toBe(after.playlistVersion);
   });
 
-  test("GetDeviceManifestUseCase batches content lookups for manifest items", async () => {
+  test("GetDisplayManifestUseCase batches content lookups for manifest items", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -885,15 +885,15 @@ describe("Devices use cases", () => {
       delete: async () => false,
     };
 
-    const useCase = new GetDeviceManifestUseCase({
+    const useCase = new GetDisplayManifestUseCase({
       scheduleRepository: {
-        listByDevice: async () => [
+        listByDisplay: async () => [
           {
             id: "schedule-1",
             seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
-            deviceId: created.id,
+            displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
             dayOfWeek: 1,
@@ -976,7 +976,7 @@ describe("Devices use cases", () => {
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/file",
       },
-      deviceRepository: repo,
+      displayRepository: repo,
       systemSettingRepository: {
         findByKey: async () => null,
         upsert: async () => {
@@ -987,7 +987,7 @@ describe("Devices use cases", () => {
     });
 
     await useCase.execute({
-      deviceId: created.id,
+      displayId: created.id,
       now: new Date("2025-01-06T00:00:00.000Z"),
     });
 
@@ -995,7 +995,7 @@ describe("Devices use cases", () => {
     expect(findByIdCalls).toBe(0);
   });
 
-  test("GetDeviceManifestUseCase presigns content URLs concurrently", async () => {
+  test("GetDisplayManifestUseCase presigns content URLs concurrently", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -1012,15 +1012,15 @@ describe("Devices use cases", () => {
       resolveSecondStarted = resolve;
     });
 
-    const useCase = new GetDeviceManifestUseCase({
+    const useCase = new GetDisplayManifestUseCase({
       scheduleRepository: {
-        listByDevice: async () => [
+        listByDisplay: async () => [
           {
             id: "schedule-1",
             seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
-            deviceId: created.id,
+            displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
             dayOfWeek: 1,
@@ -1153,7 +1153,7 @@ describe("Devices use cases", () => {
           return "https://example.com/b.pdf";
         },
       },
-      deviceRepository: repo,
+      displayRepository: repo,
       systemSettingRepository: {
         findByKey: async () => null,
         upsert: async () => {
@@ -1164,7 +1164,7 @@ describe("Devices use cases", () => {
     });
 
     const executePromise = useCase.execute({
-      deviceId: created.id,
+      displayId: created.id,
       now: new Date("2025-01-06T00:00:00.000Z"),
     });
 

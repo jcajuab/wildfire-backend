@@ -40,8 +40,8 @@ const parseActorType = (
   value: string | undefined,
 ): AuditActorType | undefined => {
   if (!value) return undefined;
-  if (value === "user" || value === "device") return value;
-  throw new ValidationError("actorType must be one of: user, device");
+  if (value === "user" || value === "display") return value;
+  throw new ValidationError("actorType must be one of: user, display");
 };
 
 export interface NormalizedAuditFilters {

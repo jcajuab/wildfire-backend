@@ -2,7 +2,7 @@ export { NotFoundError, ScheduleConflictError } from "./errors";
 export {
   CreateScheduleUseCase,
   DeleteScheduleUseCase,
-  GetActiveScheduleForDeviceUseCase,
+  GetActiveScheduleForDisplayUseCase,
   GetScheduleUseCase,
   ListSchedulesUseCase,
   UpdateScheduleUseCase,

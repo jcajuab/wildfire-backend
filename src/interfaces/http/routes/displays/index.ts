@@ -1,17 +1,17 @@
 import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
-import { registerDeviceApiRoutes } from "./device-api.route";
+import { registerDisplayApiRoutes } from "./display-api.route";
 import {
-  createDevicesUseCases,
-  createRequireDeviceApiKey,
-  type DevicesRouterDeps,
+  createDisplaysUseCases,
+  createRequireDisplayApiKey,
+  type DisplaysRouterDeps,
 } from "./shared";
-import { registerDeviceStaffRoutes } from "./staff.route";
+import { registerDisplayStaffRoutes } from "./staff.route";
 
-export type { DevicesRouterDeps } from "./shared";
+export type { DisplaysRouterDeps } from "./shared";
 
-export const createDevicesRouter = (deps: DevicesRouterDeps) => {
+export const createDisplaysRouter = (deps: DisplaysRouterDeps) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
@@ -20,16 +20,16 @@ export const createDevicesRouter = (deps: DevicesRouterDeps) => {
     authSessionCookieName: deps.authSessionCookieName,
     authSessionDualMode: deps.authSessionDualMode,
   });
-  const useCases = createDevicesUseCases(deps);
-  const requireDeviceApiKey = createRequireDeviceApiKey(deps.deviceApiKey);
+  const useCases = createDisplaysUseCases(deps);
+  const requireDisplayApiKey = createRequireDisplayApiKey(deps.displayApiKey);
 
-  registerDeviceApiRoutes({
+  registerDisplayApiRoutes({
     router,
     useCases,
-    requireDeviceApiKey,
+    requireDisplayApiKey,
     streamTokenSecret: deps.jwtSecret,
   });
-  registerDeviceStaffRoutes({
+  registerDisplayStaffRoutes({
     router,
     useCases,
     authorize,

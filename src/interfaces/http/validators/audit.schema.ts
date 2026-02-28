@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const auditActorTypeSchema = z.enum(["user", "device"]);
+export const auditActorTypeSchema = z.enum(["user", "display"]);
 
 export const auditEventSchema = z.object({
   id: z.string(),

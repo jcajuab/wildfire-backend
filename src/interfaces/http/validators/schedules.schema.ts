@@ -4,7 +4,7 @@ export const scheduleSchema = z.object({
   id: z.string(),
   name: z.string(),
   playlistId: z.string(),
-  deviceId: z.string(),
+  displayId: z.string(),
   startDate: z.string(),
   endDate: z.string(),
   startTime: z.string(),
@@ -17,7 +17,7 @@ export const scheduleSchema = z.object({
     id: z.string(),
     name: z.string().nullable(),
   }),
-  device: z.object({
+  display: z.object({
     id: z.string(),
     name: z.string().nullable(),
   }),
@@ -41,7 +41,7 @@ export const scheduleIdParamSchema = z.object({
 export const createScheduleSchema = z.object({
   name: z.string().min(1),
   playlistId: z.string().uuid(),
-  deviceId: z.string().uuid(),
+  displayId: z.string().uuid(),
   startDate: z.string().date(),
   endDate: z.string().date(),
   startTime: z.string().min(1),
@@ -53,7 +53,7 @@ export const createScheduleSchema = z.object({
 export const updateScheduleSchema = z.object({
   name: z.string().min(1).optional(),
   playlistId: z.string().uuid().optional(),
-  deviceId: z.string().uuid().optional(),
+  displayId: z.string().uuid().optional(),
   startDate: z.string().date().optional(),
   endDate: z.string().date().optional(),
   startTime: z.string().min(1).optional(),

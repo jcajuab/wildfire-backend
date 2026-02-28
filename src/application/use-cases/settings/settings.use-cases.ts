@@ -1,10 +1,10 @@
 import { ValidationError } from "#/application/errors/validation";
 import {
-  DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
   type SystemSettingRepository,
 } from "#/application/ports/settings";
 
-export interface DeviceRuntimeSettingsView {
+export interface DisplayRuntimeSettingsView {
   scrollPxPerSecond: number;
 }
 
@@ -25,14 +25,14 @@ const parseScrollValue = (raw: string): number => {
   return parsed;
 };
 
-export class GetDeviceRuntimeSettingsUseCase {
+export class GetDisplayRuntimeSettingsUseCase {
   constructor(
     private readonly deps: { systemSettingRepository: SystemSettingRepository },
   ) {}
 
-  async execute(): Promise<DeviceRuntimeSettingsView> {
+  async execute(): Promise<DisplayRuntimeSettingsView> {
     const setting = await this.deps.systemSettingRepository.findByKey(
-      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
     );
     if (!setting) {
       return { scrollPxPerSecond: DEFAULT_SCROLL_PX_PER_SECOND };
@@ -41,14 +41,14 @@ export class GetDeviceRuntimeSettingsUseCase {
   }
 }
 
-export class UpdateDeviceRuntimeSettingsUseCase {
+export class UpdateDisplayRuntimeSettingsUseCase {
   constructor(
     private readonly deps: { systemSettingRepository: SystemSettingRepository },
   ) {}
 
   async execute(input: {
     scrollPxPerSecond: number;
-  }): Promise<DeviceRuntimeSettingsView> {
+  }): Promise<DisplayRuntimeSettingsView> {
     if (!Number.isInteger(input.scrollPxPerSecond)) {
       throw new ValidationError("Scroll speed must be an integer.");
     }
@@ -61,7 +61,7 @@ export class UpdateDeviceRuntimeSettingsUseCase {
       );
     }
     const updated = await this.deps.systemSettingRepository.upsert({
-      key: DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+      key: DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
       value: String(input.scrollPxPerSecond),
     });
     return { scrollPxPerSecond: parseScrollValue(updated.value) };

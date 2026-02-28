@@ -1,24 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import {
-  type DeviceGroupRecord,
-  type DeviceGroupRepository,
-  type DeviceRecord,
-  type DeviceRepository,
-} from "#/application/ports/devices";
+  type DisplayGroupRecord,
+  type DisplayGroupRepository,
+  type DisplayRecord,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import {
-  CreateDeviceGroupUseCase,
-  DeviceGroupConflictError,
+  CreateDisplayGroupUseCase,
+  DisplayGroupConflictError,
   NotFoundError,
-  SetDeviceGroupsUseCase,
-  UpdateDeviceGroupUseCase,
-} from "#/application/use-cases/devices";
+  SetDisplayGroupsUseCase,
+  UpdateDisplayGroupUseCase,
+} from "#/application/use-cases/displays";
 
-const makeDeviceRepository = (devices: DeviceRecord[]): DeviceRepository => ({
-  list: async () => devices,
+const makeDisplayRepository = (
+  displays: DisplayRecord[],
+): DisplayRepository => ({
+  list: async () => displays,
   findByIds: async (ids: string[]) =>
-    devices.filter((device) => ids.includes(device.id)),
+    displays.filter((display) => ids.includes(display.id)),
   findById: async (id: string) =>
-    devices.find((device) => device.id === id) ?? null,
+    displays.find((display) => display.id === id) ?? null,
   findByIdentifier: async () => null,
   findByFingerprint: async () => null,
   create: async () => {
@@ -28,21 +30,23 @@ const makeDeviceRepository = (devices: DeviceRecord[]): DeviceRepository => ({
   bumpRefreshNonce: async () => false,
 });
 
-const makeDeviceGroupRepository = (
-  initialGroups: DeviceGroupRecord[],
-): DeviceGroupRepository & {
-  readonly setDeviceGroupsCalls: ReadonlyArray<{
-    deviceId: string;
+const makeDisplayGroupRepository = (
+  initialGroups: DisplayGroupRecord[],
+): DisplayGroupRepository & {
+  readonly setDisplayGroupsCalls: ReadonlyArray<{
+    displayId: string;
     groupIds: string[];
   }>;
 } => {
   const groups = [...initialGroups];
-  const setDeviceGroupsCalls: Array<{ deviceId: string; groupIds: string[] }> =
-    [];
+  const setDisplayGroupsCalls: Array<{
+    displayId: string;
+    groupIds: string[];
+  }> = [];
 
   return {
-    get setDeviceGroupsCalls() {
-      return setDeviceGroupsCalls;
+    get setDisplayGroupsCalls() {
+      return setDisplayGroupsCalls;
     },
     list: async () => [...groups],
     findById: async (id: string) =>
@@ -50,11 +54,11 @@ const makeDeviceGroupRepository = (
     findByName: async (name: string) =>
       groups.find((group) => group.name === name) ?? null,
     create: async (input: { name: string; colorIndex: number }) => {
-      const created: DeviceGroupRecord = {
+      const created: DisplayGroupRecord = {
         id: crypto.randomUUID(),
         name: input.name,
         colorIndex: input.colorIndex,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
@@ -77,26 +81,26 @@ const makeDeviceGroupRepository = (
       return group;
     },
     delete: async () => false,
-    setDeviceGroups: async (deviceId: string, groupIds: string[]) => {
-      setDeviceGroupsCalls.push({ deviceId, groupIds: [...groupIds] });
+    setDisplayGroups: async (displayId: string, groupIds: string[]) => {
+      setDisplayGroupsCalls.push({ displayId, groupIds: [...groupIds] });
     },
   };
 };
 
-describe("Device group use cases", () => {
-  test("CreateDeviceGroupUseCase returns existing group for case-insensitive duplicate names", async () => {
-    const groupRepository = makeDeviceGroupRepository([
+describe("Display group use cases", () => {
+  test("CreateDisplayGroupUseCase returns existing group for case-insensitive duplicate names", async () => {
+    const groupRepository = makeDisplayGroupRepository([
       {
         id: "group-1",
         name: "Lobby",
         colorIndex: 2,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
     ]);
-    const useCase = new CreateDeviceGroupUseCase({
-      deviceGroupRepository: groupRepository,
+    const useCase = new CreateDisplayGroupUseCase({
+      displayGroupRepository: groupRepository,
     });
 
     const result = await useCase.execute({ name: "  lobby " });
@@ -106,13 +110,13 @@ describe("Device group use cases", () => {
     expect(result.colorIndex).toBe(2);
   });
 
-  test("CreateDeviceGroupUseCase assigns next cycled color index when omitted", async () => {
-    const groupRepository = makeDeviceGroupRepository([
+  test("CreateDisplayGroupUseCase assigns next cycled color index when omitted", async () => {
+    const groupRepository = makeDisplayGroupRepository([
       {
         id: "group-1",
         name: "Lobby",
         colorIndex: 10,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -120,13 +124,13 @@ describe("Device group use cases", () => {
         id: "group-2",
         name: "Office",
         colorIndex: 11,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
     ]);
-    const useCase = new CreateDeviceGroupUseCase({
-      deviceGroupRepository: groupRepository,
+    const useCase = new CreateDisplayGroupUseCase({
+      displayGroupRepository: groupRepository,
     });
 
     const created = await useCase.execute({ name: "Cafeteria" });
@@ -134,13 +138,13 @@ describe("Device group use cases", () => {
     expect(created.colorIndex).toBe(0);
   });
 
-  test("UpdateDeviceGroupUseCase rejects case-insensitive rename conflicts", async () => {
-    const groupRepository = makeDeviceGroupRepository([
+  test("UpdateDisplayGroupUseCase rejects case-insensitive rename conflicts", async () => {
+    const groupRepository = makeDisplayGroupRepository([
       {
         id: "group-1",
         name: "Lobby",
         colorIndex: 0,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -148,27 +152,27 @@ describe("Device group use cases", () => {
         id: "group-2",
         name: "Office",
         colorIndex: 1,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
     ]);
-    const useCase = new UpdateDeviceGroupUseCase({
-      deviceGroupRepository: groupRepository,
+    const useCase = new UpdateDisplayGroupUseCase({
+      displayGroupRepository: groupRepository,
     });
 
     await expect(
       useCase.execute({ id: "group-2", name: "  LOBBY  " }),
-    ).rejects.toBeInstanceOf(DeviceGroupConflictError);
+    ).rejects.toBeInstanceOf(DisplayGroupConflictError);
   });
 
-  test("SetDeviceGroupsUseCase deduplicates group ids before writing", async () => {
-    const groupRepository = makeDeviceGroupRepository([
+  test("SetDisplayGroupsUseCase deduplicates group ids before writing", async () => {
+    const groupRepository = makeDisplayGroupRepository([
       {
         id: "group-1",
         name: "Lobby",
         colorIndex: 0,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -176,14 +180,14 @@ describe("Device group use cases", () => {
         id: "group-2",
         name: "Office",
         colorIndex: 1,
-        deviceIds: [],
+        displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
     ]);
-    const deviceRepository = makeDeviceRepository([
+    const displayRepository = makeDisplayRepository([
       {
-        id: "device-1",
+        id: "display-1",
         name: "Lobby Display",
         identifier: "AA:BB",
         location: null,
@@ -191,33 +195,33 @@ describe("Device group use cases", () => {
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
     ]);
-    const useCase = new SetDeviceGroupsUseCase({
-      deviceRepository,
-      deviceGroupRepository: groupRepository,
+    const useCase = new SetDisplayGroupsUseCase({
+      displayRepository,
+      displayGroupRepository: groupRepository,
     });
 
     await useCase.execute({
-      deviceId: "device-1",
+      displayId: "display-1",
       groupIds: ["group-1", "group-1", "group-2", "group-1"],
     });
 
-    expect(groupRepository.setDeviceGroupsCalls).toEqual([
+    expect(groupRepository.setDisplayGroupsCalls).toEqual([
       {
-        deviceId: "device-1",
+        displayId: "display-1",
         groupIds: ["group-1", "group-2"],
       },
     ]);
   });
 
-  test("SetDeviceGroupsUseCase throws when device does not exist", async () => {
-    const groupRepository = makeDeviceGroupRepository([]);
-    const useCase = new SetDeviceGroupsUseCase({
-      deviceRepository: makeDeviceRepository([]),
-      deviceGroupRepository: groupRepository,
+  test("SetDisplayGroupsUseCase throws when display does not exist", async () => {
+    const groupRepository = makeDisplayGroupRepository([]);
+    const useCase = new SetDisplayGroupsUseCase({
+      displayRepository: makeDisplayRepository([]),
+      displayGroupRepository: groupRepository,
     });
 
     await expect(
-      useCase.execute({ deviceId: "missing", groupIds: [] }),
+      useCase.execute({ displayId: "missing", groupIds: [] }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

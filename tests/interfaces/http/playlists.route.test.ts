@@ -149,7 +149,7 @@ const makeApp = async (
       },
       scheduleRepository: {
         list: async () => [],
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         listBySeries: async () => [],
         listByPlaylistId: async (id: string) =>
           options?.inUsePlaylistId === id
@@ -159,7 +159,7 @@ const makeApp = async (
                   seriesId: "series-1",
                   name: "Morning",
                   playlistId: id,
-                  deviceId: "device-1",
+                  displayId: "display-1",
                   startTime: "08:00",
                   endTime: "18:00",
                   dayOfWeek: 1,
@@ -180,11 +180,11 @@ const makeApp = async (
           options?.inUsePlaylistId === id ? 1 : 0,
         deleteBySeries: async () => 0,
       },
-      deviceRepository: {
+      displayRepository: {
         list: async () => [],
         findByIds: async () => [],
         findById: async () => ({
-          id: "device-1",
+          id: "display-1",
           name: "Lobby",
           identifier: "AA:BB",
           location: null,

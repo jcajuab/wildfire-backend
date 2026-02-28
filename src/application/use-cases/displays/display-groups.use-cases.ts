@@ -1,12 +1,12 @@
 import { ValidationError } from "#/application/errors/validation";
 import {
-  type DeviceGroupRepository,
-  type DeviceRepository,
-} from "#/application/ports/devices";
+  type DisplayGroupRepository,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import {
-  DeviceGroupConflictError,
+  DisplayGroupConflictError,
   NotFoundError,
-} from "#/application/use-cases/devices/errors";
+} from "#/application/use-cases/displays/errors";
 
 const collapseWhitespace = (value: string): string =>
   value.trim().replace(/\s+/g, " ");
@@ -27,19 +27,19 @@ const getNextColorIndex = (
   return normalizeColorIndex(maxColorIndex + 1);
 };
 
-export class ListDeviceGroupsUseCase {
+export class ListDisplayGroupsUseCase {
   constructor(
-    private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
+    private readonly deps: { displayGroupRepository: DisplayGroupRepository },
   ) {}
 
   async execute() {
-    return this.deps.deviceGroupRepository.list();
+    return this.deps.displayGroupRepository.list();
   }
 }
 
-export class CreateDeviceGroupUseCase {
+export class CreateDisplayGroupUseCase {
   constructor(
-    private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
+    private readonly deps: { displayGroupRepository: DisplayGroupRepository },
   ) {}
 
   async execute(input: { name: string; colorIndex?: number }) {
@@ -51,7 +51,7 @@ export class CreateDeviceGroupUseCase {
       throw new ValidationError("Group color index must be an integer");
     }
     const normalizedInputName = normalizeName(displayName);
-    const existingGroups = await this.deps.deviceGroupRepository.list();
+    const existingGroups = await this.deps.displayGroupRepository.list();
     const existing = existingGroups.find(
       (group) => normalizeName(group.name) === normalizedInputName,
     );
@@ -60,16 +60,16 @@ export class CreateDeviceGroupUseCase {
       input.colorIndex !== undefined
         ? normalizeColorIndex(input.colorIndex)
         : getNextColorIndex(existingGroups);
-    return this.deps.deviceGroupRepository.create({
+    return this.deps.displayGroupRepository.create({
       name: displayName,
       colorIndex: nextColorIndex,
     });
   }
 }
 
-export class UpdateDeviceGroupUseCase {
+export class UpdateDisplayGroupUseCase {
   constructor(
-    private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
+    private readonly deps: { displayGroupRepository: DisplayGroupRepository },
   ) {}
 
   async execute(input: { id: string; name?: string; colorIndex?: number }) {
@@ -89,65 +89,65 @@ export class UpdateDeviceGroupUseCase {
     }
 
     if (name !== undefined) {
-      const groups = await this.deps.deviceGroupRepository.list();
+      const groups = await this.deps.displayGroupRepository.list();
       const normalizedName = normalizeName(name);
       const existing = groups.find((group) => group.id === input.id);
       if (!existing) {
-        throw new NotFoundError("Device group not found");
+        throw new NotFoundError("Display group not found");
       }
       const conflictingGroup = groups.find(
         (group) =>
           group.id !== input.id && normalizeName(group.name) === normalizedName,
       );
       if (conflictingGroup) {
-        throw new DeviceGroupConflictError(
-          "A device group with this name already exists",
+        throw new DisplayGroupConflictError(
+          "A display group with this name already exists",
         );
       }
     }
 
-    const updated = await this.deps.deviceGroupRepository.update(input.id, {
+    const updated = await this.deps.displayGroupRepository.update(input.id, {
       name,
       colorIndex: colorIndex ?? undefined,
     });
-    if (!updated) throw new NotFoundError("Device group not found");
+    if (!updated) throw new NotFoundError("Display group not found");
     return updated;
   }
 }
 
-export class DeleteDeviceGroupUseCase {
+export class DeleteDisplayGroupUseCase {
   constructor(
-    private readonly deps: { deviceGroupRepository: DeviceGroupRepository },
+    private readonly deps: { displayGroupRepository: DisplayGroupRepository },
   ) {}
 
   async execute(input: { id: string }) {
-    const deleted = await this.deps.deviceGroupRepository.delete(input.id);
-    if (!deleted) throw new NotFoundError("Device group not found");
+    const deleted = await this.deps.displayGroupRepository.delete(input.id);
+    if (!deleted) throw new NotFoundError("Display group not found");
   }
 }
 
-export class SetDeviceGroupsUseCase {
+export class SetDisplayGroupsUseCase {
   constructor(
     private readonly deps: {
-      deviceRepository: DeviceRepository;
-      deviceGroupRepository: DeviceGroupRepository;
+      displayRepository: DisplayRepository;
+      displayGroupRepository: DisplayGroupRepository;
     },
   ) {}
 
-  async execute(input: { deviceId: string; groupIds: string[] }) {
-    const device = await this.deps.deviceRepository.findById(input.deviceId);
-    if (!device) throw new NotFoundError("Device not found");
+  async execute(input: { displayId: string; groupIds: string[] }) {
+    const display = await this.deps.displayRepository.findById(input.displayId);
+    if (!display) throw new NotFoundError("Display not found");
     const uniqueGroupIds = [...new Set(input.groupIds)];
 
     if (uniqueGroupIds.length > 0) {
-      const groups = await this.deps.deviceGroupRepository.list();
+      const groups = await this.deps.displayGroupRepository.list();
       const existingIds = new Set(groups.map((g) => g.id));
       const unknown = uniqueGroupIds.find((id) => !existingIds.has(id));
-      if (unknown) throw new NotFoundError("Device group not found");
+      if (unknown) throw new NotFoundError("Display group not found");
     }
 
-    await this.deps.deviceGroupRepository.setDeviceGroups(
-      input.deviceId,
+    await this.deps.displayGroupRepository.setDisplayGroups(
+      input.displayId,
       uniqueGroupIds,
     );
   }

@@ -24,7 +24,7 @@ import { internalServerError } from "#/interfaces/http/responses";
 import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
-import { createDevicesRouter } from "#/interfaces/http/routes/devices.route";
+import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
 import { healthRouter } from "#/interfaces/http/routes/health.route";
 import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
@@ -143,7 +143,7 @@ const playlistsRouter = createPlaylistsRouter({
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     scheduleRepository: container.repositories.scheduleRepository,
-    deviceRepository: container.repositories.deviceRepository,
+    displayRepository: container.repositories.displayRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
   },
 });
@@ -156,30 +156,30 @@ const schedulesRouter = createSchedulesRouter({
   repositories: {
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
-    deviceRepository: container.repositories.deviceRepository,
+    displayRepository: container.repositories.displayRepository,
     contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
   },
 });
 
-const devicesRouter = createDevicesRouter({
+const displaysRouter = createDisplaysRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
-  deviceApiKey: env.DEVICE_API_KEY,
+  displayApiKey: env.DISPLAY_API_KEY,
   downloadUrlExpiresInSeconds: 60 * 60,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   repositories: {
-    deviceRepository: container.repositories.deviceRepository,
+    displayRepository: container.repositories.displayRepository,
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
-    deviceGroupRepository: container.repositories.deviceGroupRepository,
-    devicePairingCodeRepository:
-      container.repositories.devicePairingCodeRepository,
+    displayGroupRepository: container.repositories.displayGroupRepository,
+    displayPairingCodeRepository:
+      container.repositories.displayPairingCodeRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
   },
   storage: container.storage.contentStorage,
@@ -233,7 +233,7 @@ const auditRouter = createAuditRouter({
     auditEventRepository: container.repositories.auditEventRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     userRepository: container.repositories.userRepository,
-    deviceRepository: container.repositories.deviceRepository,
+    displayRepository: container.repositories.displayRepository,
   },
 });
 
@@ -245,7 +245,7 @@ const settingsRouter = createSettingsRouter({
   repositories: {
     authorizationRepository: container.repositories.authorizationRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
-    deviceRepository: container.repositories.deviceRepository,
+    displayRepository: container.repositories.displayRepository,
   },
 });
 
@@ -279,7 +279,7 @@ app.route("/api/v1/health", healthRouter);
 app.route("/api/v1/auth", authRouter);
 app.route("/api/v1/playlists", playlistsRouter);
 app.route("/api/v1/schedules", schedulesRouter);
-app.route("/api/v1/displays", devicesRouter);
+app.route("/api/v1/displays", displaysRouter);
 app.route("/api/v1/content", contentRouter);
 app.route("/api/v1/audit", auditRouter);
 app.route("/api/v1/settings", settingsRouter);

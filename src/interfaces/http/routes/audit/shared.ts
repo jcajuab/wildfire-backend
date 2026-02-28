@@ -1,7 +1,7 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuditEventRepository } from "#/application/ports/audit";
 import { type AuthSessionRepository } from "#/application/ports/auth";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import {
   type AuthorizationRepository,
   type UserRepository,
@@ -22,7 +22,7 @@ export interface AuditRouterDeps {
     auditEventRepository: AuditEventRepository;
     authorizationRepository: AuthorizationRepository;
     userRepository: UserRepository;
-    deviceRepository: DeviceRepository;
+    displayRepository: DisplayRepository;
   };
 }
 

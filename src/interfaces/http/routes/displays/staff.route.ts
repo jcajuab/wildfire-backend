@@ -1,6 +1,6 @@
 import { type MiddlewareHandler } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
-import { DeviceGroupConflictError } from "#/application/use-cases/devices";
+import { DisplayGroupConflictError } from "#/application/use-cases/displays";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { conflict } from "#/interfaces/http/responses";
@@ -16,30 +16,30 @@ import {
   unauthorizedResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
-  createDeviceGroupRequestBodySchema,
-  createDeviceGroupSchema,
-  deviceGroupIdParamSchema,
-  deviceGroupListResponseSchema,
-  deviceGroupSchema,
-  deviceIdParamSchema,
-  deviceListResponseSchema,
-  deviceSchema,
+  createDisplayGroupRequestBodySchema,
+  createDisplayGroupSchema,
+  displayGroupIdParamSchema,
+  displayGroupListResponseSchema,
+  displayGroupSchema,
+  displayIdParamSchema,
+  displayListResponseSchema,
+  displaySchema,
   pairingCodeResponseSchema,
-  patchDeviceRequestBodySchema,
-  patchDeviceSchema,
-  setDeviceGroupsRequestBodySchema,
-  setDeviceGroupsSchema,
-  updateDeviceGroupRequestBodySchema,
-  updateDeviceGroupSchema,
-} from "#/interfaces/http/validators/devices.schema";
+  patchDisplayRequestBodySchema,
+  patchDisplaySchema,
+  setDisplayGroupsRequestBodySchema,
+  setDisplayGroupsSchema,
+  updateDisplayGroupRequestBodySchema,
+  updateDisplayGroupSchema,
+} from "#/interfaces/http/validators/displays.schema";
 import {
   validateJson,
   validateParams,
 } from "#/interfaces/http/validators/standard-validator";
 import {
-  type DevicesRouter,
-  type DevicesRouterUseCases,
-  deviceTags,
+  type DisplaysRouter,
+  type DisplaysRouterUseCases,
+  displayTags,
 } from "./shared";
 
 type AuthorizePermission = (
@@ -49,26 +49,26 @@ type AuthorizePermission = (
   MiddlewareHandler<{ Variables: JwtUserVariables }>,
 ];
 
-export const registerDeviceStaffRoutes = (args: {
-  router: DevicesRouter;
-  useCases: DevicesRouterUseCases;
+export const registerDisplayStaffRoutes = (args: {
+  router: DisplaysRouter;
+  useCases: DisplaysRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
   const { router, useCases, authorize } = args;
 
   router.get(
     "/",
-    setAction("displays.device.list", { route: "/displays" }),
+    setAction("displays.display.list", { route: "/displays" }),
     ...authorize("displays:read"),
     describeRoute({
-      description: "List devices",
-      tags: deviceTags,
+      description: "List displays",
+      tags: displayTags,
       responses: {
         200: {
-          description: "Devices list",
+          description: "Displays list",
           content: {
             "application/json": {
-              schema: resolver(deviceListResponseSchema),
+              schema: resolver(displayListResponseSchema),
             },
           },
         },
@@ -84,7 +84,7 @@ export const registerDeviceStaffRoutes = (args: {
       async (c) => {
         const page = Number(c.req.query("page")) || undefined;
         const pageSize = Number(c.req.query("pageSize")) || undefined;
-        const result = await useCases.listDevices.execute({ page, pageSize });
+        const result = await useCases.listDisplays.execute({ page, pageSize });
         return c.json(result);
       },
       ...applicationErrorMappers,
@@ -95,12 +95,12 @@ export const registerDeviceStaffRoutes = (args: {
     "/pairing-codes",
     setAction("displays.pairing-code.create", {
       route: "/displays/pairing-codes",
-      resourceType: "device",
+      resourceType: "display",
     }),
     ...authorize("displays:create"),
     describeRoute({
-      description: "Issue one-time pairing code for device registration",
-      tags: deviceTags,
+      description: "Issue one-time pairing code for display registration",
+      tags: displayTags,
       responses: {
         200: {
           description: "Pairing code",
@@ -131,21 +131,21 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.get(
     "/:id{[0-9a-fA-F-]{36}}",
-    setAction("displays.device.get", {
+    setAction("displays.display.get", {
       route: "/displays/:id",
-      resourceType: "device",
+      resourceType: "display",
     }),
     ...authorize("displays:read"),
-    validateParams(deviceIdParamSchema),
+    validateParams(displayIdParamSchema),
     describeRoute({
-      description: "Get device",
-      tags: deviceTags,
+      description: "Get display",
+      tags: displayTags,
       responses: {
         200: {
-          description: "Device details",
+          description: "Display details",
           content: {
             "application/json": {
-              schema: resolver(deviceSchema),
+              schema: resolver(displaySchema),
             },
           },
         },
@@ -158,7 +158,7 @@ export const registerDeviceStaffRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getDevice.execute({ id: params.id });
+        const result = await useCases.getDisplay.execute({ id: params.id });
         return c.json(result);
       },
       ...applicationErrorMappers,
@@ -167,30 +167,30 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.patch(
     "/:id{[0-9a-fA-F-]{36}}",
-    setAction("displays.device.update", {
+    setAction("displays.display.update", {
       route: "/displays/:id",
-      resourceType: "device",
+      resourceType: "display",
     }),
     ...authorize("displays:update"),
-    validateParams(deviceIdParamSchema),
-    validateJson(patchDeviceSchema),
+    validateParams(displayIdParamSchema),
+    validateJson(patchDisplaySchema),
     describeRoute({
-      description: "Update device",
-      tags: deviceTags,
+      description: "Update display",
+      tags: displayTags,
       requestBody: {
         content: {
           "application/json": {
-            schema: patchDeviceRequestBodySchema,
+            schema: patchDisplayRequestBodySchema,
           },
         },
         required: true,
       },
       responses: {
         200: {
-          description: "Updated device",
+          description: "Updated display",
           content: {
             "application/json": {
-              schema: resolver(deviceSchema),
+              schema: resolver(displaySchema),
             },
           },
         },
@@ -213,7 +213,7 @@ export const registerDeviceStaffRoutes = (args: {
         const params = c.req.valid("param");
         const payload = c.req.valid("json");
         c.set("resourceId", params.id);
-        const result = await useCases.updateDevice.execute({
+        const result = await useCases.updateDisplay.execute({
           id: params.id,
           name: payload.name,
           location: payload.location,
@@ -232,15 +232,15 @@ export const registerDeviceStaffRoutes = (args: {
 
   router.post(
     "/:id{[0-9a-fA-F-]{36}}/refresh",
-    setAction("displays.device.refresh", {
+    setAction("displays.display.refresh", {
       route: "/displays/:id/refresh",
-      resourceType: "device",
+      resourceType: "display",
     }),
     ...authorize("displays:update"),
-    validateParams(deviceIdParamSchema),
+    validateParams(displayIdParamSchema),
     describeRoute({
-      description: "Queue a refresh signal for a device",
-      tags: deviceTags,
+      description: "Queue a refresh signal for a display",
+      tags: displayTags,
       responses: {
         204: { description: "Refresh queued" },
         401: {
@@ -258,7 +258,7 @@ export const registerDeviceStaffRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        await useCases.requestDeviceRefresh.execute({ id: params.id });
+        await useCases.requestDisplayRefresh.execute({ id: params.id });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -269,18 +269,18 @@ export const registerDeviceStaffRoutes = (args: {
     "/groups",
     setAction("displays.group.list", {
       route: "/displays/groups",
-      resourceType: "device-group",
+      resourceType: "display-group",
     }),
     ...authorize("displays:read"),
     describeRoute({
-      description: "List device groups",
-      tags: deviceTags,
+      description: "List display groups",
+      tags: displayTags,
       responses: {
         200: {
-          description: "Device groups",
+          description: "Display groups",
           content: {
             "application/json": {
-              schema: resolver(deviceGroupListResponseSchema),
+              schema: resolver(displayGroupListResponseSchema),
             },
           },
         },
@@ -288,7 +288,7 @@ export const registerDeviceStaffRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const items = await useCases.listDeviceGroups.execute();
+        const items = await useCases.listDisplayGroups.execute();
         return c.json({ items });
       },
       ...applicationErrorMappers,
@@ -299,27 +299,27 @@ export const registerDeviceStaffRoutes = (args: {
     "/groups",
     setAction("displays.group.create", {
       route: "/displays/groups",
-      resourceType: "device-group",
+      resourceType: "display-group",
     }),
     ...authorize("displays:update"),
-    validateJson(createDeviceGroupSchema),
+    validateJson(createDisplayGroupSchema),
     describeRoute({
-      description: "Create device group",
-      tags: deviceTags,
+      description: "Create display group",
+      tags: displayTags,
       requestBody: {
         content: {
           "application/json": {
-            schema: createDeviceGroupRequestBodySchema,
+            schema: createDisplayGroupRequestBodySchema,
           },
         },
         required: true,
       },
       responses: {
         200: {
-          description: "Device group",
+          description: "Display group",
           content: {
             "application/json": {
-              schema: resolver(deviceGroupSchema),
+              schema: resolver(displayGroupSchema),
             },
           },
         },
@@ -331,7 +331,7 @@ export const registerDeviceStaffRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const result = await useCases.createDeviceGroup.execute({
+        const result = await useCases.createDisplayGroup.execute({
           name: payload.name,
           colorIndex: payload.colorIndex,
         });
@@ -339,7 +339,7 @@ export const registerDeviceStaffRoutes = (args: {
         return c.json(result);
       },
       ...applicationErrorMappers,
-      mapErrorToResponse(DeviceGroupConflictError, conflict),
+      mapErrorToResponse(DisplayGroupConflictError, conflict),
     ),
   );
 
@@ -347,28 +347,28 @@ export const registerDeviceStaffRoutes = (args: {
     "/groups/:groupId",
     setAction("displays.group.update", {
       route: "/displays/groups/:groupId",
-      resourceType: "device-group",
+      resourceType: "display-group",
     }),
     ...authorize("displays:update"),
-    validateParams(deviceGroupIdParamSchema),
-    validateJson(updateDeviceGroupSchema),
+    validateParams(displayGroupIdParamSchema),
+    validateJson(updateDisplayGroupSchema),
     describeRoute({
-      description: "Update device group",
-      tags: deviceTags,
+      description: "Update display group",
+      tags: displayTags,
       requestBody: {
         content: {
           "application/json": {
-            schema: updateDeviceGroupRequestBodySchema,
+            schema: updateDisplayGroupRequestBodySchema,
           },
         },
         required: true,
       },
       responses: {
         200: {
-          description: "Device group",
+          description: "Display group",
           content: {
             "application/json": {
-              schema: resolver(deviceGroupSchema),
+              schema: resolver(displayGroupSchema),
             },
           },
         },
@@ -381,7 +381,7 @@ export const registerDeviceStaffRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         const payload = c.req.valid("json");
-        const result = await useCases.updateDeviceGroup.execute({
+        const result = await useCases.updateDisplayGroup.execute({
           id: params.groupId,
           name: payload.name,
           colorIndex: payload.colorIndex,
@@ -390,7 +390,7 @@ export const registerDeviceStaffRoutes = (args: {
         return c.json(result);
       },
       ...applicationErrorMappers,
-      mapErrorToResponse(DeviceGroupConflictError, conflict),
+      mapErrorToResponse(DisplayGroupConflictError, conflict),
     ),
   );
 
@@ -398,13 +398,13 @@ export const registerDeviceStaffRoutes = (args: {
     "/groups/:groupId",
     setAction("displays.group.delete", {
       route: "/displays/groups/:groupId",
-      resourceType: "device-group",
+      resourceType: "display-group",
     }),
     ...authorize("displays:update"),
-    validateParams(deviceGroupIdParamSchema),
+    validateParams(displayGroupIdParamSchema),
     describeRoute({
-      description: "Delete device group",
-      tags: deviceTags,
+      description: "Delete display group",
+      tags: displayTags,
       responses: {
         204: { description: "Deleted" },
       },
@@ -412,7 +412,7 @@ export const registerDeviceStaffRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
-        await useCases.deleteDeviceGroup.execute({ id: params.groupId });
+        await useCases.deleteDisplayGroup.execute({ id: params.groupId });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -423,18 +423,18 @@ export const registerDeviceStaffRoutes = (args: {
     "/:id{[0-9a-fA-F-]{36}}/groups",
     setAction("displays.group.set", {
       route: "/displays/:id/groups",
-      resourceType: "device",
+      resourceType: "display",
     }),
     ...authorize("displays:update"),
-    validateParams(deviceIdParamSchema),
-    validateJson(setDeviceGroupsSchema),
+    validateParams(displayIdParamSchema),
+    validateJson(setDisplayGroupsSchema),
     describeRoute({
-      description: "Set device groups for a device",
-      tags: deviceTags,
+      description: "Set display groups for a display",
+      tags: displayTags,
       requestBody: {
         content: {
           "application/json": {
-            schema: setDeviceGroupsRequestBodySchema,
+            schema: setDisplayGroupsRequestBodySchema,
           },
         },
         required: true,
@@ -447,8 +447,8 @@ export const registerDeviceStaffRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         const payload = c.req.valid("json");
-        await useCases.setDeviceGroups.execute({
-          deviceId: params.id,
+        await useCases.setDisplayGroups.execute({
+          displayId: params.id,
           groupIds: payload.groupIds,
         });
         c.set("resourceId", params.id);

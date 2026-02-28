@@ -25,7 +25,7 @@ export const createAuditRouter = (deps: AuditRouterDeps) => {
     authorize,
     repositories: {
       userRepository: deps.repositories.userRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
     },
   });
 

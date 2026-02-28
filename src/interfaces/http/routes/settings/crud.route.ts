@@ -1,13 +1,13 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { publishDeviceStreamEvent } from "#/interfaces/http/routes/devices/stream";
+import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  deviceRuntimeSettingsSchema,
-  updateDeviceRuntimeSettingsSchema,
+  displayRuntimeSettingsSchema,
+  updateDisplayRuntimeSettingsSchema,
 } from "#/interfaces/http/validators/settings.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -21,26 +21,26 @@ export const registerSettingsCrudRoutes = (args: {
   router: SettingsRouter;
   useCases: SettingsRouterUseCases;
   authorize: AuthorizePermission;
-  listDeviceIds: () => Promise<string[]>;
+  listDisplayIds: () => Promise<string[]>;
 }) => {
-  const { router, useCases, authorize, listDeviceIds } = args;
+  const { router, useCases, authorize, listDisplayIds } = args;
 
   router.get(
-    "/device-runtime",
-    setAction("settings.deviceRuntime.read", {
-      route: "/settings/device-runtime",
+    "/display-runtime",
+    setAction("settings.displayRuntime.read", {
+      route: "/settings/display-runtime",
       resourceType: "setting",
     }),
     ...authorize("settings:read"),
     describeRoute({
-      description: "Get device runtime settings",
+      description: "Get display runtime settings",
       tags: settingsTags,
       responses: {
         200: {
-          description: "Current device runtime settings",
+          description: "Current display runtime settings",
           content: {
             "application/json": {
-              schema: resolver(deviceRuntimeSettingsSchema),
+              schema: resolver(displayRuntimeSettingsSchema),
             },
           },
         },
@@ -48,8 +48,8 @@ export const registerSettingsCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const result = await useCases.getDeviceRuntimeSettings.execute();
-        c.set("resourceId", "device-runtime");
+        const result = await useCases.getDisplayRuntimeSettings.execute();
+        c.set("resourceId", "display-runtime");
         return c.json(result);
       },
       ...applicationErrorMappers,
@@ -57,22 +57,22 @@ export const registerSettingsCrudRoutes = (args: {
   );
 
   router.patch(
-    "/device-runtime",
-    setAction("settings.deviceRuntime.update", {
-      route: "/settings/device-runtime",
+    "/display-runtime",
+    setAction("settings.displayRuntime.update", {
+      route: "/settings/display-runtime",
       resourceType: "setting",
     }),
     ...authorize("settings:update"),
-    validateJson(updateDeviceRuntimeSettingsSchema),
+    validateJson(updateDisplayRuntimeSettingsSchema),
     describeRoute({
-      description: "Update device runtime settings",
+      description: "Update display runtime settings",
       tags: settingsTags,
       responses: {
         200: {
           description: "Updated settings",
           content: {
             "application/json": {
-              schema: resolver(deviceRuntimeSettingsSchema),
+              schema: resolver(displayRuntimeSettingsSchema),
             },
           },
         },
@@ -81,19 +81,19 @@ export const registerSettingsCrudRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const result = await useCases.updateDeviceRuntimeSettings.execute({
+        const result = await useCases.updateDisplayRuntimeSettings.execute({
           scrollPxPerSecond: payload.scrollPxPerSecond,
         });
-        const deviceIds = await listDeviceIds();
-        for (const deviceId of deviceIds) {
-          publishDeviceStreamEvent({
+        const displayIds = await listDisplayIds();
+        for (const displayId of displayIds) {
+          publishDisplayStreamEvent({
             type: "manifest_updated",
-            deviceId,
-            reason: "device_runtime_settings_updated",
+            displayId,
+            reason: "display_runtime_settings_updated",
             timestamp: new Date().toISOString(),
           });
         }
-        c.set("resourceId", "device-runtime");
+        c.set("resourceId", "display-runtime");
         return c.json(result);
       },
       ...applicationErrorMappers,

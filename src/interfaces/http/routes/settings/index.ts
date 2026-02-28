@@ -25,9 +25,9 @@ export const createSettingsRouter = (deps: SettingsRouterDeps) => {
     router,
     useCases,
     authorize,
-    listDeviceIds: async () =>
-      (await deps.repositories.deviceRepository.list()).map(
-        (device) => device.id,
+    listDisplayIds: async () =>
+      (await deps.repositories.displayRepository.list()).map(
+        (display) => display.id,
       ),
   });
 

@@ -1,4 +1,4 @@
-export type AuditActorType = "user" | "device";
+export type AuditActorType = "user" | "display";
 
 export interface AuditEventRecord {
   id: string;

@@ -1,10 +1,10 @@
 import { type OpenAPIV3_1 } from "openapi-types";
 import { z } from "zod";
 
-export const deviceSchema = z.object({
+export const displaySchema = z.object({
   id: z.string(),
   identifier: z.string(),
-  deviceFingerprint: z.string().nullable().optional(),
+  displayFingerprint: z.string().nullable().optional(),
   name: z.string(),
   location: z.string().nullable(),
   ipAddress: z.string().nullable(),
@@ -19,25 +19,25 @@ export const deviceSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const deviceListResponseSchema = z.object({
-  items: z.array(deviceSchema),
+export const displayListResponseSchema = z.object({
+  items: z.array(displaySchema),
   total: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
 });
 
-export const deviceIdParamSchema = z.object({
+export const displayIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const deviceGroupIdParamSchema = z.object({
+export const displayGroupIdParamSchema = z.object({
   groupId: z.string().uuid(),
 });
 
-export const registerDeviceSchema = z.object({
+export const registerDisplaySchema = z.object({
   pairingCode: z.string().regex(/^\d{6}$/),
   identifier: z.string().min(1),
-  deviceFingerprint: z.string().min(1).max(255).nullable().optional(),
+  displayFingerprint: z.string().min(1).max(255).nullable().optional(),
   name: z.string().min(1),
   location: z.string().nullable().optional(),
   ipAddress: z.string().min(1).max(128).nullable().optional(),
@@ -48,7 +48,7 @@ export const registerDeviceSchema = z.object({
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
 });
 
-export const patchDeviceSchema = z.object({
+export const patchDisplaySchema = z.object({
   name: z.string().min(1).optional(),
   location: z.string().nullable().optional(),
   ipAddress: z.string().min(1).max(128).nullable().optional(),
@@ -59,34 +59,34 @@ export const patchDeviceSchema = z.object({
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
 });
 
-export const createDeviceGroupSchema = z.object({
+export const createDisplayGroupSchema = z.object({
   name: z.string().min(1).max(120),
   colorIndex: z.number().int().min(0).optional(),
 });
 
-export const updateDeviceGroupSchema = z.object({
+export const updateDisplayGroupSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   colorIndex: z.number().int().min(0).optional(),
 });
 
-export const setDeviceGroupsSchema = z.object({
+export const setDisplayGroupsSchema = z.object({
   groupIds: z.array(z.string().uuid()).default([]),
 });
 
-export const deviceGroupSchema = z.object({
+export const displayGroupSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   colorIndex: z.number().int().nonnegative(),
-  deviceIds: z.array(z.string().uuid()),
+  displayIds: z.array(z.string().uuid()),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 
-export const deviceGroupListResponseSchema = z.object({
-  items: z.array(deviceGroupSchema),
+export const displayGroupListResponseSchema = z.object({
+  items: z.array(displayGroupSchema),
 });
 
-export const createDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+export const createDisplayGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
@@ -95,7 +95,7 @@ export const createDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   required: ["name"],
 };
 
-export const updateDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+export const updateDisplayGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
@@ -103,7 +103,7 @@ export const updateDeviceGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   },
 };
 
-export const setDeviceGroupsRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+export const setDisplayGroupsRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     groupIds: {
@@ -114,7 +114,7 @@ export const setDeviceGroupsRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   required: ["groupIds"],
 };
 
-export const patchDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+export const patchDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string" },
@@ -133,12 +133,12 @@ export const patchDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   },
 };
 
-export const registerDeviceRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     pairingCode: { type: "string", pattern: "^\\d{6}$" },
     identifier: { type: "string" },
-    deviceFingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
+    displayFingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
     name: { type: "string" },
     location: { oneOf: [{ type: "string" }, { type: "null" }] },
     ipAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
@@ -169,16 +169,16 @@ export const pairingCodeResponseSchema = z.object({
   expiresAt: z.string(),
 });
 
-export const deviceStreamTokenResponseSchema = z.object({
+export const displayStreamTokenResponseSchema = z.object({
   token: z.string().min(1),
   expiresAt: z.string(),
 });
 
-export const deviceStreamQuerySchema = z.object({
+export const displayStreamQuerySchema = z.object({
   streamToken: z.string().min(1),
 });
 
-export const deviceManifestItemSchema = z.object({
+export const displayManifestItemSchema = z.object({
   id: z.string(),
   sequence: z.number().int(),
   duration: z.number().int(),
@@ -194,12 +194,12 @@ export const deviceManifestItemSchema = z.object({
   }),
 });
 
-export const deviceManifestSchema = z.object({
+export const displayManifestSchema = z.object({
   playlistId: z.string().nullable(),
   playlistVersion: z.string(),
   generatedAt: z.string(),
   runtimeSettings: z.object({
     scrollPxPerSecond: z.number().int().positive(),
   }),
-  items: z.array(deviceManifestItemSchema),
+  items: z.array(displayManifestItemSchema),
 });

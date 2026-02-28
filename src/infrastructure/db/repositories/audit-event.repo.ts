@@ -7,7 +7,7 @@ import {
 } from "#/application/ports/audit";
 import { db } from "#/infrastructure/db/client";
 import { auditEvents } from "#/infrastructure/db/schema/audit.sql";
-import { devices } from "#/infrastructure/db/schema/device.sql";
+import { displays } from "#/infrastructure/db/schema/display.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
 
 /** Escape LIKE wildcards so user input is treated literally. */
@@ -136,12 +136,12 @@ export class AuditEventDbRepository implements AuditEventRepository {
         metadataJson: auditEvents.metadataJson,
         userName: users.name,
         userEmail: users.email,
-        deviceName: devices.name,
-        deviceIdentifier: devices.identifier,
+        displayName: displays.name,
+        displayIdentifier: displays.identifier,
       })
       .from(auditEvents)
       .leftJoin(users, eq(users.id, auditEvents.actorId))
-      .leftJoin(devices, eq(devices.id, auditEvents.actorId))
+      .leftJoin(displays, eq(displays.id, auditEvents.actorId))
       .where(where)
       .orderBy(desc(auditEvents.occurredAt), desc(auditEvents.id))
       .limit(query.limit)
@@ -153,8 +153,8 @@ export class AuditEventDbRepository implements AuditEventRepository {
         actorName:
           row.actorType === "user"
             ? row.userName
-            : row.actorType === "device"
-              ? (row.deviceName ?? row.deviceIdentifier)
+            : row.actorType === "display"
+              ? (row.displayName ?? row.displayIdentifier)
               : null,
         actorEmail: row.actorType === "user" ? row.userEmail : null,
       }),

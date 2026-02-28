@@ -18,7 +18,7 @@ const buildAuditEvent = (
     path: string;
     status: number;
     actorId: string | null;
-    actorType: "user" | "device" | null;
+    actorType: "user" | "display" | null;
     resourceId: string | null;
     resourceType: string | null;
     ipAddress: string | null;
@@ -65,10 +65,10 @@ const mockUserRepository = {
   delete: async () => false,
 };
 
-const mockDeviceRepository = {
+const mockDisplayRepository = {
   findByIds: async (ids: string[]) =>
     ids
-      .filter((id) => id === "device-1")
+      .filter((id) => id === "display-1")
       .map((id) => ({
         id,
         name: "Lobby Display",
@@ -120,7 +120,7 @@ const makeApp = async (permissions: string[]) => {
       auditEventRepository,
       authorizationRepository,
       userRepository: mockUserRepository,
-      deviceRepository: mockDeviceRepository,
+      displayRepository: mockDisplayRepository,
     },
   });
 
@@ -272,7 +272,7 @@ describe("Audit routes", () => {
         auditEventRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
-        deviceRepository: mockDeviceRepository,
+        displayRepository: mockDisplayRepository,
       },
     });
     const app = new Hono();
@@ -324,7 +324,7 @@ describe("Audit routes", () => {
         auditEventRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
-        deviceRepository: mockDeviceRepository,
+        displayRepository: mockDisplayRepository,
       },
     });
 
@@ -379,7 +379,7 @@ describe("Audit routes", () => {
         auditEventRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
-        deviceRepository: mockDeviceRepository,
+        displayRepository: mockDisplayRepository,
       },
     });
 
@@ -423,7 +423,7 @@ describe("Audit routes", () => {
         auditEventRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
-        deviceRepository: mockDeviceRepository,
+        displayRepository: mockDisplayRepository,
       },
     });
 

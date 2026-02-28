@@ -1,16 +1,16 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import {
-  type DeviceRecord,
-  type DeviceRepository,
-} from "#/application/ports/devices";
+  type DisplayRecord,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import { db } from "#/infrastructure/db/client";
-import { devices } from "#/infrastructure/db/schema/device.sql";
+import { displays } from "#/infrastructure/db/schema/display.sql";
 
-const toRecord = (row: typeof devices.$inferSelect): DeviceRecord => ({
+const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
   id: row.id,
   name: row.name,
   identifier: row.identifier,
-  deviceFingerprint: row.deviceFingerprint ?? null,
+  displayFingerprint: row.displayFingerprint ?? null,
   location: row.location ?? null,
   ipAddress: row.ipAddress ?? null,
   macAddress: row.macAddress ?? null,
@@ -32,49 +32,49 @@ const toRecord = (row: typeof devices.$inferSelect): DeviceRecord => ({
     row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
 });
 
-export class DeviceDbRepository implements DeviceRepository {
-  async list(): Promise<DeviceRecord[]> {
+export class DisplayDbRepository implements DisplayRepository {
+  async list(): Promise<DisplayRecord[]> {
     const rows = await db
       .select()
-      .from(devices)
-      .orderBy(desc(devices.createdAt));
+      .from(displays)
+      .orderBy(desc(displays.createdAt));
     return rows.map(toRecord);
   }
 
-  async findByIds(ids: string[]): Promise<DeviceRecord[]> {
+  async findByIds(ids: string[]): Promise<DisplayRecord[]> {
     if (ids.length === 0) {
       return [];
     }
     const rows = await db
       .select()
-      .from(devices)
-      .where(inArray(devices.id, ids));
+      .from(displays)
+      .where(inArray(displays.id, ids));
     return rows.map(toRecord);
   }
 
-  async findById(id: string): Promise<DeviceRecord | null> {
+  async findById(id: string): Promise<DisplayRecord | null> {
     const rows = await db
       .select()
-      .from(devices)
-      .where(eq(devices.id, id))
+      .from(displays)
+      .where(eq(displays.id, id))
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
-  async findByIdentifier(identifier: string): Promise<DeviceRecord | null> {
+  async findByIdentifier(identifier: string): Promise<DisplayRecord | null> {
     const rows = await db
       .select()
-      .from(devices)
-      .where(eq(devices.identifier, identifier))
+      .from(displays)
+      .where(eq(displays.identifier, identifier))
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
-  async findByFingerprint(fingerprint: string): Promise<DeviceRecord | null> {
+  async findByFingerprint(fingerprint: string): Promise<DisplayRecord | null> {
     const rows = await db
       .select()
-      .from(devices)
-      .where(eq(devices.deviceFingerprint, fingerprint))
+      .from(displays)
+      .where(eq(displays.displayFingerprint, fingerprint))
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
@@ -82,16 +82,16 @@ export class DeviceDbRepository implements DeviceRepository {
   async create(input: {
     name: string;
     identifier: string;
-    deviceFingerprint?: string | null;
+    displayFingerprint?: string | null;
     location: string | null;
-  }): Promise<DeviceRecord> {
+  }): Promise<DisplayRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
-    await db.insert(devices).values({
+    await db.insert(displays).values({
       id,
       name: input.name,
       identifier: input.identifier,
-      deviceFingerprint: input.deviceFingerprint ?? null,
+      displayFingerprint: input.displayFingerprint ?? null,
       location: input.location,
       createdAt: now,
       updatedAt: now,
@@ -101,7 +101,7 @@ export class DeviceDbRepository implements DeviceRepository {
       id,
       name: input.name,
       identifier: input.identifier,
-      deviceFingerprint: input.deviceFingerprint ?? null,
+      displayFingerprint: input.displayFingerprint ?? null,
       location: input.location,
       ipAddress: null,
       macAddress: null,
@@ -121,7 +121,7 @@ export class DeviceDbRepository implements DeviceRepository {
     input: {
       name?: string;
       identifier?: string;
-      deviceFingerprint?: string | null;
+      displayFingerprint?: string | null;
       location?: string | null;
       ipAddress?: string | null;
       macAddress?: string | null;
@@ -130,17 +130,17 @@ export class DeviceDbRepository implements DeviceRepository {
       outputType?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
     },
-  ): Promise<DeviceRecord | null> {
+  ): Promise<DisplayRecord | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
 
     const next = {
       name: input.name ?? existing.name,
       identifier: input.identifier ?? existing.identifier,
-      deviceFingerprint:
-        input.deviceFingerprint !== undefined
-          ? input.deviceFingerprint
-          : (existing.deviceFingerprint ?? null),
+      displayFingerprint:
+        input.displayFingerprint !== undefined
+          ? input.displayFingerprint
+          : (existing.displayFingerprint ?? null),
       location:
         input.location !== undefined ? input.location : existing.location,
       ipAddress:
@@ -165,11 +165,11 @@ export class DeviceDbRepository implements DeviceRepository {
 
     const now = new Date();
     await db
-      .update(devices)
+      .update(displays)
       .set({
         name: next.name,
         identifier: next.identifier,
-        deviceFingerprint: next.deviceFingerprint,
+        displayFingerprint: next.displayFingerprint,
         location: next.location,
         ipAddress: next.ipAddress,
         macAddress: next.macAddress,
@@ -179,7 +179,7 @@ export class DeviceDbRepository implements DeviceRepository {
         orientation: next.orientation,
         updatedAt: now,
       })
-      .where(eq(devices.id, id));
+      .where(eq(displays.id, id));
 
     return {
       ...existing,
@@ -193,20 +193,20 @@ export class DeviceDbRepository implements DeviceRepository {
     if (!existing) return false;
 
     await db
-      .update(devices)
+      .update(displays)
       .set({
         refreshNonce: (existing.refreshNonce ?? 0) + 1,
         updatedAt: new Date(),
       })
-      .where(eq(devices.id, id));
+      .where(eq(displays.id, id));
 
     return true;
   }
 
   async touchSeen(id: string, at: Date): Promise<void> {
     await db
-      .update(devices)
+      .update(displays)
       .set({ lastSeenAt: at, updatedAt: at })
-      .where(eq(devices.id, id));
+      .where(eq(displays.id, id));
   }
 }

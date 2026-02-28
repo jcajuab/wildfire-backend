@@ -6,9 +6,9 @@ import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-e
 import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
-import { DeviceDbRepository } from "#/infrastructure/db/repositories/device.repo";
-import { DeviceGroupDbRepository } from "#/infrastructure/db/repositories/device-group.repo";
-import { DevicePairingCodeDbRepository } from "#/infrastructure/db/repositories/device-pairing-code.repo";
+import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
+import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
+import { DisplayPairingCodeDbRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -59,9 +59,9 @@ export interface HttpContainer {
     contentRepository: ContentDbRepository;
     playlistRepository: PlaylistDbRepository;
     scheduleRepository: ScheduleDbRepository;
-    deviceRepository: DeviceDbRepository;
-    deviceGroupRepository: DeviceGroupDbRepository;
-    devicePairingCodeRepository: DevicePairingCodeDbRepository;
+    displayRepository: DisplayDbRepository;
+    displayGroupRepository: DisplayGroupDbRepository;
+    displayPairingCodeRepository: DisplayPairingCodeDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
     invitationRepository: InvitationDbRepository;
     systemSettingRepository: SystemSettingDbRepository;
@@ -101,9 +101,9 @@ export const createHttpContainer = (
   const contentRepository = new ContentDbRepository();
   const playlistRepository = new PlaylistDbRepository();
   const scheduleRepository = new ScheduleDbRepository();
-  const deviceRepository = new DeviceDbRepository();
-  const deviceGroupRepository = new DeviceGroupDbRepository();
-  const devicePairingCodeRepository = new DevicePairingCodeDbRepository();
+  const displayRepository = new DisplayDbRepository();
+  const displayGroupRepository = new DisplayGroupDbRepository();
+  const displayPairingCodeRepository = new DisplayPairingCodeDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
   const invitationRepository = new InvitationDbRepository();
   const systemSettingRepository = new SystemSettingDbRepository();
@@ -147,9 +147,9 @@ export const createHttpContainer = (
       contentRepository,
       playlistRepository,
       scheduleRepository,
-      deviceRepository,
-      deviceGroupRepository,
-      devicePairingCodeRepository,
+      displayRepository,
+      displayGroupRepository,
+      displayPairingCodeRepository,
       passwordResetTokenRepository,
       invitationRepository,
       systemSettingRepository,

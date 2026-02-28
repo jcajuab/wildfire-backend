@@ -1,7 +1,7 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type ContentRepository } from "#/application/ports/content";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -14,7 +14,7 @@ import {
   UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
-import { publishDeviceStreamEvent } from "#/interfaces/http/routes/devices/stream";
+import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 
 export interface SchedulesRouterDeps {
   jwtSecret: string;
@@ -24,7 +24,7 @@ export interface SchedulesRouterDeps {
   repositories: {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;
-    deviceRepository: DeviceRepository;
+    displayRepository: DisplayRepository;
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
     systemSettingRepository: SystemSettingRepository;
@@ -53,20 +53,20 @@ export const scheduleTags = ["Schedules"];
 export const createSchedulesUseCases = (
   deps: SchedulesRouterDeps,
 ): SchedulesRouterUseCases => {
-  const deviceEventPublisher = {
+  const displayEventPublisher = {
     publish(input: {
       type:
         | "manifest_updated"
         | "schedule_updated"
         | "playlist_updated"
-        | "device_refresh_requested";
-      deviceId: string;
+        | "display_refresh_requested";
+      displayId: string;
       reason?: string;
       timestamp?: string;
     }) {
-      publishDeviceStreamEvent({
+      publishDisplayStreamEvent({
         type: input.type,
-        deviceId: input.deviceId,
+        displayId: input.displayId,
         reason: input.reason,
         timestamp: input.timestamp ?? new Date().toISOString(),
       });
@@ -77,33 +77,33 @@ export const createSchedulesUseCases = (
     listSchedules: new ListSchedulesUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
     }),
     createSchedule: new CreateScheduleUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
       contentRepository: deps.repositories.contentRepository,
       systemSettingRepository: deps.repositories.systemSettingRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
     getSchedule: new GetScheduleUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
     }),
     updateSchedule: new UpdateScheduleUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
       contentRepository: deps.repositories.contentRepository,
       systemSettingRepository: deps.repositories.systemSettingRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
     deleteSchedule: new DeleteScheduleUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
   };
 };

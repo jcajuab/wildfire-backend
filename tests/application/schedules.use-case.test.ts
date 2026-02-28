@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { ValidationError } from "#/application/errors/validation";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   CreateScheduleUseCase,
-  GetActiveScheduleForDeviceUseCase,
+  GetActiveScheduleForDisplayUseCase,
   ListSchedulesUseCase,
   NotFoundError,
   ScheduleConflictError,
@@ -18,7 +18,7 @@ const makeDeps = () => {
     seriesId?: string;
     name: string;
     playlistId: string;
-    deviceId: string;
+    displayId: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -32,8 +32,8 @@ const makeDeps = () => {
 
   const scheduleRepository: ScheduleRepository = {
     list: async () => [...schedules],
-    listByDevice: async (deviceId: string) =>
-      schedules.filter((schedule) => schedule.deviceId === deviceId),
+    listByDisplay: async (displayId: string) =>
+      schedules.filter((schedule) => schedule.displayId === displayId),
     listBySeries: async (seriesId: string) =>
       schedules.filter((schedule) => schedule.seriesId === seriesId),
     findById: async (id: string) =>
@@ -127,12 +127,12 @@ const makeDeps = () => {
     deleteItem: async () => false,
   };
 
-  const deviceRepository: DeviceRepository = {
+  const displayRepository: DisplayRepository = {
     list: async () => [],
     findByIds: async (ids: string[]) =>
       ids
         .map((id) =>
-          id === "device-1"
+          id === "display-1"
             ? {
                 id,
                 name: "Lobby",
@@ -147,7 +147,7 @@ const makeDeps = () => {
         )
         .filter((row): row is NonNullable<typeof row> => row !== null),
     findById: async (id: string) =>
-      id === "device-1"
+      id === "display-1"
         ? {
             id,
             name: "Lobby",
@@ -171,7 +171,7 @@ const makeDeps = () => {
   return {
     scheduleRepository,
     playlistRepository,
-    deviceRepository,
+    displayRepository,
     schedules,
   };
 };
@@ -180,8 +180,8 @@ describe("Schedules use cases", () => {
   test("ListSchedulesUseCase hydrates schedules with targeted lookups", async () => {
     let playlistListCalls = 0;
     let playlistFindByIdsCalls = 0;
-    let deviceListCalls = 0;
-    let deviceFindByIdsCalls = 0;
+    let displayListCalls = 0;
+    let displayFindByIdsCalls = 0;
 
     const useCase = new ListSchedulesUseCase({
       scheduleRepository: {
@@ -191,7 +191,7 @@ describe("Schedules use cases", () => {
             seriesId: "series-1",
             name: "Morning",
             playlistId: "playlist-1",
-            deviceId: "device-1",
+            displayId: "display-1",
             startTime: "08:00",
             endTime: "17:00",
             dayOfWeek: 1,
@@ -201,7 +201,7 @@ describe("Schedules use cases", () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
-        listByDevice: async () => [],
+        listByDisplay: async () => [],
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
@@ -251,17 +251,17 @@ describe("Schedules use cases", () => {
         reorderItems: async () => true,
         deleteItem: async () => false,
       },
-      deviceRepository: {
+      displayRepository: {
         list: async () => {
-          deviceListCalls += 1;
+          displayListCalls += 1;
           return [];
         },
         findByIds: async (ids: string[]) => {
-          deviceFindByIdsCalls += 1;
-          return ids.includes("device-1")
+          displayFindByIdsCalls += 1;
+          return ids.includes("display-1")
             ? [
                 {
-                  id: "device-1",
+                  id: "display-1",
                   name: "Lobby",
                   identifier: "AA:BB",
                   location: null,
@@ -285,19 +285,19 @@ describe("Schedules use cases", () => {
     const result = await useCase.execute();
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.playlist?.id).toBe("playlist-1");
-    expect(result.items[0]?.device?.id).toBe("device-1");
+    expect(result.items[0]?.display?.id).toBe("display-1");
     expect(playlistFindByIdsCalls).toBe(1);
-    expect(deviceFindByIdsCalls).toBe(1);
+    expect(displayFindByIdsCalls).toBe(1);
     expect(playlistListCalls).toBe(0);
-    expect(deviceListCalls).toBe(0);
+    expect(displayListCalls).toBe(0);
   });
 
-  test("CreateScheduleUseCase validates playlist/device", async () => {
+  test("CreateScheduleUseCase validates playlist/display", async () => {
     const deps = makeDeps();
     const useCase = new CreateScheduleUseCase({
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
-      deviceRepository: deps.deviceRepository,
+      displayRepository: deps.displayRepository,
       contentRepository: {
         create: async () => {
           throw new Error("not used");
@@ -316,7 +316,7 @@ describe("Schedules use cases", () => {
       useCase.execute({
         name: "Morning",
         playlistId: "missing",
-        deviceId: "device-1",
+        displayId: "display-1",
         startTime: "08:00",
         endTime: "17:00",
         daysOfWeek: [1, 2, 3],
@@ -342,7 +342,7 @@ describe("Schedules use cases", () => {
           },
         ],
       },
-      deviceRepository: deps.deviceRepository,
+      displayRepository: deps.displayRepository,
       contentRepository: {
         create: async () => {
           throw new Error("not used");
@@ -377,7 +377,7 @@ describe("Schedules use cases", () => {
       useCase.execute({
         name: "Short Window",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startTime: "08:00",
         endTime: "08:01",
         daysOfWeek: [1],
@@ -387,14 +387,14 @@ describe("Schedules use cases", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  test("CreateScheduleUseCase rejects overlapping schedules for the same device", async () => {
+  test("CreateScheduleUseCase rejects overlapping schedules for the same display", async () => {
     const deps = makeDeps();
     deps.schedules.push({
       id: "schedule-existing",
       seriesId: "series-existing",
       name: "Morning Block",
       playlistId: "playlist-1",
-      deviceId: "device-1",
+      displayId: "display-1",
       startDate: "2025-01-01",
       endDate: "2025-12-31",
       startTime: "10:00",
@@ -408,7 +408,7 @@ describe("Schedules use cases", () => {
     const useCase = new CreateScheduleUseCase({
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
-      deviceRepository: deps.deviceRepository,
+      displayRepository: deps.displayRepository,
       contentRepository: {
         create: async () => {
           throw new Error("not used");
@@ -427,7 +427,7 @@ describe("Schedules use cases", () => {
       useCase.execute({
         name: "Conflict",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startDate: "2025-02-01",
         endDate: "2025-11-30",
         startTime: "10:30",
@@ -446,7 +446,7 @@ describe("Schedules use cases", () => {
       seriesId: "series-existing",
       name: "Morning Block",
       playlistId: "playlist-1",
-      deviceId: "device-1",
+      displayId: "display-1",
       startDate: "2025-01-01",
       endDate: "2025-12-31",
       startTime: "10:00",
@@ -460,7 +460,7 @@ describe("Schedules use cases", () => {
     const useCase = new CreateScheduleUseCase({
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
-      deviceRepository: deps.deviceRepository,
+      displayRepository: deps.displayRepository,
       contentRepository: {
         create: async () => {
           throw new Error("not used");
@@ -479,7 +479,7 @@ describe("Schedules use cases", () => {
       useCase.execute({
         name: "Back to back",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startDate: "2025-02-01",
         endDate: "2025-11-30",
         startTime: "11:00",
@@ -499,7 +499,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-a",
         name: "A",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startDate: "2025-01-01",
         endDate: "2025-12-31",
         startTime: "08:00",
@@ -515,7 +515,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-b",
         name: "B",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startDate: "2025-01-01",
         endDate: "2025-12-31",
         startTime: "10:00",
@@ -530,7 +530,7 @@ describe("Schedules use cases", () => {
     const useCase = new UpdateScheduleUseCase({
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
-      deviceRepository: deps.deviceRepository,
+      displayRepository: deps.displayRepository,
       contentRepository: {
         create: async () => {
           throw new Error("not used");
@@ -554,7 +554,7 @@ describe("Schedules use cases", () => {
     ).rejects.toBeInstanceOf(ScheduleConflictError);
   });
 
-  test("GetActiveScheduleForDeviceUseCase returns highest priority", async () => {
+  test("GetActiveScheduleForDisplayUseCase returns highest priority", async () => {
     const deps = makeDeps();
     deps.schedules.push(
       {
@@ -562,7 +562,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-1",
         name: "Morning",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
         dayOfWeek: 1,
@@ -576,7 +576,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-2",
         name: "Emergency",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
         dayOfWeek: 1,
@@ -587,16 +587,16 @@ describe("Schedules use cases", () => {
       },
     );
 
-    const useCase = new GetActiveScheduleForDeviceUseCase({
+    const useCase = new GetActiveScheduleForDisplayUseCase({
       scheduleRepository: deps.scheduleRepository,
     });
 
     const now = new Date("2025-01-06T09:00:00.000Z");
-    const result = await useCase.execute({ deviceId: "device-1", now });
+    const result = await useCase.execute({ displayId: "display-1", now });
     expect(result?.id).toBe("schedule-2");
   });
 
-  test("GetActiveScheduleForDeviceUseCase uses configured timezone", async () => {
+  test("GetActiveScheduleForDisplayUseCase uses configured timezone", async () => {
     const deps = makeDeps();
     deps.schedules.push(
       {
@@ -604,7 +604,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-manila",
         name: "Manila Evening",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startTime: "17:00",
         endTime: "18:00",
         dayOfWeek: 1,
@@ -618,7 +618,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-utc",
         name: "UTC Morning",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startTime: "09:00",
         endTime: "10:00",
         dayOfWeek: 1,
@@ -629,17 +629,17 @@ describe("Schedules use cases", () => {
       },
     );
 
-    const useCase = new GetActiveScheduleForDeviceUseCase({
+    const useCase = new GetActiveScheduleForDisplayUseCase({
       scheduleRepository: deps.scheduleRepository,
       scheduleTimeZone: "Asia/Manila",
     });
 
     const now = new Date("2025-01-06T09:30:00.000Z");
-    const result = await useCase.execute({ deviceId: "device-1", now });
+    const result = await useCase.execute({ displayId: "display-1", now });
     expect(result?.id).toBe("schedule-manila");
   });
 
-  test("GetActiveScheduleForDeviceUseCase applies date window in configured timezone", async () => {
+  test("GetActiveScheduleForDisplayUseCase applies date window in configured timezone", async () => {
     const deps = makeDeps();
     deps.schedules.push(
       {
@@ -647,7 +647,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-local",
         name: "Local Date Window",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startDate: "2025-01-01",
         endDate: "2025-01-01",
         startTime: "00:00",
@@ -663,7 +663,7 @@ describe("Schedules use cases", () => {
         seriesId: "series-utc",
         name: "UTC Date Window",
         playlistId: "playlist-1",
-        deviceId: "device-1",
+        displayId: "display-1",
         startDate: "2024-12-31",
         endDate: "2024-12-31",
         startTime: "00:00",
@@ -676,13 +676,13 @@ describe("Schedules use cases", () => {
       },
     );
 
-    const useCase = new GetActiveScheduleForDeviceUseCase({
+    const useCase = new GetActiveScheduleForDisplayUseCase({
       scheduleRepository: deps.scheduleRepository,
       scheduleTimeZone: "Asia/Manila",
     });
 
     const now = new Date("2024-12-31T16:30:00.000Z");
-    const result = await useCase.execute({ deviceId: "device-1", now });
+    const result = await useCase.execute({ displayId: "display-1", now });
     expect(result?.id).toBe("local-date");
   });
 });

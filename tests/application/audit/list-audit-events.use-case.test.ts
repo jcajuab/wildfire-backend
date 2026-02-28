@@ -118,6 +118,6 @@ describe("ListAuditEventsUseCase", () => {
       useCase.execute({
         actorType: "admin",
       }),
-    ).rejects.toThrow("actorType must be one of: user, device");
+    ).rejects.toThrow("actorType must be one of: user, display");
   });
 });

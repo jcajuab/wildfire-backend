@@ -4,23 +4,23 @@ import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { createDevicesRouter } from "#/interfaces/http/routes/devices.route";
+import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
-const deviceId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+const displayId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 const hashPairingCode = (code: string): string =>
   createHash("sha256").update(code).digest("hex");
 const utcDayOfWeekNow = () => new Date().getUTCDay();
 
-const makeRepositories = (options?: { registerDeviceError?: Error }) => {
-  const devices = [] as Array<{
+const makeRepositories = (options?: { registerDisplayError?: Error }) => {
+  const displays = [] as Array<{
     id: string;
     name: string;
     identifier: string;
-    deviceFingerprint: string | null;
+    displayFingerprint: string | null;
     location: string | null;
     screenWidth: number | null;
     screenHeight: number | null;
@@ -31,11 +31,11 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     createdAt: string;
     updatedAt: string;
   }>;
-  const deviceGroups = [] as Array<{
+  const displayGroups = [] as Array<{
     id: string;
     name: string;
     colorIndex: number;
-    deviceIds: string[];
+    displayIds: string[];
     createdAt: string;
     updatedAt: string;
   }>;
@@ -48,13 +48,15 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
     createdAt: Date;
     updatedAt: Date;
   }>;
-  const setDeviceGroupsCalls: Array<{ deviceId: string; groupIds: string[] }> =
-    [];
+  const setDisplayGroupsCalls: Array<{
+    displayId: string;
+    groupIds: string[];
+  }> = [];
 
   return {
-    devices,
-    deviceGroups,
-    setDeviceGroupsCalls,
+    displays,
+    displayGroups,
+    setDisplayGroupsCalls,
     issuePairingCode: (code: string, expiresAt?: Date) => {
       pairingCodes.push({
         id: crypto.randomUUID(),
@@ -66,30 +68,31 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         updatedAt: new Date(),
       });
     },
-    deviceRepository: {
-      list: async () => [...devices],
+    displayRepository: {
+      list: async () => [...displays],
       findByIds: async (ids: string[]) =>
-        devices.filter((device) => ids.includes(device.id)),
+        displays.filter((display) => ids.includes(display.id)),
       findById: async (id: string) =>
-        devices.find((device) => device.id === id) ?? null,
+        displays.find((display) => display.id === id) ?? null,
       findByIdentifier: async (identifier: string) =>
-        devices.find((device) => device.identifier === identifier) ?? null,
+        displays.find((display) => display.identifier === identifier) ?? null,
       findByFingerprint: async (fingerprint: string) =>
-        devices.find((device) => device.deviceFingerprint === fingerprint) ??
-        null,
+        displays.find(
+          (display) => display.displayFingerprint === fingerprint,
+        ) ?? null,
       create: async (input: {
         name: string;
         identifier: string;
-        deviceFingerprint?: string | null;
+        displayFingerprint?: string | null;
         location: string | null;
       }) => {
-        if (options?.registerDeviceError) {
-          throw options.registerDeviceError;
+        if (options?.registerDisplayError) {
+          throw options.registerDisplayError;
         }
         const record = {
-          id: `device-${devices.length + 1}`,
+          id: `display-${displays.length + 1}`,
           ...input,
-          deviceFingerprint: input.deviceFingerprint ?? null,
+          displayFingerprint: input.displayFingerprint ?? null,
           screenWidth: null,
           screenHeight: null,
           outputType: null,
@@ -98,7 +101,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         };
-        devices.push(record);
+        displays.push(record);
         return record;
       },
       update: async (
@@ -106,7 +109,7 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         input: {
           name?: string;
           identifier?: string;
-          deviceFingerprint?: string | null;
+          displayFingerprint?: string | null;
           location?: string | null;
           screenWidth?: number | null;
           screenHeight?: number | null;
@@ -114,13 +117,13 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
           orientation?: "LANDSCAPE" | "PORTRAIT" | null;
         },
       ) => {
-        const record = devices.find((device) => device.id === id);
+        const record = displays.find((display) => display.id === id);
         if (!record) return null;
         if (input.name !== undefined) record.name = input.name;
         if (input.identifier !== undefined)
           record.identifier = input.identifier;
-        if (input.deviceFingerprint !== undefined)
-          record.deviceFingerprint = input.deviceFingerprint;
+        if (input.displayFingerprint !== undefined)
+          record.displayFingerprint = input.displayFingerprint;
         if (input.location !== undefined) record.location = input.location;
         if (input.screenWidth !== undefined)
           record.screenWidth = input.screenWidth;
@@ -134,35 +137,35 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         return record;
       },
       bumpRefreshNonce: async (id: string) => {
-        const record = devices.find((device) => device.id === id);
+        const record = displays.find((display) => display.id === id);
         if (!record) return false;
         record.refreshNonce += 1;
         return true;
       },
     },
-    deviceGroupRepository: {
-      list: async () => [...deviceGroups],
+    displayGroupRepository: {
+      list: async () => [...displayGroups],
       findById: async (id: string) =>
-        deviceGroups.find((group) => group.id === id) ?? null,
+        displayGroups.find((group) => group.id === id) ?? null,
       findByName: async (name: string) =>
-        deviceGroups.find((group) => group.name === name) ?? null,
+        displayGroups.find((group) => group.name === name) ?? null,
       create: async (input: { name: string; colorIndex: number }) => {
         const record = {
           id: crypto.randomUUID(),
           name: input.name,
           colorIndex: input.colorIndex,
-          deviceIds: [],
+          displayIds: [],
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         };
-        deviceGroups.push(record);
+        displayGroups.push(record);
         return record;
       },
       update: async (
         id: string,
         input: { name?: string; colorIndex?: number },
       ) => {
-        const group = deviceGroups.find((item) => item.id === id);
+        const group = displayGroups.find((item) => item.id === id);
         if (!group) return null;
         if (input.name !== undefined) group.name = input.name;
         if (input.colorIndex !== undefined) group.colorIndex = input.colorIndex;
@@ -170,25 +173,25 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
         return group;
       },
       delete: async (id: string) => {
-        const index = deviceGroups.findIndex((item) => item.id === id);
+        const index = displayGroups.findIndex((item) => item.id === id);
         if (index === -1) return false;
-        deviceGroups.splice(index, 1);
+        displayGroups.splice(index, 1);
         return true;
       },
-      setDeviceGroups: async (deviceId: string, groupIds: string[]) => {
-        setDeviceGroupsCalls.push({ deviceId, groupIds: [...groupIds] });
-        for (const group of deviceGroups) {
-          group.deviceIds = group.deviceIds.filter((id) => id !== deviceId);
+      setDisplayGroups: async (displayId: string, groupIds: string[]) => {
+        setDisplayGroupsCalls.push({ displayId, groupIds: [...groupIds] });
+        for (const group of displayGroups) {
+          group.displayIds = group.displayIds.filter((id) => id !== displayId);
         }
         for (const groupId of groupIds) {
-          const group = deviceGroups.find((item) => item.id === groupId);
-          if (group && !group.deviceIds.includes(deviceId)) {
-            group.deviceIds.push(deviceId);
+          const group = displayGroups.find((item) => item.id === groupId);
+          if (group && !group.displayIds.includes(displayId)) {
+            group.displayIds.push(displayId);
           }
         }
       },
     },
-    devicePairingCodeRepository: {
+    displayPairingCodeRepository: {
       create: async (input: {
         codeHash: string;
         expiresAt: Date;
@@ -248,13 +251,13 @@ const makeRepositories = (options?: { registerDeviceError?: Error }) => {
 const makeApp = async (
   permissions: string[] = [],
   options?: {
-    registerDeviceError?: Error;
+    registerDisplayError?: Error;
     schedules?: Array<{
       id: string;
       seriesId: string;
       name: string;
       playlistId: string;
-      deviceId: string;
+      displayId: string;
       startTime: string;
       endTime: string;
       dayOfWeek: number;
@@ -267,12 +270,12 @@ const makeApp = async (
 ) => {
   const app = new Hono();
   const {
-    devices,
-    setDeviceGroupsCalls,
+    displays,
+    setDisplayGroupsCalls,
     issuePairingCode,
-    deviceRepository,
-    deviceGroupRepository,
-    devicePairingCodeRepository,
+    displayRepository,
+    displayGroupRepository,
+    displayPairingCodeRepository,
   } = makeRepositories(options);
   const playlists = [
     {
@@ -307,16 +310,16 @@ const makeApp = async (
   };
   const schedules = options?.schedules ?? [];
 
-  const router = createDevicesRouter({
+  const router = createDisplaysRouter({
     jwtSecret: "test-secret",
-    deviceApiKey: "device-key",
+    displayApiKey: "display-key",
     downloadUrlExpiresInSeconds: 3600,
     repositories: {
-      deviceRepository,
+      displayRepository,
       scheduleRepository: {
         list: async () => schedules,
-        listByDevice: async (deviceId: string) =>
-          schedules.filter((schedule) => schedule.deviceId === deviceId),
+        listByDisplay: async (displayId: string) =>
+          schedules.filter((schedule) => schedule.displayId === displayId),
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
@@ -377,12 +380,12 @@ const makeApp = async (
         update: async () => null,
       },
       authorizationRepository,
-      deviceGroupRepository,
-      devicePairingCodeRepository,
+      displayGroupRepository,
+      displayPairingCodeRepository,
       systemSettingRepository: {
         findByKey: async () => null,
         upsert: async () => ({
-          key: "device_runtime_scroll_px_per_second",
+          key: "display_runtime_scroll_px_per_second",
           value: "24",
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
@@ -408,11 +411,11 @@ const makeApp = async (
       issuer: undefined,
     });
 
-  return { app, issueToken, devices, setDeviceGroupsCalls, issuePairingCode };
+  return { app, issueToken, displays, setDisplayGroupsCalls, issuePairingCode };
 };
 
 describe("Displays routes", () => {
-  test("POST /displays registers device with pairing code", async () => {
+  test("POST /displays registers display with pairing code", async () => {
     const { app, issuePairingCode } = await makeApp();
     issuePairingCode("123456");
     const response = await app.request("/displays", {
@@ -454,7 +457,7 @@ describe("Displays routes", () => {
 
   test("POST /displays returns 500 on unexpected repository failure", async () => {
     const { app, issuePairingCode } = await makeApp([], {
-      registerDeviceError: new Error("db unavailable"),
+      registerDisplayError: new Error("db unavailable"),
     });
     issuePairingCode("223456");
     const response = await app.request("/displays", {
@@ -474,8 +477,8 @@ describe("Displays routes", () => {
     expect(response.status).toBe(500);
   });
 
-  test("POST /displays reuses existing device when fingerprint matches", async () => {
-    const { app, devices, issuePairingCode } = await makeApp();
+  test("POST /displays reuses existing display when fingerprint matches", async () => {
+    const { app, displays, issuePairingCode } = await makeApp();
     issuePairingCode("323456");
     const first = await app.request("/displays", {
       method: "POST",
@@ -485,8 +488,8 @@ describe("Displays routes", () => {
       body: JSON.stringify({
         pairingCode: "323456",
         name: "Lobby",
-        identifier: "device-one",
-        deviceFingerprint: "fp-1",
+        identifier: "display-one",
+        displayFingerprint: "fp-1",
         screenWidth: 1366,
         screenHeight: 768,
       }),
@@ -502,8 +505,8 @@ describe("Displays routes", () => {
       body: JSON.stringify({
         pairingCode: "423456",
         name: "Lobby Updated",
-        identifier: "device-two",
-        deviceFingerprint: "fp-1",
+        identifier: "display-two",
+        displayFingerprint: "fp-1",
         screenWidth: 1920,
         screenHeight: 1080,
       }),
@@ -514,8 +517,8 @@ describe("Displays routes", () => {
       second,
     );
     expect(secondBody.id).toBe(firstBody.id);
-    expect(secondBody.identifier).toBe("device-two");
-    expect(devices).toHaveLength(1);
+    expect(secondBody.identifier).toBe("display-two");
+    expect(displays).toHaveLength(1);
   });
 
   test("POST /displays rejects conflicting identifier and fingerprint", async () => {
@@ -529,9 +532,9 @@ describe("Displays routes", () => {
       },
       body: JSON.stringify({
         pairingCode: "523456",
-        name: "Device A",
-        identifier: "device-a",
-        deviceFingerprint: "fp-a",
+        name: "Display A",
+        identifier: "display-a",
+        displayFingerprint: "fp-a",
         screenWidth: 1366,
         screenHeight: 768,
       }),
@@ -545,9 +548,9 @@ describe("Displays routes", () => {
       },
       body: JSON.stringify({
         pairingCode: "623456",
-        name: "Device B",
-        identifier: "device-b",
-        deviceFingerprint: "fp-b",
+        name: "Display B",
+        identifier: "display-b",
+        displayFingerprint: "fp-b",
         screenWidth: 1366,
         screenHeight: 768,
       }),
@@ -562,8 +565,8 @@ describe("Displays routes", () => {
       body: JSON.stringify({
         pairingCode: "723456",
         name: "Conflict",
-        identifier: "device-a",
-        deviceFingerprint: "fp-b",
+        identifier: "display-a",
+        displayFingerprint: "fp-b",
         screenWidth: 1366,
         screenHeight: 768,
       }),
@@ -599,26 +602,28 @@ describe("Displays routes", () => {
 
   test("GET /displays/:id/manifest returns 401 without API key", async () => {
     const { app } = await makeApp();
-    const response = await app.request(`/displays/${deviceId}/manifest`);
+    const response = await app.request(`/displays/${displayId}/manifest`);
     expect(response.status).toBe(401);
   });
 
   test("GET /displays/:id/active-schedule returns 401 without API key", async () => {
     const { app } = await makeApp();
-    const response = await app.request(`/displays/${deviceId}/active-schedule`);
+    const response = await app.request(
+      `/displays/${displayId}/active-schedule`,
+    );
     expect(response.status).toBe(401);
   });
 
   test("GET /displays/:id/stream-token returns 401 without API key", async () => {
     const { app } = await makeApp();
-    const response = await app.request(`/displays/${deviceId}/stream-token`);
+    const response = await app.request(`/displays/${displayId}/stream-token`);
     expect(response.status).toBe(401);
   });
 
   test("GET /displays/:id/stream rejects invalid stream token", async () => {
     const { app } = await makeApp();
     const response = await app.request(
-      `/displays/${deviceId}/stream?streamToken=invalid`,
+      `/displays/${displayId}/stream?streamToken=invalid`,
     );
     expect(response.status).toBe(401);
   });
@@ -626,16 +631,16 @@ describe("Displays routes", () => {
   test("GET /displays/:id/stream returns event-stream for valid token", async () => {
     const { app } = await makeApp();
     const tokenResponse = await app.request(
-      `/displays/${deviceId}/stream-token`,
+      `/displays/${displayId}/stream-token`,
       {
-        headers: { "X-API-Key": "device-key" },
+        headers: { "X-API-Key": "display-key" },
       },
     );
     expect(tokenResponse.status).toBe(200);
     const tokenBody = await parseJson<{ token: string }>(tokenResponse);
 
     const response = await app.request(
-      `/displays/${deviceId}/stream?streamToken=${encodeURIComponent(tokenBody.token)}`,
+      `/displays/${displayId}/stream?streamToken=${encodeURIComponent(tokenBody.token)}`,
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
@@ -652,12 +657,12 @@ describe("Displays routes", () => {
   });
 
   test("GET /displays returns list with permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:read"]);
-    devices.push({
-      id: deviceId,
+    const { app, issueToken, displays } = await makeApp(["displays:read"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -686,13 +691,13 @@ describe("Displays routes", () => {
     expect(json.pageSize).toBe(50);
   });
 
-  test("GET /displays returns DOWN for stale but previously seen devices", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:read"]);
-    devices.push({
-      id: deviceId,
+  test("GET /displays returns DOWN for stale but previously seen displays", async () => {
+    const { app, issueToken, displays } = await makeApp(["displays:read"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -721,16 +726,16 @@ describe("Displays routes", () => {
     expect(json.items[0]?.lastSeenAt).toBe("2025-01-01T00:00:00.000Z");
   });
 
-  test("GET /displays returns LIVE for recently seen devices with active schedule", async () => {
+  test("GET /displays returns LIVE for recently seen displays with active schedule", async () => {
     const nowIso = new Date().toISOString();
-    const { app, issueToken, devices } = await makeApp(["displays:read"], {
+    const { app, issueToken, displays } = await makeApp(["displays:read"], {
       schedules: [
         {
           id: "schedule-live",
           seriesId: "series-live",
           name: "Always on",
           playlistId,
-          deviceId,
+          displayId,
           startTime: "00:00",
           endTime: "23:59",
           dayOfWeek: utcDayOfWeekNow(),
@@ -741,11 +746,11 @@ describe("Displays routes", () => {
         },
       ],
     });
-    devices.push({
-      id: deviceId,
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -769,13 +774,13 @@ describe("Displays routes", () => {
     expect(json.items[0]?.onlineStatus).toBe("LIVE");
   });
 
-  test("GET /displays/:id returns device", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:read"]);
-    devices.push({
-      id: deviceId,
+  test("GET /displays/:id returns display", async () => {
+    const { app, issueToken, displays } = await makeApp(["displays:read"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -787,20 +792,20 @@ describe("Displays routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request(`/displays/${deviceId}`, {
+    const response = await app.request(`/displays/${displayId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(response.status).toBe(200);
   });
 
-  test("PATCH /displays/:id updates device with displays:update permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:update"]);
-    devices.push({
-      id: deviceId,
+  test("PATCH /displays/:id updates display with displays:update permission", async () => {
+    const { app, issueToken, displays } = await makeApp(["displays:update"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -812,7 +817,7 @@ describe("Displays routes", () => {
     });
     const token = await issueToken();
 
-    const response = await app.request(`/displays/${deviceId}`, {
+    const response = await app.request(`/displays/${displayId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -846,12 +851,12 @@ describe("Displays routes", () => {
   });
 
   test("POST /displays/:id/refresh queues refresh with displays:update permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:update"]);
-    devices.push({
-      id: deviceId,
+    const { app, issueToken, displays } = await makeApp(["displays:update"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -863,22 +868,22 @@ describe("Displays routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request(`/displays/${deviceId}/refresh`, {
+    const response = await app.request(`/displays/${displayId}/refresh`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(response.status).toBe(204);
-    expect(devices[0]?.refreshNonce).toBe(1);
+    expect(displays[0]?.refreshNonce).toBe(1);
   });
 
   test("POST /displays/:id/refresh returns 403 without permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:read"]);
-    devices.push({
-      id: deviceId,
+    const { app, issueToken, displays } = await makeApp(["displays:read"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -890,7 +895,7 @@ describe("Displays routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request(`/displays/${deviceId}/refresh`, {
+    const response = await app.request(`/displays/${displayId}/refresh`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -898,11 +903,11 @@ describe("Displays routes", () => {
     expect(response.status).toBe(403);
   });
 
-  test("POST /displays/:id/refresh returns 404 for missing device", async () => {
+  test("POST /displays/:id/refresh returns 404 for missing display", async () => {
     const { app, issueToken } = await makeApp(["displays:update"]);
     const token = await issueToken();
 
-    const response = await app.request(`/displays/${deviceId}/refresh`, {
+    const response = await app.request(`/displays/${displayId}/refresh`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -911,12 +916,12 @@ describe("Displays routes", () => {
   });
 
   test("GET /displays/groups returns groups with displays:read permission", async () => {
-    const { app, issueToken, devices } = await makeApp(["displays:read"]);
-    devices.push({
-      id: deviceId,
+    const { app, issueToken, displays } = await makeApp(["displays:read"]);
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -998,14 +1003,14 @@ describe("Displays routes", () => {
   });
 
   test("PUT /displays/:id/groups deduplicates duplicate group ids", async () => {
-    const { app, issueToken, devices, setDeviceGroupsCalls } = await makeApp([
+    const { app, issueToken, displays, setDisplayGroupsCalls } = await makeApp([
       "displays:update",
     ]);
-    devices.push({
-      id: deviceId,
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -1028,7 +1033,7 @@ describe("Displays routes", () => {
     expect(create.status).toBe(200);
     const created = await parseJson<{ id: string }>(create);
 
-    const response = await app.request(`/displays/${deviceId}/groups`, {
+    const response = await app.request(`/displays/${displayId}/groups`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1040,24 +1045,24 @@ describe("Displays routes", () => {
     });
 
     expect(response.status).toBe(204);
-    expect(setDeviceGroupsCalls).toEqual([
+    expect(setDisplayGroupsCalls).toEqual([
       {
-        deviceId,
+        displayId,
         groupIds: [created.id],
       },
     ]);
   });
 
   test("DELETE /displays/groups/:groupId removes the group and blocks future assignment", async () => {
-    const { app, issueToken, devices } = await makeApp([
+    const { app, issueToken, displays } = await makeApp([
       "displays:update",
       "displays:read",
     ]);
-    devices.push({
-      id: deviceId,
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -1080,7 +1085,7 @@ describe("Displays routes", () => {
     expect(create.status).toBe(200);
     const created = await parseJson<{ id: string }>(create);
 
-    const assign = await app.request(`/displays/${deviceId}/groups`, {
+    const assign = await app.request(`/displays/${displayId}/groups`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1105,7 +1110,7 @@ describe("Displays routes", () => {
       false,
     );
 
-    const reassignDeleted = await app.request(`/displays/${deviceId}/groups`, {
+    const reassignDeleted = await app.request(`/displays/${displayId}/groups`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1117,12 +1122,12 @@ describe("Displays routes", () => {
   });
 
   test("GET /displays/:id/manifest returns empty manifest", async () => {
-    const { app, devices } = await makeApp();
-    devices.push({
-      id: deviceId,
+    const { app, displays } = await makeApp();
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -1133,8 +1138,8 @@ describe("Displays routes", () => {
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
 
-    const response = await app.request(`/displays/${deviceId}/manifest`, {
-      headers: { "X-API-Key": "device-key" },
+    const response = await app.request(`/displays/${displayId}/manifest`, {
+      headers: { "X-API-Key": "display-key" },
     });
 
     expect(response.status).toBe(200);
@@ -1143,12 +1148,12 @@ describe("Displays routes", () => {
   });
 
   test("GET /displays/:id/active-schedule returns null when none", async () => {
-    const { app, devices } = await makeApp();
-    devices.push({
-      id: deviceId,
+    const { app, displays } = await makeApp();
+    displays.push({
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: null,
       screenWidth: null,
       screenHeight: null,
@@ -1160,9 +1165,9 @@ describe("Displays routes", () => {
     });
 
     const response = await app.request(
-      `/displays/${deviceId}/active-schedule`,
+      `/displays/${displayId}/active-schedule`,
       {
-        headers: { "X-API-Key": "device-key" },
+        headers: { "X-API-Key": "display-key" },
       },
     );
 

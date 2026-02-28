@@ -1,11 +1,11 @@
 import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
-import { type DeviceStreamEventPublisher } from "#/application/ports/device-stream-events";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
+import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
-  DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
   type SystemSettingRepository,
 } from "#/application/ports/settings";
 import { paginate } from "#/application/use-cases/shared/pagination";
@@ -24,7 +24,7 @@ const SCHEDULE_OVERLAP_MESSAGE =
 
 type ScheduleWindow = {
   id?: string;
-  deviceId: string;
+  displayId: string;
   startDate: string;
   endDate: string;
   startTime: string;
@@ -85,7 +85,7 @@ const hasTimeRangeOverlap = (left: ScheduleWindow, right: ScheduleWindow) => {
 };
 
 const windowsConflict = (left: ScheduleWindow, right: ScheduleWindow) => {
-  if (left.deviceId !== right.deviceId) {
+  if (left.displayId !== right.displayId) {
     return false;
   }
 
@@ -111,14 +111,14 @@ const ensureNoScheduleConflicts = (input: {
 
 const toScheduleWindow = (schedule: {
   id?: string;
-  deviceId: string;
+  displayId: string;
   startDate?: string;
   endDate?: string;
   startTime: string;
   endTime: string;
 }): ScheduleWindow => ({
   id: schedule.id,
-  deviceId: schedule.deviceId,
+  displayId: schedule.displayId,
   startDate: schedule.startDate ?? "1970-01-01",
   endDate: schedule.endDate ?? "2099-12-31",
   startTime: schedule.startTime,
@@ -129,8 +129,8 @@ const computeRequiredMinDurationSeconds = async (input: {
   playlistRepository: PlaylistRepository;
   contentRepository: ContentRepository;
   playlistId: string;
-  deviceWidth: number;
-  deviceHeight: number;
+  displayWidth: number;
+  displayHeight: number;
   scrollPxPerSecond: number;
 }): Promise<number> => {
   const items = await input.playlistRepository.listItems(input.playlistId);
@@ -152,8 +152,9 @@ const computeRequiredMinDurationSeconds = async (input: {
       content.width > 0 &&
       content.height > 0
     ) {
-      const scaledHeight = (input.deviceWidth / content.width) * content.height;
-      const overflow = Math.max(0, scaledHeight - input.deviceHeight);
+      const scaledHeight =
+        (input.displayWidth / content.width) * content.height;
+      const overflow = Math.max(0, scaledHeight - input.displayHeight);
       overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
     }
   }
@@ -165,7 +166,7 @@ export class ListSchedulesUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
     },
   ) {}
 
@@ -174,21 +175,21 @@ export class ListSchedulesUseCase {
     const playlistIds = [
       ...new Set(schedules.map((schedule) => schedule.playlistId)),
     ];
-    const deviceIds = [
-      ...new Set(schedules.map((schedule) => schedule.deviceId)),
+    const displayIds = [
+      ...new Set(schedules.map((schedule) => schedule.displayId)),
     ];
-    const [playlists, devices] = await Promise.all([
+    const [playlists, displays] = await Promise.all([
       this.deps.playlistRepository.findByIds(playlistIds),
-      this.deps.deviceRepository.findByIds(deviceIds),
+      this.deps.displayRepository.findByIds(displayIds),
     ]);
     const playlistMap = new Map(playlists.map((item) => [item.id, item]));
-    const deviceMap = new Map(devices.map((item) => [item.id, item]));
+    const displayMap = new Map(displays.map((item) => [item.id, item]));
 
     const views = schedules.map((schedule) =>
       toScheduleView(
         schedule,
         playlistMap.get(schedule.playlistId) ?? null,
-        deviceMap.get(schedule.deviceId) ?? null,
+        displayMap.get(schedule.displayId) ?? null,
       ),
     );
     return paginate(views, input);
@@ -200,17 +201,17 @@ export class CreateScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       contentRepository: ContentRepository;
       systemSettingRepository?: SystemSettingRepository;
-      deviceEventPublisher?: DeviceStreamEventPublisher;
+      displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
 
   async execute(input: {
     name: string;
     playlistId: string;
-    deviceId: string;
+    displayId: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -231,29 +232,29 @@ export class CreateScheduleUseCase {
       throw new ValidationError("Invalid date range");
     }
 
-    const [playlist, device] = await Promise.all([
+    const [playlist, display] = await Promise.all([
       this.deps.playlistRepository.findById(input.playlistId),
-      this.deps.deviceRepository.findById(input.deviceId),
+      this.deps.displayRepository.findById(input.displayId),
     ]);
     if (!playlist) throw new NotFoundError("Playlist not found");
-    if (!device) throw new NotFoundError("Device not found");
+    if (!display) throw new NotFoundError("Display not found");
     if (
-      typeof device.screenWidth !== "number" ||
-      typeof device.screenHeight !== "number"
+      typeof display.screenWidth !== "number" ||
+      typeof display.screenHeight !== "number"
     ) {
       throw new ValidationError(
-        "Device resolution is required before scheduling",
+        "Display resolution is required before scheduling",
       );
     }
-    const deviceWidth = device.screenWidth;
-    const deviceHeight = device.screenHeight;
+    const displayWidth = display.screenWidth;
+    const displayHeight = display.screenHeight;
     const scrollPxPerSecond = await this.getScrollPxPerSecond();
     const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
       playlistRepository: this.deps.playlistRepository,
       contentRepository: this.deps.contentRepository,
       playlistId: input.playlistId,
-      deviceWidth,
-      deviceHeight,
+      displayWidth,
+      displayHeight,
       scrollPxPerSecond,
     });
     const windowDurationSeconds = computeWindowDurationSeconds(
@@ -266,26 +267,26 @@ export class CreateScheduleUseCase {
       );
     }
 
-    const existingForDevice = await this.deps.scheduleRepository.listByDevice(
-      input.deviceId,
+    const existingForDisplay = await this.deps.scheduleRepository.listByDisplay(
+      input.displayId,
     );
     ensureNoScheduleConflicts({
       candidates: [
         toScheduleWindow({
-          deviceId: input.deviceId,
+          displayId: input.displayId,
           startDate,
           endDate,
           startTime: input.startTime,
           endTime: input.endTime,
         }),
       ],
-      existing: existingForDevice.map(toScheduleWindow),
+      existing: existingForDisplay.map(toScheduleWindow),
     });
 
     const schedule = await this.deps.scheduleRepository.create({
       name: input.name,
       playlistId: input.playlistId,
-      deviceId: input.deviceId,
+      displayId: input.displayId,
       startDate,
       endDate,
       startTime: input.startTime,
@@ -294,18 +295,18 @@ export class CreateScheduleUseCase {
       isActive: input.isActive,
     });
     await this.deps.playlistRepository.updateStatus(input.playlistId, "IN_USE");
-    this.deps.deviceEventPublisher?.publish({
+    this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",
-      deviceId: input.deviceId,
+      displayId: input.displayId,
       reason: "schedule_created",
     });
 
-    return [toScheduleView(schedule, playlist, device)];
+    return [toScheduleView(schedule, playlist, display)];
   }
 
   private async getScrollPxPerSecond(): Promise<number> {
     const setting = await this.deps.systemSettingRepository?.findByKey(
-      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
     );
     const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
     return Number.isInteger(parsed) && parsed > 0
@@ -319,7 +320,7 @@ export class GetScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
     },
   ) {}
 
@@ -327,12 +328,12 @@ export class GetScheduleUseCase {
     const schedule = await this.deps.scheduleRepository.findById(input.id);
     if (!schedule) throw new NotFoundError("Schedule not found");
 
-    const [playlist, device] = await Promise.all([
+    const [playlist, display] = await Promise.all([
       this.deps.playlistRepository.findById(schedule.playlistId),
-      this.deps.deviceRepository.findById(schedule.deviceId),
+      this.deps.displayRepository.findById(schedule.displayId),
     ]);
 
-    return toScheduleView(schedule, playlist, device);
+    return toScheduleView(schedule, playlist, display);
   }
 }
 
@@ -341,10 +342,10 @@ export class UpdateScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       contentRepository: ContentRepository;
       systemSettingRepository?: SystemSettingRepository;
-      deviceEventPublisher?: DeviceStreamEventPublisher;
+      displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
 
@@ -352,7 +353,7 @@ export class UpdateScheduleUseCase {
     id: string;
     name?: string;
     playlistId?: string;
-    deviceId?: string;
+    displayId?: string;
     startDate?: string;
     endDate?: string;
     startTime?: string;
@@ -389,36 +390,38 @@ export class UpdateScheduleUseCase {
 
     const [
       playlistForUpdate,
-      deviceForUpdate,
-      existingDevice,
+      displayForUpdate,
+      existingDisplay,
       existingPlaylist,
     ] = await Promise.all([
       input.playlistId
         ? this.deps.playlistRepository.findById(input.playlistId)
         : Promise.resolve(undefined),
-      input.deviceId
-        ? this.deps.deviceRepository.findById(input.deviceId)
+      input.displayId
+        ? this.deps.displayRepository.findById(input.displayId)
         : Promise.resolve(undefined),
-      this.deps.deviceRepository.findById(existing.deviceId),
+      this.deps.displayRepository.findById(existing.displayId),
       this.deps.playlistRepository.findById(existing.playlistId),
     ]);
     if (input.playlistId && !playlistForUpdate) {
       throw new NotFoundError("Playlist not found");
     }
-    if (input.deviceId && !deviceForUpdate) {
-      throw new NotFoundError("Device not found");
+    if (input.displayId && !displayForUpdate) {
+      throw new NotFoundError("Display not found");
     }
 
-    const resolvedDevice = input.deviceId ? deviceForUpdate : existingDevice;
-    if (!resolvedDevice) {
-      throw new NotFoundError("Device not found");
+    const resolvedDisplay = input.displayId
+      ? displayForUpdate
+      : existingDisplay;
+    if (!resolvedDisplay) {
+      throw new NotFoundError("Display not found");
     }
     if (
-      typeof resolvedDevice.screenWidth !== "number" ||
-      typeof resolvedDevice.screenHeight !== "number"
+      typeof resolvedDisplay.screenWidth !== "number" ||
+      typeof resolvedDisplay.screenHeight !== "number"
     ) {
       throw new ValidationError(
-        "Device resolution is required before scheduling",
+        "Display resolution is required before scheduling",
       );
     }
     const resolvedPlaylist = input.playlistId
@@ -430,15 +433,15 @@ export class UpdateScheduleUseCase {
 
     const nextStartTime = input.startTime ?? existing.startTime;
     const nextEndTime = input.endTime ?? existing.endTime;
-    const deviceWidth = resolvedDevice.screenWidth;
-    const deviceHeight = resolvedDevice.screenHeight;
+    const displayWidth = resolvedDisplay.screenWidth;
+    const displayHeight = resolvedDisplay.screenHeight;
     const scrollPxPerSecond = await this.getScrollPxPerSecond();
     const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
       playlistRepository: this.deps.playlistRepository,
       contentRepository: this.deps.contentRepository,
       playlistId: resolvedPlaylist.id,
-      deviceWidth,
-      deviceHeight,
+      displayWidth,
+      displayHeight,
       scrollPxPerSecond,
     });
     const windowDurationSeconds = computeWindowDurationSeconds(
@@ -451,28 +454,28 @@ export class UpdateScheduleUseCase {
       );
     }
 
-    const targetDeviceId = input.deviceId ?? existing.deviceId;
-    const existingForDevice =
-      await this.deps.scheduleRepository.listByDevice(targetDeviceId);
+    const targetDisplayId = input.displayId ?? existing.displayId;
+    const existingForDisplay =
+      await this.deps.scheduleRepository.listByDisplay(targetDisplayId);
     ensureNoScheduleConflicts({
       candidates: [
         toScheduleWindow({
           id: existing.id,
-          deviceId: targetDeviceId,
+          displayId: targetDisplayId,
           startDate: nextStartDate,
           endDate: nextEndDate,
           startTime: nextStartTime,
           endTime: nextEndTime,
         }),
       ],
-      existing: existingForDevice.map(toScheduleWindow),
+      existing: existingForDisplay.map(toScheduleWindow),
       excludeScheduleIds: new Set([existing.id]),
     });
 
     const schedule = await this.deps.scheduleRepository.update(input.id, {
       name: input.name,
       playlistId: input.playlistId,
-      deviceId: input.deviceId,
+      displayId: input.displayId,
       startDate: input.startDate,
       endDate: input.endDate,
       startTime: input.startTime,
@@ -500,23 +503,23 @@ export class UpdateScheduleUseCase {
       schedule.playlistId,
       "IN_USE",
     );
-    this.deps.deviceEventPublisher?.publish({
+    this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",
-      deviceId: schedule.deviceId,
+      displayId: schedule.displayId,
       reason: "schedule_updated",
     });
 
-    const [playlist, device] = await Promise.all([
+    const [playlist, display] = await Promise.all([
       this.deps.playlistRepository.findById(schedule.playlistId),
-      this.deps.deviceRepository.findById(schedule.deviceId),
+      this.deps.displayRepository.findById(schedule.displayId),
     ]);
 
-    return toScheduleView(schedule, playlist, device);
+    return toScheduleView(schedule, playlist, display);
   }
 
   private async getScrollPxPerSecond(): Promise<number> {
     const setting = await this.deps.systemSettingRepository?.findByKey(
-      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
     );
     const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
     return Number.isInteger(parsed) && parsed > 0
@@ -530,7 +533,7 @@ export class DeleteScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
-      deviceEventPublisher?: DeviceStreamEventPublisher;
+      displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
 
@@ -550,15 +553,15 @@ export class DeleteScheduleUseCase {
         "DRAFT",
       );
     }
-    this.deps.deviceEventPublisher?.publish({
+    this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",
-      deviceId: existing.deviceId,
+      displayId: existing.displayId,
       reason: "schedule_deleted",
     });
   }
 }
 
-export class GetActiveScheduleForDeviceUseCase {
+export class GetActiveScheduleForDisplayUseCase {
   constructor(
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
@@ -566,9 +569,9 @@ export class GetActiveScheduleForDeviceUseCase {
     },
   ) {}
 
-  async execute(input: { deviceId: string; now: Date }) {
-    const schedules = await this.deps.scheduleRepository.listByDevice(
-      input.deviceId,
+  async execute(input: { displayId: string; now: Date }) {
+    const schedules = await this.deps.scheduleRepository.listByDisplay(
+      input.displayId,
     );
     return selectActiveSchedule(
       schedules,

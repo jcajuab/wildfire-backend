@@ -8,13 +8,13 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 
-export const devices = mysqlTable(
+export const displays = mysqlTable(
   "displays",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     identifier: varchar("identifier", { length: 255 }).notNull(),
-    deviceFingerprint: varchar("device_fingerprint", { length: 255 }),
+    displayFingerprint: varchar("display_fingerprint", { length: 255 }),
     location: varchar("location", { length: 255 }),
     ipAddress: varchar("ip_address", { length: 128 }),
     macAddress: varchar("mac_address", { length: 64 }),
@@ -31,14 +31,14 @@ export const devices = mysqlTable(
     identifierUnique: uniqueIndex("displays_identifier_unique").on(
       table.identifier,
     ),
-    deviceFingerprintUnique: uniqueIndex(
-      "displays_device_fingerprint_unique",
-    ).on(table.deviceFingerprint),
+    displayFingerprintUnique: uniqueIndex(
+      "displays_display_fingerprint_unique",
+    ).on(table.displayFingerprint),
   }),
 );
 
-export const deviceGroups = mysqlTable(
-  "device_groups",
+export const displayGroups = mysqlTable(
+  "display_groups",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 120 }).notNull(),
@@ -47,19 +47,19 @@ export const deviceGroups = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    nameUnique: unique("device_groups_name_unique").on(table.name),
+    nameUnique: unique("display_groups_name_unique").on(table.name),
   }),
 );
 
-export const deviceGroupMemberships = mysqlTable(
-  "device_group_memberships",
+export const displayGroupMemberships = mysqlTable(
+  "display_group_memberships",
   {
     groupId: varchar("group_id", { length: 36 })
       .notNull()
-      .references(() => deviceGroups.id, { onDelete: "cascade" }),
-    deviceId: varchar("device_id", { length: 36 })
+      .references(() => displayGroups.id, { onDelete: "cascade" }),
+    displayId: varchar("display_id", { length: 36 })
       .notNull()
-      .references(() => devices.id, { onDelete: "cascade" }),
+      .references(() => displays.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.groupId, table.deviceId] })],
+  (table) => [primaryKey({ columns: [table.groupId, table.displayId] })],
 );

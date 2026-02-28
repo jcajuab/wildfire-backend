@@ -20,7 +20,7 @@ const setup = async () => {
   const { db } = await import("#/infrastructure/db/client");
 
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS devices (
+    CREATE TABLE IF NOT EXISTS displays (
       id varchar(36) PRIMARY KEY,
       name varchar(255) NOT NULL,
       identifier varchar(255) NOT NULL,
@@ -84,7 +84,7 @@ const setup = async () => {
       series_id varchar(36) NOT NULL,
       name varchar(255) NOT NULL,
       playlist_id varchar(36) NOT NULL,
-      device_id varchar(36) NOT NULL,
+      display_id varchar(36) NOT NULL,
       start_date varchar(10) NOT NULL DEFAULT '1970-01-01',
       end_date varchar(10) NOT NULL DEFAULT '2099-12-31',
       start_time varchar(5) NOT NULL,
@@ -102,19 +102,19 @@ const setup = async () => {
   await db.execute(sql`DELETE FROM playlist_items`);
   await db.execute(sql`DELETE FROM playlists`);
   await db.execute(sql`DELETE FROM content`);
-  await db.execute(sql`DELETE FROM devices`);
+  await db.execute(sql`DELETE FROM displays`);
 
   return { db };
 };
 
 describe("Module repositories (integration)", () => {
-  maybeTest("DeviceDbRepository CRUD", async () => {
+  maybeTest("DisplayDbRepository CRUD", async () => {
     await setup();
-    const { DeviceDbRepository } = await import(
-      "#/infrastructure/db/repositories/device.repo"
+    const { DisplayDbRepository } = await import(
+      "#/infrastructure/db/repositories/display.repo"
     );
 
-    const repo = new DeviceDbRepository();
+    const repo = new DisplayDbRepository();
     const created = await repo.create({
       name: "Lobby",
       identifier: "AA:BB",
@@ -175,7 +175,7 @@ describe("Module repositories (integration)", () => {
       seriesId: "series-1",
       name: "Morning",
       playlistId: "playlist-1",
-      deviceId: "device-1",
+      displayId: "display-1",
       startTime: "08:00",
       endTime: "17:00",
       dayOfWeek: 1,
@@ -187,14 +187,14 @@ describe("Module repositories (integration)", () => {
   });
 
   maybeTest(
-    "DevicePairingCodeDbRepository consumes valid code once",
+    "DisplayPairingCodeDbRepository consumes valid code once",
     async () => {
       await setup();
-      const { DevicePairingCodeDbRepository } = await import(
-        "#/infrastructure/db/repositories/device-pairing-code.repo"
+      const { DisplayPairingCodeDbRepository } = await import(
+        "#/infrastructure/db/repositories/display-pairing-code.repo"
       );
 
-      const repo = new DevicePairingCodeDbRepository();
+      const repo = new DisplayPairingCodeDbRepository();
       const created = await repo.create({
         codeHash: "hash-1",
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
-  createDeviceProps,
-  DeviceValidationError,
-} from "#/domain/devices/device";
+  createDisplayProps,
+  DisplayValidationError,
+} from "#/domain/displays/display";
 
-describe("createDeviceProps", () => {
-  test("returns normalized device props", () => {
-    const props = createDeviceProps({
+describe("createDisplayProps", () => {
+  test("returns normalized display props", () => {
+    const props = createDisplayProps({
       name: " Lobby Display ",
       identifier: "  AA:BB:CC ",
       location: "  Main Hall ",
@@ -15,7 +15,7 @@ describe("createDeviceProps", () => {
     expect(props).toEqual({
       name: "Lobby Display",
       identifier: "AA:BB:CC",
-      deviceFingerprint: null,
+      displayFingerprint: null,
       location: "Main Hall",
       ipAddress: null,
       macAddress: null,
@@ -27,24 +27,24 @@ describe("createDeviceProps", () => {
   });
 
   test("throws when name is empty", () => {
-    expect(() => createDeviceProps({ name: "  ", identifier: "abc" })).toThrow(
-      DeviceValidationError,
+    expect(() => createDisplayProps({ name: "  ", identifier: "abc" })).toThrow(
+      DisplayValidationError,
     );
   });
 
   test("throws when identifier is empty", () => {
     expect(() =>
-      createDeviceProps({ name: "Display", identifier: "" }),
-    ).toThrow(DeviceValidationError);
+      createDisplayProps({ name: "Display", identifier: "" }),
+    ).toThrow(DisplayValidationError);
   });
 
   test("normalizes optional fingerprint", () => {
-    const props = createDeviceProps({
+    const props = createDisplayProps({
       name: "Display",
       identifier: "abc",
-      deviceFingerprint: "  fp-123  ",
+      displayFingerprint: "  fp-123  ",
     });
 
-    expect(props.deviceFingerprint).toBe("fp-123");
+    expect(props.displayFingerprint).toBe("fp-123");
   });
 });

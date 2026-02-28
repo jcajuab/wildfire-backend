@@ -60,7 +60,7 @@ export const registerScheduleCommandRoutes = (args: {
         const result = await useCases.createSchedule.execute({
           name: payload.name,
           playlistId: payload.playlistId,
-          deviceId: payload.deviceId,
+          displayId: payload.displayId,
           startDate: payload.startDate,
           endDate: payload.endDate,
           startTime: payload.startTime,
@@ -110,7 +110,7 @@ export const registerScheduleCommandRoutes = (args: {
           id: params.id,
           name: payload.name,
           playlistId: payload.playlistId,
-          deviceId: payload.deviceId,
+          displayId: payload.displayId,
           startDate: payload.startDate,
           endDate: payload.endDate,
           startTime: payload.startTime,

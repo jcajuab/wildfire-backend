@@ -1,8 +1,8 @@
-export interface DeviceRecord {
+export interface DisplayRecord {
   id: string;
   name: string;
   identifier: string;
-  deviceFingerprint?: string | null;
+  displayFingerprint?: string | null;
   location: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
@@ -16,24 +16,24 @@ export interface DeviceRecord {
   updatedAt: string;
 }
 
-export interface DeviceRepository {
-  list(): Promise<DeviceRecord[]>;
-  findByIds(ids: string[]): Promise<DeviceRecord[]>;
-  findById(id: string): Promise<DeviceRecord | null>;
-  findByIdentifier(identifier: string): Promise<DeviceRecord | null>;
-  findByFingerprint(fingerprint: string): Promise<DeviceRecord | null>;
+export interface DisplayRepository {
+  list(): Promise<DisplayRecord[]>;
+  findByIds(ids: string[]): Promise<DisplayRecord[]>;
+  findById(id: string): Promise<DisplayRecord | null>;
+  findByIdentifier(identifier: string): Promise<DisplayRecord | null>;
+  findByFingerprint(fingerprint: string): Promise<DisplayRecord | null>;
   create(input: {
     name: string;
     identifier: string;
-    deviceFingerprint?: string | null;
+    displayFingerprint?: string | null;
     location: string | null;
-  }): Promise<DeviceRecord>;
+  }): Promise<DisplayRecord>;
   update(
     id: string,
     input: {
       name?: string;
       identifier?: string;
-      deviceFingerprint?: string | null;
+      displayFingerprint?: string | null;
       location?: string | null;
       ipAddress?: string | null;
       macAddress?: string | null;
@@ -42,32 +42,32 @@ export interface DeviceRepository {
       outputType?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
     },
-  ): Promise<DeviceRecord | null>;
+  ): Promise<DisplayRecord | null>;
   touchSeen?(id: string, at: Date): Promise<void>;
   bumpRefreshNonce(id: string): Promise<boolean>;
 }
 
-export interface DeviceGroupRecord {
+export interface DisplayGroupRecord {
   id: string;
   name: string;
   colorIndex: number;
-  deviceIds: string[];
+  displayIds: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface DeviceGroupRepository {
-  list(): Promise<DeviceGroupRecord[]>;
-  findById(id: string): Promise<DeviceGroupRecord | null>;
-  findByName(name: string): Promise<DeviceGroupRecord | null>;
+export interface DisplayGroupRepository {
+  list(): Promise<DisplayGroupRecord[]>;
+  findById(id: string): Promise<DisplayGroupRecord | null>;
+  findByName(name: string): Promise<DisplayGroupRecord | null>;
   create(input: {
     name: string;
     colorIndex: number;
-  }): Promise<DeviceGroupRecord>;
+  }): Promise<DisplayGroupRecord>;
   update(
     id: string,
     input: { name?: string; colorIndex?: number },
-  ): Promise<DeviceGroupRecord | null>;
+  ): Promise<DisplayGroupRecord | null>;
   delete(id: string): Promise<boolean>;
-  setDeviceGroups(deviceId: string, groupIds: string[]): Promise<void>;
+  setDisplayGroups(displayId: string, groupIds: string[]): Promise<void>;
 }

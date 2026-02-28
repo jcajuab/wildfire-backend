@@ -6,14 +6,14 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  deviceIdParamSchema,
-  deviceManifestSchema,
-  deviceSchema,
-  deviceStreamQuerySchema,
-  deviceStreamTokenResponseSchema,
-  registerDeviceRequestBodySchema,
-  registerDeviceSchema,
-} from "#/interfaces/http/validators/devices.schema";
+  displayIdParamSchema,
+  displayManifestSchema,
+  displaySchema,
+  displayStreamQuerySchema,
+  displayStreamTokenResponseSchema,
+  registerDisplayRequestBodySchema,
+  registerDisplaySchema,
+} from "#/interfaces/http/validators/displays.schema";
 import { scheduleSchema } from "#/interfaces/http/validators/schedules.schema";
 import {
   validateJson,
@@ -21,53 +21,53 @@ import {
   validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import {
-  type DeviceAuthMiddleware,
-  type DevicesRouter,
-  type DevicesRouterUseCases,
-  deviceTags,
+  type DisplayAuthMiddleware,
+  type DisplaysRouter,
+  type DisplaysRouterUseCases,
+  displayTags,
 } from "./shared";
 import {
-  createDeviceStreamToken,
-  subscribeToDeviceStream,
-  verifyDeviceStreamToken,
+  createDisplayStreamToken,
+  subscribeToDisplayStream,
+  verifyDisplayStreamToken,
 } from "./stream";
 
 const STREAM_TOKEN_TTL_MS = 5 * 60 * 1000;
 const STREAM_HEARTBEAT_INTERVAL_MS = 20 * 1000;
 
-export const registerDeviceApiRoutes = (args: {
-  router: DevicesRouter;
-  useCases: DevicesRouterUseCases;
-  requireDeviceApiKey: DeviceAuthMiddleware;
+export const registerDisplayApiRoutes = (args: {
+  router: DisplaysRouter;
+  useCases: DisplaysRouterUseCases;
+  requireDisplayApiKey: DisplayAuthMiddleware;
   streamTokenSecret: string;
 }) => {
-  const { router, useCases, requireDeviceApiKey, streamTokenSecret } = args;
+  const { router, useCases, requireDisplayApiKey, streamTokenSecret } = args;
 
   router.post(
     "/",
-    setAction("displays.device.register", {
+    setAction("displays.display.register", {
       route: "/displays",
-      actorType: "device",
-      resourceType: "device",
+      actorType: "display",
+      resourceType: "display",
     }),
-    validateJson(registerDeviceSchema),
+    validateJson(registerDisplaySchema),
     describeRoute({
-      description: "Register or update a device",
-      tags: deviceTags,
+      description: "Register or update a display",
+      tags: displayTags,
       requestBody: {
         content: {
           "application/json": {
-            schema: registerDeviceRequestBodySchema,
+            schema: registerDisplayRequestBodySchema,
           },
         },
         required: true,
       },
       responses: {
         200: {
-          description: "Device registered",
+          description: "Display registered",
           content: {
             "application/json": {
-              schema: resolver(deviceSchema),
+              schema: resolver(displaySchema),
             },
           },
         },
@@ -92,11 +92,11 @@ export const registerDeviceApiRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const result = await useCases.registerDevice.execute({
+        const result = await useCases.registerDisplay.execute({
           pairingCode: payload.pairingCode,
           name: payload.name,
           identifier: payload.identifier,
-          deviceFingerprint: payload.deviceFingerprint ?? null,
+          displayFingerprint: payload.displayFingerprint ?? null,
           location: payload.location ?? null,
           ipAddress: payload.ipAddress ?? null,
           macAddress: payload.macAddress ?? null,
@@ -117,20 +117,20 @@ export const registerDeviceApiRoutes = (args: {
     "/:id/stream-token",
     setAction("displays.stream.token", {
       route: "/displays/:id/stream-token",
-      actorType: "device",
-      resourceType: "device",
+      actorType: "display",
+      resourceType: "display",
     }),
-    requireDeviceApiKey,
-    validateParams(deviceIdParamSchema),
+    requireDisplayApiKey,
+    validateParams(displayIdParamSchema),
     describeRoute({
       description: "Issue short-lived stream token for SSE",
-      tags: deviceTags,
+      tags: displayTags,
       responses: {
         200: {
           description: "Stream token",
           content: {
             "application/json": {
-              schema: resolver(deviceStreamTokenResponseSchema),
+              schema: resolver(displayStreamTokenResponseSchema),
             },
           },
         },
@@ -139,8 +139,8 @@ export const registerDeviceApiRoutes = (args: {
     withRouteErrorHandling(async (c) => {
       const params = c.req.valid("param");
       const expiresAt = new Date(Date.now() + STREAM_TOKEN_TTL_MS);
-      const token = createDeviceStreamToken({
-        deviceId: params.id,
+      const token = createDisplayStreamToken({
+        displayId: params.id,
         secret: streamTokenSecret,
         expiresAt,
       });
@@ -155,14 +155,14 @@ export const registerDeviceApiRoutes = (args: {
     "/:id/stream",
     setAction("displays.stream.read", {
       route: "/displays/:id/stream",
-      actorType: "device",
-      resourceType: "device",
+      actorType: "display",
+      resourceType: "display",
     }),
-    validateParams(deviceIdParamSchema),
-    validateQuery(deviceStreamQuerySchema),
+    validateParams(displayIdParamSchema),
+    validateQuery(displayStreamQuerySchema),
     describeRoute({
-      description: "Subscribe device to server-sent events stream",
-      tags: deviceTags,
+      description: "Subscribe display to server-sent events stream",
+      tags: displayTags,
       responses: {
         200: {
           description: "SSE stream",
@@ -172,9 +172,9 @@ export const registerDeviceApiRoutes = (args: {
     async (c) => {
       const params = c.req.valid("param");
       const query = c.req.valid("query");
-      const isValid = verifyDeviceStreamToken({
+      const isValid = verifyDisplayStreamToken({
         token: query.streamToken,
-        deviceId: params.id,
+        displayId: params.id,
         secret: streamTokenSecret,
         now: new Date(),
       });
@@ -190,10 +190,10 @@ export const registerDeviceApiRoutes = (args: {
         start(controller) {
           controller.enqueue(
             encoder.encode(
-              `event: connected\ndata: ${JSON.stringify({ deviceId: params.id, timestamp: new Date().toISOString() })}\n\n`,
+              `event: connected\ndata: ${JSON.stringify({ displayId: params.id, timestamp: new Date().toISOString() })}\n\n`,
             ),
           );
-          unsubscribe = subscribeToDeviceStream(params.id, (event) => {
+          unsubscribe = subscribeToDisplayStream(params.id, (event) => {
             controller.enqueue(
               encoder.encode(
                 `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
@@ -222,14 +222,14 @@ export const registerDeviceApiRoutes = (args: {
     "/:id/active-schedule",
     setAction("displays.schedule.read", {
       route: "/displays/:id/active-schedule",
-      actorType: "device",
-      resourceType: "device",
+      actorType: "display",
+      resourceType: "display",
     }),
-    requireDeviceApiKey,
-    validateParams(deviceIdParamSchema),
+    requireDisplayApiKey,
+    validateParams(displayIdParamSchema),
     describeRoute({
-      description: "Get active schedule for device",
-      tags: deviceTags,
+      description: "Get active schedule for display",
+      tags: displayTags,
       responses: {
         200: {
           description: "Active schedule",
@@ -263,7 +263,7 @@ export const registerDeviceApiRoutes = (args: {
         c.set("actorId", params.id);
         c.set("resourceId", params.id);
         const result = await useCases.getActiveSchedule.execute({
-          deviceId: params.id,
+          displayId: params.id,
           now: new Date(),
         });
         return c.json(result);
@@ -276,20 +276,20 @@ export const registerDeviceApiRoutes = (args: {
     "/:id/manifest",
     setAction("displays.manifest.read", {
       route: "/displays/:id/manifest",
-      actorType: "device",
-      resourceType: "device",
+      actorType: "display",
+      resourceType: "display",
     }),
-    requireDeviceApiKey,
-    validateParams(deviceIdParamSchema),
+    requireDisplayApiKey,
+    validateParams(displayIdParamSchema),
     describeRoute({
-      description: "Get device manifest",
-      tags: deviceTags,
+      description: "Get display manifest",
+      tags: displayTags,
       responses: {
         200: {
           description: "Manifest",
           content: {
             "application/json": {
-              schema: resolver(deviceManifestSchema),
+              schema: resolver(displayManifestSchema),
             },
           },
         },
@@ -317,7 +317,7 @@ export const registerDeviceApiRoutes = (args: {
         c.set("actorId", params.id);
         c.set("resourceId", params.id);
         const result = await useCases.getManifest.execute({
-          deviceId: params.id,
+          displayId: params.id,
           now: new Date(),
         });
         return c.json(result);

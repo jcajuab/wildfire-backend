@@ -1,7 +1,7 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { ValidationError } from "#/application/errors/validation";
 import { type AuditEventRecord } from "#/application/ports/audit";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import { type UserRepository } from "#/application/ports/rbac";
 import { ExportLimitExceededError } from "#/application/use-cases/audit";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -86,7 +86,7 @@ const toCsvRow = (
     .join(",");
 
 function getActorNameFallback(actorType: string | null): string {
-  if (actorType === "device") return "Device";
+  if (actorType === "display") return "Display";
   return "Unknown user";
 }
 
@@ -94,7 +94,7 @@ async function warmActorNameCache(
   events: AuditEventRecord[],
   cache: Map<string, string>,
   userRepository: UserRepository,
-  deviceRepository: DeviceRepository,
+  displayRepository: DisplayRepository,
 ): Promise<void> {
   const userIds = [
     ...new Set(
@@ -104,33 +104,33 @@ async function warmActorNameCache(
         .map((e) => e.actorId as string),
     ),
   ];
-  const deviceIds = [
+  const displayIds = [
     ...new Set(
       events
-        .filter((e) => e.actorType === "device" && e.actorId != null)
-        .filter((e) => !cache.has(`device:${e.actorId as string}`))
+        .filter((e) => e.actorType === "display" && e.actorId != null)
+        .filter((e) => !cache.has(`display:${e.actorId as string}`))
         .map((e) => e.actorId as string),
     ),
   ];
 
-  if (userIds.length === 0 && deviceIds.length === 0) {
+  if (userIds.length === 0 && displayIds.length === 0) {
     return;
   }
 
-  const [users, devices] = await Promise.all([
+  const [users, displays] = await Promise.all([
     userIds.length > 0
       ? userRepository.findByIds(userIds)
       : Promise.resolve([]),
-    deviceIds.length > 0
-      ? deviceRepository.findByIds(deviceIds)
+    displayIds.length > 0
+      ? displayRepository.findByIds(displayIds)
       : Promise.resolve([]),
   ]);
 
   for (const u of users) {
     cache.set(`user:${u.id}`, u.name);
   }
-  for (const d of devices) {
-    cache.set(`device:${d.id}`, d.name || d.identifier);
+  for (const d of displays) {
+    cache.set(`display:${d.id}`, d.name || d.identifier);
   }
 }
 
@@ -160,11 +160,11 @@ export const registerAuditExportRoute = (args: {
   authorize: AuthorizePermission;
   repositories: {
     userRepository: UserRepository;
-    deviceRepository: DeviceRepository;
+    displayRepository: DisplayRepository;
   };
 }) => {
   const { router, useCases, authorize, repositories } = args;
-  const { userRepository, deviceRepository } = repositories;
+  const { userRepository, displayRepository } = repositories;
 
   router.get(
     "/events/export",
@@ -231,7 +231,7 @@ export const registerAuditExportRoute = (args: {
                   firstChunk.value,
                   nameCache,
                   userRepository,
-                  deviceRepository,
+                  displayRepository,
                 );
                 for (const event of firstChunk.value) {
                   const name = getActorName(event, nameCache);
@@ -248,7 +248,7 @@ export const registerAuditExportRoute = (args: {
                   nextChunk.value,
                   nameCache,
                   userRepository,
-                  deviceRepository,
+                  displayRepository,
                 );
                 for (const event of nextChunk.value) {
                   const name = getActorName(event, nameCache);

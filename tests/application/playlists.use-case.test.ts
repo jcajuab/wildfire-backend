@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type ContentRecord } from "#/application/ports/content";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import {
   type PlaylistItemRecord,
   type PlaylistRecord,
@@ -394,7 +394,7 @@ describe("Playlists use cases", () => {
           seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
-          deviceId: "device-1",
+          displayId: "display-1",
           startTime: "08:00",
           endTime: "08:01",
           dayOfWeek: 1,
@@ -404,7 +404,7 @@ describe("Playlists use cases", () => {
           updatedAt: "2025-01-01T00:00:00.000Z",
         },
       ],
-      listByDevice: async () => [],
+      listByDisplay: async () => [],
       findById: async () => null,
       create: async () => {
         throw new Error("not used");
@@ -457,11 +457,11 @@ describe("Playlists use cases", () => {
         ],
       },
       scheduleRepository,
-      deviceRepository: {
+      displayRepository: {
         list: async () => [],
         findByIds: async () => [],
         findById: async () => ({
-          id: "device-1",
+          id: "display-1",
           name: "Lobby",
           identifier: "AA:BB",
           location: null,
@@ -489,7 +489,7 @@ describe("Playlists use cases", () => {
     expect(updates.some((entry) => entry.id === "schedule-1")).toBe(true);
   });
 
-  test("DeletePlaylistUseCase throws PlaylistInUseError when playlist is in use by one device", async () => {
+  test("DeletePlaylistUseCase throws PlaylistInUseError when playlist is in use by one display", async () => {
     const deps = makeDeps();
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
@@ -499,7 +499,7 @@ describe("Playlists use cases", () => {
 
     const scheduleRepository: ScheduleRepository = {
       list: async () => [],
-      listByDevice: async () => [],
+      listByDisplay: async () => [],
       listBySeries: async () => [],
       listByPlaylistId: async () => [
         {
@@ -507,7 +507,7 @@ describe("Playlists use cases", () => {
           seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
-          deviceId: "device-1",
+          displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
           dayOfWeek: 1,
@@ -527,7 +527,7 @@ describe("Playlists use cases", () => {
       deleteBySeries: async () => 0,
     };
 
-    const deviceRepository: DeviceRepository = {
+    const displayRepository: DisplayRepository = {
       list: async () => [],
       findByIds: async (ids: string[]) =>
         ids.map((id) => ({
@@ -552,7 +552,7 @@ describe("Playlists use cases", () => {
       playlistRepository: deps.playlistRepository,
       contentRepository: deps.contentRepository,
       scheduleRepository,
-      deviceRepository,
+      displayRepository,
     });
 
     const err = await useCase.execute({ id: playlist.id }).then(
@@ -563,7 +563,7 @@ describe("Playlists use cases", () => {
     expect((err as PlaylistInUseError).message).toContain("Lobby TV");
   });
 
-  test("DeletePlaylistUseCase throws PlaylistInUseError with multiple devices message when in use by more than one device", async () => {
+  test("DeletePlaylistUseCase throws PlaylistInUseError with multiple displays message when in use by more than one display", async () => {
     const deps = makeDeps();
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
@@ -573,7 +573,7 @@ describe("Playlists use cases", () => {
 
     const scheduleRepository: ScheduleRepository = {
       list: async () => [],
-      listByDevice: async () => [],
+      listByDisplay: async () => [],
       listBySeries: async () => [],
       listByPlaylistId: async () => [
         {
@@ -581,7 +581,7 @@ describe("Playlists use cases", () => {
           seriesId: "series-1",
           name: "Morning",
           playlistId: playlist.id,
-          deviceId: "device-1",
+          displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
           dayOfWeek: 1,
@@ -595,7 +595,7 @@ describe("Playlists use cases", () => {
           seriesId: "series-2",
           name: "Evening",
           playlistId: playlist.id,
-          deviceId: "device-2",
+          displayId: "display-2",
           startTime: "18:00",
           endTime: "22:00",
           dayOfWeek: 1,
@@ -615,7 +615,7 @@ describe("Playlists use cases", () => {
       deleteBySeries: async () => 0,
     };
 
-    const deviceRepository: DeviceRepository = {
+    const displayRepository: DisplayRepository = {
       list: async () => [],
       findByIds: async (ids: string[]) =>
         ids.map((id) => ({
@@ -640,7 +640,7 @@ describe("Playlists use cases", () => {
       playlistRepository: deps.playlistRepository,
       contentRepository: deps.contentRepository,
       scheduleRepository,
-      deviceRepository,
+      displayRepository,
     });
 
     const err = await useCase.execute({ id: playlist.id }).then(
@@ -648,7 +648,7 @@ describe("Playlists use cases", () => {
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(PlaylistInUseError);
-    expect((err as PlaylistInUseError).message).toContain("multiple devices");
+    expect((err as PlaylistInUseError).message).toContain("multiple displays");
   });
 
   test("DeletePlaylistUseCase deletes when playlist is not in use", async () => {
@@ -673,7 +673,7 @@ describe("Playlists use cases", () => {
 
     const scheduleRepository: ScheduleRepository = {
       list: async () => [],
-      listByDevice: async () => [],
+      listByDisplay: async () => [],
       listBySeries: async () => [],
       listByPlaylistId: async () => [],
       findById: async () => null,
@@ -686,7 +686,7 @@ describe("Playlists use cases", () => {
       deleteBySeries: async () => 0,
     };
 
-    const deviceRepository: DeviceRepository = {
+    const displayRepository: DisplayRepository = {
       list: async () => [],
       findByIds: async () => [],
       findById: async () => null,
@@ -703,7 +703,7 @@ describe("Playlists use cases", () => {
       playlistRepository,
       contentRepository: deps.contentRepository,
       scheduleRepository,
-      deviceRepository,
+      displayRepository,
     });
 
     await useCase.execute({ id: playlist.id });

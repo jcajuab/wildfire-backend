@@ -4,25 +4,25 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import { type DevicePairingCodeRepository } from "#/application/ports/device-pairing";
-import { type DeviceStreamEventPublisher } from "#/application/ports/device-stream-events";
+import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
+import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
-  type DeviceRecord,
-  type DeviceRepository,
-} from "#/application/ports/devices";
+  type DisplayRecord,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
-  DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+  DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
   type SystemSettingRepository,
 } from "#/application/ports/settings";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
-  createDeviceProps,
-  type DeviceInput,
-  DeviceValidationError,
-} from "#/domain/devices/device";
+  createDisplayProps,
+  type DisplayInput,
+  DisplayValidationError,
+} from "#/domain/displays/display";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 
@@ -95,10 +95,10 @@ const isRecentlySeen = (lastSeenAt: string | null, now: Date): boolean => {
 };
 
 function withTelemetry(
-  device: DeviceRecord,
+  display: DisplayRecord,
   input: { now: Date; hasActiveSchedule: boolean },
 ) {
-  const lastSeenAt = device.lastSeenAt ?? null;
+  const lastSeenAt = display.lastSeenAt ?? null;
   const connected = isRecentlySeen(lastSeenAt, input.now);
   const onlineStatus = !connected
     ? "DOWN"
@@ -106,22 +106,22 @@ function withTelemetry(
       ? "LIVE"
       : "READY";
   return {
-    ...device,
-    ipAddress: device.ipAddress ?? null,
-    macAddress: device.macAddress ?? null,
-    screenWidth: device.screenWidth ?? null,
-    screenHeight: device.screenHeight ?? null,
-    outputType: device.outputType ?? null,
-    orientation: device.orientation ?? null,
+    ...display,
+    ipAddress: display.ipAddress ?? null,
+    macAddress: display.macAddress ?? null,
+    screenWidth: display.screenWidth ?? null,
+    screenHeight: display.screenHeight ?? null,
+    outputType: display.outputType ?? null,
+    orientation: display.orientation ?? null,
     lastSeenAt,
     onlineStatus,
   } as const;
 }
 
-export class ListDevicesUseCase {
+export class ListDisplaysUseCase {
   constructor(
     private readonly deps: {
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
       scheduleTimeZone?: string;
     },
@@ -130,26 +130,26 @@ export class ListDevicesUseCase {
   async execute(input?: { page?: number; pageSize?: number }) {
     const now = new Date();
     const [all, schedules] = await Promise.all([
-      this.deps.deviceRepository.list(),
+      this.deps.displayRepository.list(),
       this.deps.scheduleRepository.list(),
     ]);
-    const schedulesByDeviceId = new Map<string, typeof schedules>();
+    const schedulesByDisplayId = new Map<string, typeof schedules>();
     for (const schedule of schedules) {
-      const grouped = schedulesByDeviceId.get(schedule.deviceId);
+      const grouped = schedulesByDisplayId.get(schedule.displayId);
       if (grouped) {
         grouped.push(schedule);
         continue;
       }
-      schedulesByDeviceId.set(schedule.deviceId, [schedule]);
+      schedulesByDisplayId.set(schedule.displayId, [schedule]);
     }
 
-    const withStatus = all.map((device) => {
+    const withStatus = all.map((display) => {
       const activeSchedule = selectActiveSchedule(
-        schedulesByDeviceId.get(device.id) ?? [],
+        schedulesByDisplayId.get(display.id) ?? [],
         now,
         this.deps.scheduleTimeZone ?? "UTC",
       );
-      return withTelemetry(device, {
+      return withTelemetry(display, {
         now,
         hasActiveSchedule: activeSchedule !== null,
       });
@@ -158,10 +158,10 @@ export class ListDevicesUseCase {
   }
 }
 
-export class GetDeviceUseCase {
+export class GetDisplayUseCase {
   constructor(
     private readonly deps: {
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
       scheduleTimeZone?: string;
     },
@@ -169,37 +169,39 @@ export class GetDeviceUseCase {
 
   async execute(input: { id: string }) {
     const now = new Date();
-    const device = await this.deps.deviceRepository.findById(input.id);
-    if (!device) throw new NotFoundError("Device not found");
-    const schedules = await this.deps.scheduleRepository.listByDevice(input.id);
+    const display = await this.deps.displayRepository.findById(input.id);
+    if (!display) throw new NotFoundError("Display not found");
+    const schedules = await this.deps.scheduleRepository.listByDisplay(
+      input.id,
+    );
     const activeSchedule = selectActiveSchedule(
       schedules,
       now,
       this.deps.scheduleTimeZone ?? "UTC",
     );
-    return withTelemetry(device, {
+    return withTelemetry(display, {
       now,
       hasActiveSchedule: activeSchedule !== null,
     });
   }
 }
 
-export class RegisterDeviceUseCase {
+export class RegisterDisplayUseCase {
   constructor(
     private readonly deps: {
-      deviceRepository: DeviceRepository;
-      devicePairingCodeRepository: DevicePairingCodeRepository;
+      displayRepository: DisplayRepository;
+      displayPairingCodeRepository: DisplayPairingCodeRepository;
     },
   ) {}
 
-  async execute(input: DeviceInput & { pairingCode: string }) {
+  async execute(input: DisplayInput & { pairingCode: string }) {
     const now = new Date();
     const pairingCode = input.pairingCode.trim();
     if (!/^\d{6}$/.test(pairingCode)) {
       throw new ValidationError("Pairing code must be a 6-digit number");
     }
     const consumed =
-      await this.deps.devicePairingCodeRepository.consumeValidCode({
+      await this.deps.displayPairingCodeRepository.consumeValidCode({
         codeHash: hashPairingCode(pairingCode),
         now: new Date(),
       });
@@ -209,12 +211,12 @@ export class RegisterDeviceUseCase {
       );
     }
 
-    let props: ReturnType<typeof createDeviceProps>;
+    let props: ReturnType<typeof createDisplayProps>;
     try {
-      props = createDeviceProps({
+      props = createDisplayProps({
         name: input.name,
         identifier: input.identifier,
-        deviceFingerprint: input.deviceFingerprint,
+        displayFingerprint: input.displayFingerprint,
         location: input.location,
         ipAddress: input.ipAddress,
         macAddress: input.macAddress,
@@ -224,21 +226,21 @@ export class RegisterDeviceUseCase {
         orientation: input.orientation,
       });
     } catch (error) {
-      if (error instanceof DeviceValidationError) {
+      if (error instanceof DisplayValidationError) {
         throw new ValidationError(error.message);
       }
       throw error;
     }
     if (props.screenWidth === null || props.screenHeight === null) {
-      throw new ValidationError("Device resolution is required");
+      throw new ValidationError("Display resolution is required");
     }
 
-    const existing = await this.deps.deviceRepository.findByIdentifier(
+    const existing = await this.deps.displayRepository.findByIdentifier(
       props.identifier,
     );
-    const existingByFingerprint = props.deviceFingerprint
-      ? await this.deps.deviceRepository.findByFingerprint(
-          props.deviceFingerprint,
+    const existingByFingerprint = props.displayFingerprint
+      ? await this.deps.displayRepository.findByFingerprint(
+          props.displayFingerprint,
         )
       : null;
 
@@ -248,17 +250,17 @@ export class RegisterDeviceUseCase {
       existing.id !== existingByFingerprint.id
     ) {
       throw new ValidationError(
-        "Device identifier and fingerprint belong to different records",
+        "Display identifier and fingerprint belong to different records",
       );
     }
 
     const target = existing ?? existingByFingerprint;
 
     if (target) {
-      const updated = await this.deps.deviceRepository.update(target.id, {
+      const updated = await this.deps.displayRepository.update(target.id, {
         name: props.name,
         identifier: props.identifier,
-        deviceFingerprint: props.deviceFingerprint,
+        displayFingerprint: props.displayFingerprint,
         location: props.location,
         ipAddress: props.ipAddress,
         macAddress: props.macAddress,
@@ -268,19 +270,19 @@ export class RegisterDeviceUseCase {
         orientation: props.orientation,
       });
       if (!updated) {
-        throw new NotFoundError("Device not found");
+        throw new NotFoundError("Display not found");
       }
-      await this.deps.deviceRepository.touchSeen?.(updated.id, now);
+      await this.deps.displayRepository.touchSeen?.(updated.id, now);
       return withTelemetry(
         { ...updated, lastSeenAt: now.toISOString() },
         { now, hasActiveSchedule: false },
       );
     }
 
-    const created = await this.deps.deviceRepository.create({
+    const created = await this.deps.displayRepository.create({
       name: props.name,
       identifier: props.identifier,
-      deviceFingerprint: props.deviceFingerprint,
+      displayFingerprint: props.displayFingerprint,
       location: props.location,
     });
     if (
@@ -291,8 +293,8 @@ export class RegisterDeviceUseCase {
       props.outputType !== null ||
       props.orientation !== null
     ) {
-      const enriched = await this.deps.deviceRepository.update(created.id, {
-        deviceFingerprint: props.deviceFingerprint,
+      const enriched = await this.deps.displayRepository.update(created.id, {
+        displayFingerprint: props.displayFingerprint,
         ipAddress: props.ipAddress,
         macAddress: props.macAddress,
         screenWidth: props.screenWidth,
@@ -300,14 +302,14 @@ export class RegisterDeviceUseCase {
         outputType: props.outputType,
         orientation: props.orientation,
       });
-      const connectedDevice = enriched ?? created;
-      await this.deps.deviceRepository.touchSeen?.(connectedDevice.id, now);
+      const connectedDisplay = enriched ?? created;
+      await this.deps.displayRepository.touchSeen?.(connectedDisplay.id, now);
       return withTelemetry(
-        { ...connectedDevice, lastSeenAt: now.toISOString() },
+        { ...connectedDisplay, lastSeenAt: now.toISOString() },
         { now, hasActiveSchedule: false },
       );
     }
-    await this.deps.deviceRepository.touchSeen?.(created.id, now);
+    await this.deps.displayRepository.touchSeen?.(created.id, now);
     return withTelemetry(
       { ...created, lastSeenAt: now.toISOString() },
       { now, hasActiveSchedule: false },
@@ -315,10 +317,10 @@ export class RegisterDeviceUseCase {
   }
 }
 
-export class IssueDevicePairingCodeUseCase {
+export class IssueDisplayPairingCodeUseCase {
   constructor(
     private readonly deps: {
-      devicePairingCodeRepository: DevicePairingCodeRepository;
+      displayPairingCodeRepository: DisplayPairingCodeRepository;
     },
   ) {}
 
@@ -327,7 +329,7 @@ export class IssueDevicePairingCodeUseCase {
       const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
       const expiresAt = new Date(Date.now() + PAIRING_CODE_TTL_MS);
       try {
-        await this.deps.devicePairingCodeRepository.create({
+        await this.deps.displayPairingCodeRepository.create({
           codeHash: hashPairingCode(code),
           expiresAt,
           createdById: input.createdById,
@@ -346,10 +348,10 @@ export class IssueDevicePairingCodeUseCase {
   }
 }
 
-export class UpdateDeviceUseCase {
+export class UpdateDisplayUseCase {
   constructor(
     private readonly deps: {
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
       scheduleTimeZone?: string;
     },
@@ -406,7 +408,7 @@ export class UpdateDeviceUseCase {
 
     const screenWidth = normalizeDimension(input.screenWidth, "screenWidth");
     const screenHeight = normalizeDimension(input.screenHeight, "screenHeight");
-    const updated = await this.deps.deviceRepository.update(input.id, {
+    const updated = await this.deps.displayRepository.update(input.id, {
       name: normalizedName,
       location: input.location,
       ipAddress,
@@ -416,9 +418,11 @@ export class UpdateDeviceUseCase {
       outputType: normalizedOutputType,
       orientation: input.orientation,
     });
-    if (!updated) throw new NotFoundError("Device not found");
+    if (!updated) throw new NotFoundError("Display not found");
     const now = new Date();
-    const schedules = await this.deps.scheduleRepository.listByDevice(input.id);
+    const schedules = await this.deps.scheduleRepository.listByDisplay(
+      input.id,
+    );
     const activeSchedule = selectActiveSchedule(
       schedules,
       now,
@@ -431,44 +435,44 @@ export class UpdateDeviceUseCase {
   }
 }
 
-export class RequestDeviceRefreshUseCase {
+export class RequestDisplayRefreshUseCase {
   constructor(
     private readonly deps: {
-      deviceRepository: DeviceRepository;
-      deviceEventPublisher?: DeviceStreamEventPublisher;
+      displayRepository: DisplayRepository;
+      displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
 
   async execute(input: { id: string }): Promise<void> {
-    const bumped = await this.deps.deviceRepository.bumpRefreshNonce(input.id);
+    const bumped = await this.deps.displayRepository.bumpRefreshNonce(input.id);
     if (!bumped) {
-      throw new NotFoundError("Device not found");
+      throw new NotFoundError("Display not found");
     }
-    this.deps.deviceEventPublisher?.publish({
-      type: "device_refresh_requested",
-      deviceId: input.id,
+    this.deps.displayEventPublisher?.publish({
+      type: "display_refresh_requested",
+      displayId: input.id,
       reason: "refresh_nonce_bumped",
     });
   }
 }
 
-export class GetDeviceActiveScheduleUseCase {
+export class GetDisplayActiveScheduleUseCase {
   constructor(
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       scheduleTimeZone?: string;
     },
   ) {}
 
-  async execute(input: { deviceId: string; now: Date }) {
-    await this.deps.deviceRepository.touchSeen?.(input.deviceId, input.now);
-    const [device, schedules] = await Promise.all([
-      this.deps.deviceRepository.findById(input.deviceId),
-      this.deps.scheduleRepository.listByDevice(input.deviceId),
+  async execute(input: { displayId: string; now: Date }) {
+    await this.deps.displayRepository.touchSeen?.(input.displayId, input.now);
+    const [display, schedules] = await Promise.all([
+      this.deps.displayRepository.findById(input.displayId),
+      this.deps.scheduleRepository.listByDisplay(input.displayId),
     ]);
-    if (!device) throw new NotFoundError("Device not found");
+    if (!display) throw new NotFoundError("Display not found");
     const active = selectActiveSchedule(
       schedules,
       input.now,
@@ -481,7 +485,7 @@ export class GetDeviceActiveScheduleUseCase {
       id: active.id,
       name: active.name,
       playlistId: active.playlistId,
-      deviceId: active.deviceId,
+      displayId: active.displayId,
       startDate: active.startDate,
       endDate: active.endDate,
       startTime: active.startTime,
@@ -496,32 +500,32 @@ export class GetDeviceActiveScheduleUseCase {
           (await this.deps.playlistRepository.findById(active.playlistId))
             ?.name ?? null,
       },
-      device: { id: device.id, name: device.name },
+      display: { id: display.id, name: display.name },
     };
   }
 }
 
-export class GetDeviceManifestUseCase {
+export class GetDisplayManifestUseCase {
   constructor(
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
-      deviceRepository: DeviceRepository;
+      displayRepository: DisplayRepository;
       systemSettingRepository: SystemSettingRepository;
       downloadUrlExpiresInSeconds: number;
       scheduleTimeZone?: string;
     },
   ) {}
 
-  async execute(input: { deviceId: string; now: Date }) {
-    await this.deps.deviceRepository.touchSeen?.(input.deviceId, input.now);
-    const [device, schedules] = await Promise.all([
-      this.deps.deviceRepository.findById(input.deviceId),
-      this.deps.scheduleRepository.listByDevice(input.deviceId),
+  async execute(input: { displayId: string; now: Date }) {
+    await this.deps.displayRepository.touchSeen?.(input.displayId, input.now);
+    const [display, schedules] = await Promise.all([
+      this.deps.displayRepository.findById(input.displayId),
+      this.deps.scheduleRepository.listByDisplay(input.displayId),
     ]);
-    if (!device) throw new NotFoundError("Device not found");
+    if (!display) throw new NotFoundError("Display not found");
     const active = selectActiveSchedule(
       schedules,
       input.now,
@@ -582,7 +586,7 @@ export class GetDeviceManifestUseCase {
 
     const versionPayload = JSON.stringify({
       playlistId: playlist.id,
-      refreshNonce: device.refreshNonce ?? 0,
+      refreshNonce: display.refreshNonce ?? 0,
       scrollPxPerSecond: runtimeSettings.scrollPxPerSecond,
       items: manifestItems.map((item) => ({
         id: item.id,
@@ -607,7 +611,7 @@ export class GetDeviceManifestUseCase {
 
   private async getRuntimeSettings(): Promise<{ scrollPxPerSecond: number }> {
     const setting = await this.deps.systemSettingRepository.findByKey(
-      DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
+      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
     );
     if (!setting) {
       return { scrollPxPerSecond: DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND };

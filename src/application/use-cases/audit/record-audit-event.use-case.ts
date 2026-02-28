@@ -16,7 +16,7 @@ const trimToUndefined = (value: string | undefined, maxLength: number) => {
 const normalizeActorType = (
   actorType: AuditActorType | undefined,
 ): AuditActorType | undefined => {
-  if (actorType === "user" || actorType === "device") {
+  if (actorType === "user" || actorType === "display") {
     return actorType;
   }
   return undefined;

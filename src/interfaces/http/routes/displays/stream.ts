@@ -1,22 +1,22 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { logger } from "#/infrastructure/observability/logger";
 
-export type DeviceStreamEventType =
+export type DisplayStreamEventType =
   | "manifest_updated"
   | "schedule_updated"
   | "playlist_updated"
-  | "device_refresh_requested";
+  | "display_refresh_requested";
 
-export interface DeviceStreamEvent {
-  type: DeviceStreamEventType;
-  deviceId: string;
+export interface DisplayStreamEvent {
+  type: DisplayStreamEventType;
+  displayId: string;
   timestamp: string;
   reason?: string;
 }
 
-type DeviceSubscriber = (event: DeviceStreamEvent) => void;
+type DisplaySubscriber = (event: DisplayStreamEvent) => void;
 
-const streamSubscribers = new Map<string, Map<string, DeviceSubscriber>>();
+const streamSubscribers = new Map<string, Map<string, DisplaySubscriber>>();
 
 const toBase64Url = (value: string | Uint8Array): string =>
   Buffer.from(value)
@@ -35,13 +35,13 @@ const fromBase64Url = (value: string): Buffer => {
 const sign = (payload: string, secret: string): string =>
   toBase64Url(createHmac("sha256", secret).update(payload).digest());
 
-export const createDeviceStreamToken = (input: {
-  deviceId: string;
+export const createDisplayStreamToken = (input: {
+  displayId: string;
   secret: string;
   expiresAt: Date;
 }): string => {
   const payload = JSON.stringify({
-    d: input.deviceId,
+    d: input.displayId,
     e: input.expiresAt.toISOString(),
   });
   const encodedPayload = toBase64Url(payload);
@@ -49,9 +49,9 @@ export const createDeviceStreamToken = (input: {
   return `${encodedPayload}.${signature}`;
 };
 
-export const verifyDeviceStreamToken = (input: {
+export const verifyDisplayStreamToken = (input: {
   token: string;
-  deviceId: string;
+  displayId: string;
   secret: string;
   now: Date;
 }): boolean => {
@@ -75,68 +75,68 @@ export const verifyDeviceStreamToken = (input: {
   } catch {
     return false;
   }
-  if (payload.d !== input.deviceId || !payload.e) return false;
+  if (payload.d !== input.displayId || !payload.e) return false;
   const expiresMs = Date.parse(payload.e);
   if (!Number.isFinite(expiresMs)) return false;
   return expiresMs > input.now.getTime();
 };
 
-export const subscribeToDeviceStream = (
-  deviceId: string,
-  handler: DeviceSubscriber,
+export const subscribeToDisplayStream = (
+  displayId: string,
+  handler: DisplaySubscriber,
 ): (() => void) => {
   const subscriberId = randomUUID();
-  const subscribers = streamSubscribers.get(deviceId) ?? new Map();
+  const subscribers = streamSubscribers.get(displayId) ?? new Map();
   subscribers.set(subscriberId, handler);
-  streamSubscribers.set(deviceId, subscribers);
+  streamSubscribers.set(displayId, subscribers);
   logger.info(
     {
       route: "/displays/:id/stream",
-      deviceId,
+      displayId,
       subscriberCount: subscribers.size,
     },
-    "device stream subscriber connected",
+    "display stream subscriber connected",
   );
 
   return () => {
-    const current = streamSubscribers.get(deviceId);
+    const current = streamSubscribers.get(displayId);
     if (!current) return;
     current.delete(subscriberId);
     if (current.size === 0) {
-      streamSubscribers.delete(deviceId);
+      streamSubscribers.delete(displayId);
       logger.info(
         {
           route: "/displays/:id/stream",
-          deviceId,
+          displayId,
           subscriberCount: 0,
         },
-        "device stream subscriber disconnected",
+        "display stream subscriber disconnected",
       );
       return;
     }
     logger.info(
       {
         route: "/displays/:id/stream",
-        deviceId,
+        displayId,
         subscriberCount: current.size,
       },
-      "device stream subscriber disconnected",
+      "display stream subscriber disconnected",
     );
   };
 };
 
-export const publishDeviceStreamEvent = (event: DeviceStreamEvent): void => {
-  const subscribers = streamSubscribers.get(event.deviceId);
+export const publishDisplayStreamEvent = (event: DisplayStreamEvent): void => {
+  const subscribers = streamSubscribers.get(event.displayId);
   if (!subscribers) return;
   logger.info(
     {
       route: "/displays/:id/stream",
-      deviceId: event.deviceId,
+      displayId: event.displayId,
       eventType: event.type,
       subscriberCount: subscribers.size,
       reason: event.reason,
     },
-    "device stream event emitted",
+    "display stream event emitted",
   );
   for (const handler of subscribers.values()) {
     handler(event);

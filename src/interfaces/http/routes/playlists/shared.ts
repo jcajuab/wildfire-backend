@@ -1,7 +1,7 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type ContentRepository } from "#/application/ports/content";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
   type AuthorizationRepository,
@@ -21,7 +21,7 @@ import {
   UpdatePlaylistUseCase,
 } from "#/application/use-cases/playlists";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
-import { publishDeviceStreamEvent } from "#/interfaces/http/routes/devices/stream";
+import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 
 export interface PlaylistsRouterDeps {
   jwtSecret: string;
@@ -34,7 +34,7 @@ export interface PlaylistsRouterDeps {
     userRepository: UserRepository;
     authorizationRepository: AuthorizationRepository;
     scheduleRepository: ScheduleRepository;
-    deviceRepository: DeviceRepository;
+    displayRepository: DisplayRepository;
     systemSettingRepository: SystemSettingRepository;
   };
 }
@@ -65,20 +65,20 @@ export const playlistTags = ["Playlists"];
 export const createPlaylistsUseCases = (
   deps: PlaylistsRouterDeps,
 ): PlaylistsRouterUseCases => {
-  const deviceEventPublisher = {
+  const displayEventPublisher = {
     publish(input: {
       type:
         | "manifest_updated"
         | "schedule_updated"
         | "playlist_updated"
-        | "device_refresh_requested";
-      deviceId: string;
+        | "display_refresh_requested";
+      displayId: string;
       reason?: string;
       timestamp?: string;
     }) {
-      publishDeviceStreamEvent({
+      publishDisplayStreamEvent({
         type: input.type,
-        deviceId: input.deviceId,
+        displayId: input.displayId,
         reason: input.reason,
         timestamp: input.timestamp ?? new Date().toISOString(),
       });
@@ -107,39 +107,39 @@ export const createPlaylistsUseCases = (
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
     }),
     addPlaylistItem: new AddPlaylistItemUseCase({
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
       systemSettingRepository: deps.repositories.systemSettingRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
     updatePlaylistItem: new UpdatePlaylistItemUseCase({
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
       systemSettingRepository: deps.repositories.systemSettingRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
     reorderPlaylistItems: new ReorderPlaylistItemsUseCase({
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
       systemSettingRepository: deps.repositories.systemSettingRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
     deletePlaylistItem: new DeletePlaylistItemUseCase({
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
-      deviceRepository: deps.repositories.deviceRepository,
+      displayRepository: deps.repositories.displayRepository,
       systemSettingRepository: deps.repositories.systemSettingRepository,
-      deviceEventPublisher,
+      displayEventPublisher,
     }),
   };
 };

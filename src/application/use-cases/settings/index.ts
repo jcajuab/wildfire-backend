@@ -1,5 +1,5 @@
 export {
-  type DeviceRuntimeSettingsView,
-  GetDeviceRuntimeSettingsUseCase,
-  UpdateDeviceRuntimeSettingsUseCase,
+  type DisplayRuntimeSettingsView,
+  GetDisplayRuntimeSettingsUseCase,
+  UpdateDisplayRuntimeSettingsUseCase,
 } from "./settings.use-cases";

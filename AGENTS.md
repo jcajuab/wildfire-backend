@@ -15,7 +15,7 @@ No frontend assumptions allowed.
 Wildfire Backend:
 
 Admin → Upload Content → MinIO (checksum required)
-Content → Playlist → Schedule → Device Poll → Manifest
+Content → Playlist → Schedule → Display Poll → Manifest
 
 Entities:
 

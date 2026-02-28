@@ -8,7 +8,7 @@ export type ObservabilityVariables = RequestIdVariables & {
   action?: string;
   route?: string;
   actorId?: string;
-  actorType?: "user" | "device";
+  actorType?: "user" | "display";
   resourceId?: string;
   resourceType?: string;
   userId?: string;
@@ -27,7 +27,7 @@ export const setAction =
     meta?: {
       route?: string;
       actorId?: string;
-      actorType?: "user" | "device";
+      actorType?: "user" | "display";
       resourceId?: string;
       resourceType?: string;
     },

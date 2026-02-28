@@ -1,5 +1,5 @@
-export const DEVICE_RUNTIME_SCROLL_PX_PER_SECOND_KEY =
-  "device_runtime_scroll_px_per_second" as const;
+export const DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY =
+  "display_runtime_scroll_px_per_second" as const;
 
 export interface SystemSettingRecord {
   key: string;

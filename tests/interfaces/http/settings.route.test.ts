@@ -33,10 +33,10 @@ const makeApp = async (permissions: string[]) => {
           return record;
         },
       },
-      deviceRepository: {
+      displayRepository: {
         list: async () => [
           {
-            id: "device-1",
+            id: "display-1",
             name: "Lobby",
             identifier: "AA:BB",
             location: null,
@@ -72,10 +72,10 @@ const makeApp = async (permissions: string[]) => {
 };
 
 describe("Settings routes", () => {
-  test("GET /settings/device-runtime returns defaults with settings:read", async () => {
+  test("GET /settings/display-runtime returns defaults with settings:read", async () => {
     const { app, issueToken } = await makeApp(["settings:read"]);
     const token = await issueToken();
-    const response = await app.request("/settings/device-runtime", {
+    const response = await app.request("/settings/display-runtime", {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(response.status).toBe(200);
@@ -83,13 +83,13 @@ describe("Settings routes", () => {
     expect(body.scrollPxPerSecond).toBe(24);
   });
 
-  test("PATCH /settings/device-runtime updates value with settings:update", async () => {
+  test("PATCH /settings/display-runtime updates value with settings:update", async () => {
     const { app, issueToken } = await makeApp([
       "settings:update",
       "settings:read",
     ]);
     const token = await issueToken();
-    const response = await app.request("/settings/device-runtime", {
+    const response = await app.request("/settings/display-runtime", {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -102,10 +102,10 @@ describe("Settings routes", () => {
     expect(body.scrollPxPerSecond).toBe(40);
   });
 
-  test("PATCH /settings/device-runtime returns 403 without permission", async () => {
+  test("PATCH /settings/display-runtime returns 403 without permission", async () => {
     const { app, issueToken } = await makeApp(["settings:read"]);
     const token = await issueToken();
-    const response = await app.request("/settings/device-runtime", {
+    const response = await app.request("/settings/display-runtime", {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,

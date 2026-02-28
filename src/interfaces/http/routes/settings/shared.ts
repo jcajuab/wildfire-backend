@@ -1,11 +1,11 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
-import { type DeviceRepository } from "#/application/ports/devices";
+import { type DisplayRepository } from "#/application/ports/displays";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
-  GetDeviceRuntimeSettingsUseCase,
-  UpdateDeviceRuntimeSettingsUseCase,
+  GetDisplayRuntimeSettingsUseCase,
+  UpdateDisplayRuntimeSettingsUseCase,
 } from "#/application/use-cases/settings";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
@@ -17,13 +17,13 @@ export interface SettingsRouterDeps {
   repositories: {
     authorizationRepository: AuthorizationRepository;
     systemSettingRepository: SystemSettingRepository;
-    deviceRepository: DeviceRepository;
+    displayRepository: DisplayRepository;
   };
 }
 
 export interface SettingsRouterUseCases {
-  getDeviceRuntimeSettings: GetDeviceRuntimeSettingsUseCase;
-  updateDeviceRuntimeSettings: UpdateDeviceRuntimeSettingsUseCase;
+  getDisplayRuntimeSettings: GetDisplayRuntimeSettingsUseCase;
+  updateDisplayRuntimeSettings: UpdateDisplayRuntimeSettingsUseCase;
 }
 
 export type SettingsRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -40,10 +40,10 @@ export const settingsTags = ["Settings"];
 export const createSettingsUseCases = (
   deps: SettingsRouterDeps,
 ): SettingsRouterUseCases => ({
-  getDeviceRuntimeSettings: new GetDeviceRuntimeSettingsUseCase({
+  getDisplayRuntimeSettings: new GetDisplayRuntimeSettingsUseCase({
     systemSettingRepository: deps.repositories.systemSettingRepository,
   }),
-  updateDeviceRuntimeSettings: new UpdateDeviceRuntimeSettingsUseCase({
+  updateDisplayRuntimeSettings: new UpdateDisplayRuntimeSettingsUseCase({
     systemSettingRepository: deps.repositories.systemSettingRepository,
   }),
 });

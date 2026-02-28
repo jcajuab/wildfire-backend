@@ -10,7 +10,7 @@ const toRecord = (row: typeof schedules.$inferSelect): ScheduleRecord => ({
   id: row.id,
   name: row.name,
   playlistId: row.playlistId,
-  deviceId: row.deviceId,
+  displayId: row.displayId,
   startDate: row.startDate,
   endDate: row.endDate,
   startTime: row.startTime,
@@ -32,11 +32,11 @@ export class ScheduleDbRepository implements ScheduleRepository {
     return rows.map(toRecord);
   }
 
-  async listByDevice(deviceId: string): Promise<ScheduleRecord[]> {
+  async listByDisplay(displayId: string): Promise<ScheduleRecord[]> {
     const rows = await db
       .select()
       .from(schedules)
-      .where(eq(schedules.deviceId, deviceId))
+      .where(eq(schedules.displayId, displayId))
       .orderBy(desc(schedules.priority));
     return rows.map(toRecord);
   }
@@ -62,7 +62,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
     seriesId?: string;
     name: string;
     playlistId: string;
-    deviceId: string;
+    displayId: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -77,7 +77,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
       id,
       name: input.name,
       playlistId: input.playlistId,
-      deviceId: input.deviceId,
+      displayId: input.displayId,
       startDate: input.startDate ?? "1970-01-01",
       endDate: input.endDate ?? "2099-12-31",
       startTime: input.startTime,
@@ -103,7 +103,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
     input: {
       name?: string;
       playlistId?: string;
-      deviceId?: string;
+      displayId?: string;
       startDate?: string;
       endDate?: string;
       startTime?: string;
@@ -119,7 +119,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
     const next = {
       name: input.name ?? existing.name,
       playlistId: input.playlistId ?? existing.playlistId,
-      deviceId: input.deviceId ?? existing.deviceId,
+      displayId: input.displayId ?? existing.displayId,
       startDate: input.startDate ?? existing.startDate,
       endDate: input.endDate ?? existing.endDate,
       startTime: input.startTime ?? existing.startTime,

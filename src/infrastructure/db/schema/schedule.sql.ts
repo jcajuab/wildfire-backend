@@ -6,7 +6,7 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/mysql-core";
-import { devices } from "./device.sql";
+import { displays } from "./display.sql";
 import { playlists } from "./playlist.sql";
 
 export const schedules = mysqlTable(
@@ -17,9 +17,9 @@ export const schedules = mysqlTable(
     playlistId: varchar("playlist_id", { length: 36 })
       .notNull()
       .references(() => playlists.id, { onDelete: "restrict" }),
-    deviceId: varchar("device_id", { length: 36 })
+    displayId: varchar("display_id", { length: 36 })
       .notNull()
-      .references(() => devices.id, { onDelete: "cascade" }),
+      .references(() => displays.id, { onDelete: "cascade" }),
     startDate: varchar("start_date", { length: 10 }).notNull(),
     endDate: varchar("end_date", { length: 10 }).notNull(),
     startTime: varchar("start_time", { length: 5 }).notNull(),
@@ -30,7 +30,7 @@ export const schedules = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    deviceIdIdx: index("schedules_device_id_idx").on(table.deviceId),
+    displayIdIdx: index("schedules_display_id_idx").on(table.displayId),
     playlistIdIdx: index("schedules_playlist_id_idx").on(table.playlistId),
   }),
 );

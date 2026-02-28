@@ -7,7 +7,7 @@ import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route"
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
-const deviceId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+const displayId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 
 const makeApp = async (
   permissions: string[],
@@ -19,7 +19,7 @@ const makeApp = async (
     seriesId?: string;
     name: string;
     playlistId: string;
-    deviceId: string;
+    displayId: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -40,9 +40,9 @@ const makeApp = async (
       updatedAt: "2025-01-01T00:00:00.000Z",
     },
   ];
-  const devices = [
+  const displays = [
     {
-      id: deviceId,
+      id: displayId,
       name: "Lobby",
       identifier: "AA:BB",
       location: null,
@@ -58,8 +58,8 @@ const makeApp = async (
     repositories: {
       scheduleRepository: {
         list: async () => [...schedules],
-        listByDevice: async (deviceId: string) =>
-          schedules.filter((schedule) => schedule.deviceId === deviceId),
+        listByDisplay: async (displayId: string) =>
+          schedules.filter((schedule) => schedule.displayId === displayId),
         listBySeries: async (seriesId: string) =>
           schedules.filter((schedule) => schedule.seriesId === seriesId),
         findById: async (id: string) =>
@@ -132,12 +132,12 @@ const makeApp = async (
         reorderItems: async () => true,
         deleteItem: async () => false,
       },
-      deviceRepository: {
-        list: async () => [...devices],
+      displayRepository: {
+        list: async () => [...displays],
         findByIds: async (ids: string[]) =>
-          devices.filter((device) => ids.includes(device.id)),
+          displays.filter((display) => ids.includes(display.id)),
         findById: async (id: string) =>
-          devices.find((device) => device.id === id) ?? null,
+          displays.find((display) => display.id === id) ?? null,
         findByIdentifier: async () => null,
         findByFingerprint: async () => null,
         create: async () => {
@@ -224,7 +224,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Morning",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "08:00",
@@ -253,7 +253,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Morning",
         playlistId: "0e2c9b1e-7c1a-4b4d-8c2e-7b0a2f5f6d8c",
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "08:00",
@@ -280,7 +280,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Morning",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "99:00",
@@ -309,7 +309,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Morning",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "08:00",
@@ -336,7 +336,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Morning",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "08:00",
@@ -357,7 +357,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Conflict",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "09:00",
@@ -387,7 +387,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Morning",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "08:00",
@@ -410,7 +410,7 @@ describe("Schedules routes", () => {
       body: JSON.stringify({
         name: "Midday",
         playlistId,
-        deviceId,
+        displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         startTime: "11:00",

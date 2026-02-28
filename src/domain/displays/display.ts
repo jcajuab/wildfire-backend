@@ -1,14 +1,14 @@
-export class DeviceValidationError extends Error {
+export class DisplayValidationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "DeviceValidationError";
+    this.name = "DisplayValidationError";
   }
 }
 
-export interface DeviceInput {
+export interface DisplayInput {
   name: string;
   identifier: string;
-  deviceFingerprint?: string | null;
+  displayFingerprint?: string | null;
   location?: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
@@ -18,10 +18,10 @@ export interface DeviceInput {
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
 }
 
-export interface DeviceProps {
+export interface DisplayProps {
   name: string;
   identifier: string;
-  deviceFingerprint: string | null;
+  displayFingerprint: string | null;
   location: string | null;
   ipAddress: string | null;
   macAddress: string | null;
@@ -33,24 +33,24 @@ export interface DeviceProps {
 
 const normalize = (value: string) => value.trim();
 
-export const createDeviceProps = (input: DeviceInput): DeviceProps => {
+export const createDisplayProps = (input: DisplayInput): DisplayProps => {
   const name = normalize(input.name);
   const identifier = normalize(input.identifier);
 
   if (!name) {
-    throw new DeviceValidationError("Device name is required");
+    throw new DisplayValidationError("Display name is required");
   }
 
   if (!identifier) {
-    throw new DeviceValidationError("Device identifier is required");
+    throw new DisplayValidationError("Display identifier is required");
   }
 
   return {
     name,
     identifier,
-    deviceFingerprint: input.deviceFingerprint
+    displayFingerprint: input.displayFingerprint
       ? (() => {
-          const trimmed = input.deviceFingerprint.trim();
+          const trimmed = input.displayFingerprint.trim();
           return trimmed.length > 0 ? trimmed : null;
         })()
       : null,

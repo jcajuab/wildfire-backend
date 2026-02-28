@@ -1,14 +1,14 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import {
-  type DevicePairingCodeRecord,
-  type DevicePairingCodeRepository,
-} from "#/application/ports/device-pairing";
+  type DisplayPairingCodeRecord,
+  type DisplayPairingCodeRepository,
+} from "#/application/ports/display-pairing";
 import { db } from "#/infrastructure/db/client";
 import { pairingCodes } from "#/infrastructure/db/schema/pairing-code.sql";
 
 const toRecord = (
   row: typeof pairingCodes.$inferSelect,
-): DevicePairingCodeRecord => ({
+): DisplayPairingCodeRecord => ({
   id: row.id,
   codeHash: row.codeHash,
   expiresAt:
@@ -24,14 +24,14 @@ const toRecord = (
     row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
 });
 
-export class DevicePairingCodeDbRepository
-  implements DevicePairingCodeRepository
+export class DisplayPairingCodeDbRepository
+  implements DisplayPairingCodeRepository
 {
   async create(input: {
     codeHash: string;
     expiresAt: Date;
     createdById: string;
-  }): Promise<DevicePairingCodeRecord> {
+  }): Promise<DisplayPairingCodeRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
     await db.insert(pairingCodes).values({
@@ -57,7 +57,7 @@ export class DevicePairingCodeDbRepository
   async consumeValidCode(input: {
     codeHash: string;
     now: Date;
-  }): Promise<DevicePairingCodeRecord | null> {
+  }): Promise<DisplayPairingCodeRecord | null> {
     const rows = await db
       .select()
       .from(pairingCodes)

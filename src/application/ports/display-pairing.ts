@@ -1,4 +1,4 @@
-export interface DevicePairingCodeRecord {
+export interface DisplayPairingCodeRecord {
   id: string;
   codeHash: string;
   expiresAt: string;
@@ -8,14 +8,14 @@ export interface DevicePairingCodeRecord {
   updatedAt: string;
 }
 
-export interface DevicePairingCodeRepository {
+export interface DisplayPairingCodeRepository {
   create(input: {
     codeHash: string;
     expiresAt: Date;
     createdById: string;
-  }): Promise<DevicePairingCodeRecord>;
+  }): Promise<DisplayPairingCodeRecord>;
   consumeValidCode(input: {
     codeHash: string;
     now: Date;
-  }): Promise<DevicePairingCodeRecord | null>;
+  }): Promise<DisplayPairingCodeRecord | null>;
 }

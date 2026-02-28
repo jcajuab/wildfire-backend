@@ -2,7 +2,7 @@ import { eq, isNull, sql } from "drizzle-orm";
 import "#/env";
 import { db } from "#/infrastructure/db/client";
 import { content } from "#/infrastructure/db/schema/content.sql";
-import { devices } from "#/infrastructure/db/schema/device.sql";
+import { displays } from "#/infrastructure/db/schema/display.sql";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import {
   permissions,
@@ -48,11 +48,11 @@ const runChecks = async (): Promise<IntegrityCheck[]> => {
       .having(sql`count(*) > 1`),
   );
 
-  const duplicateDeviceIdentifiers = await countRows(
+  const duplicateDisplayIdentifiers = await countRows(
     db
-      .select({ identifier: devices.identifier })
-      .from(devices)
-      .groupBy(devices.identifier)
+      .select({ identifier: displays.identifier })
+      .from(displays)
+      .groupBy(displays.identifier)
       .having(sql`count(*) > 1`),
   );
 
@@ -125,7 +125,7 @@ const runChecks = async (): Promise<IntegrityCheck[]> => {
     },
     {
       name: "duplicate displays.identifier",
-      count: duplicateDeviceIdentifiers,
+      count: duplicateDisplayIdentifiers,
     },
     { name: "orphan content.created_by_id", count: orphanContentCreators },
     { name: "orphan playlists.created_by_id", count: orphanPlaylistCreators },
