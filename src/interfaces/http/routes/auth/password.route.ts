@@ -3,7 +3,11 @@ import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
+import {
+  errorResponseSchema,
+  tooManyRequests,
+  unauthorized,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -89,14 +93,9 @@ export const registerAuthPasswordRoute = (args: {
           maxAttempts: deps.authLoginRateLimitMaxAttempts,
         });
         if (!allowed) {
-          return c.json(
-            {
-              error: {
-                code: "TOO_MANY_REQUESTS",
-                message: "Too many password change attempts. Try again later.",
-              },
-            },
-            429,
+          return tooManyRequests(
+            c,
+            "Too many password change attempts. Try again later.",
           );
         }
         c.set("resourceId", userId);

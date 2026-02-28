@@ -5,6 +5,7 @@ import {
   type AuthSessionRepository,
   type TokenIssuer,
 } from "#/application/ports/auth";
+import { unauthorized } from "#/interfaces/http/responses";
 import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 
 interface JwtTokenIssuerDeps {
@@ -74,10 +75,7 @@ export const createJwtMiddleware = (
     const token = cookieToken ?? bearerToken;
 
     if (!token) {
-      return c.json(
-        { error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
-        401,
-      );
+      return unauthorized(c, "Unauthorized");
     }
 
     try {
@@ -85,10 +83,7 @@ export const createJwtMiddleware = (
       c.set("jwtPayload", payload);
       const parsed = jwtPayloadSchema.safeParse(payload);
       if (!parsed.success) {
-        return c.json(
-          { error: { code: "UNAUTHORIZED", message: "Invalid token" } },
-          401,
-        );
+        return unauthorized(c, "Invalid token");
       }
       if (
         deps.authSessionRepository &&
@@ -98,32 +93,18 @@ export const createJwtMiddleware = (
           new Date(),
         ))
       ) {
-        return c.json(
-          { error: { code: "UNAUTHORIZED", message: "Session revoked" } },
-          401,
-        );
+        return unauthorized(c, "Session revoked");
       }
       if (
         deps.authSessionRepository &&
         !parsed.data.sid &&
         deps.allowBearerFallback === false
       ) {
-        return c.json(
-          {
-            error: {
-              code: "UNAUTHORIZED",
-              message: "Legacy token flow disabled",
-            },
-          },
-          401,
-        );
+        return unauthorized(c, "Legacy token flow disabled");
       }
       await next();
     } catch {
-      return c.json(
-        { error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
-        401,
-      );
+      return unauthorized(c, "Unauthorized");
     }
   };
 };

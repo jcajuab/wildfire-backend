@@ -302,7 +302,15 @@ export const registerDisplayStaffRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const items = await useCases.listDisplayGroups.execute();
-        return c.json({ data: items });
+        return c.json(
+          toApiListResponse({
+            items,
+            total: items.length,
+            page: 1,
+            pageSize: Math.max(1, items.length),
+            requestUrl: c.req.url,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),

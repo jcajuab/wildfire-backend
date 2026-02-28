@@ -2,7 +2,11 @@ import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema, unauthorized } from "#/interfaces/http/responses";
+import {
+  errorResponseSchema,
+  tooManyRequests,
+  unauthorized,
+} from "#/interfaces/http/responses";
 import {
   mapErrorToResponse,
   withRouteErrorHandling,
@@ -86,14 +90,9 @@ export const registerAuthLoginRoute = (args: {
           nowMs,
         );
         if (!allowed.allowed) {
-          return c.json(
-            {
-              error: {
-                code: "TOO_MANY_REQUESTS",
-                message: "Too many failed login attempts. Try again later.",
-              },
-            },
-            429,
+          return tooManyRequests(
+            c,
+            "Too many failed login attempts. Try again later.",
           );
         }
         // Per-email-only rate limit: prevents brute-force even with IP rotation
@@ -105,15 +104,9 @@ export const registerAuthLoginRoute = (args: {
             maxAttempts: 10,
           })
         ) {
-          return c.json(
-            {
-              error: {
-                code: "TOO_MANY_REQUESTS",
-                message:
-                  "Too many login attempts for this account. Try again later.",
-              },
-            },
-            429,
+          return tooManyRequests(
+            c,
+            "Too many login attempts for this account. Try again later.",
           );
         }
         // Per-IP rate limit: secondary layer
@@ -125,14 +118,9 @@ export const registerAuthLoginRoute = (args: {
             maxAttempts: deps.authLoginRateLimitMaxAttempts,
           })
         ) {
-          return c.json(
-            {
-              error: {
-                code: "TOO_MANY_REQUESTS",
-                message: "Too many login requests. Try again later.",
-              },
-            },
-            429,
+          return tooManyRequests(
+            c,
+            "Too many login requests. Try again later.",
           );
         }
         let body: Awaited<ReturnType<typeof buildAuthResponse>>;

@@ -1,6 +1,9 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  errorResponseSchema,
+  tooManyRequests,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -68,14 +71,9 @@ export const registerAuthPasswordResetRoutes = (args: {
           maxAttempts: 5,
         });
         if (!allowed) {
-          return c.json(
-            {
-              error: {
-                code: "TOO_MANY_REQUESTS",
-                message: "Too many password reset requests. Try again later.",
-              },
-            },
-            429,
+          return tooManyRequests(
+            c,
+            "Too many password reset requests. Try again later.",
           );
         }
 
@@ -130,14 +128,9 @@ export const registerAuthPasswordResetRoutes = (args: {
           maxAttempts: 10,
         });
         if (!allowed) {
-          return c.json(
-            {
-              error: {
-                code: "TOO_MANY_REQUESTS",
-                message: "Too many reset attempts. Try again later.",
-              },
-            },
-            429,
+          return tooManyRequests(
+            c,
+            "Too many reset attempts. Try again later.",
           );
         }
 

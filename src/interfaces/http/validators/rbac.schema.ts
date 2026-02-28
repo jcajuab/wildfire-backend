@@ -28,7 +28,7 @@ export const updateRoleSchema = z.object({
 });
 
 export const setRolePermissionsSchema = z.object({
-  permissionIds: z.array(z.string()).default([]),
+  permissionIds: z.array(z.string().uuid()).default([]),
   policyVersion: z.number().int().positive().optional(),
 });
 
@@ -50,7 +50,7 @@ export const updateUserSchema = z.object({
 });
 
 export const setUserRolesSchema = z.object({
-  roleIds: z.array(z.string()).default([]),
+  roleIds: z.array(z.string().uuid()).default([]),
   policyVersion: z.number().int().positive().optional(),
 });
 export const permissionListQuerySchema = baseListQuerySchema;

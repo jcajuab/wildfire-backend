@@ -1,9 +1,6 @@
 import { type OpenAPIV3_1 } from "openapi-types";
 import { z } from "zod";
-import {
-  apiListResponseSchema,
-  apiResponseSchema,
-} from "#/interfaces/http/responses";
+import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const displaySchema = z.object({
   id: z.string(),
@@ -85,9 +82,8 @@ export const displayGroupSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const displayGroupListResponseSchema = apiResponseSchema(
-  z.array(displayGroupSchema),
-);
+export const displayGroupListResponseSchema =
+  apiListResponseSchema(displayGroupSchema);
 
 export const createDisplayGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",

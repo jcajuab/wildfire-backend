@@ -16,6 +16,13 @@ const userId = "22222222-2222-4222-8222-222222222222";
 const userIdNoRoles = "33333333-3333-4333-8333-333333333333";
 /** Editor role (non-system) for tests where caller has users:update but is not Root. */
 const editorRoleId = "44444444-4444-4444-8444-444444444444";
+const permRootId = "55555555-5555-4555-8555-555555555555";
+const permUsersUpdateId = "66666666-6666-4666-8666-666666666666";
+const permUsersDeleteId = "77777777-7777-4777-8777-777777777777";
+const permRolesDeleteId = "88888888-8888-4888-8888-888888888888";
+const permRolesReadId = "99999999-9999-4999-8999-999999999999";
+const permRolesCreateId = "aaaaaaaa-aaaa-4aaa-a000-aaaaaaaaaaaa";
+const permUsersReadId = "cccccccc-cccc-4ccc-c222-cccccccccccc";
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 
 /** Builds app with a second user (userIdNoRoles) who has only users:update via Editor role. Use issueTokenForEditor() to get a token for that user. */
@@ -33,10 +40,10 @@ function buildAppWithEditorUser(): {
     isSystem: false,
   });
   const editorPermissions = [
-    { id: "perm-users-update", resource: "users", action: "update" },
-    { id: "perm-users-delete", resource: "users", action: "delete" },
-    { id: "perm-roles-delete", resource: "roles", action: "delete" },
-    { id: "perm-roles-read", resource: "roles", action: "read" },
+    { id: permUsersUpdateId, resource: "users", action: "update" },
+    { id: permUsersDeleteId, resource: "users", action: "delete" },
+    { id: permRolesDeleteId, resource: "roles", action: "delete" },
+    { id: permRolesReadId, resource: "roles", action: "read" },
   ] as const;
   store.permissions.push(...editorPermissions);
   store.rolePermissions.push(
@@ -146,13 +153,13 @@ const makeStore = () => {
     isSystem: true,
   });
   store.permissions.push(
-    { id: "perm-root", resource: "root", action: "access", isRoot: true },
-    { id: "perm-2", resource: "roles", action: "read" },
-    { id: "perm-3", resource: "roles", action: "create" },
-    { id: "perm-4", resource: "users", action: "read" },
+    { id: permRootId, resource: "root", action: "access", isRoot: true },
+    { id: permRolesReadId, resource: "roles", action: "read" },
+    { id: permRolesCreateId, resource: "roles", action: "create" },
+    { id: permUsersReadId, resource: "users", action: "read" },
   );
   store.userRoles.push({ userId, roleId });
-  store.rolePermissions.push({ roleId, permissionId: "perm-root" });
+  store.rolePermissions.push({ roleId, permissionId: permRootId });
 
   const repositories = {
     userRepository: {
@@ -531,13 +538,16 @@ const buildApp = (permissions?: string[]) => {
   const { store, repositories } = makeStore();
 
   if (permissions !== undefined) {
+    const toPermissionId = (index: number) =>
+      `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+
     store.permissions = permissions.map((permission, index) => {
       const [resource, action] = permission.split(":");
       if (!resource || !action) {
         throw new Error(`Invalid permission: ${permission}`);
       }
       return {
-        id: `perm-${index + 1}`,
+        id: toPermissionId(index),
         resource,
         action,
         isRoot: false,
@@ -931,7 +941,7 @@ describe("RBAC routes", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ permissionIds: ["perm-1"] }),
+      body: JSON.stringify({ permissionIds: [permRolesReadId] }),
     });
 
     expect(response.status).toBe(403);
@@ -943,8 +953,12 @@ describe("RBAC routes", () => {
   });
 
   test("PUT /roles/:id/permissions sets permissions for non-system role", async () => {
-    const { app, issueToken } = buildApp(["roles:update", "roles:create"]);
+    const { app, issueToken, store } = buildApp([
+      "roles:update",
+      "roles:create",
+    ]);
     const token = await issueToken();
+    const permissionId = store.permissions[0]?.id ?? permRolesReadId;
 
     const createRes = await app.request("/roles", {
       method: "POST",
@@ -967,13 +981,13 @@ describe("RBAC routes", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ permissionIds: ["perm-2"] }),
+      body: JSON.stringify({ permissionIds: [permissionId] }),
     });
 
     expect(response.status).toBe(200);
     const body = await parseJson<Array<{ id: string }>>(response);
     expect(body.length).toBeGreaterThan(0);
-    expect(body[0]?.id).toBe("perm-2");
+    expect(body[0]?.id).toBe(permissionId);
   });
 
   test("PUT /roles/:id/permissions writes policy history only when policyVersion is provided", async () => {
@@ -982,6 +996,8 @@ describe("RBAC routes", () => {
       "roles:create",
     ]);
     const token = await issueToken();
+    const firstPermissionId = store.permissions[0]?.id ?? permRolesReadId;
+    const secondPermissionId = store.permissions[1]?.id ?? firstPermissionId;
 
     const createRes = await app.request("/roles", {
       method: "POST",
@@ -999,7 +1015,7 @@ describe("RBAC routes", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ permissionIds: ["perm-2"] }),
+      body: JSON.stringify({ permissionIds: [firstPermissionId] }),
     });
     expect(firstUpdate.status).toBe(200);
     expect(store.policyHistory).toHaveLength(0);
@@ -1011,7 +1027,7 @@ describe("RBAC routes", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        permissionIds: ["perm-2", "perm-3"],
+        permissionIds: [firstPermissionId, secondPermissionId],
         policyVersion: 12,
       }),
     });
@@ -1350,6 +1366,7 @@ describe("RBAC routes", () => {
       "users:update",
     ]);
     const token = await issueToken();
+    const historyPermissionId = store.permissions[0]?.id ?? permRolesReadId;
 
     const createRoleRes = await app.request("/roles", {
       method: "POST",
@@ -1369,7 +1386,10 @@ describe("RBAC routes", () => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ permissionIds: ["perm-2"], policyVersion: 3 }),
+        body: JSON.stringify({
+          permissionIds: [historyPermissionId],
+          policyVersion: 3,
+        }),
       },
     );
     expect(setRolePerms.status).toBe(200);

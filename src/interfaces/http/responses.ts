@@ -181,55 +181,6 @@ const isErrorEnvelope = (payload: unknown): payload is ErrorResponse => {
   );
 };
 
-const isNumeric = (value: unknown): value is number =>
-  typeof value === "number" &&
-  Number.isFinite(value) &&
-  Number.isInteger(value);
-
-type LegacyPaginatedPayload = {
-  items: unknown[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
-const isLegacyPaginatedPayload = (
-  payload: UnknownPayload,
-): payload is LegacyPaginatedPayload => {
-  if (
-    !isNumeric(payload.total) ||
-    !isNumeric(payload.page) ||
-    !isNumeric(payload.pageSize)
-  ) {
-    return false;
-  }
-  if (payload.total < 0 || payload.page < 1 || payload.pageSize < 1) {
-    return false;
-  }
-  if (!Array.isArray(payload.items)) {
-    return false;
-  }
-  return Object.hasOwn(payload, "items");
-};
-
-const normalizeLegacyListPayload = (
-  payload: LegacyPaginatedPayload,
-): ApiResponse<unknown[]> & { meta: ApiMeta } => {
-  const total = payload.total;
-  const page = payload.page;
-  const pageSize = payload.pageSize;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return {
-    data: payload.items,
-    meta: {
-      total,
-      page,
-      per_page: pageSize,
-      total_pages: totalPages,
-    },
-  };
-};
-
 const buildListLinks = (
   reqUrl: URL,
   page: number,
@@ -288,18 +239,8 @@ export const normalizeApiPayload = (
     return payload;
   }
 
-  const objectPayload = payload as UnknownPayload;
-
-  if (
-    hasDataEnvelope(payload) ||
-    isErrorEnvelope(payload) ||
-    "error" in objectPayload
-  ) {
+  if (hasDataEnvelope(payload) || isErrorEnvelope(payload)) {
     return payload;
-  }
-
-  if (isLegacyPaginatedPayload(objectPayload)) {
-    return normalizeLegacyListPayload(objectPayload);
   }
 
   return {
@@ -375,6 +316,9 @@ export const notFound = (c: ResponseContext, message: string) =>
 
 export const conflict = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("CONFLICT", message), 409);
+
+export const tooManyRequests = (c: ResponseContext, message: string) =>
+  c.json<ErrorResponse>(buildErrorPayload("TOO_MANY_REQUESTS", message), 429);
 
 export const internalServerError = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload("INTERNAL_ERROR", message), 500);
