@@ -6,6 +6,7 @@ export const setTestEnv = (overrides: EnvOverrides = {}) => {
     ROOT_USER: "root@example.com",
     ROOT_PASSWORD: "root",
     MYSQL_ROOT_PASSWORD: "root",
+    HTSHADOW_PATH: "/etc/htshadow",
     MYSQL_HOST: "127.0.0.1",
     MYSQL_PORT: "3306",
     MYSQL_DATABASE: "wildfire_test",

@@ -48,7 +48,7 @@ export const env = createEnv({
     MINIO_REGION: z.string().default("us-east-1"),
     MINIO_REQUEST_TIMEOUT_MS: z.coerce.number().default(15_000),
     CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(100 * 1024 * 1024),
-    HTSHADOW_PATH: z.string().default("/etc/htshadow"),
+    HTSHADOW_PATH: z.string(),
     JWT_SECRET: z.string(),
     JWT_ISSUER: z.string().default("wildfire"),
     AUTH_SESSION_COOKIE_NAME: z.string().default("wildfire_session_token"),
