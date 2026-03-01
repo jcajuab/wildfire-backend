@@ -404,6 +404,16 @@ describe("Schedules routes", () => {
     });
 
     expect(conflict.status).toBe(409);
+
+    const conflictBody = await parseJson<{
+      error: {
+        code: string;
+        message: string;
+      };
+    }>(conflict);
+
+    expect(conflictBody.error.code).toBe("CONFLICT");
+    expect(conflictBody.error.message.length).toBeGreaterThan(0);
   });
 
   test("PATCH /schedules/:id returns 409 when update creates overlap", async () => {

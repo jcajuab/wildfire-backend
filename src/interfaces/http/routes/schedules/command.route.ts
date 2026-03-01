@@ -88,8 +88,7 @@ export const registerScheduleCommandRoutes = (args: {
           isActive: payload.isActive ?? true,
         });
         c.set("resourceId", result.id);
-        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        return c.json({ data: result }, 201);
+        return c.json(result, 201);
       },
       mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
