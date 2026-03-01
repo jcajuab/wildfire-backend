@@ -6,15 +6,15 @@
   "scripts": {
     "build": "bun run typecheck && bun build --target bun src/index.ts --outdir build",
     "check": "biome check --write",
-    "db:drop": "bun --env-file=.env run scripts/db/drop-all-tables.ts -- --force",
-    "db:dump": "bun --env-file=.env sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
-    "db:push": "bun --env-file=.env drizzle-kit push",
-    "db:seed": "bun --env-file=.env run scripts/seed.ts",
-    "db:studio": "bun --env-file=.env drizzle-kit studio",
-    "dev": "bun --env-file=.env run --hot src/index.ts",
+    "db:drop": "bun run scripts/db/drop-all-tables.ts -- --force",
+    "db:dump": "sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
+    "db:push": "drizzle-kit push",
+    "db:seed": "bun run scripts/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "dev": "bun run --hot src/index.ts",
     "format": "prettier --write \"**/*.{md,yaml}\"",
-    "test": "bun --env-file=.env test",
-    "test:integration": "RUN_INTEGRATION=true bun --env-file=.env test tests/infrastructure",
+    "test": "bun test",
+    "test:integration": "RUN_INTEGRATION=true bun test tests/infrastructure",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
