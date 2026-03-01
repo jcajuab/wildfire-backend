@@ -91,7 +91,7 @@ export const subscribeToDisplayStream = (
   streamSubscribers.set(displayId, subscribers);
   logger.info(
     {
-      route: "/display/:displaySlug/stream",
+      route: "/display-runtime/:displaySlug/stream",
       displayId,
       subscriberCount: subscribers.size,
     },
@@ -106,7 +106,7 @@ export const subscribeToDisplayStream = (
       streamSubscribers.delete(displayId);
       logger.info(
         {
-          route: "/display/:displaySlug/stream",
+          route: "/display-runtime/:displaySlug/stream",
           displayId,
           subscriberCount: 0,
         },
@@ -116,7 +116,7 @@ export const subscribeToDisplayStream = (
     }
     logger.info(
       {
-        route: "/display/:displaySlug/stream",
+        route: "/display-runtime/:displaySlug/stream",
         displayId,
         subscriberCount: current.size,
       },
@@ -130,7 +130,7 @@ export const publishDisplayStreamEvent = (event: DisplayStreamEvent): void => {
   if (!subscribers) return;
   logger.info(
     {
-      route: "/display/:displaySlug/stream",
+      route: "/display-runtime/:displaySlug/stream",
       displayId: event.displayId,
       eventType: event.type,
       subscriberCount: subscribers.size,

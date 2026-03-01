@@ -449,7 +449,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.post(
     "/registration-sessions",
     setAction("display.registration.session.create", {
-      route: "/display/registration-sessions",
+      route: "/display-runtime/registration-sessions",
       actorType: "display",
       resourceType: "display",
     }),
@@ -499,7 +499,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.post(
     "/registrations",
     setAction("display.registration.create", {
-      route: "/display/registrations",
+      route: "/display-runtime/registrations",
       actorType: "display",
       resourceType: "display",
     }),
@@ -665,7 +665,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.post(
     "/auth/challenges",
     setAction("display.auth.challenge.create", {
-      route: "/display/auth/challenges",
+      route: "/display-runtime/auth/challenges",
       actorType: "display",
       resourceType: "display",
     }),
@@ -721,7 +721,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.post(
     "/auth/challenges/:challengeToken/verify",
     setAction("display.auth.challenge.verify", {
-      route: "/display/auth/challenges/:challengeToken/verify",
+      route: "/display-runtime/auth/challenges/:challengeToken/verify",
       actorType: "display",
       resourceType: "display",
     }),
@@ -809,7 +809,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.get(
     "/:displaySlug/manifest",
     setAction("display.manifest.read", {
-      route: "/display/:displaySlug/manifest",
+      route: "/display-runtime/:displaySlug/manifest",
       actorType: "display",
       resourceType: "display",
     }),
@@ -830,7 +830,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.get(
     "/:displaySlug/stream",
     setAction("display.stream.read", {
-      route: "/display/:displaySlug/stream",
+      route: "/display-runtime/:displaySlug/stream",
       actorType: "display",
       resourceType: "display",
     }),
@@ -876,7 +876,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   router.post(
     "/:displaySlug/heartbeat",
     setAction("display.heartbeat", {
-      route: "/display/:displaySlug/heartbeat",
+      route: "/display-runtime/:displaySlug/heartbeat",
       actorType: "display",
       resourceType: "display",
     }),

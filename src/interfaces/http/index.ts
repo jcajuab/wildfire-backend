@@ -388,7 +388,7 @@ app.route("/api/v1/auth", authRouter);
 app.route("/api/v1/playlists", playlistsRouter);
 app.route("/api/v1/schedules", schedulesRouter);
 app.route("/api/v1/displays", displaysRouter);
-app.route("/api/v1/display", displayRouter);
+app.route("/api/v1/display-runtime", displayRouter);
 app.route("/api/v1/content", contentRouter);
 app.route("/api/v1/audit", auditRouter);
 app.route("/api/v1/settings", settingsRouter);
