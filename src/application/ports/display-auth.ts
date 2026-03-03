@@ -1,6 +1,5 @@
 export type DisplayRegistrationState =
   | "unpaired"
-  | "pairing_in_progress"
   | "registered"
   | "active"
   | "unregistered";

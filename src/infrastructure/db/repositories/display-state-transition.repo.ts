@@ -6,27 +6,27 @@ import {
 import { db } from "#/infrastructure/db/client";
 import { displayStateTransitions } from "#/infrastructure/db/schema/display-state-transition.sql";
 
+const parseRegistrationState = (
+  value: string,
+): "unpaired" | "registered" | "active" | "unregistered" => {
+  if (
+    value === "unpaired" ||
+    value === "registered" ||
+    value === "active" ||
+    value === "unregistered"
+  ) {
+    return value;
+  }
+  throw new Error(`Unexpected display registration transition state: ${value}`);
+};
+
 const toRecord = (
   row: typeof displayStateTransitions.$inferSelect,
 ): DisplayStateTransitionRecord => ({
   id: row.id,
   displayId: row.displayId,
-  fromState:
-    row.fromState === "unpaired" ||
-    row.fromState === "pairing_in_progress" ||
-    row.fromState === "registered" ||
-    row.fromState === "active" ||
-    row.fromState === "unregistered"
-      ? row.fromState
-      : "unpaired",
-  toState:
-    row.toState === "unpaired" ||
-    row.toState === "pairing_in_progress" ||
-    row.toState === "registered" ||
-    row.toState === "active" ||
-    row.toState === "unregistered"
-      ? row.toState
-      : "unpaired",
+  fromState: parseRegistrationState(row.fromState),
+  toState: parseRegistrationState(row.toState),
   reason: row.reason,
   actorType:
     row.actorType === "staff" || row.actorType === "display"
@@ -42,18 +42,8 @@ export class DisplayStateTransitionDbRepository
 {
   async create(input: {
     displayId: string;
-    fromState:
-      | "unpaired"
-      | "pairing_in_progress"
-      | "registered"
-      | "active"
-      | "unregistered";
-    toState:
-      | "unpaired"
-      | "pairing_in_progress"
-      | "registered"
-      | "active"
-      | "unregistered";
+    fromState: "unpaired" | "registered" | "active" | "unregistered";
+    toState: "unpaired" | "registered" | "active" | "unregistered";
     reason: string;
     actorType: "staff" | "display" | "system";
     actorId?: string | null;

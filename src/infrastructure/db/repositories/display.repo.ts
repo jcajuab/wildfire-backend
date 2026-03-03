@@ -7,20 +7,25 @@ import {
 import { db } from "#/infrastructure/db/client";
 import { displays } from "#/infrastructure/db/schema/display.sql";
 
+const parseRegistrationState = (value: string): DisplayRegistrationState => {
+  if (
+    value === "unpaired" ||
+    value === "registered" ||
+    value === "active" ||
+    value === "unregistered"
+  ) {
+    return value;
+  }
+  throw new Error(`Unexpected display registration state: ${value}`);
+};
+
 const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
   id: row.id,
   displaySlug: row.displaySlug,
   name: row.name,
   identifier: row.displaySlug,
   displayFingerprint: row.displayFingerprint ?? null,
-  registrationState:
-    row.registrationState === "unpaired" ||
-    row.registrationState === "pairing_in_progress" ||
-    row.registrationState === "registered" ||
-    row.registrationState === "active" ||
-    row.registrationState === "unregistered"
-      ? row.registrationState
-      : "unpaired",
+  registrationState: parseRegistrationState(row.registrationState),
   location: row.location ?? null,
   ipAddress: row.ipAddress ?? null,
   macAddress: row.macAddress ?? null,

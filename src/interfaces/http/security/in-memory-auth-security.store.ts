@@ -103,6 +103,21 @@ export class InMemoryAuthSecurityStore {
     windowSeconds: number;
     maxAttempts: number;
   }): boolean {
+    return this.consumeEndpointAttemptWithStats(input).allowed;
+  }
+
+  consumeEndpointAttemptWithStats(input: {
+    key: string;
+    nowMs: number;
+    windowSeconds: number;
+    maxAttempts: number;
+  }): {
+    allowed: boolean;
+    limit: number;
+    remaining: number;
+    retryAfterSeconds: number;
+    resetEpochSeconds: number;
+  } {
     const windowMs = input.windowSeconds * 1000;
     const current = this.endpointAttempts.get(input.key);
     const reset =
@@ -117,6 +132,20 @@ export class InMemoryAuthSecurityStore {
       firstAttemptAtMs: reset.firstAttemptAtMs,
       attemptCount,
     });
-    return attemptCount <= input.maxAttempts;
+    const windowResetMs = reset.firstAttemptAtMs + windowMs;
+    const allowed = attemptCount <= input.maxAttempts;
+    const remaining = Math.max(0, input.maxAttempts - attemptCount);
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((windowResetMs - input.nowMs) / 1000),
+    );
+
+    return {
+      allowed,
+      limit: input.maxAttempts,
+      remaining,
+      retryAfterSeconds,
+      resetEpochSeconds: Math.ceil(windowResetMs / 1000),
+    };
   }
 }

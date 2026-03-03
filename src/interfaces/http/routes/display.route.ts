@@ -18,6 +18,7 @@ import {
   type DisplayAuthNonceRepository,
   type DisplayKeyRepository,
   type DisplayPairingSessionRepository,
+  type DisplayRegistrationState,
   type DisplayStateTransitionRepository,
 } from "#/application/ports/display-auth";
 import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
@@ -26,16 +27,19 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type SystemSettingRepository } from "#/application/ports/settings";
 import { GetDisplayManifestUseCase } from "#/application/use-cases/displays";
+import { resolveRuntimeRegistrationDecision } from "#/domain/displays/runtime-registration";
 import { db } from "#/infrastructure/db/client";
 import { displays } from "#/infrastructure/db/schema/display.sql";
 import { displayKeys } from "#/infrastructure/db/schema/display-key.sql";
 import { displayPairingSessions } from "#/infrastructure/db/schema/display-pairing-session.sql";
 import { displayStateTransitions } from "#/infrastructure/db/schema/display-state-transition.sql";
+import { logger } from "#/infrastructure/observability/logger";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   conflict,
   notFound,
   type ResponseContext,
+  tooManyRequests,
   unauthorized,
   validationError,
 } from "#/interfaces/http/responses";
@@ -48,6 +52,7 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { type InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
 import {
   validateJson,
   validateParams,
@@ -311,6 +316,14 @@ type DisplayRouteDeps = {
   jwtSecret: string;
   downloadUrlExpiresInSeconds: number;
   scheduleTimeZone?: string;
+  authSecurityStore: InMemoryAuthSecurityStore;
+  rateLimits: {
+    windowSeconds: number;
+    registrationSessionsMaxAttempts: number;
+    registrationMaxAttempts: number;
+    authChallengeMaxAttempts: number;
+    authVerifyMaxAttempts: number;
+  };
   repositories: {
     displayRepository: DisplayRepository;
     scheduleRepository: ScheduleRepository;
@@ -328,6 +341,61 @@ type DisplayRouteDeps = {
 
 type DisplayVars = {
   displayId: string;
+};
+
+const resolveClientIp = (headers: {
+  forwardedFor?: string;
+  realIp?: string;
+}): string => {
+  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
+  if (forwarded) return forwarded;
+  return headers.realIp?.trim() || "unknown";
+};
+
+const createRuntimeRateLimitMiddleware = (
+  deps: DisplayRouteDeps,
+  input: {
+    keyPrefix: string;
+    maxAttempts: number;
+    message: string;
+  },
+) => {
+  return async (c: ResponseContext, next: () => Promise<void>) => {
+    const nowMs = Date.now();
+    const ip = resolveClientIp({
+      forwardedFor: c.req.header("x-forwarded-for"),
+      realIp: c.req.header("x-real-ip"),
+    });
+    const key = `${input.keyPrefix}|${ip}`;
+    const stats = deps.authSecurityStore.consumeEndpointAttemptWithStats({
+      key,
+      nowMs,
+      windowSeconds: deps.rateLimits.windowSeconds,
+      maxAttempts: input.maxAttempts,
+    });
+
+    c.set("rateLimitLimit", String(stats.limit));
+    c.set("rateLimitRemaining", String(stats.remaining));
+    c.set("rateLimitReset", String(stats.resetEpochSeconds));
+    c.set("rateLimitRetryAfter", String(stats.retryAfterSeconds));
+
+    if (!stats.allowed) {
+      logger.warn(
+        {
+          route: c.req.path,
+          action: c.get("action"),
+          ip,
+          rateLimitKey: input.keyPrefix,
+          limit: stats.limit,
+          retryAfterSeconds: stats.retryAfterSeconds,
+        },
+        "Display runtime rate limit exceeded",
+      );
+      return tooManyRequests(c, input.message);
+    }
+
+    await next();
+  };
 };
 
 const signedDisplayRequest = (deps: DisplayRouteDeps) => {
@@ -453,6 +521,11 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       actorType: "display",
       resourceType: "display",
     }),
+    createRuntimeRateLimitMiddleware(deps, {
+      keyPrefix: "display-runtime-registration-sessions",
+      maxAttempts: deps.rateLimits.registrationSessionsMaxAttempts,
+      message: "Too many registration session requests. Try again later.",
+    }),
     validateJson(registrationSessionBodySchema),
     withRouteErrorHandling(
       async (c) => {
@@ -502,6 +575,11 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       route: "/display-runtime/registrations",
       actorType: "display",
       resourceType: "display",
+    }),
+    createRuntimeRateLimitMiddleware(deps, {
+      keyPrefix: "display-runtime-registrations",
+      maxAttempts: deps.rateLimits.registrationMaxAttempts,
+      message: "Too many registration requests. Try again later.",
     }),
     validateJson(displayRegistrationBodySchema),
     withRouteErrorHandling(
@@ -553,20 +631,42 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           );
         }
 
-        const existingSlug = await findBySlug(payload.displaySlug);
-        if (existingSlug) {
-          throw new DisplayConflictError("Display slug already exists");
+        const normalizedOutput = payload.displayOutput.trim().toLowerCase();
+        if (normalizedOutput.length === 0) {
+          throw new ValidationError("Display output is required");
         }
 
-        const existingFingerprintOutput = await findByFingerprintAndOutput(
-          payload.displayFingerprint,
-          payload.displayOutput,
-        );
-        if (existingFingerprintOutput) {
-          throw new DisplayConflictError(
-            "Display fingerprint/output combination already exists",
-          );
+        const [existingSlug, existingFingerprintOutput] = await Promise.all([
+          findBySlug(payload.displaySlug),
+          findByFingerprintAndOutput(
+            payload.displayFingerprint,
+            normalizedOutput,
+          ),
+        ]);
+
+        const registrationDecision = resolveRuntimeRegistrationDecision({
+          existingBySlug: existingSlug
+            ? {
+                id: existingSlug.id,
+                registrationState: existingSlug.registrationState,
+                displayOutput: existingSlug.displayOutput,
+              }
+            : null,
+          existingByFingerprintAndOutput: existingFingerprintOutput
+            ? {
+                id: existingFingerprintOutput.id,
+                registrationState: existingFingerprintOutput.registrationState,
+                displayOutput: existingFingerprintOutput.displayOutput,
+              }
+            : null,
+          requestedOutput: normalizedOutput,
+        });
+        if (registrationDecision.kind === "conflict") {
+          throw new DisplayConflictError(registrationDecision.message);
         }
+
+        const fromState: DisplayRegistrationState =
+          registrationDecision.fromState;
 
         let registered: {
           displayId: string;
@@ -593,30 +693,84 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
               );
             }
 
-            const displayId = randomUUID();
-            const keyId = randomUUID();
-            await tx.insert(displays).values({
-              id: displayId,
-              displaySlug: payload.displaySlug,
-              name: payload.displayName,
-              displayFingerprint: payload.displayFingerprint,
-              registrationState: "registered",
-              screenWidth: payload.resolutionWidth,
-              screenHeight: payload.resolutionHeight,
-              displayOutput: payload.displayOutput,
-              registeredAt: now,
-              createdAt: now,
-              updatedAt: now,
-            });
-            await tx.insert(displayKeys).values({
-              id: keyId,
-              displayId,
-              algorithm: "ed25519",
-              publicKey: payload.publicKey,
-              status: "active",
-              createdAt: now,
-              updatedAt: now,
-            });
+            let displayId: string;
+            let keyId: string;
+            if (registrationDecision.kind === "create") {
+              displayId = randomUUID();
+              keyId = randomUUID();
+              await tx.insert(displays).values({
+                id: displayId,
+                displaySlug: payload.displaySlug,
+                name: payload.displayName,
+                displayFingerprint: payload.displayFingerprint,
+                registrationState: "registered",
+                screenWidth: payload.resolutionWidth,
+                screenHeight: payload.resolutionHeight,
+                displayOutput: normalizedOutput,
+                registeredAt: now,
+                createdAt: now,
+                updatedAt: now,
+              });
+              await tx.insert(displayKeys).values({
+                id: keyId,
+                displayId,
+                algorithm: "ed25519",
+                publicKey: payload.publicKey,
+                status: "active",
+                createdAt: now,
+                updatedAt: now,
+              });
+            } else {
+              displayId = registrationDecision.displayId;
+              await tx
+                .update(displays)
+                .set({
+                  displaySlug: payload.displaySlug,
+                  name: payload.displayName,
+                  displayFingerprint: payload.displayFingerprint,
+                  registrationState: "registered",
+                  screenWidth: payload.resolutionWidth,
+                  screenHeight: payload.resolutionHeight,
+                  displayOutput: normalizedOutput,
+                  registeredAt: now,
+                  activatedAt: null,
+                  unregisteredAt: null,
+                  updatedAt: now,
+                })
+                .where(eq(displays.id, displayId));
+
+              const existingKey = await tx
+                .select()
+                .from(displayKeys)
+                .where(eq(displayKeys.displayId, displayId))
+                .limit(1);
+
+              if (existingKey[0]) {
+                keyId = existingKey[0].id;
+                await tx
+                  .update(displayKeys)
+                  .set({
+                    algorithm: "ed25519",
+                    publicKey: payload.publicKey,
+                    status: "active",
+                    revokedAt: null,
+                    updatedAt: now,
+                  })
+                  .where(eq(displayKeys.id, keyId));
+              } else {
+                keyId = randomUUID();
+                await tx.insert(displayKeys).values({
+                  id: keyId,
+                  displayId,
+                  algorithm: "ed25519",
+                  publicKey: payload.publicKey,
+                  status: "active",
+                  createdAt: now,
+                  updatedAt: now,
+                });
+              }
+            }
+
             await tx
               .update(displayPairingSessions)
               .set({ state: "completed", completedAt: now, updatedAt: now })
@@ -624,7 +778,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
             await tx.insert(displayStateTransitions).values({
               id: randomUUID(),
               displayId,
-              fromState: "pairing_in_progress",
+              fromState,
               toState: "registered",
               reason: "registration_completed",
               actorType: "display",
@@ -642,10 +796,15 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         } catch (error) {
           if (
             isDuplicateIndexError(error, "displays_display_slug_unique") ||
-            isDuplicateIndexError(error, "displays_fingerprint_output_unique")
+            isDuplicateIndexError(
+              error,
+              "displays_fingerprint_output_unique",
+            ) ||
+            isDuplicateIndexError(error, "display_keys_display_id_unique") ||
+            isDuplicateIndexError(error, "display_keys_id_unique")
           ) {
             throw new DisplayConflictError(
-              "Display slug or fingerprint/output is already registered",
+              "Display slug, fingerprint/output, or key already exists",
             );
           }
           throw error;
@@ -668,6 +827,11 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       route: "/display-runtime/auth/challenges",
       actorType: "display",
       resourceType: "display",
+    }),
+    createRuntimeRateLimitMiddleware(deps, {
+      keyPrefix: "display-runtime-auth-challenges",
+      maxAttempts: deps.rateLimits.authChallengeMaxAttempts,
+      message: "Too many authentication challenge requests. Try again later.",
     }),
     validateJson(createChallengeBodySchema),
     withRouteErrorHandling(
@@ -724,6 +888,12 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       route: "/display-runtime/auth/challenges/:challengeToken/verify",
       actorType: "display",
       resourceType: "display",
+    }),
+    createRuntimeRateLimitMiddleware(deps, {
+      keyPrefix: "display-runtime-auth-verify",
+      maxAttempts: deps.rateLimits.authVerifyMaxAttempts,
+      message:
+        "Too many authentication verification requests. Try again later.",
     }),
     validateParams(challengeTokenParamSchema),
     validateJson(verifyChallengeBodySchema),

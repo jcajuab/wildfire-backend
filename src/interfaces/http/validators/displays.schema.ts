@@ -8,13 +8,7 @@ export const displaySchema = z.object({
   identifier: z.string(),
   displayFingerprint: z.string().nullable().optional(),
   registrationState: z
-    .enum([
-      "unpaired",
-      "pairing_in_progress",
-      "registered",
-      "active",
-      "unregistered",
-    ])
+    .enum(["unpaired", "registered", "active", "unregistered"])
     .optional(),
   name: z.string(),
   location: z.string().nullable(),

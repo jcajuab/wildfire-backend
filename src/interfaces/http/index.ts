@@ -216,6 +216,15 @@ const displayRouter = createDisplayRouter({
   jwtSecret: env.JWT_SECRET,
   downloadUrlExpiresInSeconds: 60 * 60,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
+  authSecurityStore,
+  rateLimits: {
+    windowSeconds: env.DISPLAY_RUNTIME_RATE_LIMIT_WINDOW_SECONDS,
+    registrationSessionsMaxAttempts:
+      env.DISPLAY_RUNTIME_REGISTRATION_SESSION_MAX_ATTEMPTS,
+    registrationMaxAttempts: env.DISPLAY_RUNTIME_REGISTRATION_MAX_ATTEMPTS,
+    authChallengeMaxAttempts: env.DISPLAY_RUNTIME_AUTH_CHALLENGE_MAX_ATTEMPTS,
+    authVerifyMaxAttempts: env.DISPLAY_RUNTIME_AUTH_VERIFY_MAX_ATTEMPTS,
+  },
   repositories: {
     displayRepository: container.repositories.displayRepository,
     scheduleRepository: container.repositories.scheduleRepository,

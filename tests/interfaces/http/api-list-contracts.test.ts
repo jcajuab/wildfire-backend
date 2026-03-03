@@ -261,18 +261,8 @@ const makeDisplaysListApp = async (permissions: string[]) => {
     displayStateTransitionRepository: {
       create: async (_input: {
         displayId: string;
-        fromState:
-          | "unpaired"
-          | "pairing_in_progress"
-          | "registered"
-          | "active"
-          | "unregistered";
-        toState:
-          | "unpaired"
-          | "pairing_in_progress"
-          | "registered"
-          | "active"
-          | "unregistered";
+        fromState: "unpaired" | "registered" | "active" | "unregistered";
+        toState: "unpaired" | "registered" | "active" | "unregistered";
         reason: string;
         actorType: "staff" | "display" | "system";
         actorId?: string | null;

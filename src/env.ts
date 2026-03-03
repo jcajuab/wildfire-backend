@@ -57,6 +57,13 @@ export const env = createEnv({
     AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     AUTH_LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().default(5),
     AUTH_LOGIN_LOCKOUT_SECONDS: z.coerce.number().default(300),
+    DISPLAY_RUNTIME_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
+    DISPLAY_RUNTIME_REGISTRATION_SESSION_MAX_ATTEMPTS: z.coerce
+      .number()
+      .default(20),
+    DISPLAY_RUNTIME_REGISTRATION_MAX_ATTEMPTS: z.coerce.number().default(20),
+    DISPLAY_RUNTIME_AUTH_CHALLENGE_MAX_ATTEMPTS: z.coerce.number().default(60),
+    DISPLAY_RUNTIME_AUTH_VERIFY_MAX_ATTEMPTS: z.coerce.number().default(60),
     INVITE_TOKEN_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24),
     INVITE_ACCEPT_BASE_URL: z
       .string()
