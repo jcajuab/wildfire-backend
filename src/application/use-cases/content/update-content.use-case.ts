@@ -3,7 +3,7 @@ import { type ContentRepository } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ContentStatus } from "#/domain/content/content";
 import { toContentView } from "./content-view";
-import { ContentInUseError, NotFoundError } from "./errors";
+import { NotFoundError } from "./errors";
 
 export class UpdateContentUseCase {
   constructor(
@@ -20,16 +20,6 @@ export class UpdateContentUseCase {
     const existing = await this.deps.contentRepository.findById(input.id);
     if (!existing) {
       throw new NotFoundError("Content not found");
-    }
-
-    if (input.status === "DRAFT") {
-      const references =
-        await this.deps.contentRepository.countPlaylistReferences(input.id);
-      if (references > 0) {
-        throw new ContentInUseError(
-          "Cannot mark content as DRAFT while it is used in playlists",
-        );
-      }
     }
 
     const updated = await this.deps.contentRepository.update(input.id, {

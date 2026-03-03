@@ -71,6 +71,7 @@ const makeApp = async (permissions: string[]) => {
   const app = new Hono();
   const { records, repository } = makeRepository();
   const storage = {
+    ensureBucketExists: async () => {},
     upload: async () => {},
     delete: async () => {},
     getPresignedDownloadUrl: async ({
@@ -181,7 +182,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -217,7 +218,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -251,7 +252,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -308,7 +309,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Old Title",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -344,7 +345,7 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Status Test",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -364,13 +365,13 @@ describe("Content routes", () => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: "IN_USE" }),
+        body: JSON.stringify({ status: "READY" }),
       },
     );
 
     expect(response.status).toBe(200);
     const body = await parseJson<{ status: string }>(response);
-    expect(body.status).toBe("IN_USE");
+    expect(body.status).toBe("READY");
   });
 
   test("PATCH /content/:id returns 404 for missing content", async () => {
@@ -419,7 +420,7 @@ describe("Content routes", () => {
       id,
       title: "Old PDF",
       type: "PDF",
-      status: "DRAFT",
+      status: "READY",
       fileKey: `content/documents/${id}.pdf`,
       checksum: "old",
       mimeType: "application/pdf",
@@ -439,7 +440,7 @@ describe("Content routes", () => {
       }),
     );
     form.set("title", "New Video");
-    form.set("status", "IN_USE");
+    form.set("status", "READY");
 
     const response = await app.request(`/content/${id}/file`, {
       method: "PUT",
@@ -456,7 +457,7 @@ describe("Content routes", () => {
     }>(response);
     expect(body.title).toBe("New Video");
     expect(body.type).toBe("VIDEO");
-    expect(body.status).toBe("IN_USE");
+    expect(body.status).toBe("READY");
     expect(body.mimeType).toBe("video/mp4");
   });
 
@@ -468,7 +469,7 @@ describe("Content routes", () => {
       id,
       title: "In Use",
       type: "IMAGE",
-      status: "IN_USE",
+      status: "PROCESSING",
       fileKey: `content/images/${id}.png`,
       checksum: "old",
       mimeType: "image/png",

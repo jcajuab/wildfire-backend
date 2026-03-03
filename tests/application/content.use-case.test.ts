@@ -96,15 +96,28 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
     delete: async () => false,
   }) satisfies UserRepository;
 
-const makeStorage = (options?: { deleteError?: Error }) => {
+const makeStorage = (options?: {
+  uploadErrorAt?: number;
+  uploadError?: Error;
+  deleteError?: Error;
+}) => {
   type UploadInput = Parameters<ContentStorage["upload"]>[0];
   const uploads: UploadInput[] = [];
   const deletedKeys: string[] = [];
+  let uploadCount = 0;
 
   const storage: ContentStorage = {
     ensureBucketExists: async () => {},
     upload: async (input) => {
       uploads.push(input);
+      uploadCount += 1;
+      if (
+        options?.uploadError &&
+        (options.uploadErrorAt === undefined ||
+          uploadCount === options.uploadErrorAt)
+      ) {
+        throw options.uploadError;
+      }
     },
     delete: async (key) => {
       deletedKeys.push(key);
@@ -171,7 +184,7 @@ describe("Content use cases", () => {
 
     expect(result.title).toBe("Welcome");
     expect(result.type).toBe("IMAGE");
-    expect(result.status).toBe("DRAFT");
+    expect(result.status).toBe("READY");
     expect(result.checksum).toBe(checksum);
     expect(result.createdBy).toEqual({ id: "user-1", name: "Ada" });
     expect(storage.lastUpload?.contentType).toBe("image/png");
@@ -265,7 +278,7 @@ describe("Content use cases", () => {
         id: "11111111-1111-4111-8111-111111111111",
         title: "One",
         type: "IMAGE",
-        status: "DRAFT",
+        status: "READY",
         fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
         thumbnailKey:
           "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
@@ -282,7 +295,7 @@ describe("Content use cases", () => {
         id: "22222222-2222-4222-8222-222222222222",
         title: "Two",
         type: "PDF",
-        status: "DRAFT",
+        status: "READY",
         fileKey: "content/documents/22222222-2222-4222-8222-222222222222.pdf",
         checksum: "def",
         mimeType: "application/pdf",
@@ -330,7 +343,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       thumbnailKey:
         "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
@@ -385,7 +398,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -418,7 +431,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       thumbnailKey:
         "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
@@ -449,7 +462,7 @@ describe("Content use cases", () => {
       id,
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -486,22 +499,18 @@ describe("Content use cases", () => {
   });
 
   test("throws cleanup error when upload rollback delete fails", async () => {
-    const storage = makeStorage({ deleteError: new Error("cleanup failed") });
+    const storage = makeStorage({
+      deleteError: new Error("cleanup failed"),
+    });
+    const { repository } = makeContentRepository();
+    const repositoryWithFailedFinalize = {
+      ...repository,
+      update: async () => null,
+    };
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
     const loggerCalls: unknown[] = [];
     const useCase = new UploadContentUseCase({
-      contentRepository: {
-        create: async () => {
-          throw new Error("db insert failed");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-        update: async () => null,
-      },
+      contentRepository: repositoryWithFailedFinalize,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
       contentThumbnailGenerator: thumbnailGenerator,
@@ -544,7 +553,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -576,7 +585,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Old Title",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -610,7 +619,7 @@ describe("Content use cases", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  test("replaces file and metadata for draft content", async () => {
+  test("replaces file and metadata for ready content", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
@@ -633,7 +642,7 @@ describe("Content use cases", () => {
       id,
       title: "Before",
       type: "PDF",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/documents/11111111-1111-4111-8111-111111111111.pdf",
       thumbnailKey:
         "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
@@ -654,11 +663,11 @@ describe("Content use cases", () => {
       id,
       file,
       title: "After",
-      status: "IN_USE",
+      status: "READY",
     });
 
     expect(result.title).toBe("After");
-    expect(result.status).toBe("IN_USE");
+    expect(result.status).toBe("READY");
     expect(result.type).toBe("VIDEO");
     expect(result.mimeType).toBe("video/mp4");
     expect(result.fileSize).toBe(file.size);
@@ -671,7 +680,7 @@ describe("Content use cases", () => {
     ]);
   });
 
-  test("rejects replace when content is in use", async () => {
+  test("rejects replace when content is processing", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
@@ -686,7 +695,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "IN_USE",
+      status: "PROCESSING",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -725,7 +734,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       checksum: "abc",
       mimeType: "image/png",

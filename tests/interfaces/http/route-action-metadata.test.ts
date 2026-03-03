@@ -63,6 +63,7 @@ const buildAuthActionApp = () => {
     hash: async (password: string) => `hashed-${password}`,
   };
   const avatarStorage = {
+    ensureBucketExists: async () => {},
     upload: async () => {},
     delete: async () => {},
     getPresignedDownloadUrl: async () => "https://example.com/avatar",
@@ -196,6 +197,7 @@ const buildContentActionApp = async () => {
       },
     },
     storage: {
+      ensureBucketExists: async () => {},
       upload: async () => {},
       delete: async () => {},
       getPresignedDownloadUrl: async () => "https://example.com/file",

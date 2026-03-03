@@ -33,8 +33,9 @@ describe("Content domain", () => {
   });
 
   test("parses content status values", () => {
-    expect(parseContentStatus("DRAFT")).toBe("DRAFT");
-    expect(parseContentStatus("IN_USE")).toBe("IN_USE");
+    expect(parseContentStatus("PROCESSING")).toBe("PROCESSING");
+    expect(parseContentStatus("READY")).toBe("READY");
+    expect(parseContentStatus("FAILED")).toBe("FAILED");
     expect(parseContentStatus("OTHER")).toBeNull();
   });
 

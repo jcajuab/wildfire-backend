@@ -42,6 +42,7 @@ describe("SetCurrentUserAvatarUseCase", () => {
     const useCase = new SetCurrentUserAvatarUseCase({
       userRepository: repo,
       storage: {
+        ensureBucketExists: async () => {},
         upload: async ({ key }) => {
           uploadedKeys.push(key);
         },
@@ -84,6 +85,7 @@ describe("SetCurrentUserAvatarUseCase", () => {
     const useCase = new SetCurrentUserAvatarUseCase({
       userRepository: repo,
       storage: {
+        ensureBucketExists: async () => {},
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/avatar",

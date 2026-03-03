@@ -386,26 +386,8 @@ export class DeletePlaylistUseCase {
       throw new PlaylistInUseError(message);
     }
 
-    const playlistItems = await this.deps.playlistRepository.listItems(
-      input.id,
-    );
     const deleted = await this.deps.playlistRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Playlist not found");
-
-    const affectedContentIds = Array.from(
-      new Set(playlistItems.map((item) => item.contentId)),
-    );
-    await Promise.all(
-      affectedContentIds.map(async (contentId) => {
-        const references =
-          await this.deps.playlistRepository.countItemsByContentId(contentId);
-        if (references === 0) {
-          await this.deps.contentRepository.update(contentId, {
-            status: "DRAFT",
-          });
-        }
-      }),
-    );
   }
 }
 
@@ -441,6 +423,11 @@ export class AddPlaylistItemUseCase {
 
     const content = await this.deps.contentRepository.findById(input.contentId);
     if (!content) throw new NotFoundError("Content not found");
+    if (content.status !== "READY") {
+      throw new ValidationError(
+        "Only ready content can be added to playlists.",
+      );
+    }
 
     const existingItems = await this.deps.playlistRepository.listItems(
       input.playlistId,
@@ -454,9 +441,6 @@ export class AddPlaylistItemUseCase {
       contentId: input.contentId,
       sequence: input.sequence,
       duration: input.duration,
-    });
-    await this.deps.contentRepository.update(input.contentId, {
-      status: "IN_USE",
     });
     await publishPlaylistUpdateEvents(
       this.deps,
@@ -569,11 +553,7 @@ export class DeletePlaylistItemUseCase {
     const references = await this.deps.playlistRepository.countItemsByContentId(
       existing.contentId,
     );
-    if (references === 0) {
-      await this.deps.contentRepository.update(existing.contentId, {
-        status: "DRAFT",
-      });
-    }
+    void references;
     await publishPlaylistUpdateEvents(
       this.deps,
       existing.playlistId,

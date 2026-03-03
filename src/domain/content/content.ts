@@ -1,5 +1,5 @@
 export type ContentType = "IMAGE" | "VIDEO" | "PDF";
-export type ContentStatus = "DRAFT" | "IN_USE";
+export type ContentStatus = "PROCESSING" | "READY" | "FAILED";
 
 const imageMimeTypes = new Set([
   "image/jpeg",
@@ -40,7 +40,7 @@ export const parseContentType = (value: string): ContentType | null => {
 };
 
 export const parseContentStatus = (value: string): ContentStatus | null => {
-  if (value === "DRAFT" || value === "IN_USE") {
+  if (value === "PROCESSING" || value === "READY" || value === "FAILED") {
     return value;
   }
   return null;

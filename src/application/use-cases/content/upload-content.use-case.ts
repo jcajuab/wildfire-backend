@@ -1,6 +1,5 @@
 import {
   type ContentMetadataExtractor,
-  type ContentRecord,
   type ContentRepository,
   type ContentStorage,
   type ContentThumbnailGenerator,
@@ -66,71 +65,81 @@ export class UploadContentUseCase {
       );
     }
 
-    await this.deps.contentStorage.upload({
-      key: fileKey,
-      body: data,
-      contentType: mimeType,
-      contentLength: input.file.size,
+    const record = await this.deps.contentRepository.create({
+      id,
+      title: input.title,
+      type,
+      status: "PROCESSING",
+      fileKey,
+      thumbnailKey: null,
+      checksum,
+      mimeType,
+      fileSize: input.file.size,
+      width: extractedMetadata.width,
+      height: extractedMetadata.height,
+      duration: extractedMetadata.duration,
+      createdById: user.id,
     });
 
-    const THUMBNAIL_MAX_RETRIES = 3;
-    const THUMBNAIL_RETRY_DELAY_MS = 500;
+    const uploadedKeys: string[] = [];
+    try {
+      await this.deps.contentStorage.upload({
+        key: fileKey,
+        body: data,
+        contentType: mimeType,
+        contentLength: input.file.size,
+      });
+      uploadedKeys.push(fileKey);
 
-    let generatedThumbnail: Uint8Array | null = null;
-    for (let attempt = 1; attempt <= THUMBNAIL_MAX_RETRIES; attempt++) {
-      try {
-        generatedThumbnail = await this.deps.contentThumbnailGenerator.generate(
-          {
-            type,
-            mimeType,
-            data,
-          },
-        );
-        if (generatedThumbnail !== null) break;
-      } catch {
-        if (attempt < THUMBNAIL_MAX_RETRIES) {
-          await new Promise((r) => setTimeout(r, THUMBNAIL_RETRY_DELAY_MS));
+      const THUMBNAIL_MAX_RETRIES = 3;
+      const THUMBNAIL_RETRY_DELAY_MS = 500;
+      let generatedThumbnail: Uint8Array | null = null;
+
+      for (let attempt = 1; attempt <= THUMBNAIL_MAX_RETRIES; attempt++) {
+        try {
+          generatedThumbnail =
+            await this.deps.contentThumbnailGenerator.generate({
+              type,
+              mimeType,
+              data,
+            });
+          if (generatedThumbnail !== null) break;
+        } catch {
+          if (attempt < THUMBNAIL_MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, THUMBNAIL_RETRY_DELAY_MS));
+          }
         }
       }
-    }
-    let thumbnailKey: string | null = null;
 
-    if (generatedThumbnail) {
-      const candidateThumbnailKey = buildContentThumbnailKey(id);
-      try {
-        await this.deps.contentStorage.upload({
-          key: candidateThumbnailKey,
-          body: generatedThumbnail,
-          contentType: "image/jpeg",
-          contentLength: generatedThumbnail.byteLength,
-        });
-        thumbnailKey = candidateThumbnailKey;
-      } catch {
-        thumbnailKey = null;
+      let thumbnailKey: string | null = null;
+      if (generatedThumbnail) {
+        const candidateThumbnailKey = buildContentThumbnailKey(id);
+        try {
+          await this.deps.contentStorage.upload({
+            key: candidateThumbnailKey,
+            body: generatedThumbnail,
+            contentType: "image/jpeg",
+            contentLength: generatedThumbnail.byteLength,
+          });
+          thumbnailKey = candidateThumbnailKey;
+          uploadedKeys.push(candidateThumbnailKey);
+        } catch {
+          thumbnailKey = null;
+        }
       }
-    }
 
-    let record: ContentRecord;
-    try {
-      record = await this.deps.contentRepository.create({
-        id,
-        title: input.title,
-        type,
-        status: "DRAFT",
-        fileKey,
-        thumbnailKey,
-        checksum,
-        mimeType,
-        fileSize: input.file.size,
-        width: extractedMetadata.width,
-        height: extractedMetadata.height,
-        duration: extractedMetadata.duration,
-        createdById: user.id,
-      });
+      const updatedRecord = await this.deps.contentRepository.update(
+        record.id,
+        {
+          status: "READY",
+          thumbnailKey,
+        },
+      );
+      if (!updatedRecord) {
+        throw new Error("Content not found while finalizing upload");
+      }
     } catch (error) {
-      const uploadedKeys = thumbnailKey ? [fileKey, thumbnailKey] : [fileKey];
       const cleanupFailures: Array<{ key: string; error: unknown }> = [];
-
       for (const key of uploadedKeys) {
         try {
           await this.deps.contentStorage.delete(key);
@@ -145,6 +154,10 @@ export class UploadContentUseCase {
           });
         }
       }
+
+      await this.deps.contentRepository
+        .update(record.id, { status: "FAILED" })
+        .catch(() => undefined);
 
       if (cleanupFailures.length > 0) {
         const failure = cleanupFailures[0];
@@ -161,6 +174,10 @@ export class UploadContentUseCase {
       throw error;
     }
 
-    return toContentView(record, user.name);
+    const readyRecord = await this.deps.contentRepository.findById(record.id);
+    if (!readyRecord) {
+      throw new NotFoundError("Content not found after upload");
+    }
+    return toContentView(readyRecord, user.name);
   }
 }

@@ -4,7 +4,7 @@ import { isSupportedMimeType } from "#/domain/content/content";
 import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF"]);
-export const contentStatusSchema = z.enum(["DRAFT", "IN_USE"]);
+export const contentStatusSchema = z.enum(["PROCESSING", "READY", "FAILED"]);
 
 export const contentSchema = z.object({
   id: z.string(),
@@ -87,7 +87,7 @@ export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     title: { type: "string", minLength: 1 },
-    status: { type: "string", enum: ["DRAFT", "IN_USE"] },
+    status: { type: "string", enum: ["PROCESSING", "READY", "FAILED"] },
   },
   additionalProperties: false,
 };
@@ -106,7 +106,7 @@ export const replaceContentFileRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   properties: {
     file: { type: "string", format: "binary" },
     title: { type: "string", minLength: 1 },
-    status: { type: "string", enum: ["DRAFT", "IN_USE"] },
+    status: { type: "string", enum: ["PROCESSING", "READY", "FAILED"] },
   },
   required: ["file"],
   additionalProperties: false,

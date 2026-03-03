@@ -44,129 +44,145 @@ export class ReplaceContentFileUseCase {
     if (!existing) {
       throw new NotFoundError("Content not found");
     }
-    if (existing.status !== "DRAFT") {
+    if (existing.status === "PROCESSING") {
       throw new ContentInUseError(
-        "Cannot replace file when content is in use. Set to Draft first.",
+        "Cannot replace file while content is being processed.",
       );
     }
 
-    const mimeType = input.file.type;
-    const type = resolveContentType(mimeType);
-    if (!type) {
-      throw new InvalidContentTypeError("Unsupported content type");
+    const references =
+      await this.deps.contentRepository.countPlaylistReferences(input.id);
+    if (references > 0) {
+      throw new ContentInUseError("Cannot replace a content item in use.");
     }
 
-    const fileKey = buildContentFileKey({ id: input.id, type, mimeType });
-    const buffer = await input.file.arrayBuffer();
-    const checksum = await sha256Hex(buffer);
-    const data = new Uint8Array(buffer);
-
-    let extractedMetadata: Awaited<
-      ReturnType<ContentMetadataExtractor["extract"]>
-    >;
-    try {
-      extractedMetadata = await this.deps.contentMetadataExtractor.extract({
-        type,
-        mimeType,
-        data,
-      });
-    } catch (error) {
-      throw new ContentMetadataExtractionError(
-        "Failed to extract content metadata",
-        { cause: error },
-      );
-    }
-
-    await this.deps.contentStorage.upload({
-      key: fileKey,
-      body: data,
-      contentType: mimeType,
-      contentLength: input.file.size,
+    await this.deps.contentRepository.update(input.id, {
+      status: "PROCESSING",
     });
 
-    const THUMBNAIL_MAX_RETRIES = 3;
-    const THUMBNAIL_RETRY_DELAY_MS = 500;
+    try {
+      const mimeType = input.file.type;
+      const type = resolveContentType(mimeType);
+      if (!type) {
+        throw new InvalidContentTypeError("Unsupported content type");
+      }
 
-    let generatedThumbnail: Uint8Array | null = null;
-    for (let attempt = 1; attempt <= THUMBNAIL_MAX_RETRIES; attempt++) {
+      const fileKey = buildContentFileKey({ id: input.id, type, mimeType });
+      const buffer = await input.file.arrayBuffer();
+      const checksum = await sha256Hex(buffer);
+      const data = new Uint8Array(buffer);
+
+      let extractedMetadata: Awaited<
+        ReturnType<ContentMetadataExtractor["extract"]>
+      >;
       try {
-        generatedThumbnail = await this.deps.contentThumbnailGenerator.generate(
-          {
-            type,
-            mimeType,
-            data,
-          },
+        extractedMetadata = await this.deps.contentMetadataExtractor.extract({
+          type,
+          mimeType,
+          data,
+        });
+      } catch (error) {
+        throw new ContentMetadataExtractionError(
+          "Failed to extract content metadata",
+          { cause: error },
         );
-        if (generatedThumbnail !== null) break;
-      } catch {
-        if (attempt < THUMBNAIL_MAX_RETRIES) {
-          await new Promise((r) => setTimeout(r, THUMBNAIL_RETRY_DELAY_MS));
+      }
+
+      await this.deps.contentStorage.upload({
+        key: fileKey,
+        body: data,
+        contentType: mimeType,
+        contentLength: input.file.size,
+      });
+
+      const THUMBNAIL_MAX_RETRIES = 3;
+      const THUMBNAIL_RETRY_DELAY_MS = 500;
+
+      let generatedThumbnail: Uint8Array | null = null;
+      for (let attempt = 1; attempt <= THUMBNAIL_MAX_RETRIES; attempt++) {
+        try {
+          generatedThumbnail =
+            await this.deps.contentThumbnailGenerator.generate({
+              type,
+              mimeType,
+              data,
+            });
+          if (generatedThumbnail !== null) break;
+        } catch {
+          if (attempt < THUMBNAIL_MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, THUMBNAIL_RETRY_DELAY_MS));
+          }
         }
       }
-    }
-    let thumbnailKey: string | null = null;
 
-    if (generatedThumbnail) {
-      const candidateThumbnailKey = buildContentThumbnailKey(input.id);
-      try {
-        await this.deps.contentStorage.upload({
-          key: candidateThumbnailKey,
-          body: generatedThumbnail,
-          contentType: "image/jpeg",
-          contentLength: generatedThumbnail.byteLength,
-        });
-        thumbnailKey = candidateThumbnailKey;
-      } catch {
-        thumbnailKey = null;
+      let thumbnailKey: string | null = null;
+      if (generatedThumbnail) {
+        const candidateThumbnailKey = buildContentThumbnailKey(input.id);
+        try {
+          await this.deps.contentStorage.upload({
+            key: candidateThumbnailKey,
+            body: generatedThumbnail,
+            contentType: "image/jpeg",
+            contentLength: generatedThumbnail.byteLength,
+          });
+          thumbnailKey = candidateThumbnailKey;
+        } catch {
+          thumbnailKey = null;
+        }
       }
-    }
 
-    const protectedKeys = new Set(
-      thumbnailKey ? [fileKey, thumbnailKey] : [fileKey],
-    );
-    const keysToDelete = [existing.fileKey, existing.thumbnailKey]
-      .filter((key): key is string => Boolean(key))
-      .filter((key) => !protectedKeys.has(key));
+      const protectedKeys = new Set(
+        thumbnailKey ? [fileKey, thumbnailKey] : [fileKey],
+      );
+      const keysToDelete = [existing.fileKey, existing.thumbnailKey]
+        .filter((key): key is string => Boolean(key))
+        .filter((key) => !protectedKeys.has(key));
 
-    for (const key of keysToDelete) {
-      try {
-        await this.deps.contentStorage.delete(key);
-      } catch (cleanupError) {
-        this.deps.cleanupFailureLogger?.logContentCleanupFailure({
-          route: "/content/:id/file",
-          contentId: input.id,
-          fileKey: key,
-          failurePhase: "replace_cleanup_delete",
-          error: cleanupError,
-        });
-        throw new ContentStorageCleanupError(
-          "Content file was replaced but previous file cleanup did not complete.",
-          { contentId: input.id, fileKey: key },
-          { cause: cleanupError },
-        );
+      for (const key of keysToDelete) {
+        try {
+          await this.deps.contentStorage.delete(key);
+        } catch (cleanupError) {
+          this.deps.cleanupFailureLogger?.logContentCleanupFailure({
+            route: "/content/:id/file",
+            contentId: input.id,
+            fileKey: key,
+            failurePhase: "replace_cleanup_delete",
+            error: cleanupError,
+          });
+          throw new ContentStorageCleanupError(
+            "Content file was replaced but previous file cleanup did not complete.",
+            { contentId: input.id, fileKey: key },
+            { cause: cleanupError },
+          );
+        }
       }
-    }
 
-    const updated = await this.deps.contentRepository.update(input.id, {
-      fileKey,
-      thumbnailKey,
-      type,
-      mimeType,
-      fileSize: input.file.size,
-      width: extractedMetadata.width,
-      height: extractedMetadata.height,
-      duration: extractedMetadata.duration,
-      checksum,
-      ...(input.title !== undefined ? { title: input.title } : {}),
-      ...(input.status !== undefined ? { status: input.status } : {}),
-    });
-    if (!updated) {
-      throw new NotFoundError("Content not found");
-    }
+      const updated = await this.deps.contentRepository.update(input.id, {
+        fileKey,
+        thumbnailKey,
+        type,
+        mimeType,
+        fileSize: input.file.size,
+        width: extractedMetadata.width,
+        height: extractedMetadata.height,
+        duration: extractedMetadata.duration,
+        checksum,
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        status: input.status ?? existing.status,
+      });
+      if (!updated) {
+        throw new NotFoundError("Content not found");
+      }
 
-    const creator = await this.deps.userRepository.findById(
-      updated.createdById,
-    );
-    return toContentView(updated, creator?.name ?? null);
+      const creator = await this.deps.userRepository.findById(
+        updated.createdById,
+      );
+      return toContentView(updated, creator?.name ?? null);
+    } catch (error) {
+      await this.deps.contentRepository
+        .update(input.id, { status: "FAILED" })
+        .catch(() => undefined);
+      throw error;
+    }
   }
 }

@@ -339,7 +339,7 @@ describe("Schedules use cases", () => {
             id: "content-1",
             title: "Poster",
             type: "IMAGE",
-            status: "DRAFT",
+            status: "READY",
             fileKey: "content/images/a.png",
             checksum: "abc",
             mimeType: "image/png",

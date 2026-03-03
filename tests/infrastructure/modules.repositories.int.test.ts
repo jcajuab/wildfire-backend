@@ -41,7 +41,7 @@ const setup = async () => {
       id varchar(36) PRIMARY KEY,
       title varchar(255) NOT NULL,
       type varchar(16) NOT NULL,
-      status varchar(16) NOT NULL DEFAULT 'DRAFT',
+      status varchar(16) NOT NULL DEFAULT 'PROCESSING',
       file_key varchar(512) NOT NULL,
       thumbnail_key varchar(512) NULL,
       checksum varchar(128) NOT NULL,
@@ -140,7 +140,7 @@ describe("Module repositories (integration)", () => {
 
     await db.execute(sql`
       INSERT INTO content (id, title, type, status, file_key, checksum, mime_type, file_size, created_by_id)
-      VALUES ('content-1', 'Welcome', 'IMAGE', 'DRAFT', 'content/images/a.png', 'abc', 'image/png', 100, 'user-1')
+      VALUES ('content-1', 'Welcome', 'IMAGE', 'READY', 'content/images/a.png', 'abc', 'image/png', 100, 'user-1')
     `);
 
     const repo = new PlaylistDbRepository();

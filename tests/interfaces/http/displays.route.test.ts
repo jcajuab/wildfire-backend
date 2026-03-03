@@ -111,7 +111,7 @@ const makeApp = async (
       id: contentId,
       title: "Welcome",
       type: "IMAGE",
-      status: "DRAFT",
+      status: "READY",
       fileKey: "content/images/a.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -463,6 +463,7 @@ const makeApp = async (
       },
     },
     storage: {
+      ensureBucketExists: async () => {},
       upload: async () => {},
       delete: async () => {},
       getPresignedDownloadUrl: async () => "https://example.com/file",

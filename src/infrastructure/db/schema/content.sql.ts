@@ -13,7 +13,7 @@ export const content = mysqlTable(
     id: varchar("id", { length: 36 }).primaryKey(),
     title: varchar("title", { length: 255 }).notNull(),
     type: varchar("type", { length: 16 }).notNull(),
-    status: varchar("status", { length: 16 }).notNull().default("DRAFT"),
+    status: varchar("status", { length: 16 }).notNull().default("PROCESSING"),
     fileKey: varchar("file_key", { length: 512 }).notNull(),
     thumbnailKey: varchar("thumbnail_key", { length: 512 }),
     checksum: varchar("checksum", { length: 128 }).notNull(),

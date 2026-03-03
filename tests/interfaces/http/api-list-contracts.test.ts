@@ -306,6 +306,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       downloadUrlExpiresInSeconds: 3600,
       repositories,
       storage: {
+        ensureBucketExists: async () => {},
         upload: async (_input: {
           key: string;
           body: Uint8Array;
@@ -344,7 +345,7 @@ const makeContentListApp = async (permissions: string[]) => {
       id: "22222222-2222-4222-8222-222222222222",
       title: "Poster",
       type: "IMAGE" as ContentType,
-      status: "DRAFT" as ContentStatus,
+      status: "READY" as ContentStatus,
       fileKey: "content/images/22222222-2222-4222-8222-222222222222.png",
       checksum: "abc",
       mimeType: "image/png",
@@ -372,7 +373,7 @@ const makeContentListApp = async (permissions: string[]) => {
       }: {
         offset: number;
         limit: number;
-        status?: "DRAFT" | "IN_USE";
+        status?: "PROCESSING" | "READY" | "FAILED";
         type?: "IMAGE" | "VIDEO" | "PDF";
         search?: string;
         sortBy?: "createdAt" | "title" | "fileSize" | "type";
@@ -387,7 +388,7 @@ const makeContentListApp = async (permissions: string[]) => {
         _id: string,
         _input: {
           title?: string;
-          status?: "DRAFT" | "IN_USE";
+          status?: "PROCESSING" | "READY" | "FAILED";
           fileKey?: string;
           thumbnailKey?: string | null;
           type?: "IMAGE" | "VIDEO" | "PDF";
@@ -441,6 +442,7 @@ const makeContentListApp = async (permissions: string[]) => {
       thumbnailUrlExpiresInSeconds: 3600,
       repositories,
       storage: {
+        ensureBucketExists: async () => {},
         upload: async (_input: {
           key: string;
           body: Uint8Array;
