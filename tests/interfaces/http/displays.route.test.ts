@@ -18,7 +18,7 @@ const makeDisplay = (overrides?: Partial<DisplayRecord>): DisplayRecord => ({
   name: "Lobby",
   identifier: "AA:BB",
   displayFingerprint: null,
-  registrationState: "active",
+  status: "READY",
   location: null,
   ipAddress: null,
   macAddress: null,
@@ -575,7 +575,7 @@ describe("Displays routes", () => {
       data: Array<{
         id: string;
         displaySlug: string;
-        onlineStatus: "READY" | "LIVE" | "DOWN";
+        status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
       }>;
       meta: {
         total: number;
@@ -656,7 +656,7 @@ describe("Displays routes", () => {
     const { app, issueToken, revokedDisplayIds, displays } = await makeApp(
       ["displays:update"],
       {
-        displays: [makeDisplay({ registrationState: "active" })],
+        displays: [makeDisplay({ status: "READY" })],
       },
     );
     const token = await issueToken();

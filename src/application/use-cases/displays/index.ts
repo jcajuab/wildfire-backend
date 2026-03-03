@@ -1,4 +1,6 @@
 export {
+  DISPLAY_DOWN_TIMEOUT_MS,
+  deriveDisplayStatus,
   GetDisplayActiveScheduleUseCase,
   GetDisplayManifestUseCase,
   GetDisplayUseCase,

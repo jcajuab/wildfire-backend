@@ -10,6 +10,7 @@ import { type DisplayStreamEventPublisher } from "#/application/ports/display-st
 import {
   type DisplayRecord,
   type DisplayRepository,
+  type DisplayStatus,
 } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -63,6 +64,7 @@ const mapWithConcurrency = async <T, R>(
 };
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+export const DISPLAY_DOWN_TIMEOUT_MS = ONLINE_WINDOW_MS;
 const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
 const PAIRING_CODE_DUPLICATE_INDEX = "pairing_codes_code_hash_unique";
 const DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND = 24;
@@ -95,17 +97,19 @@ const isRecentlySeen = (lastSeenAt: string | null, now: Date): boolean => {
   );
 };
 
-function withTelemetry(
-  display: DisplayRecord,
-  input: { now: Date; hasActiveSchedule: boolean },
-) {
+export const deriveDisplayStatus = (input: {
+  lastSeenAt: string | null;
+  hasActiveSchedule: boolean;
+  now: Date;
+}): DisplayStatus => {
+  if (!isRecentlySeen(input.lastSeenAt, input.now)) {
+    return input.lastSeenAt ? "DOWN" : "PROCESSING";
+  }
+  return input.hasActiveSchedule ? "LIVE" : "READY";
+};
+
+function withTelemetry(display: DisplayRecord) {
   const lastSeenAt = display.lastSeenAt ?? null;
-  const connected = isRecentlySeen(lastSeenAt, input.now);
-  const onlineStatus = !connected
-    ? "DOWN"
-    : input.hasActiveSchedule
-      ? "LIVE"
-      : "READY";
   return {
     ...display,
     ipAddress: display.ipAddress ?? null,
@@ -115,7 +119,7 @@ function withTelemetry(
     outputType: display.outputType ?? null,
     orientation: display.orientation ?? null,
     lastSeenAt,
-    onlineStatus,
+    status: display.status,
   } as const;
 }
 
@@ -129,32 +133,8 @@ export class ListDisplaysUseCase {
   ) {}
 
   async execute(input?: { page?: number; pageSize?: number }) {
-    const now = new Date();
-    const [all, schedules] = await Promise.all([
-      this.deps.displayRepository.list(),
-      this.deps.scheduleRepository.list(),
-    ]);
-    const schedulesByDisplayId = new Map<string, typeof schedules>();
-    for (const schedule of schedules) {
-      const grouped = schedulesByDisplayId.get(schedule.displayId);
-      if (grouped) {
-        grouped.push(schedule);
-        continue;
-      }
-      schedulesByDisplayId.set(schedule.displayId, [schedule]);
-    }
-
-    const withStatus = all.map((display) => {
-      const activeSchedule = selectActiveSchedule(
-        schedulesByDisplayId.get(display.id) ?? [],
-        now,
-        this.deps.scheduleTimeZone ?? "UTC",
-      );
-      return withTelemetry(display, {
-        now,
-        hasActiveSchedule: activeSchedule !== null,
-      });
-    });
+    const all = await this.deps.displayRepository.list();
+    const withStatus = all.map((display) => withTelemetry(display));
     return paginate(withStatus, input);
   }
 }
@@ -169,21 +149,9 @@ export class GetDisplayUseCase {
   ) {}
 
   async execute(input: { id: string }) {
-    const now = new Date();
     const display = await this.deps.displayRepository.findById(input.id);
     if (!display) throw new NotFoundError("Display not found");
-    const schedules = await this.deps.scheduleRepository.listByDisplay(
-      input.id,
-    );
-    const activeSchedule = selectActiveSchedule(
-      schedules,
-      now,
-      this.deps.scheduleTimeZone ?? "UTC",
-    );
-    return withTelemetry(display, {
-      now,
-      hasActiveSchedule: activeSchedule !== null,
-    });
+    return withTelemetry(display);
   }
 }
 
@@ -274,10 +242,16 @@ export class RegisterDisplayUseCase {
         throw new NotFoundError("Display not found");
       }
       await this.deps.displayRepository.touchSeen?.(updated.id, now);
-      return withTelemetry(
-        { ...updated, lastSeenAt: now.toISOString() },
-        { now, hasActiveSchedule: false },
-      );
+      await this.deps.displayRepository.setStatus?.({
+        id: updated.id,
+        status: "READY",
+        at: now,
+      });
+      return withTelemetry({
+        ...updated,
+        lastSeenAt: now.toISOString(),
+        status: "READY",
+      });
     }
 
     const created = await this.deps.displayRepository.create({
@@ -305,16 +279,28 @@ export class RegisterDisplayUseCase {
       });
       const connectedDisplay = enriched ?? created;
       await this.deps.displayRepository.touchSeen?.(connectedDisplay.id, now);
-      return withTelemetry(
-        { ...connectedDisplay, lastSeenAt: now.toISOString() },
-        { now, hasActiveSchedule: false },
-      );
+      await this.deps.displayRepository.setStatus?.({
+        id: connectedDisplay.id,
+        status: "READY",
+        at: now,
+      });
+      return withTelemetry({
+        ...connectedDisplay,
+        lastSeenAt: now.toISOString(),
+        status: "READY",
+      });
     }
     await this.deps.displayRepository.touchSeen?.(created.id, now);
-    return withTelemetry(
-      { ...created, lastSeenAt: now.toISOString() },
-      { now, hasActiveSchedule: false },
-    );
+    await this.deps.displayRepository.setStatus?.({
+      id: created.id,
+      status: "READY",
+      at: now,
+    });
+    return withTelemetry({
+      ...created,
+      lastSeenAt: now.toISOString(),
+      status: "READY",
+    });
   }
 }
 
@@ -420,19 +406,7 @@ export class UpdateDisplayUseCase {
       orientation: input.orientation,
     });
     if (!updated) throw new NotFoundError("Display not found");
-    const now = new Date();
-    const schedules = await this.deps.scheduleRepository.listByDisplay(
-      input.id,
-    );
-    const activeSchedule = selectActiveSchedule(
-      schedules,
-      now,
-      this.deps.scheduleTimeZone ?? "UTC",
-    );
-    return withTelemetry(updated, {
-      now,
-      hasActiveSchedule: activeSchedule !== null,
-    });
+    return withTelemetry(updated);
   }
 }
 

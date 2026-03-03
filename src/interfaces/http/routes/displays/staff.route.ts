@@ -652,7 +652,7 @@ export const registerDisplayStaffRoutes = (args: {
               displaySlug: payload.displaySlug,
               name: payload.displayName,
               displayFingerprint: payload.displayFingerprint,
-              registrationState: "active",
+              status: "PROCESSING",
               screenWidth: payload.resolutionWidth,
               screenHeight: payload.resolutionHeight,
               displayOutput: normalizedOutput,

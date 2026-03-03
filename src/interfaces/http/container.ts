@@ -12,7 +12,6 @@ import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/displ
 import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
 import { DisplayPairingCodeDbRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionDbRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
-import { DisplayStateTransitionDbRepository } from "#/infrastructure/db/repositories/display-state-transition.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -69,7 +68,6 @@ export interface HttpContainer {
     displayKeyRepository: DisplayKeyDbRepository;
     displayPairingSessionRepository: DisplayPairingSessionDbRepository;
     displayAuthNonceRepository: DisplayAuthNonceDbRepository;
-    displayStateTransitionRepository: DisplayStateTransitionDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
     invitationRepository: InvitationDbRepository;
     systemSettingRepository: SystemSettingDbRepository;
@@ -116,8 +114,6 @@ export const createHttpContainer = (
   const displayPairingSessionRepository =
     new DisplayPairingSessionDbRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceDbRepository();
-  const displayStateTransitionRepository =
-    new DisplayStateTransitionDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
   const invitationRepository = new InvitationDbRepository();
   const systemSettingRepository = new SystemSettingDbRepository();
@@ -167,7 +163,6 @@ export const createHttpContainer = (
       displayKeyRepository,
       displayPairingSessionRepository,
       displayAuthNonceRepository,
-      displayStateTransitionRepository,
       passwordResetTokenRepository,
       invitationRepository,
       systemSettingRepository,

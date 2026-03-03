@@ -1,4 +1,4 @@
-import { type DisplayRegistrationState } from "#/application/ports/display-auth";
+export type DisplayStatus = "PROCESSING" | "READY" | "LIVE" | "DOWN";
 
 export interface DisplayRecord {
   id: string;
@@ -6,7 +6,7 @@ export interface DisplayRecord {
   name: string;
   identifier: string;
   displayFingerprint?: string | null;
-  registrationState?: DisplayRegistrationState;
+  status: DisplayStatus;
   location: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
@@ -69,9 +69,9 @@ export interface DisplayRepository {
     location?: string | null;
     now: Date;
   }): Promise<DisplayRecord>;
-  setRegistrationState?(input: {
+  setStatus?(input: {
     id: string;
-    state: DisplayRegistrationState;
+    status: DisplayStatus;
     at: Date;
   }): Promise<void>;
   delete(id: string): Promise<boolean>;

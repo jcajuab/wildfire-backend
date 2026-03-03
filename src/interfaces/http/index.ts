@@ -28,6 +28,7 @@ import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
 import { createDisplayRouter } from "#/interfaces/http/routes/display.route";
+import { startDisplayStatusReconciler } from "#/interfaces/http/routes/displays/status-reconciler";
 import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
 import { healthRouter } from "#/interfaces/http/routes/health.route";
 import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
@@ -59,6 +60,12 @@ const container = createHttpContainer({
     rootPassword: env.MINIO_ROOT_PASSWORD,
     requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
   },
+});
+
+startDisplayStatusReconciler({
+  displayRepository: container.repositories.displayRepository,
+  scheduleRepository: container.repositories.scheduleRepository,
+  scheduleTimeZone: env.SCHEDULE_TIMEZONE,
 });
 
 logger.info(

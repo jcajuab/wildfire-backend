@@ -64,6 +64,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       name: "Lobby",
       identifier: "AA:BB",
       displaySlug: "lobby-display",
+      status: "READY" as const,
       displayFingerprint: null,
       location: null,
       screenWidth: null,

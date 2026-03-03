@@ -1,22 +1,22 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { type DisplayRegistrationState } from "#/application/ports/display-auth";
 import {
   type DisplayRecord,
   type DisplayRepository,
+  type DisplayStatus,
 } from "#/application/ports/displays";
 import { db } from "#/infrastructure/db/client";
 import { displays } from "#/infrastructure/db/schema/display.sql";
 
-const parseRegistrationState = (value: string): DisplayRegistrationState => {
+const parseDisplayStatus = (value: string): DisplayStatus => {
   if (
-    value === "unpaired" ||
-    value === "registered" ||
-    value === "active" ||
-    value === "unregistered"
+    value === "PROCESSING" ||
+    value === "READY" ||
+    value === "LIVE" ||
+    value === "DOWN"
   ) {
     return value;
   }
-  throw new Error(`Unexpected display registration state: ${value}`);
+  throw new Error(`Unexpected display status: ${value}`);
 };
 
 const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
@@ -25,7 +25,7 @@ const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
   name: row.name,
   identifier: row.displaySlug,
   displayFingerprint: row.displayFingerprint ?? null,
-  registrationState: parseRegistrationState(row.registrationState),
+  status: parseDisplayStatus(row.status),
   location: row.location ?? null,
   ipAddress: row.ipAddress ?? null,
   macAddress: row.macAddress ?? null,
@@ -141,7 +141,7 @@ export class DisplayDbRepository implements DisplayRepository {
       displaySlug: input.identifier,
       name: input.name,
       displayFingerprint: input.displayFingerprint ?? null,
-      registrationState: "unpaired",
+      status: "PROCESSING",
       location: input.location,
       displayOutput: "unknown",
       createdAt: now,
@@ -154,7 +154,7 @@ export class DisplayDbRepository implements DisplayRepository {
       identifier: input.identifier,
       name: input.name,
       displayFingerprint: input.displayFingerprint ?? null,
-      registrationState: "unpaired",
+      status: "PROCESSING",
       location: input.location,
       ipAddress: null,
       macAddress: null,
@@ -192,7 +192,7 @@ export class DisplayDbRepository implements DisplayRepository {
       displaySlug: input.displaySlug,
       name: input.name,
       displayFingerprint: input.displayFingerprint,
-      registrationState: "registered",
+      status: "PROCESSING",
       location: input.location ?? null,
       ipAddress: input.ipAddress ?? null,
       macAddress: input.macAddress ?? null,
@@ -288,28 +288,18 @@ export class DisplayDbRepository implements DisplayRepository {
     };
   }
 
-  async setRegistrationState(input: {
+  async setStatus(input: {
     id: string;
-    state: DisplayRegistrationState;
+    status: DisplayStatus;
     at: Date;
   }): Promise<void> {
-    const patch: {
-      registrationState: DisplayRegistrationState;
-      updatedAt: Date;
-      activatedAt?: Date | null;
-      unregisteredAt?: Date | null;
-    } = {
-      registrationState: input.state,
-      updatedAt: input.at,
-    };
-    if (input.state === "active") {
-      patch.activatedAt = input.at;
-      patch.unregisteredAt = null;
-    }
-    if (input.state === "unregistered") {
-      patch.unregisteredAt = input.at;
-    }
-    await db.update(displays).set(patch).where(eq(displays.id, input.id));
+    await db
+      .update(displays)
+      .set({
+        status: input.status,
+        updatedAt: input.at,
+      })
+      .where(eq(displays.id, input.id));
   }
 
   async bumpRefreshNonce(id: string): Promise<boolean> {

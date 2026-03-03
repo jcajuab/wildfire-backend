@@ -15,9 +15,7 @@ export const displays = mysqlTable(
     displaySlug: varchar("display_slug", { length: 120 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     displayFingerprint: varchar("display_fingerprint", { length: 255 }),
-    registrationState: varchar("registration_state", { length: 32 })
-      .notNull()
-      .default("unpaired"),
+    status: varchar("status", { length: 16 }).notNull().default("PROCESSING"),
     location: varchar("location", { length: 255 }),
     ipAddress: varchar("ip_address", { length: 128 }),
     macAddress: varchar("mac_address", { length: 64 }),

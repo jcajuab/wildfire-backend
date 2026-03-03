@@ -7,9 +7,6 @@ export const displaySchema = z.object({
   displaySlug: z.string(),
   identifier: z.string(),
   displayFingerprint: z.string().nullable().optional(),
-  registrationState: z
-    .enum(["unpaired", "registered", "active", "unregistered"])
-    .optional(),
   name: z.string(),
   location: z.string().nullable(),
   ipAddress: z.string().nullable(),
@@ -19,7 +16,7 @@ export const displaySchema = z.object({
   outputType: z.string().nullable(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
   lastSeenAt: z.string().nullable(),
-  onlineStatus: z.enum(["READY", "LIVE", "DOWN"]),
+  status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

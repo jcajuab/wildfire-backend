@@ -1,9 +1,3 @@
-export type DisplayRegistrationState =
-  | "unpaired"
-  | "registered"
-  | "active"
-  | "unregistered";
-
 export interface DisplayKeyRecord {
   id: string;
   displayId: string;
@@ -24,17 +18,6 @@ export interface DisplayPairingSessionRecord {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface DisplayStateTransitionRecord {
-  id: string;
-  displayId: string;
-  fromState: DisplayRegistrationState;
-  toState: DisplayRegistrationState;
-  reason: string;
-  actorType: "staff" | "display" | "system";
-  actorId: string | null;
-  createdAt: string;
 }
 
 export interface DisplayKeyRepository {
@@ -68,16 +51,4 @@ export interface DisplayAuthNonceRepository {
     now: Date;
     expiresAt: Date;
   }): Promise<boolean>;
-}
-
-export interface DisplayStateTransitionRepository {
-  create(input: {
-    displayId: string;
-    fromState: DisplayRegistrationState;
-    toState: DisplayRegistrationState;
-    reason: string;
-    actorType: "staff" | "display" | "system";
-    actorId?: string | null;
-    createdAt: Date;
-  }): Promise<DisplayStateTransitionRecord>;
 }

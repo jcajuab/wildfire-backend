@@ -20,7 +20,11 @@ import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type SystemSettingRepository } from "#/application/ports/settings";
-import { GetDisplayManifestUseCase } from "#/application/use-cases/displays";
+import {
+  deriveDisplayStatus,
+  GetDisplayManifestUseCase,
+} from "#/application/use-cases/displays";
+import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -30,6 +34,7 @@ import {
   unauthorized,
   validationError,
 } from "#/interfaces/http/responses";
+import { publishAdminDisplayLifecycleEvent } from "#/interfaces/http/routes/displays/admin-lifecycle-events";
 import {
   publishDisplayStreamEvent,
   subscribeToDisplayStream,
@@ -635,15 +640,46 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     signedDisplayRequest(deps),
     async (c) => {
       const displayId = String(c.get("displayId"));
-      await deps.repositories.displayRepository.touchSeen?.(
-        displayId,
-        new Date(),
-      );
+      const now = new Date();
+      await deps.repositories.displayRepository.touchSeen?.(displayId, now);
+
+      const [display, schedules] = await Promise.all([
+        deps.repositories.displayRepository.findById(displayId),
+        deps.repositories.scheduleRepository.listByDisplay(displayId),
+      ]);
+      if (display) {
+        const activeSchedule = selectActiveSchedule(
+          schedules,
+          now,
+          deps.scheduleTimeZone ?? "UTC",
+        );
+        const nextStatus = deriveDisplayStatus({
+          lastSeenAt: now.toISOString(),
+          hasActiveSchedule: activeSchedule !== null,
+          now,
+        });
+        if (display.status !== nextStatus) {
+          await deps.repositories.displayRepository.setStatus?.({
+            id: display.id,
+            status: nextStatus,
+            at: now,
+          });
+          publishAdminDisplayLifecycleEvent({
+            type: "display_status_changed",
+            displayId: display.id,
+            displaySlug: display.displaySlug,
+            previousStatus: display.status,
+            status: nextStatus,
+            occurredAt: now.toISOString(),
+          });
+        }
+      }
+
       publishDisplayStreamEvent({
         type: "manifest_updated",
         displayId,
         reason: "heartbeat",
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(),
       });
       return c.body(null, 204);
     },

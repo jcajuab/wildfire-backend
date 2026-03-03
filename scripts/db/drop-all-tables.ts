@@ -11,7 +11,6 @@ const TABLES = [
   "display_keys",
   "display_pairing_sessions",
   "display_auth_nonces",
-  "display_state_transitions",
   "invitations",
   "password_reset_tokens",
   "permissions",

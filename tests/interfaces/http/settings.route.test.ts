@@ -40,6 +40,7 @@ const makeApp = async (permissions: string[]) => {
             name: "Lobby",
             identifier: "AA:BB",
             displaySlug: "display-1",
+            status: "READY" as const,
             location: null,
             screenWidth: 1366,
             screenHeight: 768,

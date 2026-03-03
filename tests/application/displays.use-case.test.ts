@@ -42,6 +42,7 @@ const makeRepository = () => {
         name: input.name,
         identifier: input.identifier,
         displayFingerprint: input.displayFingerprint ?? null,
+        status: "PROCESSING",
         location: input.location,
         screenWidth: null,
         screenHeight: null,
@@ -188,7 +189,7 @@ describe("Displays use cases", () => {
     expect(result.items).toHaveLength(1);
   });
 
-  test("ListDisplaysUseCase maps onlineStatus from connectivity and schedules", async () => {
+  test("ListDisplaysUseCase returns persisted display statuses", async () => {
     const { repo, records } = makeRepository();
     const listDisplays = new ListDisplaysUseCase({
       displayRepository: repo,
@@ -240,9 +241,6 @@ describe("Displays use cases", () => {
       location: null,
     });
 
-    const recentSeenAt = new Date(Date.now() - 60 * 1000).toISOString();
-    const staleSeenAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-
     const neverSeen = records.find((record) => record.name === "Never seen");
     const recentlySeen = records.find(
       (record) => record.name === "Recently seen",
@@ -258,17 +256,17 @@ describe("Displays use cases", () => {
       throw new Error("Expected seeded display records to exist");
     }
 
-    neverSeen.lastSeenAt = null;
-    recentlySeen.lastSeenAt = recentSeenAt;
-    staleHeartbeat.lastSeenAt = staleSeenAt;
-    readyDisplay.lastSeenAt = recentSeenAt;
+    neverSeen.status = "PROCESSING";
+    recentlySeen.status = "LIVE";
+    staleHeartbeat.status = "DOWN";
+    readyDisplay.status = "READY";
 
     const result = await listDisplays.execute();
     const statusByIdentifier = new Map(
-      result.items.map((item) => [item.identifier, item.onlineStatus]),
+      result.items.map((item) => [item.identifier, item.status]),
     );
 
-    expect(statusByIdentifier.get(neverSeen.identifier)).toBe("DOWN");
+    expect(statusByIdentifier.get(neverSeen.identifier)).toBe("PROCESSING");
     expect(statusByIdentifier.get(recentlySeen.identifier)).toBe("LIVE");
     expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("DOWN");
     expect(statusByIdentifier.get(readyDisplay.identifier)).toBe("READY");
@@ -317,7 +315,7 @@ describe("Displays use cases", () => {
     });
 
     expect(display.identifier).toBe("AA:BB");
-    expect(display.onlineStatus).toBe("READY");
+    expect(display.status).toBe("READY");
     expect(display.lastSeenAt).not.toBeNull();
   });
 
