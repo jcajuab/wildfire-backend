@@ -17,6 +17,15 @@ export const displaySchema = z.object({
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
   lastSeenAt: z.string().nullable(),
   status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]),
+  nowPlaying: z
+    .object({
+      title: z.string().nullable(),
+      playlist: z.string().nullable(),
+      progress: z.number().nonnegative(),
+      duration: z.number().nonnegative(),
+    })
+    .nullable()
+    .optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

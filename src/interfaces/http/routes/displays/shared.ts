@@ -99,11 +99,13 @@ export const createDisplaysUseCases = (
     listDisplays: new ListDisplaysUseCase({
       displayRepository: deps.repositories.displayRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
+      playlistRepository: deps.repositories.playlistRepository,
       scheduleTimeZone: deps.scheduleTimeZone,
     }),
     getDisplay: new GetDisplayUseCase({
       displayRepository: deps.repositories.displayRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
+      playlistRepository: deps.repositories.playlistRepository,
       scheduleTimeZone: deps.scheduleTimeZone,
     }),
     updateDisplay: new UpdateDisplayUseCase({

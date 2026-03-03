@@ -177,6 +177,35 @@ describe("Displays use cases", () => {
         delete: async () => false,
         countByPlaylistId: async () => 0,
       },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [
+          {
+            id: "item-live",
+            playlistId: "playlist-live",
+            contentId: "content-live",
+            sequence: 10,
+            duration: 15,
+          },
+        ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
+      },
     });
 
     await repo.create({
@@ -217,6 +246,47 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+      },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async (ids: string[]) =>
+          ids.includes("playlist-live")
+            ? [
+                {
+                  id: "playlist-live",
+                  name: "Live Playlist",
+                  description: null,
+                  createdById: "user-1",
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [
+          {
+            id: "item-live",
+            playlistId: "playlist-live",
+            contentId: "content-live",
+            sequence: 10,
+            duration: 15,
+          },
+        ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
       },
     });
 
@@ -265,11 +335,21 @@ describe("Displays use cases", () => {
     const statusByIdentifier = new Map(
       result.items.map((item) => [item.identifier, item.status]),
     );
+    const nowPlayingByIdentifier = new Map(
+      result.items.map((item) => [item.identifier, item.nowPlaying]),
+    );
 
     expect(statusByIdentifier.get(neverSeen.identifier)).toBe("PROCESSING");
     expect(statusByIdentifier.get(recentlySeen.identifier)).toBe("LIVE");
     expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("DOWN");
     expect(statusByIdentifier.get(readyDisplay.identifier)).toBe("READY");
+    expect(nowPlayingByIdentifier.get(recentlySeen.identifier)).toEqual({
+      title: null,
+      playlist: "Live Playlist",
+      progress: 0,
+      duration: 0,
+    });
+    expect(nowPlayingByIdentifier.get(neverSeen.identifier)).toBeNull();
   });
 
   test("GetDisplayUseCase throws when missing", async () => {
@@ -287,6 +367,42 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+      },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [],
+        findById: async () => ({
+          id: "playlist-live",
+          name: "Live Playlist",
+          description: null,
+          createdById: "user-1",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [
+          {
+            id: "item-live",
+            playlistId: "playlist-live",
+            contentId: "content-live",
+            sequence: 10,
+            duration: 15,
+          },
+        ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
       },
     });
 

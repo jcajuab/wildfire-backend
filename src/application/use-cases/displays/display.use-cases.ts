@@ -123,18 +123,98 @@ function withTelemetry(display: DisplayRecord) {
   } as const;
 }
 
+interface DisplayNowPlaying {
+  readonly title: string | null;
+  readonly playlist: string | null;
+  readonly progress: number;
+  readonly duration: number;
+}
+
+const buildNowPlayingMap = async (input: {
+  displays: readonly DisplayRecord[];
+  schedules: {
+    readonly displayId: string;
+    readonly playlistId: string;
+    readonly isActive: boolean;
+    readonly startDate?: string;
+    readonly endDate?: string;
+    readonly startTime: string;
+    readonly endTime: string;
+    readonly priority: number;
+  }[];
+  now: Date;
+  timeZone: string;
+  playlistRepository: Pick<PlaylistRepository, "findByIds">;
+}): Promise<Map<string, DisplayNowPlaying>> => {
+  const schedulesByDisplayId = new Map<string, typeof input.schedules>();
+  for (const schedule of input.schedules) {
+    const existing = schedulesByDisplayId.get(schedule.displayId) ?? [];
+    schedulesByDisplayId.set(schedule.displayId, [...existing, schedule]);
+  }
+
+  const activePlaylistIds = new Set<string>();
+  const activeByDisplayId = new Map<string, string>();
+  for (const display of input.displays) {
+    const displaySchedules = schedulesByDisplayId.get(display.id) ?? [];
+    const active = selectActiveSchedule(
+      displaySchedules,
+      input.now,
+      input.timeZone,
+    );
+    if (!active) continue;
+    activePlaylistIds.add(active.playlistId);
+    activeByDisplayId.set(display.id, active.playlistId);
+  }
+
+  if (activePlaylistIds.size === 0) {
+    return new Map();
+  }
+
+  const playlists = await input.playlistRepository.findByIds([
+    ...activePlaylistIds,
+  ]);
+  const playlistNames = new Map(
+    playlists.map((playlist) => [playlist.id, playlist.name]),
+  );
+  const nowPlayingByDisplayId = new Map<string, DisplayNowPlaying>();
+
+  for (const [displayId, playlistId] of activeByDisplayId) {
+    nowPlayingByDisplayId.set(displayId, {
+      title: null,
+      playlist: playlistNames.get(playlistId) ?? null,
+      progress: 0,
+      duration: 0,
+    });
+  }
+
+  return nowPlayingByDisplayId;
+};
+
 export class ListDisplaysUseCase {
   constructor(
     private readonly deps: {
       displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
+      playlistRepository: PlaylistRepository;
       scheduleTimeZone?: string;
     },
   ) {}
 
   async execute(input?: { page?: number; pageSize?: number }) {
+    const now = new Date();
     const all = await this.deps.displayRepository.list();
-    const withStatus = all.map((display) => withTelemetry(display));
+    const schedules = await this.deps.scheduleRepository.list();
+    const nowPlayingByDisplayId = await buildNowPlayingMap({
+      displays: all,
+      schedules,
+      now,
+      timeZone: this.deps.scheduleTimeZone ?? "UTC",
+      playlistRepository: this.deps.playlistRepository,
+    });
+    const withStatus = all.map((display) => ({
+      ...withTelemetry(display),
+      nowPlaying: nowPlayingByDisplayId.get(display.id) ?? null,
+    }));
     return paginate(withStatus, input);
   }
 }
@@ -144,6 +224,7 @@ export class GetDisplayUseCase {
     private readonly deps: {
       displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
+      playlistRepository: PlaylistRepository;
       scheduleTimeZone?: string;
     },
   ) {}
@@ -151,7 +232,29 @@ export class GetDisplayUseCase {
   async execute(input: { id: string }) {
     const display = await this.deps.displayRepository.findById(input.id);
     if (!display) throw new NotFoundError("Display not found");
-    return withTelemetry(display);
+    const now = new Date();
+    const schedules = await this.deps.scheduleRepository.listByDisplay(
+      display.id,
+    );
+    const active = selectActiveSchedule(
+      schedules,
+      now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
+    const playlist = active
+      ? await this.deps.playlistRepository.findById(active.playlistId)
+      : null;
+    return {
+      ...withTelemetry(display),
+      nowPlaying: active
+        ? {
+            title: null,
+            playlist: playlist?.name ?? null,
+            progress: 0,
+            duration: 0,
+          }
+        : null,
+    };
   }
 }
 

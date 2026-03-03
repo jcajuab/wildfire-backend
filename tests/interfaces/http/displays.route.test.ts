@@ -563,6 +563,20 @@ describe("Displays routes", () => {
   test("GET /displays returns list with permission", async () => {
     const { app, issueToken } = await makeApp(["displays:read"], {
       displays: [makeDisplay({ lastSeenAt: "2025-01-01T00:00:00.000Z" })],
+      schedules: [
+        {
+          id: "schedule-1",
+          name: "Morning",
+          playlistId,
+          displayId,
+          startTime: "00:00",
+          endTime: "23:59",
+          priority: 10,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
     });
     const token = await issueToken();
 
@@ -576,6 +590,12 @@ describe("Displays routes", () => {
         id: string;
         displaySlug: string;
         status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
+        nowPlaying?: {
+          playlist: string | null;
+          title: string | null;
+          progress: number;
+          duration: number;
+        } | null;
       }>;
       meta: {
         total: number;
@@ -588,6 +608,7 @@ describe("Displays routes", () => {
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe(displayId);
     expect(json.data[0]?.displaySlug).toBe("lobby-display");
+    expect(json.data[0]?.nowPlaying?.playlist).toBe("Morning");
     expect(json.meta.total).toBe(1);
     expect(json.meta.page).toBe(1);
     expect(json.meta.per_page).toBe(50);
