@@ -102,6 +102,7 @@ const makeStorage = (options?: { deleteError?: Error }) => {
   const deletedKeys: string[] = [];
 
   const storage: ContentStorage = {
+    ensureBucketExists: async () => {},
     upload: async (input) => {
       uploads.push(input);
     },

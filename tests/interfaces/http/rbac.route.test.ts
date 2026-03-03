@@ -591,6 +591,7 @@ function buildAppWithAvatarStorage(): {
   (store.users[0] as { avatarKey?: string }).avatarKey = `avatars/${userId}`;
 
   const avatarStorage: ContentStorage = {
+    ensureBucketExists: async () => {},
     upload: async () => {},
     delete: async () => {},
     getPresignedDownloadUrl: async () => presignedUrl,

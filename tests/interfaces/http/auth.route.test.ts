@@ -236,6 +236,7 @@ const buildApp = (opts?: {
   };
 
   const defaultAvatarStorage: ContentStorage = {
+    ensureBucketExists: async () => {},
     upload: async () => {},
     delete: async () => {},
     getPresignedDownloadUrl: async () => "https://example.com/avatar-presigned",
@@ -582,6 +583,7 @@ describe("Auth routes", () => {
   test("PUT /auth/me/avatar uploads avatar and returns refreshed payload", async () => {
     const uploads: string[] = [];
     const avatarStorage: ContentStorage = {
+      ensureBucketExists: async () => {},
       upload: async ({ key }) => {
         uploads.push(key);
       },

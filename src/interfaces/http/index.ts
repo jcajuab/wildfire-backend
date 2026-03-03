@@ -69,8 +69,19 @@ logger.info(
   "MinIO storage configured",
 );
 
-if (env.NODE_ENV === "development") {
-  void container.storage.contentStorage.checkConnectivity().then((result) => {
+void container.storage.contentStorage
+  .ensureBucketExists()
+  .then(() => {
+    logger.info(
+      {
+        minioEndpoint: container.storage.minioEndpoint,
+        bucket: env.MINIO_BUCKET,
+      },
+      "MinIO bucket readiness check completed",
+    );
+  })
+  .then(() => container.storage.contentStorage.checkConnectivity())
+  .then((result) => {
     if (result.ok) {
       logger.info(
         "MinIO connectivity check OK. MinIO running at endpoint: " +
@@ -86,8 +97,18 @@ if (env.NODE_ENV === "development") {
         "MinIO connectivity check failed — avatar/content uploads will fail. Please check which ports your MinIO is running at and ensure connectivity.",
       );
     }
+  })
+  .catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(
+      {
+        minioEndpoint: container.storage.minioEndpoint,
+        bucket: env.MINIO_BUCKET,
+        error: message,
+      },
+      "MinIO bucket readiness failed — avatar/content uploads will fail. Please check MinIO permissions and connectivity.",
+    );
   });
-}
 
 const authRouter = createAuthRouter({
   credentialsRepository: container.auth.credentialsRepository,

@@ -576,6 +576,7 @@ describe("Displays use cases", () => {
         update: async () => null,
       },
       contentStorage: {
+        ensureBucketExists: async () => {},
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "",
@@ -655,6 +656,7 @@ describe("Displays use cases", () => {
         update: async () => null,
       },
       contentStorage: {
+        ensureBucketExists: async () => {},
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "",
@@ -780,6 +782,7 @@ describe("Displays use cases", () => {
         update: async () => null,
       },
       contentStorage: {
+        ensureBucketExists: async () => {},
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/file",
@@ -951,6 +954,7 @@ describe("Displays use cases", () => {
       },
       contentRepository: contentRepository as never,
       contentStorage: {
+        ensureBucketExists: async () => {},
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/file",
@@ -1116,6 +1120,7 @@ describe("Displays use cases", () => {
         update: async () => null,
       },
       contentStorage: {
+        ensureBucketExists: async () => {},
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async ({ key }) => {

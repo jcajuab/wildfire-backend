@@ -1,4 +1,5 @@
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -34,6 +35,7 @@ function withTimeout<T>(
 export class S3ContentStorage implements ContentStorage {
   private readonly client: S3Client;
   private readonly requestTimeoutMs: number;
+  private readinessPromise: Promise<void> | null = null;
 
   constructor(
     private readonly config: {
@@ -63,6 +65,8 @@ export class S3ContentStorage implements ContentStorage {
     contentType: string;
     contentLength: number;
   }): Promise<void> {
+    await this.ensureBucketExists();
+
     const operation = "s3.upload";
     const start = Date.now();
     try {
@@ -106,6 +110,8 @@ export class S3ContentStorage implements ContentStorage {
   }
 
   async delete(key: string): Promise<void> {
+    await this.ensureBucketExists();
+
     const operation = "s3.delete";
     const start = Date.now();
     try {
@@ -150,6 +156,8 @@ export class S3ContentStorage implements ContentStorage {
     expiresInSeconds: number;
     responseContentDisposition?: string;
   }): Promise<string> {
+    await this.ensureBucketExists();
+
     const operation = "s3.presignDownload";
     const start = Date.now();
     const command = new GetObjectCommand({
@@ -230,5 +238,166 @@ export class S3ContentStorage implements ContentStorage {
       );
       return { ok: false, error: message };
     }
+  }
+
+  async ensureBucketExists(): Promise<void> {
+    if (this.readinessPromise == null) {
+      this.readinessPromise = this.ensureBucketExistsInternal().catch(
+        (error) => {
+          this.readinessPromise = null;
+          throw error;
+        },
+      );
+    }
+
+    return this.readinessPromise;
+  }
+
+  private async ensureBucketExistsInternal(): Promise<void> {
+    const operation = "s3.ensureBucketExists";
+    const start = Date.now();
+
+    try {
+      await withTimeout(
+        this.client.send(new HeadBucketCommand({ Bucket: this.config.bucket })),
+        this.requestTimeoutMs,
+        "HeadBucket",
+      );
+      logger.info(
+        {
+          operation,
+          bucket: this.config.bucket,
+          durationMs: Date.now() - start,
+          success: true,
+          action: "already_present",
+        },
+        "storage bucket ready",
+      );
+      return;
+    } catch (error) {
+      if (!this.isBucketMissing(error)) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error(
+          {
+            err,
+            operation,
+            bucket: this.config.bucket,
+            durationMs: Date.now() - start,
+            success: false,
+            action: "check_bucket",
+          },
+          "storage bucket readiness check failed",
+        );
+        throw error;
+      }
+    }
+
+    const createStartMs = Date.now();
+    try {
+      await withTimeout(
+        this.client.send(
+          new CreateBucketCommand({ Bucket: this.config.bucket }),
+        ),
+        this.requestTimeoutMs,
+        "CreateBucket",
+      );
+      logger.info(
+        {
+          operation,
+          bucket: this.config.bucket,
+          durationMs: Date.now() - createStartMs,
+          success: true,
+          action: "created",
+        },
+        "storage bucket created",
+      );
+      return;
+    } catch (error) {
+      if (this.isBucketAlreadyAvailable(error)) {
+        logger.info(
+          {
+            operation,
+            bucket: this.config.bucket,
+            durationMs: Date.now() - createStartMs,
+            success: true,
+            action: "already_available",
+          },
+          "storage bucket ready",
+        );
+        return;
+      }
+
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(
+        {
+          err,
+          operation,
+          bucket: this.config.bucket,
+          durationMs: Date.now() - createStartMs,
+          success: false,
+          action: "create_bucket",
+        },
+        "storage bucket creation failed",
+      );
+      throw err;
+    }
+  }
+
+  private isBucketMissing(error: unknown): boolean {
+    const code = this.extractErrorCode(error);
+    const statusCode = this.extractHttpStatus(error);
+    return code === "NoSuchBucket" || code === "NotFound" || statusCode === 404;
+  }
+
+  private isBucketAlreadyAvailable(error: unknown): boolean {
+    const code = this.extractErrorCode(error);
+    return code === "BucketAlreadyOwnedByYou" || code === "BucketAlreadyExists";
+  }
+
+  private extractErrorCode(error: unknown): string | undefined {
+    if (!(error instanceof Error)) {
+      return undefined;
+    }
+
+    const typed = error as {
+      code?: string;
+      Code?: string;
+      name?: string;
+    };
+
+    if (typed.code != null && typed.code.length > 0) {
+      return typed.code;
+    }
+    if (typed.Code != null && typed.Code.length > 0) {
+      return typed.Code;
+    }
+    return typed.name;
+  }
+
+  private extractHttpStatus(error: unknown): number | undefined {
+    if (!(error instanceof Error)) {
+      return undefined;
+    }
+
+    const typed = error as {
+      $metadata?: {
+        httpStatusCode?: number;
+      };
+      statusCode?: number;
+      $response?: {
+        statusCode?: number;
+      };
+    };
+
+    if (typed.$metadata?.httpStatusCode != null) {
+      return typed.$metadata.httpStatusCode;
+    }
+    if (typed.statusCode != null) {
+      return typed.statusCode;
+    }
+    if (typed.$response?.statusCode != null) {
+      return typed.$response.statusCode;
+    }
+    return undefined;
   }
 }

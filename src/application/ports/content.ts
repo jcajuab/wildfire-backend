@@ -63,6 +63,7 @@ export interface ContentRepository {
 }
 
 export interface ContentStorage {
+  ensureBucketExists(): Promise<void>;
   upload(input: {
     key: string;
     body: Uint8Array;
