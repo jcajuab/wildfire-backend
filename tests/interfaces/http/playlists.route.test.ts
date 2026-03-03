@@ -197,6 +197,7 @@ const makeApp = async (
         },
         update: async () => null,
         bumpRefreshNonce: async () => false,
+        delete: async (_id: string) => false,
       },
       systemSettingRepository: {
         findByKey: async () => null,

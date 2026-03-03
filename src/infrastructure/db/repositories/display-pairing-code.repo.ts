@@ -96,4 +96,20 @@ export class DisplayPairingCodeDbRepository
       updatedAt,
     });
   }
+
+  async invalidateById(input: { id: string; now: Date }): Promise<void> {
+    await db
+      .update(pairingCodes)
+      .set({
+        usedAt: input.now,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(pairingCodes.id, input.id),
+          isNull(pairingCodes.usedAt),
+          gt(pairingCodes.expiresAt, input.now),
+        ),
+      );
+  }
 }

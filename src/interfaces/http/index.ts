@@ -204,9 +204,9 @@ const displaysRouter = createDisplaysRouter({
     displayGroupRepository: container.repositories.displayGroupRepository,
     displayPairingCodeRepository:
       container.repositories.displayPairingCodeRepository,
+    displayPairingSessionRepository:
+      container.repositories.displayPairingSessionRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
-    displayStateTransitionRepository:
-      container.repositories.displayStateTransitionRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
   },
   storage: container.storage.contentStorage,
@@ -219,9 +219,6 @@ const displayRouter = createDisplayRouter({
   authSecurityStore,
   rateLimits: {
     windowSeconds: env.DISPLAY_RUNTIME_RATE_LIMIT_WINDOW_SECONDS,
-    registrationSessionsMaxAttempts:
-      env.DISPLAY_RUNTIME_REGISTRATION_SESSION_MAX_ATTEMPTS,
-    registrationMaxAttempts: env.DISPLAY_RUNTIME_REGISTRATION_MAX_ATTEMPTS,
     authChallengeMaxAttempts: env.DISPLAY_RUNTIME_AUTH_CHALLENGE_MAX_ATTEMPTS,
     authVerifyMaxAttempts: env.DISPLAY_RUNTIME_AUTH_VERIFY_MAX_ATTEMPTS,
   },
@@ -231,15 +228,9 @@ const displayRouter = createDisplayRouter({
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,
-    displayPairingCodeRepository:
-      container.repositories.displayPairingCodeRepository,
-    displayPairingSessionRepository:
-      container.repositories.displayPairingSessionRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
     displayAuthNonceRepository:
       container.repositories.displayAuthNonceRepository,
-    displayStateTransitionRepository:
-      container.repositories.displayStateTransitionRepository,
   },
   storage: container.storage.contentStorage,
 });

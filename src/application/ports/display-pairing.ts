@@ -18,4 +18,5 @@ export interface DisplayPairingCodeRepository {
     codeHash: string;
     now: Date;
   }): Promise<DisplayPairingCodeRecord | null>;
+  invalidateById?(input: { id: string; now: Date }): Promise<void>;
 }

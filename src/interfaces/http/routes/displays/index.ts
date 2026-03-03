@@ -20,6 +20,7 @@ export const createDisplaysRouter = (deps: DisplaysRouterDeps) => {
     router,
     useCases,
     authorize,
+    deps,
   });
 
   return router;

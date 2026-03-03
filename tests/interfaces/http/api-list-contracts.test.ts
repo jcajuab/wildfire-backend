@@ -110,6 +110,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
         },
       ) => null,
       bumpRefreshNonce: async (_id: string) => false,
+      delete: async (_id: string) => false,
     },
     scheduleRepository: {
       list: async () => [],
@@ -239,6 +240,24 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       },
       consumeValidCode: async (_input: { codeHash: string; now: Date }) => null,
     },
+    displayPairingSessionRepository: {
+      create: async (_input: {
+        pairingCodeId: string;
+        challengeNonce: string;
+        challengeExpiresAt: Date;
+      }) => ({
+        id: "session-1",
+        pairingCodeId: "pairing-1",
+        state: "open" as const,
+        challengeNonce: "nonce-1",
+        challengeExpiresAt: "2099-01-01T00:00:00.000Z",
+        completedAt: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      }),
+      findOpenById: async (_input: { id: string; now: Date }) => null,
+      complete: async (_id: string, _completedAt: Date) => {},
+    },
     displayKeyRepository: {
       create: async (_input: {
         displayId: string;
@@ -257,26 +276,6 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       findActiveByKeyId: async (_keyId: string) => null,
       findActiveByDisplayId: async (_displayId: string) => null,
       revokeByDisplayId: async (_displayId: string, _at: Date) => {},
-    },
-    displayStateTransitionRepository: {
-      create: async (_input: {
-        displayId: string;
-        fromState: "unpaired" | "registered" | "active" | "unregistered";
-        toState: "unpaired" | "registered" | "active" | "unregistered";
-        reason: string;
-        actorType: "staff" | "display" | "system";
-        actorId?: string | null;
-        createdAt: Date;
-      }) => ({
-        id: "transition-1",
-        displayId: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-        fromState: "active" as const,
-        toState: "unregistered" as const,
-        reason: "contract_test",
-        actorType: "system" as const,
-        actorId: null,
-        createdAt: "2025-01-01T00:00:00.000Z",
-      }),
     },
     systemSettingRepository: {
       findByKey: async (_key: string) => null,

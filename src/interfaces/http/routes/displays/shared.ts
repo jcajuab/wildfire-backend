@@ -6,7 +6,7 @@ import {
 } from "#/application/ports/content";
 import {
   type DisplayKeyRepository,
-  type DisplayStateTransitionRepository,
+  type DisplayPairingSessionRepository,
 } from "#/application/ports/display-auth";
 import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import {
@@ -21,7 +21,6 @@ import {
   CreateDisplayGroupUseCase,
   DeleteDisplayGroupUseCase,
   GetDisplayUseCase,
-  IssueDisplayPairingCodeUseCase,
   ListDisplayGroupsUseCase,
   ListDisplaysUseCase,
   RequestDisplayRefreshUseCase,
@@ -31,6 +30,7 @@ import {
   UpdateDisplayUseCase,
 } from "#/application/use-cases/displays";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { publishAdminDisplayLifecycleEvent } from "./admin-lifecycle-events";
 import { publishDisplayStreamEvent } from "./stream";
 
 export interface DisplaysRouterDeps {
@@ -48,8 +48,8 @@ export interface DisplaysRouterDeps {
     authorizationRepository: AuthorizationRepository;
     displayGroupRepository: DisplayGroupRepository;
     displayPairingCodeRepository: DisplayPairingCodeRepository;
+    displayPairingSessionRepository: DisplayPairingSessionRepository;
     displayKeyRepository: DisplayKeyRepository;
-    displayStateTransitionRepository: DisplayStateTransitionRepository;
     systemSettingRepository: SystemSettingRepository;
   };
   storage: ContentStorage;
@@ -59,7 +59,6 @@ export interface DisplaysRouterUseCases {
   listDisplays: ListDisplaysUseCase;
   getDisplay: GetDisplayUseCase;
   updateDisplay: UpdateDisplayUseCase;
-  issuePairingCode: IssueDisplayPairingCodeUseCase;
   listDisplayGroups: ListDisplayGroupsUseCase;
   createDisplayGroup: CreateDisplayGroupUseCase;
   updateDisplayGroup: UpdateDisplayGroupUseCase;
@@ -119,12 +118,16 @@ export const createDisplaysUseCases = (
     unregisterDisplay: new UnregisterDisplayUseCase({
       displayRepository: deps.repositories.displayRepository,
       displayKeyRepository: deps.repositories.displayKeyRepository,
-      displayStateTransitionRepository:
-        deps.repositories.displayStateTransitionRepository,
-    }),
-    issuePairingCode: new IssueDisplayPairingCodeUseCase({
-      displayPairingCodeRepository:
-        deps.repositories.displayPairingCodeRepository,
+      lifecycleEventPublisher: {
+        publish(input) {
+          publishAdminDisplayLifecycleEvent({
+            type: input.type,
+            displayId: input.displayId,
+            displaySlug: input.displaySlug,
+            occurredAt: input.occurredAt,
+          });
+        },
+      },
     }),
     listDisplayGroups: new ListDisplayGroupsUseCase({
       displayGroupRepository: deps.repositories.displayGroupRepository,

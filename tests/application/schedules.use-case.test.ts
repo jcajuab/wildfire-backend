@@ -156,6 +156,7 @@ const makeDeps = () => {
     },
     update: async () => null,
     bumpRefreshNonce: async () => false,
+    delete: async (_id: string) => false,
   };
 
   return {
@@ -266,6 +267,7 @@ describe("Schedules use cases", () => {
         },
         update: async () => null,
         bumpRefreshNonce: async () => false,
+        delete: async (_id: string) => false,
       },
     });
 

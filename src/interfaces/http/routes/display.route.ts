@@ -6,10 +6,8 @@ import {
   timingSafeEqual,
   verify,
 } from "node:crypto";
-import { and, eq, gt } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { ValidationError } from "#/application/errors/validation";
 import {
   type ContentRepository,
   type ContentStorage,
@@ -17,26 +15,15 @@ import {
 import {
   type DisplayAuthNonceRepository,
   type DisplayKeyRepository,
-  type DisplayPairingSessionRepository,
-  type DisplayRegistrationState,
-  type DisplayStateTransitionRepository,
 } from "#/application/ports/display-auth";
-import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type SystemSettingRepository } from "#/application/ports/settings";
 import { GetDisplayManifestUseCase } from "#/application/use-cases/displays";
-import { resolveRuntimeRegistrationDecision } from "#/domain/displays/runtime-registration";
-import { db } from "#/infrastructure/db/client";
-import { displays } from "#/infrastructure/db/schema/display.sql";
-import { displayKeys } from "#/infrastructure/db/schema/display-key.sql";
-import { displayPairingSessions } from "#/infrastructure/db/schema/display-pairing-session.sql";
-import { displayStateTransitions } from "#/infrastructure/db/schema/display-state-transition.sql";
 import { logger } from "#/infrastructure/observability/logger";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
-  conflict,
   notFound,
   type ResponseContext,
   tooManyRequests,
@@ -49,7 +36,6 @@ import {
 } from "#/interfaces/http/routes/displays/stream";
 import {
   applicationErrorMappers,
-  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { type InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
@@ -58,32 +44,10 @@ import {
   validateParams,
 } from "#/interfaces/http/validators/standard-validator";
 
-const PAIRING_SESSION_TTL_MS = 10 * 60 * 1000;
 const CHALLENGE_TTL_MS = 2 * 60 * 1000;
 const SIGNED_REQUEST_SKEW_MS = 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
 const STREAM_HEARTBEAT_INTERVAL_MS = 20 * 1000;
-
-const registrationSessionBodySchema = z.object({
-  registrationCode: z.string().regex(/^\d{6}$/),
-});
-
-const displayRegistrationBodySchema = z.object({
-  registrationSessionId: z.string().uuid(),
-  displaySlug: z
-    .string()
-    .min(3)
-    .max(120)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  displayName: z.string().min(1).max(255),
-  resolutionWidth: z.number().int().positive(),
-  resolutionHeight: z.number().int().positive(),
-  displayOutput: z.string().min(1).max(64),
-  displayFingerprint: z.string().min(16).max(255),
-  publicKey: z.string().min(1).max(4096),
-  keyAlgorithm: z.literal("ed25519"),
-  registrationSignature: z.string().min(1),
-});
 
 const createChallengeBodySchema = z.object({
   displaySlug: z
@@ -116,32 +80,6 @@ const challengeTokenParamSchema = z.object({
   challengeToken: z.string().min(1),
 });
 
-class DisplayConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "DisplayConflictError";
-  }
-}
-
-const isDuplicateIndexError = (error: unknown, indexName: string): boolean => {
-  if (!(error instanceof Error)) return false;
-  const dbError = error as {
-    code?: string;
-    message?: string;
-    sqlMessage?: string;
-  };
-  const details = [dbError.message, dbError.sqlMessage]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .toLowerCase();
-  return (
-    dbError.code === "ER_DUP_ENTRY" && details.includes(indexName.toLowerCase())
-  );
-};
-
-const hashPairingCode = (code: string): string =>
-  createHash("sha256").update(code).digest("hex");
-
 const toBase64Url = (value: string | Uint8Array): string =>
   Buffer.from(value)
     .toString("base64")
@@ -165,24 +103,6 @@ const safeCompare = (a: string, b: string): boolean => {
   }
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 };
-
-const buildRegistrationPayload = (input: {
-  registrationSessionId: string;
-  challengeNonce: string;
-  displaySlug: string;
-  displayOutput: string;
-  displayFingerprint: string;
-  publicKey: string;
-}): string =>
-  [
-    "REGISTRATION",
-    input.registrationSessionId,
-    input.challengeNonce,
-    input.displaySlug,
-    input.displayOutput,
-    input.displayFingerprint,
-    input.publicKey,
-  ].join("\n");
 
 const buildChallengeSigningPayload = (input: {
   challengeToken: string;
@@ -319,8 +239,6 @@ type DisplayRouteDeps = {
   authSecurityStore: InMemoryAuthSecurityStore;
   rateLimits: {
     windowSeconds: number;
-    registrationSessionsMaxAttempts: number;
-    registrationMaxAttempts: number;
     authChallengeMaxAttempts: number;
     authVerifyMaxAttempts: number;
   };
@@ -330,11 +248,8 @@ type DisplayRouteDeps = {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     systemSettingRepository: SystemSettingRepository;
-    displayPairingCodeRepository: DisplayPairingCodeRepository;
-    displayPairingSessionRepository: DisplayPairingSessionRepository;
     displayKeyRepository: DisplayKeyRepository;
     displayAuthNonceRepository: DisplayAuthNonceRepository;
-    displayStateTransitionRepository: DisplayStateTransitionRepository;
   };
   storage: ContentStorage;
 };
@@ -446,9 +361,6 @@ const signedDisplayRequest = (deps: DisplayRouteDeps) => {
     if (!display) {
       return notFound(c, "Display not found");
     }
-    if (display.registrationState !== "active") {
-      return unauthorized(c, "Display is not active");
-    }
 
     const activeKey =
       await deps.repositories.displayKeyRepository.findActiveByKeyId(keyId);
@@ -515,313 +427,6 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   });
 
   router.post(
-    "/registration-sessions",
-    setAction("display.registration.session.create", {
-      route: "/display-runtime/registration-sessions",
-      actorType: "display",
-      resourceType: "display",
-    }),
-    createRuntimeRateLimitMiddleware(deps, {
-      keyPrefix: "display-runtime-registration-sessions",
-      maxAttempts: deps.rateLimits.registrationSessionsMaxAttempts,
-      message: "Too many registration session requests. Try again later.",
-    }),
-    validateJson(registrationSessionBodySchema),
-    withRouteErrorHandling(
-      async (c) => {
-        const payload = c.req.valid("json");
-        const consumed =
-          await deps.repositories.displayPairingCodeRepository.consumeValidCode(
-            {
-              codeHash: hashPairingCode(payload.registrationCode),
-              now: new Date(),
-            },
-          );
-        if (!consumed) {
-          throw new ValidationError(
-            "Registration code is invalid, expired, or already used",
-          );
-        }
-
-        const expiresAt = new Date(Date.now() + PAIRING_SESSION_TTL_MS);
-        const session =
-          await deps.repositories.displayPairingSessionRepository.create({
-            pairingCodeId: consumed.id,
-            challengeNonce: randomUUID(),
-            challengeExpiresAt: expiresAt,
-          });
-
-        return c.json(
-          {
-            registrationSessionId: session.id,
-            expiresAt: session.challengeExpiresAt,
-            challengeNonce: session.challengeNonce,
-            constraints: {
-              displaySlugPattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-              minSlugLength: 3,
-              maxSlugLength: 120,
-            },
-          },
-          201,
-        );
-      },
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.post(
-    "/registrations",
-    setAction("display.registration.create", {
-      route: "/display-runtime/registrations",
-      actorType: "display",
-      resourceType: "display",
-    }),
-    createRuntimeRateLimitMiddleware(deps, {
-      keyPrefix: "display-runtime-registrations",
-      maxAttempts: deps.rateLimits.registrationMaxAttempts,
-      message: "Too many registration requests. Try again later.",
-    }),
-    validateJson(displayRegistrationBodySchema),
-    withRouteErrorHandling(
-      async (c) => {
-        const payload = c.req.valid("json");
-        const now = new Date();
-        const session =
-          await deps.repositories.displayPairingSessionRepository.findOpenById({
-            id: payload.registrationSessionId,
-            now,
-          });
-        if (!session) {
-          throw new ValidationError(
-            "Registration session is invalid or expired",
-          );
-        }
-
-        const registrationPayload = buildRegistrationPayload({
-          registrationSessionId: session.id,
-          challengeNonce: session.challengeNonce,
-          displaySlug: payload.displaySlug,
-          displayOutput: payload.displayOutput,
-          displayFingerprint: payload.displayFingerprint,
-          publicKey: payload.publicKey,
-        });
-
-        const isRegistrationSignatureValid = verifyEd25519Signature({
-          publicKeyPem: payload.publicKey,
-          payload: registrationPayload,
-          signatureBase64Url: payload.registrationSignature,
-        });
-        if (!isRegistrationSignatureValid) {
-          return unauthorized(c, "Registration signature is invalid");
-        }
-
-        const findBySlug = deps.repositories.displayRepository.findBySlug?.bind(
-          deps.repositories.displayRepository,
-        );
-        if (!findBySlug) {
-          throw new Error("Display repository does not support slug lookup");
-        }
-        const findByFingerprintAndOutput =
-          deps.repositories.displayRepository.findByFingerprintAndOutput?.bind(
-            deps.repositories.displayRepository,
-          );
-        if (!findByFingerprintAndOutput) {
-          throw new Error(
-            "Display repository does not support fingerprint/output lookup",
-          );
-        }
-
-        const normalizedOutput = payload.displayOutput.trim().toLowerCase();
-        if (normalizedOutput.length === 0) {
-          throw new ValidationError("Display output is required");
-        }
-
-        const [existingSlug, existingFingerprintOutput] = await Promise.all([
-          findBySlug(payload.displaySlug),
-          findByFingerprintAndOutput(
-            payload.displayFingerprint,
-            normalizedOutput,
-          ),
-        ]);
-
-        const registrationDecision = resolveRuntimeRegistrationDecision({
-          existingBySlug: existingSlug
-            ? {
-                id: existingSlug.id,
-                registrationState: existingSlug.registrationState,
-                displayOutput: existingSlug.displayOutput,
-              }
-            : null,
-          existingByFingerprintAndOutput: existingFingerprintOutput
-            ? {
-                id: existingFingerprintOutput.id,
-                registrationState: existingFingerprintOutput.registrationState,
-                displayOutput: existingFingerprintOutput.displayOutput,
-              }
-            : null,
-          requestedOutput: normalizedOutput,
-        });
-        if (registrationDecision.kind === "conflict") {
-          throw new DisplayConflictError(registrationDecision.message);
-        }
-
-        const fromState: DisplayRegistrationState =
-          registrationDecision.fromState;
-
-        let registered: {
-          displayId: string;
-          displaySlug: string;
-          keyId: string;
-          state: "registered";
-        } | null = null;
-        try {
-          registered = await db.transaction(async (tx) => {
-            const openSession = await tx
-              .select()
-              .from(displayPairingSessions)
-              .where(
-                and(
-                  eq(displayPairingSessions.id, session.id),
-                  eq(displayPairingSessions.state, "open"),
-                  gt(displayPairingSessions.challengeExpiresAt, now),
-                ),
-              )
-              .limit(1);
-            if (!openSession[0]) {
-              throw new ValidationError(
-                "Registration session is invalid or expired",
-              );
-            }
-
-            let displayId: string;
-            let keyId: string;
-            if (registrationDecision.kind === "create") {
-              displayId = randomUUID();
-              keyId = randomUUID();
-              await tx.insert(displays).values({
-                id: displayId,
-                displaySlug: payload.displaySlug,
-                name: payload.displayName,
-                displayFingerprint: payload.displayFingerprint,
-                registrationState: "registered",
-                screenWidth: payload.resolutionWidth,
-                screenHeight: payload.resolutionHeight,
-                displayOutput: normalizedOutput,
-                registeredAt: now,
-                createdAt: now,
-                updatedAt: now,
-              });
-              await tx.insert(displayKeys).values({
-                id: keyId,
-                displayId,
-                algorithm: "ed25519",
-                publicKey: payload.publicKey,
-                status: "active",
-                createdAt: now,
-                updatedAt: now,
-              });
-            } else {
-              displayId = registrationDecision.displayId;
-              await tx
-                .update(displays)
-                .set({
-                  displaySlug: payload.displaySlug,
-                  name: payload.displayName,
-                  displayFingerprint: payload.displayFingerprint,
-                  registrationState: "registered",
-                  screenWidth: payload.resolutionWidth,
-                  screenHeight: payload.resolutionHeight,
-                  displayOutput: normalizedOutput,
-                  registeredAt: now,
-                  activatedAt: null,
-                  unregisteredAt: null,
-                  updatedAt: now,
-                })
-                .where(eq(displays.id, displayId));
-
-              const existingKey = await tx
-                .select()
-                .from(displayKeys)
-                .where(eq(displayKeys.displayId, displayId))
-                .limit(1);
-
-              if (existingKey[0]) {
-                keyId = existingKey[0].id;
-                await tx
-                  .update(displayKeys)
-                  .set({
-                    algorithm: "ed25519",
-                    publicKey: payload.publicKey,
-                    status: "active",
-                    revokedAt: null,
-                    updatedAt: now,
-                  })
-                  .where(eq(displayKeys.id, keyId));
-              } else {
-                keyId = randomUUID();
-                await tx.insert(displayKeys).values({
-                  id: keyId,
-                  displayId,
-                  algorithm: "ed25519",
-                  publicKey: payload.publicKey,
-                  status: "active",
-                  createdAt: now,
-                  updatedAt: now,
-                });
-              }
-            }
-
-            await tx
-              .update(displayPairingSessions)
-              .set({ state: "completed", completedAt: now, updatedAt: now })
-              .where(eq(displayPairingSessions.id, session.id));
-            await tx.insert(displayStateTransitions).values({
-              id: randomUUID(),
-              displayId,
-              fromState,
-              toState: "registered",
-              reason: "registration_completed",
-              actorType: "display",
-              actorId: displayId,
-              createdAt: now,
-            });
-
-            return {
-              displayId,
-              displaySlug: payload.displaySlug,
-              keyId,
-              state: "registered" as const,
-            };
-          });
-        } catch (error) {
-          if (
-            isDuplicateIndexError(error, "displays_display_slug_unique") ||
-            isDuplicateIndexError(
-              error,
-              "displays_fingerprint_output_unique",
-            ) ||
-            isDuplicateIndexError(error, "display_keys_display_id_unique") ||
-            isDuplicateIndexError(error, "display_keys_id_unique")
-          ) {
-            throw new DisplayConflictError(
-              "Display slug, fingerprint/output, or key already exists",
-            );
-          }
-          throw error;
-        }
-
-        if (!registered) {
-          throw new Error("Display registration did not produce a result");
-        }
-
-        return c.json(registered, 201);
-      },
-      mapErrorToResponse(DisplayConflictError, conflict),
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.post(
     "/auth/challenges",
     setAction("display.auth.challenge.create", {
       route: "/display-runtime/auth/challenges",
@@ -846,9 +451,6 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         const display = await findBySlug(payload.displaySlug);
         if (!display) {
           return notFound(c, "Display not found");
-        }
-        if (display.registrationState === "unregistered") {
-          return unauthorized(c, "Display is unregistered");
         }
         const key =
           await deps.repositories.displayKeyRepository.findActiveByKeyId(
@@ -927,9 +529,6 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         if (!display) {
           return notFound(c, "Display not found");
         }
-        if (display.registrationState === "unregistered") {
-          return unauthorized(c, "Display is unregistered");
-        }
 
         const key =
           await deps.repositories.displayKeyRepository.findActiveByKeyId(
@@ -951,23 +550,6 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         });
         if (!valid) {
           return unauthorized(c, "Challenge signature is invalid");
-        }
-
-        if (display.registrationState === "registered") {
-          await deps.repositories.displayRepository.setRegistrationState?.({
-            id: display.id,
-            state: "active",
-            at: new Date(),
-          });
-          await deps.repositories.displayStateTransitionRepository.create({
-            displayId: display.id,
-            fromState: "registered",
-            toState: "active",
-            reason: "challenge_verified",
-            actorType: "display",
-            actorId: display.id,
-            createdAt: new Date(),
-          });
         }
 
         return c.body(null, 204);

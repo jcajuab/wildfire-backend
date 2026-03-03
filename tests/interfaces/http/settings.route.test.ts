@@ -56,6 +56,7 @@ const makeApp = async (permissions: string[]) => {
         },
         update: async () => null,
         bumpRefreshNonce: async () => false,
+        delete: async (_id: string) => false,
       },
     },
   });

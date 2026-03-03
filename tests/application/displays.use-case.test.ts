@@ -78,6 +78,7 @@ const makeRepository = () => {
       record.refreshNonce = (record.refreshNonce ?? 0) + 1;
       return true;
     },
+    delete: async (_id: string) => false,
   };
 
   return { repo, records };

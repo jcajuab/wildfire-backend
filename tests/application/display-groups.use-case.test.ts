@@ -28,6 +28,7 @@ const makeDisplayRepository = (
   },
   update: async () => null,
   bumpRefreshNonce: async () => false,
+  delete: async (_id: string) => false,
 });
 
 const makeDisplayGroupRepository = (

@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
-import {
-  type DisplayRegistrationState,
-  type DisplayStateTransitionRecord,
-} from "#/application/ports/display-auth";
 import { type DisplayRecord } from "#/application/ports/displays";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
@@ -88,7 +84,16 @@ const makeApp = async (
     createdAt: string;
     updatedAt: string;
   }>;
-  const stateTransitions: DisplayStateTransitionRecord[] = [];
+  const pairingSessions = [] as Array<{
+    id: string;
+    pairingCodeId: string;
+    state: "open" | "completed" | "aborted" | "expired";
+    challengeNonce: string;
+    challengeExpiresAt: string;
+    completedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   const revokedDisplayIds: string[] = [];
   const setDisplayGroupsCalls: Array<{
     displayId: string;
@@ -218,19 +223,6 @@ const makeApp = async (
       record.updatedAt = "2025-01-02T00:00:00.000Z";
       return { ...record };
     },
-    setRegistrationState: async (input: {
-      id: string;
-      state: DisplayRegistrationState;
-      at: Date;
-    }) => {
-      const record = displays.find((display) => display.id === input.id);
-      if (!record) return;
-      record.registrationState = input.state;
-      if (input.state === "unregistered") {
-        record.unregisteredAt = input.at.toISOString();
-      }
-      record.updatedAt = input.at.toISOString();
-    },
     bumpRefreshNonce: async (id: string) => {
       const record = displays.find((display) => display.id === id);
       if (!record) return false;
@@ -241,6 +233,14 @@ const makeApp = async (
       const record = displays.find((display) => display.id === id);
       if (!record) return;
       record.lastSeenAt = at.toISOString();
+    },
+    delete: async (id: string) => {
+      const index = displays.findIndex((display) => display.id === id);
+      if (index === -1) {
+        return false;
+      }
+      displays.splice(index, 1);
+      return true;
     },
   };
 
@@ -321,6 +321,54 @@ const makeApp = async (
       };
     },
     consumeValidCode: async () => null,
+    invalidateById: async (input: { id: string; now: Date }) => {
+      const record = pairingCodes.find(
+        (candidate) => candidate.id === input.id,
+      );
+      if (!record) {
+        return;
+      }
+      record.usedAt = input.now;
+      record.updatedAt = input.now;
+    },
+  };
+
+  const displayPairingSessionRepository = {
+    create: async (input: {
+      pairingCodeId: string;
+      challengeNonce: string;
+      challengeExpiresAt: Date;
+    }) => {
+      const now = new Date().toISOString();
+      const record = {
+        id: crypto.randomUUID(),
+        pairingCodeId: input.pairingCodeId,
+        state: "open" as const,
+        challengeNonce: input.challengeNonce,
+        challengeExpiresAt: input.challengeExpiresAt.toISOString(),
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      pairingSessions.push(record);
+      return record;
+    },
+    findOpenById: async (input: { id: string; now: Date }) =>
+      pairingSessions.find(
+        (session) =>
+          session.id === input.id &&
+          session.state === "open" &&
+          Date.parse(session.challengeExpiresAt) > input.now.getTime(),
+      ) ?? null,
+    complete: async (id: string, completedAt: Date) => {
+      const record = pairingSessions.find((session) => session.id === id);
+      if (!record) {
+        return;
+      }
+      record.state = "completed";
+      record.completedAt = completedAt.toISOString();
+      record.updatedAt = completedAt.toISOString();
+    },
   };
 
   const displayKeyRepository = {
@@ -359,31 +407,6 @@ const makeApp = async (
           key.updatedAt = at.toISOString();
         }
       }
-    },
-  };
-
-  const displayStateTransitionRepository = {
-    create: async (input: {
-      displayId: string;
-      fromState: DisplayRegistrationState;
-      toState: DisplayRegistrationState;
-      reason: string;
-      actorType: "staff" | "display" | "system";
-      actorId?: string | null;
-      createdAt: Date;
-    }) => {
-      const record: DisplayStateTransitionRecord = {
-        id: crypto.randomUUID(),
-        displayId: input.displayId,
-        fromState: input.fromState,
-        toState: input.toState,
-        reason: input.reason,
-        actorType: input.actorType,
-        actorId: input.actorId ?? null,
-        createdAt: input.createdAt.toISOString(),
-      };
-      stateTransitions.push(record);
-      return record;
     },
   };
 
@@ -450,8 +473,8 @@ const makeApp = async (
       authorizationRepository,
       displayGroupRepository,
       displayPairingCodeRepository,
+      displayPairingSessionRepository,
       displayKeyRepository,
-      displayStateTransitionRepository,
       systemSettingRepository: {
         findByKey: async () => null,
         upsert: async (input: { key: string; value: string }) => ({
@@ -488,31 +511,37 @@ const makeApp = async (
     displays,
     setDisplayGroupsCalls,
     revokedDisplayIds,
-    stateTransitions,
   };
 };
 
 describe("Displays routes", () => {
-  test("POST /displays/registration-codes issues code with displays:create permission", async () => {
-    const { app, issueToken } = await makeApp(["displays:create"]);
+  test("POST /displays/registration-attempts issues code with displays:register permission", async () => {
+    const { app, issueToken } = await makeApp(["displays:register"]);
     const token = await issueToken();
 
-    const response = await app.request("/displays/registration-codes", {
+    const response = await app.request("/displays/registration-attempts", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    expect(response.status).toBe(200);
-    const json = await parseJson<{ code: string; expiresAt: string }>(response);
+    expect(response.status).toBe(201);
+    const json = await parseJson<{
+      attemptId: string;
+      code: string;
+      expiresAt: string;
+    }>(response);
+    expect(json.attemptId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
     expect(json.code).toMatch(/^\d{6}$/);
     expect(Date.parse(json.expiresAt)).toBeGreaterThan(Date.now());
   });
 
-  test("POST /displays/registration-codes returns 403 without displays:create", async () => {
+  test("POST /displays/registration-attempts returns 403 without displays:register", async () => {
     const { app, issueToken } = await makeApp(["displays:read"]);
     const token = await issueToken();
 
-    const response = await app.request("/displays/registration-codes", {
+    const response = await app.request("/displays/registration-attempts", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -623,11 +652,13 @@ describe("Displays routes", () => {
     expect(displays[0]?.refreshNonce).toBe(1);
   });
 
-  test("POST /displays/:id/unregister revokes key and records transition", async () => {
-    const { app, issueToken, revokedDisplayIds, stateTransitions } =
-      await makeApp(["displays:update"], {
+  test("POST /displays/:id/unregister revokes key and deletes display", async () => {
+    const { app, issueToken, revokedDisplayIds, displays } = await makeApp(
+      ["displays:update"],
+      {
         displays: [makeDisplay({ registrationState: "active" })],
-      });
+      },
+    );
     const token = await issueToken();
 
     const response = await app.request(`/displays/${displayId}/unregister`, {
@@ -637,10 +668,7 @@ describe("Displays routes", () => {
 
     expect(response.status).toBe(204);
     expect(revokedDisplayIds).toEqual([displayId]);
-    expect(stateTransitions).toHaveLength(1);
-    expect(stateTransitions[0]?.displayId).toBe(displayId);
-    expect(stateTransitions[0]?.fromState).toBe("active");
-    expect(stateTransitions[0]?.toState).toBe("unregistered");
+    expect(displays).toHaveLength(0);
   });
 
   test("PUT /displays/:id/groups deduplicates duplicate group ids", async () => {

@@ -4,10 +4,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import {
-  type DisplayKeyRepository,
-  type DisplayStateTransitionRepository,
-} from "#/application/ports/display-auth";
+import { type DisplayKeyRepository } from "#/application/ports/display-auth";
 import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
@@ -465,7 +462,14 @@ export class UnregisterDisplayUseCase {
     private readonly deps: {
       displayRepository: DisplayRepository;
       displayKeyRepository: DisplayKeyRepository;
-      displayStateTransitionRepository: DisplayStateTransitionRepository;
+      lifecycleEventPublisher?: {
+        publish(input: {
+          type: "display_unregistered";
+          displayId: string;
+          displaySlug: string;
+          occurredAt: string;
+        }): void;
+      };
     },
   ) {}
 
@@ -474,25 +478,15 @@ export class UnregisterDisplayUseCase {
     if (!display) {
       throw new NotFoundError("Display not found");
     }
-    if (display.registrationState === "unregistered") {
-      return;
-    }
 
     const now = new Date();
     await this.deps.displayKeyRepository.revokeByDisplayId(input.id, now);
-    await this.deps.displayRepository.setRegistrationState?.({
-      id: input.id,
-      state: "unregistered",
-      at: now,
-    });
-    await this.deps.displayStateTransitionRepository.create({
-      displayId: input.id,
-      fromState: display.registrationState ?? "active",
-      toState: "unregistered",
-      reason: "staff_unregistration",
-      actorType: "staff",
-      actorId: input.actorId,
-      createdAt: now,
+    await this.deps.displayRepository.delete(input.id);
+    this.deps.lifecycleEventPublisher?.publish({
+      type: "display_unregistered",
+      displayId: display.id,
+      displaySlug: display.displaySlug,
+      occurredAt: now.toISOString(),
     });
   }
 }

@@ -93,6 +93,7 @@ const mockDisplayRepository = {
   }),
   update: async () => null,
   bumpRefreshNonce: async () => false,
+  delete: async (_id: string) => false,
 };
 
 const makeApp = async (permissions: string[]) => {

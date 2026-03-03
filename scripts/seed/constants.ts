@@ -26,7 +26,7 @@ export const STANDARD_RESOURCE_ACTIONS: ReadonlyArray<{
   { resource: "schedules", action: "update" },
   { resource: "schedules", action: "delete" },
   { resource: "displays", action: "read" },
-  { resource: "displays", action: "create" },
+  { resource: "displays", action: "register" },
   { resource: "displays", action: "update" },
   { resource: "users", action: "read" },
   { resource: "users", action: "create" },

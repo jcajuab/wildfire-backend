@@ -474,6 +474,7 @@ describe("Playlists use cases", () => {
         },
         update: async () => null,
         bumpRefreshNonce: async () => false,
+        delete: async (_id: string) => false,
       },
     });
 
@@ -540,6 +541,7 @@ describe("Playlists use cases", () => {
       },
       update: async () => null,
       bumpRefreshNonce: async () => false,
+      delete: async (_id: string) => false,
     };
 
     const useCase = new DeletePlaylistUseCase({
@@ -623,6 +625,7 @@ describe("Playlists use cases", () => {
       },
       update: async () => null,
       bumpRefreshNonce: async () => false,
+      delete: async (_id: string) => false,
     };
 
     const useCase = new DeletePlaylistUseCase({
@@ -684,6 +687,7 @@ describe("Playlists use cases", () => {
       },
       update: async () => null,
       bumpRefreshNonce: async () => false,
+      delete: async (_id: string) => false,
     };
 
     const useCase = new DeletePlaylistUseCase({

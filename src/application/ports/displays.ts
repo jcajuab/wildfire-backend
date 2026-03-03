@@ -74,6 +74,7 @@ export interface DisplayRepository {
     state: DisplayRegistrationState;
     at: Date;
   }): Promise<void>;
+  delete(id: string): Promise<boolean>;
   touchSeen?(id: string, at: Date): Promise<void>;
   bumpRefreshNonce(id: string): Promise<boolean>;
 }

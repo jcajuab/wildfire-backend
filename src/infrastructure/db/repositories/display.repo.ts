@@ -333,4 +333,9 @@ export class DisplayDbRepository implements DisplayRepository {
       .set({ lastSeenAt: at, updatedAt: at })
       .where(eq(displays.id, id));
   }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await db.delete(displays).where(eq(displays.id, id));
+    return (result[0]?.affectedRows ?? 0) > 0;
+  }
 }
