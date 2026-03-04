@@ -9,20 +9,24 @@ describe("UpdateCurrentUserProfileUseCase", () => {
       list: async () => [],
       findById: async () => ({
         id: "user-1",
+        username: "test",
         email: "test@example.com",
         name: "Before",
         isActive: true,
       }),
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),
       update: async (_id, update) => ({
         id: "user-1",
+        username: "test",
         email: "test@example.com",
         name: update.name ?? "Before",
         timezone: update.timezone,
@@ -42,6 +46,7 @@ describe("UpdateCurrentUserProfileUseCase", () => {
 
     expect(result).toEqual({
       id: "user-1",
+      username: "test",
       email: "test@example.com",
       name: "After",
       timezone: "Asia/Taipei",
@@ -54,10 +59,12 @@ describe("UpdateCurrentUserProfileUseCase", () => {
       list: async () => [],
       findById: async () => null,
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),

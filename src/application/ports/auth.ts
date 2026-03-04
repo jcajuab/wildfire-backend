@@ -1,7 +1,7 @@
 export interface CredentialsRepository {
   findPasswordHash(username: string): Promise<string | null>;
-  updatePasswordHash(email: string, newPasswordHash: string): Promise<void>;
-  createPasswordHash?(email: string, passwordHash: string): Promise<void>;
+  updatePasswordHash(username: string, newPasswordHash: string): Promise<void>;
+  createPasswordHash?(username: string, passwordHash: string): Promise<void>;
 }
 
 export interface PasswordHasher {
@@ -18,6 +18,7 @@ export interface TokenIssuer {
     issuedAt: number;
     expiresAt: number;
     issuer?: string;
+    username?: string;
     email?: string;
     sessionId?: string;
   }): Promise<string>;

@@ -50,6 +50,7 @@ const expectCanonicalListMeta = (meta: {
 const makeIssueToken = () =>
   tokenIssuer.issueToken({
     subject: "user-1",
+    username: "admin",
     email: "admin@example.com",
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + 3600,
@@ -323,6 +324,7 @@ const makeContentListApp = async (permissions: string[]) => {
   const users = [
     {
       id: "11111111-1111-4111-8111-111111111111",
+      username: "admin",
       email: "admin@example.com",
       name: "Admin",
       isActive: true,
@@ -397,9 +399,11 @@ const makeContentListApp = async (permissions: string[]) => {
       findById: async (_id: string) => users[0] ?? null,
       findByIds: async (ids: string[]) =>
         users.filter((user) => ids.includes(user.id)),
+      findByUsername: async (_username: string) => users[0] ?? null,
       findByEmail: async (_email: string) => users[0] ?? null,
       create: async (_input: {
-        email: string;
+        username: string;
+        email?: string | null;
         name: string;
         isActive?: boolean;
       }) => {
@@ -408,7 +412,8 @@ const makeContentListApp = async (permissions: string[]) => {
       update: async (
         _id: string,
         _input: {
-          email?: string;
+          username?: string;
+          email?: string | null;
           name?: string;
           isActive?: boolean;
           avatarKey?: string | null;
@@ -473,6 +478,7 @@ const makeRbacListApp = async (permissions: string[]) => {
   const users = [
     {
       id: "11111111-1111-4111-8111-111111111111",
+      username: "admin",
       email: "admin@example.com",
       name: "Admin",
       isActive: true,
@@ -493,9 +499,11 @@ const makeRbacListApp = async (permissions: string[]) => {
       findById: async (_id: string) => users[0] ?? null,
       findByIds: async (ids: string[]) =>
         users.filter((user) => ids.includes(user.id)),
+      findByUsername: async (_username: string) => users[0] ?? null,
       findByEmail: async (_email: string) => users[0] ?? null,
       create: async (_input: {
-        email: string;
+        username: string;
+        email?: string | null;
         name: string;
         isActive?: boolean;
       }) => {
@@ -504,7 +512,8 @@ const makeRbacListApp = async (permissions: string[]) => {
       update: async (
         _id: string,
         _input: {
-          email?: string;
+          username?: string;
+          email?: string | null;
           name?: string;
           isActive?: boolean;
           avatarKey?: string | null;

@@ -3,8 +3,12 @@ import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
 
+const normalizeUsername = (username: string): string =>
+  username.trim().toLowerCase();
+
 const toRecord = (row: typeof users.$inferSelect): UserRecord => ({
   id: row.id,
+  username: row.username,
   email: row.email,
   name: row.name,
   isActive: row.isActive,
@@ -39,33 +43,49 @@ export class UserDbRepository implements UserRepository {
     return rows.map(toRecord);
   }
 
-  async findByEmail(email: string): Promise<UserRecord | null> {
+  async findByUsername(username: string): Promise<UserRecord | null> {
+    const normalized = normalizeUsername(username);
     const result = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(eq(users.username, normalized))
+      .limit(1);
+    return result[0] ? toRecord(result[0]) : null;
+  }
+
+  async findByEmail(email: string): Promise<UserRecord | null> {
+    const normalized = email.trim().toLowerCase();
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, normalized))
       .limit(1);
     return result[0] ? toRecord(result[0]) : null;
   }
 
   async create(input: {
-    email: string;
+    username: string;
+    email?: string | null;
     name: string;
     isActive?: boolean;
   }): Promise<UserRecord> {
     const id = crypto.randomUUID();
     const isActive = input.isActive ?? true;
+    const username = normalizeUsername(input.username);
+    const email = input.email?.trim().toLowerCase() ?? null;
 
     await db.insert(users).values({
       id,
-      email: input.email,
+      username,
+      email,
       name: input.name,
       isActive,
     });
 
     return {
       id,
-      email: input.email,
+      username,
+      email,
       name: input.name,
       isActive,
       timezone: null,
@@ -77,7 +97,8 @@ export class UserDbRepository implements UserRepository {
   async update(
     id: string,
     input: {
-      email?: string;
+      username?: string;
+      email?: string | null;
       name?: string;
       isActive?: boolean;
       timezone?: string | null;
@@ -89,7 +110,14 @@ export class UserDbRepository implements UserRepository {
     if (!existing) return null;
 
     const next = {
-      email: input.email ?? existing.email,
+      username:
+        input.username !== undefined
+          ? normalizeUsername(input.username)
+          : existing.username,
+      email:
+        input.email !== undefined
+          ? (input.email?.trim().toLowerCase() ?? null)
+          : existing.email,
       name: input.name ?? existing.name,
       isActive: input.isActive ?? existing.isActive,
       timezone:
@@ -103,6 +131,7 @@ export class UserDbRepository implements UserRepository {
     await db
       .update(users)
       .set({
+        username: next.username,
         email: next.email,
         name: next.name,
         isActive: next.isActive,

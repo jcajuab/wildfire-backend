@@ -3,7 +3,8 @@ type EnvOverrides = Record<string, string>;
 export const setTestEnv = (overrides: EnvOverrides = {}) => {
   Object.assign(process.env, {
     PORT: "3000",
-    ROOT_USER: "root@example.com",
+    ROOT_USERNAME: "root",
+    ROOT_EMAIL: "root@example.com",
     ROOT_PASSWORD: "root",
     MYSQL_ROOT_PASSWORD: "root",
     HTSHADOW_PATH: "/etc/htshadow",

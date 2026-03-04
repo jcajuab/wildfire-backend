@@ -4,24 +4,26 @@ import { resolveRootCredentials } from "./seed/root-credentials";
 import { buildSeedStages, runSeedStages } from "./seed/runner";
 
 const usage = [
-  "Usage: bun run db:seed -- [--root-user=user@example.com] [--root-password=<password>] [--dry-run]",
+  "Usage: bun run db:seed -- [--root-username=<username>] [--root-email=<email>] [--root-password=<password>] [--dry-run]",
   "",
   "Required:",
   "  Set root credentials from environment or CLI flags.",
   "",
   "Environment:",
-  "  ROOT_USER",
+  "  ROOT_USERNAME",
+  "  ROOT_EMAIL (optional)",
   "  ROOT_PASSWORD",
   "",
   "Flags:",
-  "  --root-user=<value>      Root account email.",
+  "  --root-username=<value>   Root account username.",
+  "  --root-email=<value>      Root account email (optional).",
   "  --root-password=<value>   Password for the root account in htshadow.",
   "  --dry-run                Show actions without writing DB/files.",
   "  --help, -h               Print this help and exit.",
   "",
   "Examples:",
   "  bun run db:seed",
-  "  bun run db:seed -- --root-user=admin@example.com --root-password=supersecret",
+  "  bun run db:seed -- --root-username=admin --root-email=admin@example.com --root-password=supersecret",
   "  bun run db:seed -- --dry-run",
 ].join("\n");
 
@@ -36,7 +38,8 @@ try {
   }
 
   const root = resolveRootCredentials({
-    rootUser: args.rootUser,
+    rootUsername: args.rootUsername,
+    rootEmail: args.rootEmail,
     rootPassword: args.rootPassword,
   });
   const { createSeedRuntimeContext } = await import("./seed/context");

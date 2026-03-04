@@ -1,6 +1,7 @@
 export interface SeedArgs {
   dryRun: boolean;
-  rootUser?: string;
+  rootUsername?: string;
+  rootEmail?: string;
   rootPassword?: string;
   help?: boolean;
 }
@@ -34,13 +35,21 @@ const parseFlagValue = (
   throw new Error(`Unknown flag: ${arg}`);
 };
 
+const assertUsername = (value: string): string => {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error("--root-username value must not be empty");
+  }
+  return normalized;
+};
+
 const assertEmail = (value: string): string => {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error("--root-user value must not be empty");
+    throw new Error("--root-email value must not be empty");
   }
   if (!normalized.includes("@")) {
-    throw new Error(`Invalid --root-user value: ${value}`);
+    throw new Error(`Invalid --root-email value: ${value}`);
   }
   return normalized;
 };
@@ -79,9 +88,16 @@ export function parseSeedArgs(argv: string[]): SeedArgs {
       continue;
     }
 
-    if (arg === "--root-user" || arg.startsWith("--root-user=")) {
-      const { value, consumed } = parseFlagValue(argv, i, "--root-user");
-      parsed.rootUser = assertEmail(value);
+    if (arg === "--root-username" || arg.startsWith("--root-username=")) {
+      const { value, consumed } = parseFlagValue(argv, i, "--root-username");
+      parsed.rootUsername = assertUsername(value);
+      i += consumed;
+      continue;
+    }
+
+    if (arg === "--root-email" || arg.startsWith("--root-email=")) {
+      const { value, consumed } = parseFlagValue(argv, i, "--root-email");
+      parsed.rootEmail = assertEmail(value);
       i += consumed;
       continue;
     }

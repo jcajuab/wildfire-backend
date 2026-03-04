@@ -124,19 +124,27 @@ const makeDeps = () => {
     list: async () => [],
     findById: async (id: string) =>
       id === "user-1"
-        ? { id, email: "user@example.com", name: "User", isActive: true }
+        ? {
+            id,
+            username: "user",
+            email: "user@example.com",
+            name: "User",
+            isActive: true,
+          }
         : null,
     findByIds: async (ids: string[]) =>
       ids.includes("user-1")
         ? [
             {
               id: "user-1",
+              username: "user",
               email: "user@example.com",
               name: "User",
               isActive: true,
             },
           ]
         : [],
+    findByUsername: async () => null,
     findByEmail: async () => null,
     create: async () => {
       throw new Error("not used");

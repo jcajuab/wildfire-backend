@@ -53,14 +53,22 @@ const mockUserRepository = {
       .filter((id) => id === "user-1")
       .map((id) => ({
         id,
+        username: "admin",
         email: "admin@example.com",
         name: "Admin User",
         isActive: true,
       })),
   list: async () => [],
   findById: async () => null,
+  findByUsername: async () => null,
   findByEmail: async () => null,
-  create: async () => ({ id: "", email: "", name: "", isActive: true }),
+  create: async () => ({
+    id: "",
+    username: "",
+    email: "",
+    name: "",
+    isActive: true,
+  }),
   update: async () => null,
   delete: async () => false,
 };
@@ -136,6 +144,7 @@ const makeApp = async (permissions: string[]) => {
   const issueToken = async () =>
     tokenIssuer.issueToken({
       subject: "user-1",
+      username: "admin",
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
@@ -288,6 +297,7 @@ describe("Audit routes", () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const token = await tokenIssuer.issueToken({
       subject: "user-1",
+      username: "admin",
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
@@ -342,6 +352,7 @@ describe("Audit routes", () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const token = await tokenIssuer.issueToken({
       subject: "user-1",
+      username: "admin",
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
@@ -397,6 +408,7 @@ describe("Audit routes", () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const token = await tokenIssuer.issueToken({
       subject: "user-1",
+      username: "admin",
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
@@ -441,6 +453,7 @@ describe("Audit routes", () => {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const token = await tokenIssuer.issueToken({
       subject: "user-1",
+      username: "admin",
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,

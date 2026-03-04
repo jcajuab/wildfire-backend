@@ -10,6 +10,7 @@ import {
 } from "#/application/ports/rbac";
 import {
   DuplicateEmailError,
+  DuplicateUsernameError,
   NotFoundError,
 } from "#/application/use-cases/rbac/errors";
 import { paginate } from "#/application/use-cases/shared/pagination";
@@ -58,12 +59,24 @@ export class ListUsersUseCase {
 export class CreateUserUseCase {
   constructor(private readonly deps: { userRepository: UserRepository }) {}
 
-  async execute(input: { email: string; name: string; isActive?: boolean }) {
-    const existing = await this.deps.userRepository.findByEmail(input.email);
-    if (existing) {
-      throw new DuplicateEmailError();
+  async execute(input: {
+    username: string;
+    email?: string | null;
+    name: string;
+    isActive?: boolean;
+  }) {
+    const existing = await this.deps.userRepository.findByUsername(
+      input.username,
+    );
+    if (existing) throw new DuplicateUsernameError();
+    if (input.email) {
+      const existingEmail = await this.deps.userRepository.findByEmail(
+        input.email,
+      );
+      if (existingEmail) throw new DuplicateEmailError();
     }
     return this.deps.userRepository.create({
+      username: input.username,
       email: input.email,
       name: input.name,
       isActive: input.isActive,
@@ -116,7 +129,8 @@ export class UpdateUserUseCase {
 
   async execute(input: {
     id: string;
-    email?: string;
+    username?: string;
+    email?: string | null;
     name?: string;
     isActive?: boolean;
     callerUserId?: string;
@@ -128,7 +142,25 @@ export class UpdateUserUseCase {
       "Cannot modify a Root user",
     );
 
+    if (input.username) {
+      const existingByUsername = await this.deps.userRepository.findByUsername(
+        input.username,
+      );
+      if (existingByUsername && existingByUsername.id !== input.id) {
+        throw new DuplicateUsernameError();
+      }
+    }
+    if (input.email) {
+      const existingByEmail = await this.deps.userRepository.findByEmail(
+        input.email,
+      );
+      if (existingByEmail && existingByEmail.id !== input.id) {
+        throw new DuplicateEmailError();
+      }
+    }
+
     const user = await this.deps.userRepository.update(input.id, {
+      username: input.username,
       email: input.email,
       name: input.name,
       isActive: input.isActive,

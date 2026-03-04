@@ -30,16 +30,19 @@ describe("RefreshSessionUseCase", () => {
         id === "user-1"
           ? {
               id: "user-1",
+              username: "test1",
               email: "test1@example.com",
               name: "Test One",
               isActive: true,
             }
           : null,
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "user-1",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),
@@ -75,6 +78,7 @@ describe("RefreshSessionUseCase", () => {
       ).toISOString(),
       user: {
         id: "user-1",
+        username: "test1",
         email: "test1@example.com",
         name: "Test One",
         timezone: null,
@@ -119,16 +123,19 @@ describe("RefreshSessionUseCase", () => {
         id === "user-1"
           ? {
               id: "user-1",
+              username: "test1",
               email: "test1@example.com",
               name: "Test One",
               isActive: true,
             }
           : null,
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "user-1",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),

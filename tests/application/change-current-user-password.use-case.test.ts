@@ -8,21 +8,24 @@ import { NotFoundError } from "#/application/use-cases/rbac/errors";
 
 describe("ChangeCurrentUserPasswordUseCase", () => {
   test("verifies current password and updates hash", async () => {
-    let updatedEmail: string | undefined;
+    let updatedUsername: string | undefined;
     let updatedHash: string | undefined;
     const repo: UserRepository = {
       list: async () => [],
       findById: async () => ({
         id: "user-1",
+        username: "test",
         email: "test@example.com",
         name: "Test",
         isActive: true,
       }),
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),
@@ -34,8 +37,8 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
       userRepository: repo,
       credentialsRepository: {
         findPasswordHash: async () => "old-hash",
-        updatePasswordHash: async (email, passwordHash) => {
-          updatedEmail = email;
+        updatePasswordHash: async (username, passwordHash) => {
+          updatedUsername = username;
           updatedHash = passwordHash;
         },
       },
@@ -53,7 +56,7 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
       newPassword: "new-password",
     });
 
-    expect(updatedEmail).toBe("test@example.com");
+    expect(updatedUsername).toBe("test");
     expect(updatedHash).toBe("new-hash");
   });
 
@@ -62,15 +65,18 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
       list: async () => [],
       findById: async () => ({
         id: "user-1",
+        username: "test",
         email: "test@example.com",
         name: "Test",
         isActive: true,
       }),
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),
@@ -106,10 +112,12 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
       list: async () => [],
       findById: async () => null,
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),

@@ -10,6 +10,8 @@ import {
   hashToken,
 } from "#/application/use-cases/auth/create-invitation.use-case";
 
+const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+
 const deriveNameFromEmail = (email: string): string => {
   const localPart = email.split("@")[0]?.trim();
   if (!localPart) return DEFAULT_INVITE_NAME;
@@ -29,6 +31,7 @@ export class AcceptInvitationUseCase {
   async execute(input: {
     token: string;
     password: string;
+    username: string;
     name?: string | null;
   }): Promise<void> {
     const now = new Date();
@@ -42,11 +45,21 @@ export class AcceptInvitationUseCase {
       throw new ValidationError("Invitation token is invalid or expired.");
     }
 
+    const username = normalizeUsername(input.username);
+    if (!username) {
+      throw new ValidationError("Username is required.");
+    }
+
     const existingUser = await this.deps.userRepository.findByEmail(
       invitation.email,
     );
     if (existingUser) {
       throw new ValidationError("A user with this email already exists.");
+    }
+    const existingByUsername =
+      await this.deps.userRepository.findByUsername(username);
+    if (existingByUsername) {
+      throw new ValidationError("A user with this username already exists.");
     }
 
     if (!this.deps.credentialsRepository.createPasswordHash) {
@@ -55,6 +68,7 @@ export class AcceptInvitationUseCase {
 
     const passwordHash = await this.deps.passwordHasher.hash(input.password);
     const createdUser = await this.deps.userRepository.create({
+      username,
       email: invitation.email,
       name:
         input.name?.trim() ||
@@ -64,7 +78,7 @@ export class AcceptInvitationUseCase {
     });
 
     await this.deps.credentialsRepository.createPasswordHash(
-      createdUser.email,
+      createdUser.username,
       passwordHash,
     );
     await this.deps.invitationRepository.markAccepted(invitation.id, now);

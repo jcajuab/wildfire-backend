@@ -124,6 +124,7 @@ const makeApp = async (
             ? null
             : {
                 id: "user-1",
+                username: "user",
                 email: "user@example.com",
                 name: "User",
                 isActive: true,
@@ -131,11 +132,13 @@ const makeApp = async (
         findByIds: async () => [
           {
             id: "user-1",
+            username: "user",
             email: "user@example.com",
             name: "User",
             isActive: true,
           },
         ],
+        findByUsername: async () => null,
         findByEmail: async () => null,
         create: async () => {
           throw new Error("not used");
@@ -218,6 +221,7 @@ const makeApp = async (
   const issueToken = async () =>
     tokenIssuer.issueToken({
       subject: "user-1",
+      username: "user",
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,

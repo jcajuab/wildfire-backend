@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const jwtPayloadSchema = z.object({
   sub: z.string().min(1),
+  username: z.string().min(1),
   email: z.string().email().optional(),
   iat: z.number().int().optional(),
   exp: z.number().int().optional(),

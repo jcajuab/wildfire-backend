@@ -68,6 +68,7 @@ function buildAppWithEditorUser(): {
     issueToken: async () =>
       tokenIssuer.issueToken({
         subject: userId,
+        username: "admin",
         issuedAt: nowSeconds,
         expiresAt: nowSeconds + 3600,
         issuer: undefined,
@@ -76,6 +77,7 @@ function buildAppWithEditorUser(): {
     issueTokenForEditor: async () =>
       tokenIssuer.issueToken({
         subject: userIdNoRoles,
+        username: "noroles",
         issuedAt: nowSeconds,
         expiresAt: nowSeconds + 3600,
         issuer: undefined,
@@ -88,7 +90,8 @@ const makeStore = () => {
   const store = {
     users: [] as Array<{
       id: string;
-      email: string;
+      username: string;
+      email: string | null;
       name: string;
       isActive: boolean;
       avatarKey?: string | null;
@@ -136,12 +139,14 @@ const makeStore = () => {
 
   store.users.push({
     id: userId,
+    username: "admin",
     email: "admin@example.com",
     name: "Admin",
     isActive: true,
   });
   store.users.push({
     id: userIdNoRoles,
+    username: "noroles",
     email: "noroles@example.com",
     name: "No Roles User",
     isActive: true,
@@ -168,16 +173,22 @@ const makeStore = () => {
         store.users.find((user) => user.id === id) ?? null,
       findByIds: async (ids: string[]) =>
         store.users.filter((user) => ids.includes(user.id)),
+      findByUsername: async (username: string) =>
+        store.users.find((user) => user.username === username) ?? null,
       findByEmail: async (email: string) =>
         store.users.find((user) => user.email === email) ?? null,
       create: async (data: {
-        email: string;
+        username: string;
+        email?: string | null;
         name: string;
         isActive: boolean;
       }) => {
         const user = {
           id: `user-${store.users.length + 1}`,
-          ...data,
+          username: data.username,
+          email: data.email ?? null,
+          name: data.name,
+          isActive: data.isActive,
         };
         store.users.push(user);
         return user;
@@ -185,7 +196,8 @@ const makeStore = () => {
       update: async (
         id: string,
         data: {
-          email?: string;
+          username?: string;
+          email?: string | null;
           name?: string;
           isActive?: boolean;
           avatarKey?: string | null;
@@ -571,6 +583,7 @@ const buildApp = (permissions?: string[]) => {
   const issueToken = async () =>
     tokenIssuer.issueToken({
       subject: userId,
+      username: "admin",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
       issuer: undefined,
@@ -610,6 +623,7 @@ function buildAppWithAvatarStorage(): {
   const issueToken = async () =>
     tokenIssuer.issueToken({
       subject: userId,
+      username: "admin",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
       issuer: undefined,
@@ -1128,7 +1142,7 @@ describe("RBAC routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      data: Array<{ email: string }>;
+      data: Array<{ username: string; email: string | null }>;
       meta: {
         total: number;
         page: number;
@@ -1137,6 +1151,7 @@ describe("RBAC routes", () => {
       };
     }>(response);
     expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0]?.username).toBe("admin");
     expect(body.data[0]?.email).toBe("admin@example.com");
   });
 
@@ -1152,7 +1167,8 @@ describe("RBAC routes", () => {
     const body = await parseJson<{
       data: Array<{
         id: string;
-        email: string;
+        username: string;
+        email: string | null;
         avatarUrl?: string;
         avatarKey?: string;
       }>;
@@ -1198,13 +1214,17 @@ describe("RBAC routes", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        username: "newuser",
         email: "new@example.com",
         name: "New User",
       }),
     });
 
     expect(response.status).toBe(201);
-    const body = await parseJson<{ email: string }>(response);
+    const body = await parseJson<{ username: string; email: string | null }>(
+      response,
+    );
+    expect(body.username).toBe("newuser");
     expect(body.email).toBe("new@example.com");
   });
 

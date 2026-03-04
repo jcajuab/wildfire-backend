@@ -17,7 +17,8 @@ export interface RefreshSessionResult {
   expiresAt: string;
   user: {
     id: string;
-    email: string;
+    username: string;
+    email: string | null;
     name: string;
     timezone?: string | null;
     avatarKey?: string | null;
@@ -86,7 +87,8 @@ export class RefreshSessionUseCase {
       issuedAt,
       expiresAt,
       issuer: this.deps.issuer,
-      email: user.email,
+      username: user.username,
+      email: user.email ?? undefined,
       sessionId,
     });
 
@@ -96,6 +98,7 @@ export class RefreshSessionUseCase {
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         timezone: user.timezone ?? null,

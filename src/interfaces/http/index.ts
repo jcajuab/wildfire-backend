@@ -36,6 +36,7 @@ import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
 import { createSettingsRouter } from "#/interfaces/http/routes/settings.route";
 import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
+import { runStartupAuthIdentitySync } from "#/interfaces/http/startup/auth-identity.sync";
 import packageJSON from "#/package.json" with { type: "json" };
 
 export const app = new Hono<{ Variables: RequestIdVariables }>();
@@ -61,6 +62,21 @@ const container = createHttpContainer({
     requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
   },
 });
+
+export const syncAuthIdentityOnStartup = () =>
+  runStartupAuthIdentitySync({
+    htshadowPath: env.HTSHADOW_PATH,
+    rootUsername: env.ROOT_USERNAME,
+    rootEmail: env.ROOT_EMAIL ?? null,
+    rootPassword: env.ROOT_PASSWORD,
+    repositories: {
+      userRepository: container.repositories.userRepository,
+      roleRepository: container.repositories.roleRepository,
+      permissionRepository: container.repositories.permissionRepository,
+      rolePermissionRepository: container.repositories.rolePermissionRepository,
+      userRoleRepository: container.repositories.userRoleRepository,
+    },
+  });
 
 startDisplayStatusReconciler({
   displayRepository: container.repositories.displayRepository,

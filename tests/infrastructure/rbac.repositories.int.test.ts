@@ -20,7 +20,8 @@ const setup = async () => {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS users (
       id varchar(36) PRIMARY KEY,
-      email varchar(255) NOT NULL,
+      username varchar(120) NOT NULL,
+      email varchar(255) NULL,
       name varchar(255) NOT NULL,
       is_active boolean NOT NULL DEFAULT true,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -75,10 +76,12 @@ describe("RBAC repositories (integration)", () => {
 
     const repo = new UserDbRepository();
     const created = await repo.create({
+      username: "user",
       email: "user@example.com",
       name: "User",
     });
 
+    expect(created.username).toBe("user");
     expect(created.email).toBe("user@example.com");
     expect(created.isActive).toBe(true);
 
@@ -149,6 +152,7 @@ describe("RBAC repositories (integration)", () => {
 
     await db.insert(schema.users).values({
       id: "user-1",
+      username: "user",
       email: "user@example.com",
       name: "User",
       isActive: true,
@@ -220,6 +224,7 @@ describe("RBAC repositories (integration)", () => {
     const rolePermissionRepo = new RolePermissionDbRepository();
 
     const user = await userRepo.create({
+      username: "user",
       email: "user@example.com",
       name: "User",
     });

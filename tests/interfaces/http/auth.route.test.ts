@@ -37,13 +37,13 @@ const DEACTIVATED_MESSAGE =
   "Your account is currently deactivated. Please contact your administrator.";
 
 const buildApp = (opts?: {
-  inactiveUserEmail?: string;
+  inactiveUsername?: string;
   avatarStorage?: ContentStorage;
   credentialsRepository?: CredentialsRepository;
   permissions?: Permission[];
 }) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const inactiveUserEmail = opts?.inactiveUserEmail;
+  const inactiveUsername = opts?.inactiveUsername;
   const credentialsRepository =
     opts?.credentialsRepository ??
     new HtshadowCredentialsRepository({
@@ -54,16 +54,18 @@ const buildApp = (opts?: {
   const clock = { nowSeconds: () => nowSeconds };
   let currentUser: {
     id: string;
-    email: string;
+    username: string;
+    email: string | null;
     name: string;
     isActive: boolean;
     timezone: string | null;
     avatarKey: string | null;
   } | null = {
     id: "user-1",
+    username: "test1",
     email: "test1@example.com",
     name: "Test One",
-    isActive: inactiveUserEmail !== "test1@example.com",
+    isActive: inactiveUsername !== "test1",
     timezone: null,
     avatarKey: null,
   };
@@ -71,7 +73,8 @@ const buildApp = (opts?: {
     string,
     {
       id: string;
-      email: string;
+      username: string;
+      email: string | null;
       name: string;
       isActive: boolean;
       timezone: string | null;
@@ -81,25 +84,31 @@ const buildApp = (opts?: {
 
   const userRepository: UserRepository = {
     list: async () => [],
+    findByUsername: async (username: string) =>
+      currentUser != null && username === currentUser.username
+        ? { ...currentUser }
+        : (invitedUsers.get(username) ?? null),
     findByEmail: async (email: string) =>
       currentUser != null && email === currentUser.email
         ? { ...currentUser }
-        : (invitedUsers.get(email) ?? null),
+        : ([...invitedUsers.values()].find((user) => user.email === email) ??
+          null),
     findById: async (id: string) =>
       currentUser != null && id === currentUser.id
         ? { ...currentUser }
         : ([...invitedUsers.values()].find((user) => user.id === id) ?? null),
     findByIds: async () => [],
-    create: async ({ email, name, isActive }) => {
+    create: async ({ username, email, name, isActive }) => {
       const user = {
         id: `user-${invitedUsers.size + 2}`,
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
         timezone: null,
         avatarKey: null,
       };
-      invitedUsers.set(email, user);
+      invitedUsers.set(username, user);
       return user;
     },
     update: async (id, input) => {
@@ -108,7 +117,8 @@ const buildApp = (opts?: {
       }
       currentUser = {
         ...currentUser,
-        email: input.email ?? currentUser.email,
+        username: input.username ?? currentUser.username,
+        email: input.email === undefined ? currentUser.email : input.email,
         name: input.name ?? currentUser.name,
         isActive: input.isActive ?? currentUser.isActive,
         timezone:
@@ -122,9 +132,9 @@ const buildApp = (opts?: {
     },
     delete: async (id) => {
       if (currentUser == null || id !== currentUser.id) {
-        for (const [email, user] of invitedUsers.entries()) {
+        for (const [username, user] of invitedUsers.entries()) {
           if (user.id === id) {
-            invitedUsers.delete(email);
+            invitedUsers.delete(username);
             return true;
           }
         }
@@ -330,6 +340,7 @@ describe("Auth routes", () => {
     return sign(
       {
         sub: "user-1",
+        username: "test1",
         email: "test1@example.com",
         iat: nowSeconds,
         exp: nowSeconds + 3600,
@@ -346,7 +357,7 @@ describe("Auth routes", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "test1@example.com",
+        username: "test1",
         password: "xc4uuicX",
       }),
     });
@@ -358,7 +369,8 @@ describe("Auth routes", () => {
       expiresAt: string;
       user: {
         id: string;
-        email: string;
+        username: string;
+        email: string | null;
         name: string;
         timezone: string | null;
         isRoot: boolean;
@@ -373,6 +385,7 @@ describe("Auth routes", () => {
       ).toISOString(),
       user: {
         id: "user-1",
+        username: "test1",
         email: "test1@example.com",
         name: "Test One",
         timezone: null,
@@ -390,7 +403,7 @@ describe("Auth routes", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "test1@example.com",
+        username: "test1",
         password: "wrong",
       }),
     });
@@ -409,13 +422,13 @@ describe("Auth routes", () => {
   });
 
   test("POST /auth/login returns 401 with deactivated message when user is inactive", async () => {
-    const { app } = buildApp({ inactiveUserEmail: "test1@example.com" });
+    const { app } = buildApp({ inactiveUsername: "test1" });
 
     const response = await app.request("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "test1@example.com",
+        username: "test1",
         password: "xc4uuicX",
       }),
     });
@@ -440,7 +453,7 @@ describe("Auth routes", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "test1@example.com",
+        username: "test1",
         password: "xc4uuicX",
       }),
     });
@@ -459,7 +472,8 @@ describe("Auth routes", () => {
       expiresAt: string;
       user: {
         id: string;
-        email: string;
+        username: string;
+        email: string | null;
         name: string;
         timezone: string | null;
         isRoot: boolean;
@@ -474,6 +488,7 @@ describe("Auth routes", () => {
       ).toISOString(),
       user: {
         id: "user-1",
+        username: "test1",
         email: "test1@example.com",
         name: "Test One",
         timezone: null,
@@ -510,7 +525,7 @@ describe("Auth routes", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "test1@example.com",
+        username: "test1",
         password: "xc4uuicX",
       }),
     });
@@ -558,7 +573,7 @@ describe("Auth routes", () => {
     const { app } = buildApp({
       credentialsRepository: {
         findPasswordHash: async () => passwordHash,
-        updatePasswordHash: async (_email, nextHash) => {
+        updatePasswordHash: async (_username, nextHash) => {
           passwordHash = nextHash;
         },
       },
@@ -773,16 +788,14 @@ describe("Auth routes", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";
     try {
-      const credentials = new Map<string, string>([
-        ["test1@example.com", "hash"],
-      ]);
+      const credentials = new Map<string, string>([["test1", "hash"]]);
       const credentialsRepository: CredentialsRepository = {
         findPasswordHash: async (username) => credentials.get(username) ?? null,
-        updatePasswordHash: async (email, newPasswordHash) => {
-          credentials.set(email, newPasswordHash);
+        updatePasswordHash: async (username, newPasswordHash) => {
+          credentials.set(username, newPasswordHash);
         },
-        createPasswordHash: async (email, passwordHash) => {
-          credentials.set(email, passwordHash);
+        createPasswordHash: async (username, passwordHash) => {
+          credentials.set(username, passwordHash);
         },
       };
 
@@ -812,15 +825,14 @@ describe("Auth routes", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: inviteToken,
+          username: "brandnew",
           password: "new-password-123",
           name: "Brand New User",
         }),
       });
 
       expect(acceptResponse.status).toBe(204);
-      expect(credentials.get("new.invite@example.com")).toEqual(
-        expect.any(String),
-      );
+      expect(credentials.get("brandnew")).toEqual(expect.any(String));
     } finally {
       process.env.NODE_ENV = previousNodeEnv;
     }

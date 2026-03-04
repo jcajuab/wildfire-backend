@@ -32,14 +32,14 @@ export class ResetPasswordUseCase {
     }
 
     const passwordHash = await this.deps.passwordHasher.hash(input.newPassword);
-    await this.deps.credentialsRepository.updatePasswordHash(
-      reset.email,
-      passwordHash,
-    );
 
     // Revoke all sessions for the user
     const user = await this.deps.userRepository.findByEmail(reset.email);
     if (user) {
+      await this.deps.credentialsRepository.updatePasswordHash(
+        user.username,
+        passwordHash,
+      );
       await this.deps.authSessionRepository.revokeAllForUser(user.id);
     }
 

@@ -8,6 +8,7 @@ const decodePayload = (token: string) => {
   }
   return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
     sub: string;
+    username: string;
     iat: number;
     exp: number;
     iss?: string;
@@ -20,6 +21,7 @@ describe("JwtTokenIssuer", () => {
     const issuer = new JwtTokenIssuer({ secret: "test-secret" });
     const token = await issuer.issueToken({
       subject: "user-1",
+      username: "user",
       issuedAt: 1_700_000_000,
       expiresAt: 1_700_003_600,
       issuer: "wildfire",
@@ -29,6 +31,7 @@ describe("JwtTokenIssuer", () => {
     const payload = decodePayload(token);
     expect(payload).toMatchObject({
       sub: "user-1",
+      username: "user",
       iat: 1_700_000_000,
       exp: 1_700_003_600,
       iss: "wildfire",

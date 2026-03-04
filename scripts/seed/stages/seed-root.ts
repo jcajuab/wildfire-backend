@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import {
   BCRYPT_SALT_ROUNDS,
   ROOT_PERMISSION,
@@ -10,8 +11,8 @@ import {
   type SeedStageResult,
 } from "../stage-types";
 
-const deriveRootName = (email: string): string => {
-  const local = email.split("@")[0]?.trim();
+const deriveRootName = (username: string): string => {
+  const local = username.split("@")[0]?.trim();
   if (local && local.length > 0) {
     return local.charAt(0).toUpperCase() + local.slice(1);
   }
@@ -25,11 +26,11 @@ const parseHtshadowLines = (input: string): Map<string, string> => {
     if (!line) {
       continue;
     }
-    const [email, hash] = line.split(":", 2);
-    if (!email || !hash) {
+    const [username, hash] = line.split(":", 2);
+    if (!username || !hash) {
       continue;
     }
-    out.set(email.trim(), hash.trim());
+    out.set(username.trim().toLowerCase(), hash.trim());
   }
   return out;
 };
@@ -125,18 +126,34 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
     }
   }
 
-  const rootUserEmail = ctx.root.user;
-  let rootUser = await ctx.repos.userRepository.findByEmail(rootUserEmail);
+  const rootUsername = ctx.root.username;
+  let rootUser = await ctx.repos.userRepository.findByUsername(rootUsername);
   if (!rootUser) {
     if (!ctx.args.dryRun) {
       rootUser = await ctx.repos.userRepository.create({
-        email: rootUserEmail,
-        name: deriveRootName(rootUserEmail),
+        username: rootUsername,
+        email: ctx.root.email,
+        name: deriveRootName(rootUsername),
       });
     }
     created += 1;
   } else {
     skipped += 1;
+    if (!ctx.args.dryRun) {
+      const nextName = deriveRootName(rootUsername);
+      const shouldUpdate =
+        rootUser.name !== nextName || rootUser.email !== ctx.root.email;
+      if (shouldUpdate) {
+        const updatedUser = await ctx.repos.userRepository.update(rootUser.id, {
+          name: nextName,
+          email: ctx.root.email,
+        });
+        if (updatedUser) {
+          rootUser = updatedUser;
+        }
+        updated += 1;
+      }
+    }
   }
 
   if (!rootRole || !rootUser) {
@@ -163,11 +180,6 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
     }
   }
 
-  const rootPasswordHash = await ctx.io.hashPassword(
-    ctx.root.password,
-    BCRYPT_SALT_ROUNDS,
-  );
-
   let existingLines = new Map<string, string>();
   try {
     const data = await ctx.io.readFile(ctx.htshadowPath);
@@ -187,17 +199,28 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
 
   if (!ctx.args.dryRun && !rootUser) {
     throw new Error(
-      `Failed to resolve root user for htshadow sync: ${rootUserEmail}`,
+      `Failed to resolve root user for htshadow sync: ${rootUsername}`,
     );
   }
 
-  const currentHash = existingLines.get(rootUserEmail);
-  if (currentHash !== rootPasswordHash) {
+  const currentHash = existingLines.get(rootUsername);
+  let isCurrentPasswordValid = false;
+  if (currentHash) {
+    isCurrentPasswordValid = await bcrypt.compare(
+      ctx.root.password,
+      currentHash,
+    );
+  }
+  if (!isCurrentPasswordValid) {
+    const rootPasswordHash = await ctx.io.hashPassword(
+      ctx.root.password,
+      BCRYPT_SALT_ROUNDS,
+    );
     if (!ctx.args.dryRun) {
       const nextLines = new Map(existingLines);
-      nextLines.set(rootUserEmail, rootPasswordHash);
+      nextLines.set(rootUsername, rootPasswordHash);
       const output = [...nextLines.entries()].map(
-        ([email, hash]) => `${email}:${hash}`,
+        ([username, hash]) => `${username}:${hash}`,
       );
       await ctx.io.writeFile(ctx.htshadowPath, `${output.join("\n")}\n`);
     }

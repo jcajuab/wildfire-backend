@@ -9,7 +9,7 @@ import { type UserRepository } from "#/application/ports/rbac";
 import { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 
 export interface AuthenticateUserInput {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -19,7 +19,8 @@ export interface AuthResult {
   expiresAt: string;
   user: {
     id: string;
-    email: string;
+    username: string;
+    email: string | null;
     name: string;
     timezone?: string | null;
     avatarKey?: string | null;
@@ -41,9 +42,9 @@ export class AuthenticateUserUseCase {
   constructor(private readonly deps: AuthenticateUserDeps) {}
 
   async execute(input: AuthenticateUserInput): Promise<AuthResult> {
-    const passwordHash = await this.deps.credentialsRepository.findPasswordHash(
-      input.email,
-    );
+    const username = input.username.trim().toLowerCase();
+    const passwordHash =
+      await this.deps.credentialsRepository.findPasswordHash(username);
 
     if (!passwordHash) {
       throw new InvalidCredentialsError();
@@ -58,7 +59,7 @@ export class AuthenticateUserUseCase {
       throw new InvalidCredentialsError();
     }
 
-    const user = await this.deps.userRepository.findByEmail(input.email);
+    const user = await this.deps.userRepository.findByUsername(username);
     if (!user) {
       throw new InvalidCredentialsError();
     }
@@ -81,7 +82,8 @@ export class AuthenticateUserUseCase {
       issuedAt,
       expiresAt,
       issuer: this.deps.issuer,
-      email: user.email,
+      username: user.username,
+      email: user.email ?? undefined,
       sessionId,
     });
 
@@ -91,6 +93,7 @@ export class AuthenticateUserUseCase {
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         name: user.name,
         timezone: user.timezone ?? null,

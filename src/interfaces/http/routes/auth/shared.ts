@@ -94,7 +94,8 @@ export const authResponseSchema = z.object({
   expiresAt: z.string(),
   user: z.object({
     id: z.string(),
-    email: z.string().email(),
+    username: z.string(),
+    email: z.string().email().nullable(),
     name: z.string(),
     isRoot: z.boolean(),
     timezone: z.string().nullable().optional(),
@@ -105,7 +106,8 @@ export const authResponseSchema = z.object({
 
 type AuthResultUser = {
   id: string;
-  email: string;
+  username: string;
+  email: string | null;
   name: string;
   timezone?: string | null;
   avatarKey?: string | null;
@@ -188,7 +190,8 @@ const enrichUserWithAvatarUrl = async (
   isRoot: boolean,
 ): Promise<{
   id: string;
-  email: string;
+  username: string;
+  email: string | null;
   name: string;
   isRoot: boolean;
   timezone?: string | null;
@@ -196,6 +199,7 @@ const enrichUserWithAvatarUrl = async (
 }> => {
   const base = {
     id: user.id,
+    username: user.username,
     email: user.email,
     name: user.name,
     isRoot,

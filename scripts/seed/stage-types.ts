@@ -11,7 +11,8 @@ import { type SeedArgs } from "./args";
 export interface SeedContext {
   args: SeedArgs;
   root: {
-    user: string;
+    username: string;
+    email: string | null;
     password: string;
   };
   htshadowPath: string;

@@ -33,7 +33,8 @@ export const setRolePermissionsSchema = z.object({
 });
 
 export const createUserSchema = z.object({
-  email: z.string().email(),
+  username: z.string().trim().min(1).max(120),
+  email: z.string().email().optional().nullable(),
   name: z.string().min(1),
   isActive: z.boolean().optional(),
 });
@@ -44,7 +45,8 @@ export const userIdParamSchema = z.object({
 export const userListQuerySchema = baseListQuerySchema;
 
 export const updateUserSchema = z.object({
-  email: z.string().email().optional(),
+  username: z.string().trim().min(1).max(120).optional(),
+  email: z.string().email().optional().nullable(),
   name: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
 });
@@ -119,7 +121,7 @@ export const roleDeletionRequestRecordSchema = z.object({
   roleName: z.string(),
   requestedByUserId: z.string().uuid(),
   requestedByName: z.string(),
-  requestedByEmail: z.string().email(),
+  requestedByEmail: z.string().email().nullable(),
   requestedAt: z.string(),
   status: roleDeletionRequestStatusSchema,
   approvedByUserId: z.string().uuid().nullable(),

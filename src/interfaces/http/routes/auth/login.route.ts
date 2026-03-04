@@ -80,12 +80,12 @@ export const registerAuthLoginRoute = (args: {
       async (c) => {
         const payload = c.req.valid("json");
         const nowMs = Date.now();
-        const emailLower = payload.email.toLowerCase();
+        const username = payload.username.trim().toLowerCase();
         const ip = resolveClientIp({
           forwardedFor: c.req.header("x-forwarded-for"),
           realIp: c.req.header("x-real-ip"),
         });
-        const loginKey = `${emailLower}|${ip}`;
+        const loginKey = `${username}|${ip}`;
         const allowed = deps.authSecurityStore.checkLoginAllowed(
           loginKey,
           nowMs,
@@ -96,10 +96,10 @@ export const registerAuthLoginRoute = (args: {
             "Too many failed login attempts. Try again later.",
           );
         }
-        // Per-email-only rate limit: prevents brute-force even with IP rotation
+        // Per-username rate limit: prevents brute-force even with IP rotation
         if (
           !deps.authSecurityStore.consumeEndpointAttempt({
-            key: `login-email|${emailLower}`,
+            key: `login-username|${username}`,
             nowMs,
             windowSeconds: deps.authLoginRateLimitWindowSeconds,
             maxAttempts: 10,

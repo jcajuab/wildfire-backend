@@ -1,5 +1,8 @@
 import { describeRoute } from "hono-openapi";
-import { DuplicateEmailError } from "#/application/use-cases/rbac/errors";
+import {
+  DuplicateEmailError,
+  DuplicateUsernameError,
+} from "#/application/use-cases/rbac/errors";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { conflict, toApiListResponse } from "#/interfaces/http/responses";
 import {
@@ -124,6 +127,7 @@ export const registerRbacUserResourceRoutes = (args: {
         return c.json(user, 201);
       },
       mapErrorToResponse(DuplicateEmailError, conflict),
+      mapErrorToResponse(DuplicateUsernameError, conflict),
       ...applicationErrorMappers,
     ),
   );
@@ -164,6 +168,8 @@ export const registerRbacUserResourceRoutes = (args: {
         return c.json(enriched);
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(DuplicateEmailError, conflict),
+      mapErrorToResponse(DuplicateUsernameError, conflict),
     ),
   );
 

@@ -21,13 +21,16 @@ describe("ForgotPasswordUseCase", () => {
         findByIds: async () => [],
         findByEmail: async (email) => ({
           id: "user-1",
+          username: "user-1",
           email,
           name: "Test User",
           isActive: true,
         }),
-        create: async ({ email, name, isActive }) => ({
+        findByUsername: async () => null,
+        create: async ({ username, email, name, isActive }) => ({
           id: "user-1",
-          email,
+          username,
+          email: email ?? null,
           name,
           isActive: isActive ?? true,
         }),
@@ -88,10 +91,12 @@ describe("ForgotPasswordUseCase", () => {
         list: async () => [],
         findById: async () => null,
         findByIds: async () => [],
+        findByUsername: async () => null,
         findByEmail: async () => null,
-        create: async ({ email, name, isActive }) => ({
+        create: async ({ username, email, name, isActive }) => ({
           id: "user-1",
-          email,
+          username,
+          email: email ?? null,
           name,
           isActive: isActive ?? true,
         }),

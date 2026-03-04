@@ -7,7 +7,7 @@ const fixturePath = path.join(import.meta.dir, "../fixtures/example_htshadow");
 describe("HtshadowCredentialsRepository", () => {
   test("returns hash for existing user", async () => {
     const repo = new HtshadowCredentialsRepository({ filePath: fixturePath });
-    const hash = await repo.findPasswordHash("test1@example.com");
+    const hash = await repo.findPasswordHash("test1");
 
     expect(hash).toBe(
       "$2y$05$/DOLvW/Ik.IObiHeAhCaEeHEbfZBozBvHihclOISfRAG4kKu4MuFe",

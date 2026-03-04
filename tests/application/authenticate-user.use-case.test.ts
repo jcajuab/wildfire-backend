@@ -33,13 +33,21 @@ const makeDeps = () => {
     list: async () => [],
     findById: async () => null,
     findByIds: async () => [],
-    findByEmail: async (email: string) =>
-      email === "test1@example.com"
-        ? { id: "user-1", email, name: "Test One", isActive: true }
+    findByUsername: async (username: string) =>
+      username === "test1"
+        ? {
+            id: "user-1",
+            username,
+            email: "test1@example.com",
+            name: "Test One",
+            isActive: true,
+          }
         : null,
-    create: async ({ email, name, isActive }) => ({
+    findByEmail: async () => null,
+    create: async ({ username, email, name, isActive }) => ({
       id: "user-1",
-      email,
+      username,
+      email: email ?? null,
       name,
       isActive: isActive ?? true,
     }),
@@ -82,7 +90,7 @@ describe("AuthenticateUserUseCase", () => {
     const useCase = new AuthenticateUserUseCase(deps);
 
     const result = await useCase.execute({
-      email: "test1@example.com",
+      username: "test1",
       password: "xc4uuicX",
     });
 
@@ -94,6 +102,7 @@ describe("AuthenticateUserUseCase", () => {
       ).toISOString(),
       user: {
         id: "user-1",
+        username: "test1",
         email: "test1@example.com",
         name: "Test One",
         timezone: null,
@@ -118,7 +127,7 @@ describe("AuthenticateUserUseCase", () => {
     });
 
     await expect(
-      useCase.execute({ email: "missing@example.com", password: "pw" }),
+      useCase.execute({ username: "missing", password: "pw" }),
     ).rejects.toBeInstanceOf(InvalidCredentialsError);
   });
 
@@ -132,7 +141,7 @@ describe("AuthenticateUserUseCase", () => {
     });
 
     await expect(
-      useCase.execute({ email: "test1@example.com", password: "wrong" }),
+      useCase.execute({ username: "test1", password: "wrong" }),
     ).rejects.toBeInstanceOf(InvalidCredentialsError);
   });
 
@@ -142,8 +151,9 @@ describe("AuthenticateUserUseCase", () => {
       ...deps,
       userRepository: {
         ...deps.userRepository,
-        findByEmail: async () => ({
+        findByUsername: async () => ({
           id: "user-2",
+          username: "test2",
           email: "test2@example.com",
           name: "Test Two",
           isActive: false,
@@ -152,7 +162,7 @@ describe("AuthenticateUserUseCase", () => {
     });
 
     const err = await useCase
-      .execute({ email: "test2@example.com", password: "pw" })
+      .execute({ username: "test2", password: "pw" })
       .then(
         () => null as unknown as InvalidCredentialsError,
         (e: unknown) => e as InvalidCredentialsError,

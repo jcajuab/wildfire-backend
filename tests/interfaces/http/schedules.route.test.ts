@@ -216,6 +216,7 @@ const makeApp = async (
   const issueToken = async () =>
     tokenIssuer.issueToken({
       subject: "user-1",
+      username: "user",
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,

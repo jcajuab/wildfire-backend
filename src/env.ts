@@ -30,7 +30,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    ROOT_USER: z.string().email(),
+    ROOT_USERNAME: z.string().min(1),
+    ROOT_EMAIL: z.string().email().optional(),
     ROOT_PASSWORD: z.string(),
     MYSQL_ROOT_PASSWORD: z.string(),
     MYSQL_HOST: z.string(),

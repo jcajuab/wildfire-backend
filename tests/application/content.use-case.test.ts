@@ -65,6 +65,7 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
     list: async () =>
       users.map((user) => ({
         id: user.id,
+        username: user.id,
         email: `${user.id}@example.com`,
         name: user.name,
         isActive: true,
@@ -74,6 +75,7 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
       if (!user) return null;
       return {
         id: user.id,
+        username: user.id,
         email: `${user.id}@example.com`,
         name: user.name,
         isActive: true,
@@ -84,10 +86,12 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
         .filter((user) => ids.includes(user.id))
         .map((user) => ({
           id: user.id,
+          username: user.id,
           email: `${user.id}@example.com`,
           name: user.name,
           isActive: true,
         })),
+    findByUsername: async () => null,
     findByEmail: async () => null,
     create: async () => {
       throw new Error("not needed in test");

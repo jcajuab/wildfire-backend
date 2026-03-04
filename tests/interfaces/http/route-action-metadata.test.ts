@@ -43,6 +43,7 @@ const withCapturedLogs = async (
 const buildAuthActionApp = () => {
   const userRecord = {
     id: "user-1",
+    username: "admin",
     email: "admin@example.com",
     name: "Admin",
     isActive: true,
@@ -50,8 +51,8 @@ const buildAuthActionApp = () => {
     avatarKey: null,
   };
   const credentialsRepository = {
-    findPasswordHash: async (email: string) =>
-      email === userRecord.email ? "hash" : null,
+    findPasswordHash: async (username: string) =>
+      username === userRecord.username ? "hash" : null,
     updatePasswordHash: async () => {},
     createPasswordHash: async () => {},
   };
@@ -73,6 +74,8 @@ const buildAuthActionApp = () => {
     findById: async (id: string) => (id === userRecord.id ? userRecord : null),
     findByIds: async (ids: string[]) =>
       ids.includes(userRecord.id) ? [userRecord] : [],
+    findByUsername: async (username: string) =>
+      username === userRecord.username ? userRecord : null,
     findByEmail: async (email: string) =>
       email === userRecord.email ? userRecord : null,
     create: async () => userRecord,
@@ -185,6 +188,7 @@ const buildContentActionApp = async () => {
         list: async () => [],
         findById: async () => null,
         findByIds: async () => [],
+        findByUsername: async () => null,
         findByEmail: async () => null,
         create: async () => {
           throw new Error("not implemented");
@@ -217,6 +221,7 @@ const buildContentActionApp = async () => {
 
   const token = await tokenIssuer.issueToken({
     subject: "user-1",
+    username: "user",
     email: "user@example.com",
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + 3600,
@@ -245,9 +250,11 @@ const buildRbacActionApp = async () => {
         list: async () => [],
         findById: async () => null,
         findByIds: async () => [],
+        findByUsername: async () => null,
         findByEmail: async () => null,
         create: async () => ({
           id: "user-1",
+          username: "user",
           email: "user@example.com",
           name: "User",
           isActive: true,
@@ -315,6 +322,7 @@ const buildRbacActionApp = async () => {
 
   const token = await tokenIssuer.issueToken({
     subject: "user-1",
+    username: "user",
     email: "user@example.com",
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + 3600,
@@ -333,7 +341,7 @@ describe("Route action metadata", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: "admin@example.com",
+          username: "admin",
           password: "password",
         }),
       });

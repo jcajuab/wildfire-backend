@@ -32,6 +32,7 @@ describe("RBAC use cases", () => {
         list: async () => [
           {
             id: "user-1",
+            username: "user",
             email: "user@example.com",
             name: "User",
             isActive: true,
@@ -42,7 +43,13 @@ describe("RBAC use cases", () => {
 
     const result = await useCase.execute();
     expect(result.items).toEqual([
-      { id: "user-1", email: "user@example.com", name: "User", isActive: true },
+      {
+        id: "user-1",
+        username: "user",
+        email: "user@example.com",
+        name: "User",
+        isActive: true,
+      },
     ]);
     expect(result.total).toBe(1);
   });
@@ -50,19 +57,31 @@ describe("RBAC use cases", () => {
   test("CreateUserUseCase delegates to repository", async () => {
     const useCase = new CreateUserUseCase({
       userRepository: {
+        findByUsername: async () => null,
         findByEmail: async () => null,
         create: async (input: {
-          email: string;
+          username: string;
+          email?: string | null;
           name: string;
           isActive?: boolean;
-        }) => ({ id: "user-1", ...input, isActive: true }),
+        }) => ({
+          id: "user-1",
+          ...input,
+          email: input.email ?? null,
+          isActive: true,
+        }),
       } as never,
     });
 
     await expect(
-      useCase.execute({ email: "test@example.com", name: "Test" }),
+      useCase.execute({
+        username: "test",
+        email: "test@example.com",
+        name: "Test",
+      }),
     ).resolves.toEqual({
       id: "user-1",
+      username: "test",
       email: "test@example.com",
       name: "Test",
       isActive: true,
@@ -97,6 +116,7 @@ describe("RBAC use cases", () => {
       userRepository: {
         update: async () => ({
           id: targetUserId,
+          username: "super",
           email: "s@example.com",
           name: "Super",
           isActive: true,
@@ -121,6 +141,7 @@ describe("RBAC use cases", () => {
     const callerUserId = "user-admin";
     const updatedUser = {
       id: targetUserId,
+      username: "super",
       email: "s@example.com",
       name: "Updated",
       isActive: true,

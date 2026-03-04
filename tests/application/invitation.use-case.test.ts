@@ -16,10 +16,12 @@ describe("Invitation use cases", () => {
         list: async () => [],
         findById: async () => null,
         findByIds: async () => [],
+        findByUsername: async () => null,
         findByEmail: async () => null,
-        create: async ({ email, name, isActive }) => ({
+        create: async ({ username, email, name, isActive }) => ({
           id: "user-1",
-          email,
+          username,
+          email: email ?? null,
           name,
           isActive: isActive ?? true,
         }),
@@ -72,15 +74,18 @@ describe("Invitation use cases", () => {
         list: async () => [],
         findById: async () => null,
         findByIds: async () => [],
+        findByUsername: async () => null,
         findByEmail: async (email) => ({
           id: "existing-user",
+          username: "existing",
           email,
           name: "Existing",
           isActive: true,
         }),
-        create: async ({ email, name, isActive }) => ({
+        create: async ({ username, email, name, isActive }) => ({
           id: "user-1",
-          email,
+          username,
+          email: email ?? null,
           name,
           isActive: isActive ?? true,
         }),
@@ -133,12 +138,14 @@ describe("Invitation use cases", () => {
         list: async () => [],
         findById: async () => null,
         findByIds: async () => [],
+        findByUsername: async () => null,
         findByEmail: async () => null,
-        create: async ({ email, name, isActive }) => {
+        create: async ({ username, email, name, isActive }) => {
           events.push("user");
           return {
             id: "user-1",
-            email,
+            username,
+            email: email ?? null,
             name,
             isActive: isActive ?? true,
           };
@@ -160,6 +167,7 @@ describe("Invitation use cases", () => {
 
     await useCase.execute({
       token: "invite-token",
+      username: "brandnew",
       password: "new-password-123",
     });
 
@@ -222,10 +230,12 @@ describe("Invitation use cases", () => {
           list: async () => [],
           findById: async () => null,
           findByIds: async () => [],
+          findByUsername: async () => null,
           findByEmail: async () => null,
-          create: async ({ email, name, isActive }) => ({
+          create: async ({ username, email, name, isActive }) => ({
             id: "user-1",
-            email,
+            username,
+            email: email ?? null,
             name,
             isActive: isActive ?? true,
           }),

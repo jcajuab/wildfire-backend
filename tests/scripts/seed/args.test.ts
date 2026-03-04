@@ -6,34 +6,37 @@ describe("parseSeedArgs", () => {
     const parsed = parseSeedArgs([]);
 
     expect(parsed.dryRun).toBe(false);
-    expect(parsed.rootUser).toBeUndefined();
+    expect(parsed.rootUsername).toBeUndefined();
+    expect(parsed.rootEmail).toBeUndefined();
     expect(parsed.rootPassword).toBeUndefined();
   });
 
-  test("parses root user and password flags", () => {
+  test("parses root username, email, and password flags", () => {
     const parsed = parseSeedArgs([
-      "--root-user=user@example.com",
+      "--root-username=admin",
+      "--root-email=admin@example.com",
       "--root-password=secret",
       "--dry-run",
     ]);
 
     expect(parsed).toEqual({
       dryRun: true,
-      rootUser: "user@example.com",
+      rootUsername: "admin",
+      rootEmail: "admin@example.com",
       rootPassword: "secret",
     });
   });
 
-  test("parses spaced root-user and root-password flags", () => {
+  test("parses spaced root-username and root-password flags", () => {
     const parsed = parseSeedArgs([
-      "--root-user",
-      "admin@example.com",
+      "--root-username",
+      "admin",
       "--root-password",
       "supersecret",
     ]);
 
     expect(parsed.dryRun).toBe(false);
-    expect(parsed.rootUser).toBe("admin@example.com");
+    expect(parsed.rootUsername).toBe("admin");
     expect(parsed.rootPassword).toBe("supersecret");
   });
 
@@ -51,9 +54,9 @@ describe("parseSeedArgs", () => {
     expect(() => parseSeedArgs(["--oops"])).toThrow("Unknown flag: --oops");
   });
 
-  test("throws for invalid root user", () => {
-    expect(() => parseSeedArgs(["--root-user=invalid"])).toThrow(
-      "Invalid --root-user value",
+  test("throws for invalid root email", () => {
+    expect(() => parseSeedArgs(["--root-email=invalid"])).toThrow(
+      "Invalid --root-email value",
     );
   });
 });

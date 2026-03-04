@@ -95,6 +95,7 @@ const makeApp = async (permissions: string[]) => {
     list: async () => [],
     findById: async (id: string) => ({
       id,
+      username: "user",
       email: "user@example.com",
       name: "User",
       isActive: true,
@@ -102,10 +103,12 @@ const makeApp = async (permissions: string[]) => {
     findByIds: async (ids: string[]) =>
       ids.map((id) => ({
         id,
+        username: "user",
         email: "user@example.com",
         name: "User",
         isActive: true,
       })),
+    findByUsername: async () => null,
     findByEmail: async () => null,
     create: async () => {
       throw new Error("not needed in test");
@@ -142,6 +145,7 @@ const makeApp = async (permissions: string[]) => {
   const issueToken = async () =>
     tokenIssuer.issueToken({
       subject: "user-1",
+      username: "user",
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,

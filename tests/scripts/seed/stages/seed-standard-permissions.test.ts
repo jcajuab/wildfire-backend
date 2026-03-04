@@ -19,7 +19,8 @@ const makeContext = (dryRun = false): SeedContext => {
       dryRun,
     },
     root: {
-      user: "admin@example.com",
+      username: "admin",
+      email: "admin@example.com",
       password: "secret",
     },
     htshadowPath: "/tmp/unused",
@@ -55,6 +56,7 @@ const makeContext = (dryRun = false): SeedContext => {
         list: unused,
         findById: unused,
         findByIds: unused,
+        findByUsername: unused,
         findByEmail: unused,
         create: unused,
         update: unused,

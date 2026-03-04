@@ -37,6 +37,7 @@ export const createPermissionMiddleware = (deps: {
       }
 
       c.set("userId", parsed.data.sub);
+      c.set("username", parsed.data.username);
       if (parsed.data.email) {
         c.set("userEmail", parsed.data.email);
       }

@@ -28,7 +28,7 @@ export class ChangeCurrentUserPasswordUseCase {
     if (!user) throw new NotFoundError("User not found");
 
     const currentHash = await this.deps.credentialsRepository.findPasswordHash(
-      user.email,
+      user.username,
     );
     if (!currentHash)
       throw new InvalidCredentialsError("Current password is incorrect");
@@ -43,7 +43,7 @@ export class ChangeCurrentUserPasswordUseCase {
 
     const newHash = await this.deps.passwordHasher.hash(input.newPassword);
     await this.deps.credentialsRepository.updatePasswordHash(
-      user.email,
+      user.username,
       newHash,
     );
   }

@@ -1,26 +1,31 @@
-const DEFAULT_ROOT_USER = "alice@example.com";
+const DEFAULT_ROOT_USERNAME = "alice";
 
 export interface SeedRootCredentials {
-  user: string;
+  username: string;
+  email: string | null;
   password: string;
 }
 
 export const resolveRootCredentials = (input: {
-  rootUser?: string;
+  rootUsername?: string;
+  rootEmail?: string;
   rootPassword?: string;
 }): SeedRootCredentials => {
-  const user = (
-    input.rootUser ??
-    process.env.ROOT_USER ??
-    DEFAULT_ROOT_USER
+  const username = (
+    input.rootUsername ??
+    process.env.ROOT_USERNAME ??
+    DEFAULT_ROOT_USERNAME
   ).trim();
+  const emailRaw = (input.rootEmail ?? process.env.ROOT_EMAIL ?? "").trim();
   const password = input.rootPassword ?? process.env.ROOT_PASSWORD;
 
-  if (!user) {
-    throw new Error("Missing root user. Set ROOT_USER or pass --root-user.");
+  if (!username) {
+    throw new Error(
+      "Missing root username. Set ROOT_USERNAME or pass --root-username.",
+    );
   }
-  if (!user.includes("@")) {
-    throw new Error(`Invalid root user email: ${user}`);
+  if (emailRaw.length > 0 && !emailRaw.includes("@")) {
+    throw new Error(`Invalid root email: ${emailRaw}`);
   }
   if (!password || password.trim().length === 0) {
     throw new Error(
@@ -28,5 +33,9 @@ export const resolveRootCredentials = (input: {
     );
   }
 
-  return { user, password: password.trim() };
+  return {
+    username: username.toLowerCase(),
+    email: emailRaw.length > 0 ? emailRaw.toLowerCase() : null,
+    password: password.trim(),
+  };
 };

@@ -27,7 +27,8 @@ describe("runSeedRoot", () => {
       }>,
       users: [] as Array<{
         id: string;
-        email: string;
+        username: string;
+        email: string | null;
         name: string;
         isActive: boolean;
       }>,
@@ -41,14 +42,15 @@ describe("runSeedRoot", () => {
       setUserRolesCalls: 0,
     };
 
-    const rootUserEmail = "admin@example.com";
+    const rootUsername = "admin";
 
     const ctx: SeedContext = {
       args: {
         dryRun: false,
       },
       root: {
-        user: rootUserEmail,
+        username: rootUsername,
+        email: "admin@example.com",
         password: "secret",
       },
       htshadowPath: "/tmp/unused",
@@ -103,13 +105,19 @@ describe("runSeedRoot", () => {
           list: async () => state.users,
           findById: async () => null,
           findByIds: async () => [],
+          findByUsername: async (username: string) => {
+            return (
+              state.users.find((user) => user.username === username) ?? null
+            );
+          },
           findByEmail: async (email: string) => {
             return state.users.find((user) => user.email === email) ?? null;
           },
-          create: async ({ email }) => {
+          create: async ({ username, email }) => {
             const user = {
               id: `user-${state.userSeq++}`,
-              email,
+              username,
+              email: email ?? null,
               name: "Admin",
               isActive: true,
             };
@@ -149,7 +157,7 @@ describe("runSeedRoot", () => {
     expect(result.skipped).toBe(0);
     expect(state.setRolePermissionsCalls).toBe(1);
     expect(state.setUserRolesCalls).toBe(1);
-    expect(state.htshadow).toContain(`${rootUserEmail}:hash-1`);
+    expect(state.htshadow).toContain(`${rootUsername}:hash-1`);
   });
 
   test("updates existing root credentials and preserves extra roles", async () => {
@@ -167,6 +175,7 @@ describe("runSeedRoot", () => {
     };
     const preExistingUser = {
       id: "root-user",
+      username: "admin",
       email: "admin@example.com",
       name: "Admin",
       isActive: true,
@@ -187,7 +196,7 @@ describe("runSeedRoot", () => {
         [preExistingRootRole.id, ["other-permission", "root-permission"]],
       ]),
       userAssignments: new Map([[preExistingUser.id, [preExistingRole.id]]]),
-      htshadow: "admin@example.com:old-hash\na@b.com:other\n",
+      htshadow: "admin:old-hash\na@b.com:other\n",
       hash: "new-hash",
       setRolePermissionsCalls: 0,
       setUserRolesCalls: 0,
@@ -198,7 +207,8 @@ describe("runSeedRoot", () => {
         dryRun: false,
       },
       root: {
-        user: preExistingUser.email,
+        username: preExistingUser.username,
+        email: preExistingUser.email,
         password: "new-password",
       },
       htshadowPath: "/tmp/unused",
@@ -233,6 +243,8 @@ describe("runSeedRoot", () => {
           list: async () => state.users,
           findById: async () => null,
           findByIds: async () => [],
+          findByUsername: async (username: string) =>
+            state.users.find((user) => user.username === username) ?? null,
           findByEmail: async (email: string) =>
             state.users.find((user) => user.email === email) ?? null,
           create: unused,
@@ -264,12 +276,12 @@ describe("runSeedRoot", () => {
     const result = await runSeedRoot(ctx);
     const rootUserLines = state.htshadow
       .split("\n")
-      .filter((line) => line.startsWith(`${preExistingUser.email}:`));
+      .filter((line) => line.startsWith(`${preExistingUser.username}:`));
 
     expect(result.updated).toBe(2);
     expect(result.skipped).toBe(4);
     expect(state.setRolePermissionsCalls).toBe(0);
     expect(state.setUserRolesCalls).toBe(1);
-    expect(rootUserLines[0]).toBe(`${preExistingUser.email}:${state.hash}`);
+    expect(rootUserLines[0]).toBe(`${preExistingUser.username}:${state.hash}`);
   });
 });

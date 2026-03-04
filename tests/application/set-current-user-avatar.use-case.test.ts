@@ -13,16 +13,19 @@ describe("SetCurrentUserAvatarUseCase", () => {
       list: async () => [],
       findById: async () => ({
         id: "user-1",
+        username: "test",
         email: "test@example.com",
         name: "Test",
         isActive: true,
         avatarKey: "avatars/old",
       }),
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),
@@ -30,6 +33,7 @@ describe("SetCurrentUserAvatarUseCase", () => {
         updatedUsers.push(`${id}:${update.avatarKey ?? ""}`);
         return {
           id,
+          username: "test",
           email: "test@example.com",
           name: "Test",
           isActive: true,
@@ -71,10 +75,12 @@ describe("SetCurrentUserAvatarUseCase", () => {
       list: async () => [],
       findById: async () => null,
       findByIds: async () => [],
+      findByUsername: async () => null,
       findByEmail: async () => null,
-      create: async ({ email, name, isActive }) => ({
+      create: async ({ username, email, name, isActive }) => ({
         id: "created",
-        email,
+        username,
+        email: email ?? null,
         name,
         isActive: isActive ?? true,
       }),

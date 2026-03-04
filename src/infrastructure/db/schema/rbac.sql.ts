@@ -12,7 +12,8 @@ export const users = mysqlTable(
   "users",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
-    email: varchar("email", { length: 255 }).notNull(),
+    username: varchar("username", { length: 120 }).notNull(),
+    email: varchar("email", { length: 255 }),
     name: varchar("name", { length: 255 }).notNull(),
     isActive: boolean("is_active").notNull().default(true),
     timezone: varchar("timezone", { length: 64 }),
@@ -22,6 +23,7 @@ export const users = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
+    usernameUnique: uniqueIndex("users_username_unique").on(table.username),
     emailUnique: uniqueIndex("users_email_unique").on(table.email),
   }),
 );

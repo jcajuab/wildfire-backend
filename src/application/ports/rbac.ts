@@ -2,7 +2,8 @@ import { type Permission } from "#/domain/rbac/permission";
 
 export interface UserRecord {
   id: string;
-  email: string;
+  username: string;
+  email: string | null;
   name: string;
   isActive: boolean;
   timezone?: string | null;
@@ -59,7 +60,7 @@ export interface RoleDeletionRequestRecord {
   roleName: string;
   requestedByUserId: string;
   requestedByName: string;
-  requestedByEmail: string;
+  requestedByEmail: string | null;
   requestedAt: string;
   status: RoleDeletionRequestStatus;
   approvedByUserId: string | null;
@@ -73,16 +74,19 @@ export interface UserRepository {
   list(): Promise<UserRecord[]>;
   findById(id: string): Promise<UserRecord | null>;
   findByIds(ids: string[]): Promise<UserRecord[]>;
+  findByUsername(username: string): Promise<UserRecord | null>;
   findByEmail(email: string): Promise<UserRecord | null>;
   create(input: {
-    email: string;
+    username: string;
+    email?: string | null;
     name: string;
     isActive?: boolean;
   }): Promise<UserRecord>;
   update(
     id: string,
     input: {
-      email?: string;
+      username?: string;
+      email?: string | null;
       name?: string;
       isActive?: boolean;
       timezone?: string | null;

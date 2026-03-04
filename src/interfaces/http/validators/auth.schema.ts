@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const authLoginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().trim().min(1).max(120),
   password: z.string().min(1),
 });
 
@@ -32,6 +32,7 @@ export const postAuthCreateInvitationSchema = z.object({
 export const postAuthAcceptInvitationSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  username: z.string().trim().min(1).max(120),
   name: z.string().trim().min(1).max(255).optional().nullable(),
 });
 

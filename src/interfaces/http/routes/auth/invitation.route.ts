@@ -243,6 +243,7 @@ export const registerAuthInvitationRoutes = (args: {
         await useCases.acceptInvitation.execute({
           token: payload.token,
           password: payload.password,
+          username: payload.username,
           name: payload.name,
         });
         return c.body(null, 204);
