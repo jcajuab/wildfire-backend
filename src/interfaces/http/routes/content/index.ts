@@ -14,7 +14,6 @@ export const createContentRouter = (deps: ContentRouterDeps) => {
     authorizationRepository: deps.repositories.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createContentUseCases(deps);
 

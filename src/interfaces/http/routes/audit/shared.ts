@@ -14,9 +14,8 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface AuditRouterDeps {
   jwtSecret: string;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
   exportMaxRows: number;
   repositories: {
     auditEventRepository: AuditEventRepository;

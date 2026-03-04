@@ -14,7 +14,6 @@ export const createAuditRouter = (deps: AuditRouterDeps) => {
     authorizationRepository: deps.repositories.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createAuditUseCases(deps);
 

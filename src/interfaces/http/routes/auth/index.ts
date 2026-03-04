@@ -19,7 +19,6 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
     secret: deps.jwtSecret,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    allowBearerFallback: deps.authSessionDualMode,
   });
 
   registerAuthProfileRoute({ router, deps, useCases, jwtMiddleware });

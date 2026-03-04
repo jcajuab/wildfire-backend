@@ -58,13 +58,11 @@ export class RefreshSessionUseCase {
 
     let sessionId: string;
     if (input.currentSessionId) {
-      const isOwnedByUser = this.deps.authSessionRepository.isOwnedByUser
-        ? await this.deps.authSessionRepository.isOwnedByUser(
-            input.currentSessionId,
-            input.userId,
-            new Date(issuedAt * 1000),
-          )
-        : true;
+      const isOwnedByUser = await this.deps.authSessionRepository.isOwnedByUser(
+        input.currentSessionId,
+        input.userId,
+        new Date(issuedAt * 1000),
+      );
       if (!isOwnedByUser) {
         throw new InvalidCredentialsError();
       }

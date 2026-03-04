@@ -17,7 +17,6 @@ export const createSettingsRouter = (deps: SettingsRouterDeps) => {
     authorizationRepository: deps.repositories.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases: SettingsRouterUseCases = createSettingsUseCases(deps);
 

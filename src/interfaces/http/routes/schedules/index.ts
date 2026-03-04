@@ -14,7 +14,6 @@ export const createSchedulesRouter = (deps: SchedulesRouterDeps) => {
     authorizationRepository: deps.repositories.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createSchedulesUseCases(deps);
 

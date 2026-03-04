@@ -13,7 +13,6 @@ export const createDisplaysRouter = (deps: DisplaysRouterDeps) => {
     authorizationRepository: deps.repositories.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createDisplaysUseCases(deps);
   registerDisplayStaffRoutes({

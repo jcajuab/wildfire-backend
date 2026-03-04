@@ -275,9 +275,16 @@ const buildApp = (opts?: {
     },
     isActive: async (sessionId, now) => {
       const session = sessions.get(sessionId);
-      if (!session) return false;
+      if (!session) return !revoked.has(sessionId);
       if (revoked.has(sessionId)) return false;
       return session.expiresAt.getTime() > now.getTime();
+    },
+    isOwnedByUser: async (sessionId, userId, now) => {
+      const session = sessions.get(sessionId);
+      if (!session) return !revoked.has(sessionId);
+      if (revoked.has(sessionId)) return false;
+      if (session.expiresAt.getTime() <= now.getTime()) return false;
+      return session.userId === userId;
     },
   };
 
@@ -293,7 +300,6 @@ const buildApp = (opts?: {
     jwtSecret: "test-secret",
     authSessionRepository,
     authSessionCookieName: "wildfire_session_token",
-    authSessionDualMode: true,
     authSecurityStore: new InMemoryAuthSecurityStore(),
     authLoginRateLimitMaxAttempts: 20,
     authLoginRateLimitWindowSeconds: 60,
@@ -337,6 +343,7 @@ const buildApp = (opts?: {
 describe("Auth routes", () => {
   const issueToken = async (): Promise<string> => {
     const nowSeconds = Math.floor(Date.now() / 1000);
+    const sessionId = crypto.randomUUID();
     return sign(
       {
         sub: "user-1",
@@ -344,6 +351,8 @@ describe("Auth routes", () => {
         email: "test1@example.com",
         iat: nowSeconds,
         exp: nowSeconds + 3600,
+        sid: sessionId,
+        jti: sessionId,
         iss: "wildfire",
       },
       "test-secret",
@@ -446,7 +455,7 @@ describe("Auth routes", () => {
     });
   });
 
-  test("GET /auth/session returns refreshed token when authorized", async () => {
+  test("POST /auth/session/refresh returns refreshed token when authorized", async () => {
     const { app, nowSeconds } = buildApp();
 
     const loginResponse = await app.request("/auth/login", {
@@ -461,7 +470,8 @@ describe("Auth routes", () => {
     const loginBody = await parseJson<{ token: string }>(loginResponse);
     const token = loginBody.token;
 
-    const response = await app.request("/auth/session", {
+    const response = await app.request("/auth/session/refresh", {
+      method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -499,21 +509,24 @@ describe("Auth routes", () => {
     expect(typeof body.token).toBe("string");
   });
 
-  test("GET /auth/session returns 401 for invalid token payload", async () => {
+  test("POST /auth/session/refresh returns 401 for invalid token payload", async () => {
     const { app } = buildApp();
     const token = await sign({ sub: 123 }, "test-secret");
 
-    const response = await app.request("/auth/session", {
+    const response = await app.request("/auth/session/refresh", {
+      method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
 
     expect(response.status).toBe(401);
   });
 
-  test("GET /auth/session returns 401 without token", async () => {
+  test("POST /auth/session/refresh returns 401 without token", async () => {
     const { app } = buildApp();
 
-    const response = await app.request("/auth/session");
+    const response = await app.request("/auth/session/refresh", {
+      method: "POST",
+    });
 
     expect(response.status).toBe(401);
   });

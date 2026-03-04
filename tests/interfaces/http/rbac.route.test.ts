@@ -24,6 +24,14 @@ const permRolesReadId = "99999999-9999-4999-8999-999999999999";
 const permRolesCreateId = "aaaaaaaa-aaaa-4aaa-a000-aaaaaaaaaaaa";
 const permUsersReadId = "cccccccc-cccc-4ccc-c222-cccccccccccc";
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
+const authSessionRepository = {
+  create: async () => {},
+  extendExpiry: async () => {},
+  revokeById: async () => {},
+  revokeAllForUser: async () => {},
+  isActive: async () => true,
+  isOwnedByUser: async () => true,
+};
 
 /** Builds app with a second user (userIdNoRoles) who has only users:update via Editor role. Use issueTokenForEditor() to get a token for that user. */
 function buildAppWithEditorUser(): {
@@ -56,6 +64,8 @@ function buildAppWithEditorUser(): {
 
   const rbacRouter = createRbacRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session_token",
     repositories,
   });
   const app = new Hono();
@@ -71,6 +81,7 @@ function buildAppWithEditorUser(): {
         username: "admin",
         issuedAt: nowSeconds,
         expiresAt: nowSeconds + 3600,
+        sessionId: crypto.randomUUID(),
         issuer: undefined,
         email: "admin@example.com",
       }),
@@ -80,6 +91,7 @@ function buildAppWithEditorUser(): {
         username: "noroles",
         issuedAt: nowSeconds,
         expiresAt: nowSeconds + 3600,
+        sessionId: crypto.randomUUID(),
         issuer: undefined,
         email: "noroles@example.com",
       }),
@@ -573,6 +585,8 @@ const buildApp = (permissions?: string[]) => {
 
   const rbacRouter = createRbacRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session_token",
     repositories,
   });
 
@@ -586,6 +600,7 @@ const buildApp = (permissions?: string[]) => {
       username: "admin",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
       email: "admin@example.com",
     });
@@ -612,6 +627,8 @@ function buildAppWithAvatarStorage(): {
 
   const rbacRouter = createRbacRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session_token",
     repositories,
     avatarStorage,
     avatarUrlExpiresInSeconds: 3600,
@@ -626,6 +643,7 @@ function buildAppWithAvatarStorage(): {
       username: "admin",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
       email: "admin@example.com",
     });

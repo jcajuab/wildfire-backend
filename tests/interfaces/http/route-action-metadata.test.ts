@@ -88,6 +88,7 @@ const buildAuthActionApp = () => {
     revokeById: async () => {},
     revokeAllForUser: async () => {},
     isActive: async () => true,
+    isOwnedByUser: async () => true,
   };
 
   const authRouter = createAuthRouter({
@@ -109,7 +110,6 @@ const buildAuthActionApp = () => {
     jwtSecret: "test-secret",
     authSessionRepository,
     authSessionCookieName: "wildfire_session_token",
-    authSessionDualMode: true,
     authSecurityStore: new InMemoryAuthSecurityStore(),
     authLoginRateLimitMaxAttempts: 20,
     authLoginRateLimitWindowSeconds: 60,
@@ -167,6 +167,15 @@ const buildContentActionApp = async () => {
 
   const router = createContentRouter({
     jwtSecret: "test-secret",
+    authSessionRepository: {
+      create: async () => {},
+      extendExpiry: async () => {},
+      revokeById: async () => {},
+      revokeAllForUser: async () => {},
+      isActive: async () => true,
+      isOwnedByUser: async () => true,
+    },
+    authSessionCookieName: "wildfire_session_token",
     maxUploadBytes: 5 * 1024 * 1024,
     downloadUrlExpiresInSeconds: 3600,
     thumbnailUrlExpiresInSeconds: 3600,
@@ -225,6 +234,7 @@ const buildContentActionApp = async () => {
     email: "user@example.com",
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + 3600,
+    sessionId: crypto.randomUUID(),
     issuer: "wildfire",
   });
 
@@ -245,6 +255,15 @@ const buildRbacActionApp = async () => {
 
   const router = createRbacRouter({
     jwtSecret: "test-secret",
+    authSessionRepository: {
+      create: async () => {},
+      extendExpiry: async () => {},
+      revokeById: async () => {},
+      revokeAllForUser: async () => {},
+      isActive: async () => true,
+      isOwnedByUser: async () => true,
+    },
+    authSessionCookieName: "wildfire_session_token",
     repositories: {
       userRepository: {
         list: async () => [],
@@ -326,6 +345,7 @@ const buildRbacActionApp = async () => {
     email: "user@example.com",
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + 3600,
+    sessionId: crypto.randomUUID(),
     issuer: "wildfire",
   });
 

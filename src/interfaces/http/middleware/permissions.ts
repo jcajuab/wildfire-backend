@@ -13,15 +13,13 @@ import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 export const createPermissionMiddleware = (deps: {
   jwtSecret: string;
   authorizationRepository: AuthorizationRepository;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
 }) => {
   const jwtMiddleware = createJwtMiddleware({
     secret: deps.jwtSecret,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    allowBearerFallback: deps.authSessionDualMode ?? true,
   });
   const checkPermission = new CheckPermissionUseCase({
     authorizationRepository: deps.authorizationRepository,
@@ -59,18 +57,9 @@ export const createPermissionMiddleware = (deps: {
         c.set("action", "authz.permission.deny");
         c.set("resourceType", "permission");
         c.set("resourceId", permission);
-        (c as unknown as { set: (k: string, v: string) => void }).set(
-          "deniedPermission",
-          permission,
-        );
-        (c as unknown as { set: (k: string, v: string) => void }).set(
-          "denyErrorCode",
-          "FORBIDDEN",
-        );
-        (c as unknown as { set: (k: string, v: string) => void }).set(
-          "denyErrorType",
-          "PermissionDenied",
-        );
+        c.set("deniedPermission", permission);
+        c.set("denyErrorCode", "FORBIDDEN");
+        c.set("denyErrorType", "PermissionDenied");
         return forbidden(c, "Forbidden");
       }
 

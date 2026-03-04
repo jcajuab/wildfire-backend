@@ -48,7 +48,6 @@ interface JwtMiddlewareDeps {
   secret: string;
   authSessionRepository?: AuthSessionRepository;
   authSessionCookieName?: string;
-  allowBearerFallback?: boolean;
 }
 
 const extractBearerToken = (
@@ -89,20 +88,13 @@ export const createJwtMiddleware = (
       }
       if (
         deps.authSessionRepository &&
-        parsed.data.sid &&
-        !(await deps.authSessionRepository.isActive(
-          parsed.data.sid,
-          new Date(),
-        ))
+        (!parsed.data.sid ||
+          !(await deps.authSessionRepository.isActive(
+            parsed.data.sid,
+            new Date(),
+          )))
       ) {
-        return unauthorized(c, "Session revoked");
-      }
-      if (
-        deps.authSessionRepository &&
-        !parsed.data.sid &&
-        deps.allowBearerFallback === false
-      ) {
-        return unauthorized(c, "Legacy token flow disabled");
+        return unauthorized(c, "Session is invalid or revoked");
       }
       await next();
     } catch {

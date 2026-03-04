@@ -138,6 +138,20 @@ const makeApp = async (
 
   const displayRepository = {
     list: async () => displays.map((display) => ({ ...display })),
+    listPage: async (input: { page: number; pageSize: number }) => {
+      const page = Math.max(1, input.page);
+      const pageSize = Math.max(1, input.pageSize);
+      const offset = (page - 1) * pageSize;
+      const items = displays
+        .slice(offset, offset + pageSize)
+        .map((display) => ({ ...display }));
+      return {
+        items,
+        total: displays.length,
+        page,
+        pageSize,
+      };
+    },
     findByIds: async (ids: string[]) =>
       displays
         .filter((display) => ids.includes(display.id))
@@ -168,6 +182,18 @@ const makeApp = async (
         );
         return found ? { ...found } : null;
       })(),
+    findByFingerprintAndOutput: async (
+      fingerprint: string,
+      displayOutput: string,
+    ) =>
+      (() => {
+        const found = displays.find(
+          (display) =>
+            display.displayFingerprint === fingerprint &&
+            (display.displayOutput ?? null) === displayOutput,
+        );
+        return found ? { ...found } : null;
+      })(),
     create: async (input: {
       name: string;
       identifier: string;
@@ -183,6 +209,31 @@ const makeApp = async (
         identifier: input.identifier,
         displayFingerprint: input.displayFingerprint ?? null,
         location: input.location,
+      });
+      displays.push(created);
+      return created;
+    },
+    createRegisteredDisplay: async (input: {
+      displaySlug: string;
+      name: string;
+      displayFingerprint: string;
+      displayOutput: string;
+      screenWidth: number;
+      screenHeight: number;
+      now: Date;
+    }) => {
+      const created = makeDisplay({
+        id: crypto.randomUUID(),
+        displaySlug: input.displaySlug,
+        identifier: input.displaySlug,
+        name: input.name,
+        displayFingerprint: input.displayFingerprint,
+        displayOutput: input.displayOutput,
+        outputType: input.displayOutput,
+        screenWidth: input.screenWidth,
+        screenHeight: input.screenHeight,
+        createdAt: input.now.toISOString(),
+        updatedAt: input.now.toISOString(),
       });
       displays.push(created);
       return created;
@@ -233,6 +284,16 @@ const makeApp = async (
       const record = displays.find((display) => display.id === id);
       if (!record) return;
       record.lastSeenAt = at.toISOString();
+    },
+    setStatus: async (input: {
+      id: string;
+      status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
+      at: Date;
+    }) => {
+      const record = displays.find((display) => display.id === input.id);
+      if (!record) return;
+      record.status = input.status;
+      record.updatedAt = input.at.toISOString();
     },
     delete: async (id: string) => {
       const index = displays.findIndex((display) => display.id === id);
@@ -363,11 +424,15 @@ const makeApp = async (
     complete: async (id: string, completedAt: Date) => {
       const record = pairingSessions.find((session) => session.id === id);
       if (!record) {
-        return;
+        return false;
+      }
+      if (record.state !== "open") {
+        return false;
       }
       record.state = "completed";
       record.completedAt = completedAt.toISOString();
       record.updatedAt = completedAt.toISOString();
+      return true;
     },
   };
 
@@ -412,6 +477,15 @@ const makeApp = async (
 
   const router = createDisplaysRouter({
     jwtSecret: "test-secret",
+    authSessionRepository: {
+      create: async () => {},
+      extendExpiry: async () => {},
+      revokeById: async () => {},
+      revokeAllForUser: async () => {},
+      isActive: async () => true,
+      isOwnedByUser: async () => true,
+    },
+    authSessionCookieName: "wildfire_session_token",
     downloadUrlExpiresInSeconds: 3600,
     repositories: {
       displayRepository,
@@ -503,6 +577,7 @@ const makeApp = async (
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
     });
 
@@ -612,7 +687,7 @@ describe("Displays routes", () => {
     expect(json.data[0]?.nowPlaying?.playlist).toBe("Morning");
     expect(json.meta.total).toBe(1);
     expect(json.meta.page).toBe(1);
-    expect(json.meta.per_page).toBe(50);
+    expect(json.meta.per_page).toBe(20);
   });
 
   test("GET /displays/:id returns display", async () => {

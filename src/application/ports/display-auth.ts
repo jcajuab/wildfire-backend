@@ -41,7 +41,7 @@ export interface DisplayPairingSessionRepository {
     id: string;
     now: Date;
   }): Promise<DisplayPairingSessionRecord | null>;
-  complete(id: string, completedAt: Date): Promise<void>;
+  complete(id: string, completedAt: Date): Promise<boolean>;
 }
 
 export interface DisplayAuthNonceRepository {

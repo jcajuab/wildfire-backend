@@ -13,14 +13,6 @@ export const startDisplayStatusReconciler = (input: {
   scheduleTimeZone?: string;
   intervalMs?: number;
 }): (() => void) => {
-  const setStatus = input.displayRepository.setStatus;
-  if (!setStatus) {
-    logger.warn(
-      "Display status reconciler is disabled because display repository does not support status updates.",
-    );
-    return () => {};
-  }
-
   let running = false;
 
   const run = async (): Promise<void> => {
@@ -57,7 +49,7 @@ export const startDisplayStatusReconciler = (input: {
         if (nextStatus === display.status) {
           continue;
         }
-        await setStatus({
+        await input.displayRepository.setStatus({
           id: display.id,
           status: nextStatus,
           at: now,

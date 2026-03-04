@@ -117,6 +117,7 @@ const makeDeps = () => {
 
   const displayRepository: DisplayRepository = {
     list: async () => [],
+    listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
     findByIds: async (ids: string[]) =>
       ids
         .map((id) =>
@@ -152,11 +153,18 @@ const makeDeps = () => {
           }
         : null,
     findByIdentifier: async () => null,
+    findBySlug: async () => null,
     findByFingerprint: async () => null,
+    findByFingerprintAndOutput: async () => null,
     create: async () => {
       throw new Error("not used");
     },
+    createRegisteredDisplay: async () => {
+      throw new Error("not used");
+    },
     update: async () => null,
+    setStatus: async () => {},
+    touchSeen: async () => {},
     bumpRefreshNonce: async () => false,
     delete: async (_id: string) => false,
   };
@@ -245,6 +253,7 @@ describe("Schedules use cases", () => {
           displayListCalls += 1;
           return [];
         },
+        listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
         findByIds: async (ids: string[]) => {
           displayFindByIdsCalls += 1;
           return ids.includes("display-1")
@@ -264,11 +273,18 @@ describe("Schedules use cases", () => {
         },
         findById: async () => null,
         findByIdentifier: async () => null,
+        findBySlug: async () => null,
         findByFingerprint: async () => null,
+        findByFingerprintAndOutput: async () => null,
         create: async () => {
           throw new Error("not used");
         },
+        createRegisteredDisplay: async () => {
+          throw new Error("not used");
+        },
         update: async () => null,
+        setStatus: async () => {},
+        touchSeen: async () => {},
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },

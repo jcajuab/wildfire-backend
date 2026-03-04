@@ -81,10 +81,17 @@ export class DisplayPairingSessionDbRepository
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
-  async complete(id: string, completedAt: Date): Promise<void> {
-    await db
+  async complete(id: string, completedAt: Date): Promise<boolean> {
+    const result = await db
       .update(displayPairingSessions)
       .set({ state: "completed", completedAt, updatedAt: completedAt })
-      .where(eq(displayPairingSessions.id, id));
+      .where(
+        and(
+          eq(displayPairingSessions.id, id),
+          eq(displayPairingSessions.state, "open"),
+          gt(displayPairingSessions.challengeExpiresAt, completedAt),
+        ),
+      );
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 }

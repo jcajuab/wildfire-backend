@@ -54,8 +54,18 @@ const makeIssueToken = () =>
     email: "admin@example.com",
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + 3600,
+    sessionId: crypto.randomUUID(),
     issuer: undefined,
   });
+
+const authSessionRepository = {
+  create: async () => {},
+  extendExpiry: async () => {},
+  revokeById: async () => {},
+  revokeAllForUser: async () => {},
+  isActive: async () => true,
+  isOwnedByUser: async () => true,
+};
 
 const makeDisplaysListApp = async (permissions: string[]) => {
   const app = new Hono();
@@ -71,6 +81,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
       screenWidth: null,
       screenHeight: null,
       outputType: null,
+      displayOutput: null,
       orientation: null,
       refreshNonce: 0,
       createdAt: "2025-01-01T00:00:00.000Z",
@@ -81,20 +92,53 @@ const makeDisplaysListApp = async (permissions: string[]) => {
   const repositories: DisplaysRouterDeps["repositories"] = {
     displayRepository: {
       list: async () => displays,
+      listPage: async (input: { page: number; pageSize: number }) => {
+        const page = Math.max(1, input.page);
+        const pageSize = Math.max(1, input.pageSize);
+        const offset = (page - 1) * pageSize;
+        return {
+          items: displays.slice(offset, offset + pageSize),
+          total: displays.length,
+          page,
+          pageSize,
+        };
+      },
       findByIds: async (ids: string[]) =>
         displays.filter((item) => ids.includes(item.id)),
       findById: async (id: string) =>
         displays.find((item) => item.id === id) ?? null,
       findByIdentifier: async (identifier: string) =>
         displays.find((item) => item.identifier === identifier) ?? null,
+      findBySlug: async (displaySlug: string) =>
+        displays.find((item) => item.displaySlug === displaySlug) ?? null,
       findByFingerprint: async (fingerprint: string) =>
         displays.find((item) => item.displayFingerprint === fingerprint) ??
         null,
+      findByFingerprintAndOutput: async (
+        fingerprint: string,
+        displayOutput: string,
+      ) =>
+        displays.find(
+          (item) =>
+            item.displayFingerprint === fingerprint &&
+            (item.displayOutput ?? null) === displayOutput,
+        ) ?? null,
       create: async (_input: {
         name: string;
         identifier: string;
         displayFingerprint?: string | null;
         location: string | null;
+      }) => {
+        throw new Error("not needed in contract test");
+      },
+      createRegisteredDisplay: async (_input: {
+        displaySlug: string;
+        name: string;
+        displayFingerprint: string;
+        displayOutput: string;
+        screenWidth: number;
+        screenHeight: number;
+        now: Date;
       }) => {
         throw new Error("not needed in contract test");
       },
@@ -111,6 +155,12 @@ const makeDisplaysListApp = async (permissions: string[]) => {
           orientation?: "LANDSCAPE" | "PORTRAIT" | null;
         },
       ) => null,
+      setStatus: async (_input: {
+        id: string;
+        status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
+        at: Date;
+      }) => {},
+      touchSeen: async (_id: string, _at: Date) => {},
       bumpRefreshNonce: async (_id: string) => false,
       delete: async (_id: string) => false,
     },
@@ -241,6 +291,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
         throw new Error("not needed in contract test");
       },
       consumeValidCode: async (_input: { codeHash: string; now: Date }) => null,
+      invalidateById: async (_input: { id: string; now: Date }) => {},
     },
     displayPairingSessionRepository: {
       create: async (_input: {
@@ -258,7 +309,7 @@ const makeDisplaysListApp = async (permissions: string[]) => {
         updatedAt: "2025-01-01T00:00:00.000Z",
       }),
       findOpenById: async (_input: { id: string; now: Date }) => null,
-      complete: async (_id: string, _completedAt: Date) => {},
+      complete: async (_id: string, _completedAt: Date) => true,
     },
     displayKeyRepository: {
       create: async (_input: {
@@ -294,6 +345,8 @@ const makeDisplaysListApp = async (permissions: string[]) => {
     "/displays",
     createDisplaysRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session_token",
       downloadUrlExpiresInSeconds: 3600,
       repositories,
       storage: {
@@ -432,6 +485,8 @@ const makeContentListApp = async (permissions: string[]) => {
     "/content",
     createContentRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session_token",
       maxUploadBytes: 5 * 1024 * 1024,
       downloadUrlExpiresInSeconds: 3600,
       thumbnailUrlExpiresInSeconds: 3600,
@@ -632,6 +687,8 @@ const makeRbacListApp = async (permissions: string[]) => {
     "/",
     createRbacRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session_token",
       repositories,
     }),
   );

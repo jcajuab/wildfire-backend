@@ -31,16 +31,16 @@ export const registerAuthSessionRoutes = (args: {
 }) => {
   const { router, deps, useCases, jwtMiddleware } = args;
 
-  router.get(
-    "/session",
+  router.post(
+    "/session/refresh",
     setAction("auth.session.refresh", {
-      route: "/auth/session",
+      route: "/auth/session/refresh",
       resourceType: "session",
     }),
     jwtMiddleware,
     requireJwtUser,
     describeRoute({
-      description: "Get current user and refresh JWT",
+      description: "Refresh current authenticated session JWT",
       tags: authTags,
       responses: {
         200: {
@@ -114,13 +114,11 @@ export const registerAuthSessionRoutes = (args: {
         c.set("resourceId", c.get("userId"));
         const sessionId = c.get("sessionId");
         if (sessionId) {
-          const isOwnedByUser = deps.authSessionRepository.isOwnedByUser
-            ? await deps.authSessionRepository.isOwnedByUser(
-                sessionId,
-                c.get("userId"),
-                new Date(),
-              )
-            : true;
+          const isOwnedByUser = await deps.authSessionRepository.isOwnedByUser(
+            sessionId,
+            c.get("userId"),
+            new Date(),
+          );
           if (!isOwnedByUser) {
             return unauthorized(c, "Unauthorized");
           }

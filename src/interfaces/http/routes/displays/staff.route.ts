@@ -5,16 +5,11 @@ import {
   randomUUID,
   verify,
 } from "node:crypto";
-import { and, eq, gt } from "drizzle-orm";
 import { type MiddlewareHandler } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { ValidationError } from "#/application/errors/validation";
 import { DisplayGroupConflictError } from "#/application/use-cases/displays";
-import { db } from "#/infrastructure/db/client";
-import { displays } from "#/infrastructure/db/schema/display.sql";
-import { displayKeys } from "#/infrastructure/db/schema/display-key.sql";
-import { displayPairingSessions } from "#/infrastructure/db/schema/display-pairing-session.sql";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -85,6 +80,7 @@ const REGISTRATION_ATTEMPT_HEARTBEAT_INTERVAL_MS = 20 * 1000;
 const DISPLAY_EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
 
 const registrationAttemptStore = new InMemoryDisplayRegistrationAttemptStore();
+registrationAttemptStore.startCleanup();
 
 const registrationAttemptParamSchema = z.object({
   attemptId: z.string().uuid(),
@@ -371,12 +367,10 @@ export const registerDisplayStaffRoutes = (args: {
         });
 
         if (created.invalidatedPairingCodeId) {
-          await deps.repositories.displayPairingCodeRepository.invalidateById?.(
-            {
-              id: created.invalidatedPairingCodeId,
-              now: new Date(),
-            },
-          );
+          await deps.repositories.displayPairingCodeRepository.invalidateById({
+            id: created.invalidatedPairingCodeId,
+            now: new Date(),
+          });
         }
 
         return c.json(
@@ -423,12 +417,10 @@ export const registerDisplayStaffRoutes = (args: {
         }
 
         if (rotated.invalidatedPairingCodeId) {
-          await deps.repositories.displayPairingCodeRepository.invalidateById?.(
-            {
-              id: rotated.invalidatedPairingCodeId,
-              now: new Date(),
-            },
-          );
+          await deps.repositories.displayPairingCodeRepository.invalidateById({
+            id: rotated.invalidatedPairingCodeId,
+            now: new Date(),
+          });
         }
 
         return c.json({
@@ -459,12 +451,10 @@ export const registerDisplayStaffRoutes = (args: {
           return notFound(c, "Registration attempt not found");
         }
         if (closed.invalidatedPairingCodeId) {
-          await deps.repositories.displayPairingCodeRepository.invalidateById?.(
-            {
-              id: closed.invalidatedPairingCodeId,
-              now: new Date(),
-            },
-          );
+          await deps.repositories.displayPairingCodeRepository.invalidateById({
+            id: closed.invalidatedPairingCodeId,
+            now: new Date(),
+          });
         }
         return c.body(null, 204);
       },
@@ -580,30 +570,14 @@ export const registerDisplayStaffRoutes = (args: {
           throw new ValidationError("Registration signature is invalid");
         }
 
-        const findBySlug = deps.repositories.displayRepository.findBySlug?.bind(
-          deps.repositories.displayRepository,
-        );
-        if (!findBySlug) {
-          throw new Error("Display repository does not support slug lookup");
-        }
-        const findByFingerprintAndOutput =
-          deps.repositories.displayRepository.findByFingerprintAndOutput?.bind(
-            deps.repositories.displayRepository,
-          );
-        if (!findByFingerprintAndOutput) {
-          throw new Error(
-            "Display repository does not support fingerprint/output lookup",
-          );
-        }
-
         const normalizedOutput = payload.displayOutput.trim().toLowerCase();
         if (normalizedOutput.length === 0) {
           throw new ValidationError("Display output is required");
         }
 
         const [existingSlug, existingFingerprintOutput] = await Promise.all([
-          findBySlug(payload.displaySlug),
-          findByFingerprintAndOutput(
+          deps.repositories.displayRepository.findBySlug(payload.displaySlug),
+          deps.repositories.displayRepository.findByFingerprintAndOutput(
             payload.displayFingerprint,
             normalizedOutput,
           ),
@@ -619,6 +593,17 @@ export const registerDisplayStaffRoutes = (args: {
           );
         }
 
+        const consumedSession =
+          await deps.repositories.displayPairingSessionRepository.complete(
+            session.id,
+            now,
+          );
+        if (!consumedSession) {
+          throw new ValidationError(
+            "Registration session is invalid or expired",
+          );
+        }
+
         let registered: {
           displayId: string;
           displaySlug: string;
@@ -626,64 +611,37 @@ export const registerDisplayStaffRoutes = (args: {
           state: "registered";
         } | null = null;
         try {
-          registered = await db.transaction(async (tx) => {
-            const openSession = await tx
-              .select()
-              .from(displayPairingSessions)
-              .where(
-                and(
-                  eq(displayPairingSessions.id, session.id),
-                  eq(displayPairingSessions.state, "open"),
-                  gt(displayPairingSessions.challengeExpiresAt, now),
-                ),
-              )
-              .limit(1);
-            if (!openSession[0]) {
-              throw new ValidationError(
-                "Registration session is invalid or expired",
-              );
-            }
-
-            const displayId = randomUUID();
-            const keyId = randomUUID();
-
-            await tx.insert(displays).values({
-              id: displayId,
+          const createdDisplay =
+            await deps.repositories.displayRepository.createRegisteredDisplay({
               displaySlug: payload.displaySlug,
               name: payload.displayName,
               displayFingerprint: payload.displayFingerprint,
-              status: "PROCESSING",
+              displayOutput: normalizedOutput,
               screenWidth: payload.resolutionWidth,
               screenHeight: payload.resolutionHeight,
-              displayOutput: normalizedOutput,
-              registeredAt: now,
-              activatedAt: now,
-              createdAt: now,
-              updatedAt: now,
+              now,
             });
-
-            await tx.insert(displayKeys).values({
-              id: keyId,
-              displayId,
+          let createdKey: { id: string } | null = null;
+          try {
+            createdKey = await deps.repositories.displayKeyRepository.create({
+              displayId: createdDisplay.id,
               algorithm: "ed25519",
               publicKey: payload.publicKey,
-              status: "active",
-              createdAt: now,
-              updatedAt: now,
             });
+          } catch (error) {
+            await deps.repositories.displayRepository.delete(createdDisplay.id);
+            throw error;
+          }
+          if (!createdKey) {
+            throw new Error("Display key creation failed");
+          }
 
-            await tx
-              .update(displayPairingSessions)
-              .set({ state: "completed", completedAt: now, updatedAt: now })
-              .where(eq(displayPairingSessions.id, session.id));
-
-            return {
-              displayId,
-              displaySlug: payload.displaySlug,
-              keyId,
-              state: "registered" as const,
-            };
-          });
+          registered = {
+            displayId: createdDisplay.id,
+            displaySlug: createdDisplay.displaySlug,
+            keyId: createdKey.id,
+            state: "registered",
+          };
         } catch (error) {
           if (
             isDuplicateIndexError(error, "displays_display_slug_unique") ||

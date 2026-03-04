@@ -10,6 +10,7 @@ export interface RegistrationAttemptCode {
 interface RegistrationAttemptRecord {
   id: string;
   createdById: string;
+  createdAt: Date;
   closedAt: Date | null;
   activeCode: RegistrationAttemptCode | null;
 }
@@ -19,6 +20,74 @@ export class InMemoryDisplayRegistrationAttemptStore {
   private readonly openAttemptIdByUserId = new Map<string, string>();
   private readonly attemptIdByCodeHash = new Map<string, string>();
   private readonly attemptIdBySessionId = new Map<string, string>();
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  startCleanup(intervalMs = 60_000): void {
+    if (this.cleanupTimer) {
+      return;
+    }
+    this.cleanupTimer = setInterval(() => this.sweep(new Date()), intervalMs);
+    if (typeof this.cleanupTimer === "object" && "unref" in this.cleanupTimer) {
+      this.cleanupTimer.unref();
+    }
+  }
+
+  stopCleanup(): void {
+    if (!this.cleanupTimer) {
+      return;
+    }
+    clearInterval(this.cleanupTimer);
+    this.cleanupTimer = null;
+  }
+
+  private sweep(now: Date): void {
+    const staleMs = 30 * 60 * 1000;
+    const attemptIdsToDelete: string[] = [];
+    const nowMs = now.getTime();
+
+    for (const [attemptId, attempt] of this.attemptsById) {
+      const isClosedAndStale =
+        attempt.closedAt !== null &&
+        nowMs - attempt.closedAt.getTime() > staleMs;
+      const hasExpiredCode =
+        attempt.activeCode !== null &&
+        attempt.activeCode.expiresAt.getTime() <= nowMs;
+      const isInactiveAndStale =
+        attempt.activeCode === null &&
+        nowMs - attempt.createdAt.getTime() > staleMs;
+
+      if (hasExpiredCode && attempt.activeCode) {
+        this.attemptIdByCodeHash.delete(attempt.activeCode.codeHash);
+        attempt.activeCode = null;
+      }
+
+      if (isClosedAndStale || isInactiveAndStale) {
+        attemptIdsToDelete.push(attemptId);
+      }
+    }
+
+    if (attemptIdsToDelete.length === 0) {
+      return;
+    }
+
+    const removeSet = new Set(attemptIdsToDelete);
+    for (const [sessionId, attemptId] of this.attemptIdBySessionId) {
+      if (removeSet.has(attemptId)) {
+        this.attemptIdBySessionId.delete(sessionId);
+      }
+    }
+
+    for (const attemptId of attemptIdsToDelete) {
+      const attempt = this.attemptsById.get(attemptId);
+      if (!attempt) {
+        continue;
+      }
+      if (this.openAttemptIdByUserId.get(attempt.createdById) === attemptId) {
+        this.openAttemptIdByUserId.delete(attempt.createdById);
+      }
+      this.attemptsById.delete(attemptId);
+    }
+  }
 
   createOrReplaceOpenAttempt(input: {
     createdById: string;
@@ -42,6 +111,7 @@ export class InMemoryDisplayRegistrationAttemptStore {
     this.attemptsById.set(attemptId, {
       id: attemptId,
       createdById: input.createdById,
+      createdAt: new Date(),
       closedAt: null,
       activeCode: input.activeCode,
     });

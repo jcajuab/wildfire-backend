@@ -24,9 +24,8 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface ContentRouterDeps {
   jwtSecret: string;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
   maxUploadBytes: number;
   downloadUrlExpiresInSeconds: number;
   thumbnailUrlExpiresInSeconds: number;

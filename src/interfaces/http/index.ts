@@ -146,7 +146,6 @@ const authRouter = createAuthRouter({
   issuer: env.JWT_ISSUER,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   authSecurityStore,
   authLoginRateLimitMaxAttempts: env.AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
   authLoginRateLimitWindowSeconds: env.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
@@ -184,7 +183,6 @@ const playlistsRouter = createPlaylistsRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   repositories: {
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
@@ -200,7 +198,6 @@ const schedulesRouter = createSchedulesRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   repositories: {
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
@@ -215,7 +212,6 @@ const displaysRouter = createDisplaysRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   downloadUrlExpiresInSeconds: 60 * 60,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   repositories: {
@@ -262,7 +258,6 @@ const contentRouter = createContentRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
   downloadUrlExpiresInSeconds: 60 * 60,
   thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
@@ -280,7 +275,6 @@ const rbacRouter = createRbacRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   repositories: {
     userRepository: container.repositories.userRepository,
     roleRepository: container.repositories.roleRepository,
@@ -300,7 +294,6 @@ const auditRouter = createAuditRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   exportMaxRows: env.AUDIT_EXPORT_MAX_ROWS,
   repositories: {
     auditEventRepository: container.repositories.auditEventRepository,
@@ -314,7 +307,6 @@ const settingsRouter = createSettingsRouter({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  authSessionDualMode: env.AUTH_SESSION_DUAL_MODE,
   repositories: {
     authorizationRepository: container.repositories.authorizationRepository,
     systemSettingRepository: container.repositories.systemSettingRepository,

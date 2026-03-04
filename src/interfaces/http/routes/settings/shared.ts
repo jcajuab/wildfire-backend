@@ -11,9 +11,8 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface SettingsRouterDeps {
   jwtSecret: string;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
   repositories: {
     authorizationRepository: AuthorizationRepository;
     systemSettingRepository: SystemSettingRepository;

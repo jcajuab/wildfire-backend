@@ -25,9 +25,8 @@ import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/str
 
 export interface PlaylistsRouterDeps {
   jwtSecret: string;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
   repositories: {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;

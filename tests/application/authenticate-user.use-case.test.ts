@@ -79,6 +79,7 @@ const makeDeps = () => {
         revokeById: async () => {},
         revokeAllForUser: async () => {},
         isActive: async () => true,
+        isOwnedByUser: async () => true,
       },
     },
   };

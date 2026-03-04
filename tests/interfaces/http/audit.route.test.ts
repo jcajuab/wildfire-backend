@@ -6,6 +6,14 @@ import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
+const authSessionRepository = {
+  create: async () => {},
+  extendExpiry: async () => {},
+  revokeById: async () => {},
+  revokeAllForUser: async () => {},
+  isActive: async () => true,
+  isOwnedByUser: async () => true,
+};
 
 const buildAuditEvent = (
   id: string,
@@ -88,9 +96,12 @@ const mockDisplayRepository = {
         updatedAt: "2026-01-01T00:00:00.000Z",
       })),
   list: async () => [],
+  listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
   findById: async () => null,
   findByIdentifier: async () => null,
+  findBySlug: async () => null,
   findByFingerprint: async () => null,
+  findByFingerprintAndOutput: async () => null,
   create: async () => ({
     id: "",
     name: "",
@@ -101,7 +112,12 @@ const mockDisplayRepository = {
     createdAt: "",
     updatedAt: "",
   }),
+  createRegisteredDisplay: async () => {
+    throw new Error("not used");
+  },
   update: async () => null,
+  setStatus: async () => {},
+  touchSeen: async () => {},
   bumpRefreshNonce: async () => false,
   delete: async (_id: string) => false,
 };
@@ -128,6 +144,8 @@ const makeApp = async (permissions: string[]) => {
 
   const router = createAuditRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session",
     exportMaxRows: 2,
     repositories: {
       auditEventRepository,
@@ -148,6 +166,7 @@ const makeApp = async (permissions: string[]) => {
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: "wildfire",
     });
 
@@ -284,6 +303,8 @@ describe("Audit routes", () => {
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
         auditEventRepository,
@@ -301,6 +322,7 @@ describe("Audit routes", () => {
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: "wildfire",
     });
     const response = await app.request("/audit/events/export", {
@@ -337,6 +359,8 @@ describe("Audit routes", () => {
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
         auditEventRepository,
@@ -356,6 +380,7 @@ describe("Audit routes", () => {
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: "wildfire",
     });
 
@@ -393,6 +418,8 @@ describe("Audit routes", () => {
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
         auditEventRepository,
@@ -412,6 +439,7 @@ describe("Audit routes", () => {
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: "wildfire",
     });
 
@@ -438,6 +466,8 @@ describe("Audit routes", () => {
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
         auditEventRepository,
@@ -457,6 +487,7 @@ describe("Audit routes", () => {
       email: "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: "wildfire",
     });
 

@@ -463,6 +463,7 @@ describe("Playlists use cases", () => {
       scheduleRepository,
       displayRepository: {
         list: async () => [],
+        listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
         findByIds: async () => [],
         findById: async () => ({
           id: "display-1",
@@ -477,11 +478,18 @@ describe("Playlists use cases", () => {
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
         findByIdentifier: async () => null,
+        findBySlug: async () => null,
         findByFingerprint: async () => null,
+        findByFingerprintAndOutput: async () => null,
         create: async () => {
           throw new Error("not used");
         },
+        createRegisteredDisplay: async () => {
+          throw new Error("not used");
+        },
         update: async () => null,
+        setStatus: async () => {},
+        touchSeen: async () => {},
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },
@@ -532,6 +540,7 @@ describe("Playlists use cases", () => {
 
     const displayRepository: DisplayRepository = {
       list: async () => [],
+      listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
       findByIds: async (ids: string[]) =>
         ids.map((id) => ({
           id,
@@ -545,11 +554,18 @@ describe("Playlists use cases", () => {
         })),
       findById: async () => null,
       findByIdentifier: async () => null,
+      findBySlug: async () => null,
       findByFingerprint: async () => null,
+      findByFingerprintAndOutput: async () => null,
       create: async () => {
         throw new Error("not used");
       },
+      createRegisteredDisplay: async () => {
+        throw new Error("not used");
+      },
       update: async () => null,
+      setStatus: async () => {},
+      touchSeen: async () => {},
       bumpRefreshNonce: async () => false,
       delete: async (_id: string) => false,
     };
@@ -617,6 +633,7 @@ describe("Playlists use cases", () => {
 
     const displayRepository: DisplayRepository = {
       list: async () => [],
+      listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
       findByIds: async (ids: string[]) =>
         ids.map((id) => ({
           id,
@@ -630,11 +647,18 @@ describe("Playlists use cases", () => {
         })),
       findById: async () => null,
       findByIdentifier: async () => null,
+      findBySlug: async () => null,
       findByFingerprint: async () => null,
+      findByFingerprintAndOutput: async () => null,
       create: async () => {
         throw new Error("not used");
       },
+      createRegisteredDisplay: async () => {
+        throw new Error("not used");
+      },
       update: async () => null,
+      setStatus: async () => {},
+      touchSeen: async () => {},
       bumpRefreshNonce: async () => false,
       delete: async (_id: string) => false,
     };
@@ -689,14 +713,22 @@ describe("Playlists use cases", () => {
 
     const displayRepository: DisplayRepository = {
       list: async () => [],
+      listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
       findByIds: async () => [],
       findById: async () => null,
       findByIdentifier: async () => null,
+      findBySlug: async () => null,
       findByFingerprint: async () => null,
+      findByFingerprintAndOutput: async () => null,
       create: async () => {
         throw new Error("not used");
       },
+      createRegisteredDisplay: async () => {
+        throw new Error("not used");
+      },
       update: async () => null,
+      setStatus: async () => {},
+      touchSeen: async () => {},
       bumpRefreshNonce: async () => false,
       delete: async (_id: string) => false,
     };

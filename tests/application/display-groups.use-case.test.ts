@@ -17,16 +17,35 @@ const makeDisplayRepository = (
   displays: DisplayRecord[],
 ): DisplayRepository => ({
   list: async () => displays,
+  listPage: async ({ page, pageSize }) => {
+    const safePage = Math.max(1, page);
+    const safePageSize = Math.max(1, pageSize);
+    const offset = (safePage - 1) * safePageSize;
+    return {
+      items: displays.slice(offset, offset + safePageSize),
+      total: displays.length,
+      page: safePage,
+      pageSize: safePageSize,
+    };
+  },
   findByIds: async (ids: string[]) =>
     displays.filter((display) => ids.includes(display.id)),
   findById: async (id: string) =>
     displays.find((display) => display.id === id) ?? null,
   findByIdentifier: async () => null,
+  findBySlug: async (displaySlug: string) =>
+    displays.find((display) => display.displaySlug === displaySlug) ?? null,
   findByFingerprint: async () => null,
+  findByFingerprintAndOutput: async () => null,
   create: async () => {
     throw new Error("not used");
   },
+  createRegisteredDisplay: async () => {
+    throw new Error("not used");
+  },
   update: async () => null,
+  setStatus: async () => {},
+  touchSeen: async () => {},
   bumpRefreshNonce: async () => false,
   delete: async (_id: string) => false,
 });

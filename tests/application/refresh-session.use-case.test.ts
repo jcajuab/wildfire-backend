@@ -65,6 +65,7 @@ describe("RefreshSessionUseCase", () => {
         revokeById: async () => {},
         revokeAllForUser: async () => {},
         isActive: async () => true,
+        isOwnedByUser: async () => true,
       },
     });
 
@@ -160,6 +161,7 @@ describe("RefreshSessionUseCase", () => {
         },
         revokeAllForUser: async () => {},
         isActive: async () => true,
+        isOwnedByUser: async () => true,
       },
     });
 

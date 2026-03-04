@@ -1,11 +1,9 @@
-import { createHash, randomInt } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
 import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
 import { type DisplayKeyRepository } from "#/application/ports/display-auth";
-import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
   type DisplayRecord,
@@ -18,13 +16,7 @@ import {
   DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
   type SystemSettingRepository,
 } from "#/application/ports/settings";
-import { paginate } from "#/application/use-cases/shared/pagination";
 import { sha256Hex } from "#/domain/content/checksum";
-import {
-  createDisplayProps,
-  type DisplayInput,
-  DisplayValidationError,
-} from "#/domain/displays/display";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 
@@ -65,29 +57,7 @@ const mapWithConcurrency = async <T, R>(
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 export const DISPLAY_DOWN_TIMEOUT_MS = ONLINE_WINDOW_MS;
-const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
-const PAIRING_CODE_DUPLICATE_INDEX = "pairing_codes_code_hash_unique";
 const DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND = 24;
-
-const hashPairingCode = (code: string): string =>
-  createHash("sha256").update(code).digest("hex");
-
-const isDuplicatePairingCodeError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) return false;
-  const dbError = error as {
-    code?: string;
-    message?: string;
-    sqlMessage?: string;
-  };
-  const details = [dbError.message, dbError.sqlMessage]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .toLowerCase();
-  return (
-    dbError.code === "ER_DUP_ENTRY" &&
-    details.includes(PAIRING_CODE_DUPLICATE_INDEX)
-  );
-};
 
 const isRecentlySeen = (lastSeenAt: string | null, now: Date): boolean => {
   const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.NaN;
@@ -202,20 +172,34 @@ export class ListDisplaysUseCase {
 
   async execute(input?: { page?: number; pageSize?: number }) {
     const now = new Date();
-    const all = await this.deps.displayRepository.list();
+    const page = input?.page ?? 1;
+    const pageSize = input?.pageSize ?? 20;
+    const paged = await this.deps.displayRepository.listPage({
+      page,
+      pageSize,
+    });
     const schedules = await this.deps.scheduleRepository.list();
+    const displayIds = new Set(paged.items.map((display) => display.id));
+    const schedulesForPage = schedules.filter((schedule) =>
+      displayIds.has(schedule.displayId),
+    );
     const nowPlayingByDisplayId = await buildNowPlayingMap({
-      displays: all,
-      schedules,
+      displays: paged.items,
+      schedules: schedulesForPage,
       now,
       timeZone: this.deps.scheduleTimeZone ?? "UTC",
       playlistRepository: this.deps.playlistRepository,
     });
-    const withStatus = all.map((display) => ({
+    const withStatus = paged.items.map((display) => ({
       ...withTelemetry(display),
       nowPlaying: nowPlayingByDisplayId.get(display.id) ?? null,
     }));
-    return paginate(withStatus, input);
+    return {
+      items: withStatus,
+      total: paged.total,
+      page: paged.page,
+      pageSize: paged.pageSize,
+    };
   }
 }
 
@@ -255,186 +239,6 @@ export class GetDisplayUseCase {
           }
         : null,
     };
-  }
-}
-
-export class RegisterDisplayUseCase {
-  constructor(
-    private readonly deps: {
-      displayRepository: DisplayRepository;
-      displayPairingCodeRepository: DisplayPairingCodeRepository;
-    },
-  ) {}
-
-  async execute(input: DisplayInput & { pairingCode: string }) {
-    const now = new Date();
-    const pairingCode = input.pairingCode.trim();
-    if (!/^\d{6}$/.test(pairingCode)) {
-      throw new ValidationError("Pairing code must be a 6-digit number");
-    }
-    const consumed =
-      await this.deps.displayPairingCodeRepository.consumeValidCode({
-        codeHash: hashPairingCode(pairingCode),
-        now: new Date(),
-      });
-    if (!consumed) {
-      throw new ValidationError(
-        "Pairing code is invalid, expired, or already used",
-      );
-    }
-
-    let props: ReturnType<typeof createDisplayProps>;
-    try {
-      props = createDisplayProps({
-        name: input.name,
-        identifier: input.identifier,
-        displayFingerprint: input.displayFingerprint,
-        location: input.location,
-        ipAddress: input.ipAddress,
-        macAddress: input.macAddress,
-        screenWidth: input.screenWidth,
-        screenHeight: input.screenHeight,
-        outputType: input.outputType,
-        orientation: input.orientation,
-      });
-    } catch (error) {
-      if (error instanceof DisplayValidationError) {
-        throw new ValidationError(error.message);
-      }
-      throw error;
-    }
-    if (props.screenWidth === null || props.screenHeight === null) {
-      throw new ValidationError("Display resolution is required");
-    }
-
-    const existing = await this.deps.displayRepository.findByIdentifier(
-      props.identifier,
-    );
-    const existingByFingerprint = props.displayFingerprint
-      ? await this.deps.displayRepository.findByFingerprint(
-          props.displayFingerprint,
-        )
-      : null;
-
-    if (
-      existing &&
-      existingByFingerprint &&
-      existing.id !== existingByFingerprint.id
-    ) {
-      throw new ValidationError(
-        "Display identifier and fingerprint belong to different records",
-      );
-    }
-
-    const target = existing ?? existingByFingerprint;
-
-    if (target) {
-      const updated = await this.deps.displayRepository.update(target.id, {
-        name: props.name,
-        identifier: props.identifier,
-        displayFingerprint: props.displayFingerprint,
-        location: props.location,
-        ipAddress: props.ipAddress,
-        macAddress: props.macAddress,
-        screenWidth: props.screenWidth,
-        screenHeight: props.screenHeight,
-        outputType: props.outputType,
-        orientation: props.orientation,
-      });
-      if (!updated) {
-        throw new NotFoundError("Display not found");
-      }
-      await this.deps.displayRepository.touchSeen?.(updated.id, now);
-      await this.deps.displayRepository.setStatus?.({
-        id: updated.id,
-        status: "READY",
-        at: now,
-      });
-      return withTelemetry({
-        ...updated,
-        lastSeenAt: now.toISOString(),
-        status: "READY",
-      });
-    }
-
-    const created = await this.deps.displayRepository.create({
-      name: props.name,
-      identifier: props.identifier,
-      displayFingerprint: props.displayFingerprint,
-      location: props.location,
-    });
-    if (
-      props.ipAddress !== null ||
-      props.macAddress !== null ||
-      props.screenWidth !== null ||
-      props.screenHeight !== null ||
-      props.outputType !== null ||
-      props.orientation !== null
-    ) {
-      const enriched = await this.deps.displayRepository.update(created.id, {
-        displayFingerprint: props.displayFingerprint,
-        ipAddress: props.ipAddress,
-        macAddress: props.macAddress,
-        screenWidth: props.screenWidth,
-        screenHeight: props.screenHeight,
-        outputType: props.outputType,
-        orientation: props.orientation,
-      });
-      const connectedDisplay = enriched ?? created;
-      await this.deps.displayRepository.touchSeen?.(connectedDisplay.id, now);
-      await this.deps.displayRepository.setStatus?.({
-        id: connectedDisplay.id,
-        status: "READY",
-        at: now,
-      });
-      return withTelemetry({
-        ...connectedDisplay,
-        lastSeenAt: now.toISOString(),
-        status: "READY",
-      });
-    }
-    await this.deps.displayRepository.touchSeen?.(created.id, now);
-    await this.deps.displayRepository.setStatus?.({
-      id: created.id,
-      status: "READY",
-      at: now,
-    });
-    return withTelemetry({
-      ...created,
-      lastSeenAt: now.toISOString(),
-      status: "READY",
-    });
-  }
-}
-
-export class IssueDisplayPairingCodeUseCase {
-  constructor(
-    private readonly deps: {
-      displayPairingCodeRepository: DisplayPairingCodeRepository;
-    },
-  ) {}
-
-  async execute(input: { createdById: string }) {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
-      const expiresAt = new Date(Date.now() + PAIRING_CODE_TTL_MS);
-      try {
-        await this.deps.displayPairingCodeRepository.create({
-          codeHash: hashPairingCode(code),
-          expiresAt,
-          createdById: input.createdById,
-        });
-        return {
-          code,
-          expiresAt: expiresAt.toISOString(),
-        };
-      } catch (error) {
-        if (!isDuplicatePairingCodeError(error)) {
-          throw error;
-        }
-      }
-    }
-    throw new Error("Failed to generate a unique pairing code");
   }
 }
 
@@ -579,7 +383,7 @@ export class GetDisplayActiveScheduleUseCase {
   ) {}
 
   async execute(input: { displayId: string; now: Date }) {
-    await this.deps.displayRepository.touchSeen?.(input.displayId, input.now);
+    await this.deps.displayRepository.touchSeen(input.displayId, input.now);
     const [display, schedules] = await Promise.all([
       this.deps.displayRepository.findById(input.displayId),
       this.deps.scheduleRepository.listByDisplay(input.displayId),
@@ -632,7 +436,7 @@ export class GetDisplayManifestUseCase {
   ) {}
 
   async execute(input: { displayId: string; now: Date }) {
-    await this.deps.displayRepository.touchSeen?.(input.displayId, input.now);
+    await this.deps.displayRepository.touchSeen(input.displayId, input.now);
     const [display, schedules] = await Promise.all([
       this.deps.displayRepository.findById(input.displayId),
       this.deps.scheduleRepository.listByDisplay(input.displayId),

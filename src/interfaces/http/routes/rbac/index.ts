@@ -16,7 +16,6 @@ export const createRbacRouter = (deps: RbacRouterDeps) => {
     authorizationRepository: deps.repositories.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
   const useCases = createRbacUseCases(deps);
 

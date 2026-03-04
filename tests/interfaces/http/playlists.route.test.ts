@@ -9,6 +9,14 @@ const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
+const authSessionRepository = {
+  create: async () => {},
+  extendExpiry: async () => {},
+  revokeById: async () => {},
+  revokeAllForUser: async () => {},
+  isActive: async () => true,
+  isOwnedByUser: async () => true,
+};
 
 const makeApp = async (
   permissions: string[],
@@ -55,6 +63,8 @@ const makeApp = async (
 
   const router = createPlaylistsRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session",
     repositories: {
       playlistRepository: {
         list: async () => [...playlists],
@@ -181,6 +191,7 @@ const makeApp = async (
       },
       displayRepository: {
         list: async () => [],
+        listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
         findByIds: async () => [],
         findById: async () => ({
           id: "display-1",
@@ -195,11 +206,18 @@ const makeApp = async (
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
         findByIdentifier: async () => null,
+        findBySlug: async () => null,
         findByFingerprint: async () => null,
+        findByFingerprintAndOutput: async () => null,
         create: async () => {
           throw new Error("not used");
         },
+        createRegisteredDisplay: async () => {
+          throw new Error("not used");
+        },
         update: async () => null,
+        setStatus: async () => {},
+        touchSeen: async () => {},
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },
@@ -225,6 +243,7 @@ const makeApp = async (
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
     });
 

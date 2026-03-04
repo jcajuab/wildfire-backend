@@ -26,12 +26,18 @@ export interface DisplayRecord {
 
 export interface DisplayRepository {
   list(): Promise<DisplayRecord[]>;
+  listPage(input: { page: number; pageSize: number }): Promise<{
+    items: DisplayRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>;
   findByIds(ids: string[]): Promise<DisplayRecord[]>;
   findById(id: string): Promise<DisplayRecord | null>;
   findByIdentifier(identifier: string): Promise<DisplayRecord | null>;
-  findBySlug?(displaySlug: string): Promise<DisplayRecord | null>;
+  findBySlug(displaySlug: string): Promise<DisplayRecord | null>;
   findByFingerprint(fingerprint: string): Promise<DisplayRecord | null>;
-  findByFingerprintAndOutput?(
+  findByFingerprintAndOutput(
     fingerprint: string,
     displayOutput: string,
   ): Promise<DisplayRecord | null>;
@@ -56,7 +62,7 @@ export interface DisplayRepository {
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
     },
   ): Promise<DisplayRecord | null>;
-  createRegisteredDisplay?(input: {
+  createRegisteredDisplay(input: {
     displaySlug: string;
     name: string;
     displayFingerprint: string;
@@ -69,13 +75,13 @@ export interface DisplayRepository {
     location?: string | null;
     now: Date;
   }): Promise<DisplayRecord>;
-  setStatus?(input: {
+  setStatus(input: {
     id: string;
     status: DisplayStatus;
     at: Date;
   }): Promise<void>;
   delete(id: string): Promise<boolean>;
-  touchSeen?(id: string, at: Date): Promise<void>;
+  touchSeen(id: string, at: Date): Promise<void>;
   bumpRefreshNonce(id: string): Promise<boolean>;
 }
 

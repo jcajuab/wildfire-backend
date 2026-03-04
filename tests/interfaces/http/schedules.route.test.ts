@@ -9,6 +9,14 @@ const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const displayId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+const authSessionRepository = {
+  create: async () => {},
+  extendExpiry: async () => {},
+  revokeById: async () => {},
+  revokeAllForUser: async () => {},
+  isActive: async () => true,
+  isOwnedByUser: async () => true,
+};
 
 const makeApp = async (
   permissions: string[],
@@ -100,6 +108,8 @@ const makeApp = async (
 
   const router = createSchedulesRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session",
     repositories: {
       scheduleRepository: {
         list: async () => [...schedules],
@@ -169,16 +179,29 @@ const makeApp = async (
       },
       displayRepository: {
         list: async () => [...displays],
+        listPage: async () => ({
+          items: [...displays],
+          total: displays.length,
+          page: 1,
+          pageSize: displays.length || 1,
+        }),
         findByIds: async (ids: string[]) =>
           displays.filter((display) => ids.includes(display.id)),
         findById: async (id: string) =>
           displays.find((display) => display.id === id) ?? null,
         findByIdentifier: async () => null,
+        findBySlug: async () => null,
         findByFingerprint: async () => null,
+        findByFingerprintAndOutput: async () => null,
         create: async () => {
           throw new Error("not used");
         },
+        createRegisteredDisplay: async () => {
+          throw new Error("not used");
+        },
         update: async () => null,
+        setStatus: async () => {},
+        touchSeen: async () => {},
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },
@@ -220,6 +243,7 @@ const makeApp = async (
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
     });
 

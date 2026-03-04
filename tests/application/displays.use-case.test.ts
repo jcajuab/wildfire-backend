@@ -1,7 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
-import { ValidationError } from "#/application/errors/validation";
-import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import {
   type DisplayRecord,
   type DisplayRepository,
@@ -9,10 +6,8 @@ import {
 import {
   GetDisplayManifestUseCase,
   GetDisplayUseCase,
-  IssueDisplayPairingCodeUseCase,
   ListDisplaysUseCase,
   NotFoundError,
-  RegisterDisplayUseCase,
   RequestDisplayRefreshUseCase,
   UpdateDisplayUseCase,
 } from "#/application/use-cases/displays";
@@ -22,6 +17,17 @@ const makeRepository = () => {
 
   const repo: DisplayRepository = {
     list: async () => [...records],
+    listPage: async (input: { page: number; pageSize: number }) => {
+      const page = Math.max(1, input.page);
+      const pageSize = Math.max(1, input.pageSize);
+      const offset = (page - 1) * pageSize;
+      return {
+        items: records.slice(offset, offset + pageSize),
+        total: records.length,
+        page,
+        pageSize,
+      };
+    },
     findByIds: async (ids: string[]) =>
       ids
         .map((id) => records.find((record) => record.id === id) ?? null)
@@ -30,9 +36,20 @@ const makeRepository = () => {
       records.find((record) => record.id === id) ?? null,
     findByIdentifier: async (identifier: string) =>
       records.find((record) => record.identifier === identifier) ?? null,
+    findBySlug: async (displaySlug: string) =>
+      records.find((record) => record.displaySlug === displaySlug) ?? null,
     findByFingerprint: async (fingerprint: string) =>
       records.find((record) => record.displayFingerprint === fingerprint) ??
       null,
+    findByFingerprintAndOutput: async (
+      fingerprint: string,
+      displayOutput: string,
+    ) =>
+      records.find(
+        (record) =>
+          record.displayFingerprint === fingerprint &&
+          (record.displayOutput ?? null) === displayOutput,
+      ) ?? null,
     create: async (input) => {
       const record: DisplayRecord = {
         id: `display-${records.length + 1}`,
@@ -55,6 +72,27 @@ const makeRepository = () => {
       records.push(record);
       return record;
     },
+    createRegisteredDisplay: async (input) => {
+      const record: DisplayRecord = {
+        id: `display-${records.length + 1}`,
+        displaySlug: input.displaySlug,
+        name: input.name,
+        identifier: input.displaySlug,
+        displayFingerprint: input.displayFingerprint,
+        status: "PROCESSING",
+        location: null,
+        screenWidth: input.screenWidth,
+        screenHeight: input.screenHeight,
+        outputType: input.displayOutput,
+        displayOutput: input.displayOutput,
+        orientation: input.orientation ?? null,
+        lastSeenAt: null,
+        createdAt: input.now.toISOString(),
+        updatedAt: input.now.toISOString(),
+      };
+      records.push(record);
+      return record;
+    },
     update: async (id, input) => {
       const record = records.find((item) => item.id === id);
       if (!record) return null;
@@ -73,91 +111,28 @@ const makeRepository = () => {
       record.updatedAt = "2025-01-02T00:00:00.000Z";
       return record;
     },
+    setStatus: async ({ id, status, at }) => {
+      const record = records.find((item) => item.id === id);
+      if (!record) return;
+      record.status = status;
+      record.updatedAt = at.toISOString();
+    },
     bumpRefreshNonce: async (id: string) => {
       const record = records.find((item) => item.id === id);
       if (!record) return false;
       record.refreshNonce = (record.refreshNonce ?? 0) + 1;
       return true;
     },
+    touchSeen: async (id: string, at: Date) => {
+      const record = records.find((item) => item.id === id);
+      if (!record) return;
+      record.lastSeenAt = at.toISOString();
+      record.updatedAt = at.toISOString();
+    },
     delete: async (_id: string) => false,
   };
 
   return { repo, records };
-};
-
-const hashPairingCode = (code: string): string =>
-  createHash("sha256").update(code).digest("hex");
-
-const makePairingRepository = () => {
-  const records: Array<{
-    id: string;
-    codeHash: string;
-    expiresAt: Date;
-    usedAt: Date | null;
-    createdById: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }> = [];
-
-  const repository: DisplayPairingCodeRepository = {
-    create: async (input) => {
-      const now = new Date();
-      const record = {
-        id: crypto.randomUUID(),
-        codeHash: input.codeHash,
-        expiresAt: input.expiresAt,
-        usedAt: null,
-        createdById: input.createdById,
-        createdAt: now,
-        updatedAt: now,
-      };
-      records.push(record);
-      return {
-        id: record.id,
-        codeHash: record.codeHash,
-        expiresAt: record.expiresAt.toISOString(),
-        usedAt: null,
-        createdById: record.createdById,
-        createdAt: record.createdAt.toISOString(),
-        updatedAt: record.updatedAt.toISOString(),
-      };
-    },
-    consumeValidCode: async ({ codeHash, now }) => {
-      const record = records.find(
-        (item) =>
-          item.codeHash === codeHash &&
-          item.usedAt === null &&
-          item.expiresAt.getTime() > now.getTime(),
-      );
-      if (!record) return null;
-      record.usedAt = now;
-      record.updatedAt = now;
-      return {
-        id: record.id,
-        codeHash: record.codeHash,
-        expiresAt: record.expiresAt.toISOString(),
-        usedAt: record.usedAt.toISOString(),
-        createdById: record.createdById,
-        createdAt: record.createdAt.toISOString(),
-        updatedAt: record.updatedAt.toISOString(),
-      };
-    },
-  };
-
-  const issueCode = (code: string, options?: { expiresAt?: Date }) => {
-    const now = new Date();
-    records.push({
-      id: crypto.randomUUID(),
-      codeHash: hashPairingCode(code),
-      expiresAt: options?.expiresAt ?? new Date(now.getTime() + 10 * 60 * 1000),
-      usedAt: null,
-      createdById: "user-1",
-      createdAt: now,
-      updatedAt: now,
-    });
-  };
-
-  return { repository, issueCode, records };
 };
 
 describe("Displays use cases", () => {
@@ -409,172 +384,6 @@ describe("Displays use cases", () => {
     await expect(getDisplay.execute({ id: "missing" })).rejects.toBeInstanceOf(
       NotFoundError,
     );
-  });
-
-  test("RegisterDisplayUseCase creates new display", async () => {
-    const { repo } = makeRepository();
-    const { repository: pairingCodeRepository, issueCode } =
-      makePairingRepository();
-    issueCode("123456");
-    const registerDisplay = new RegisterDisplayUseCase({
-      displayRepository: repo,
-      displayPairingCodeRepository: pairingCodeRepository,
-    });
-
-    const display = await registerDisplay.execute({
-      pairingCode: "123456",
-      name: "Lobby",
-      identifier: "AA:BB",
-      location: "Main Hall",
-      screenWidth: 1366,
-      screenHeight: 768,
-    });
-
-    expect(display.identifier).toBe("AA:BB");
-    expect(display.status).toBe("READY");
-    expect(display.lastSeenAt).not.toBeNull();
-  });
-
-  test("RegisterDisplayUseCase updates existing display", async () => {
-    const { repo } = makeRepository();
-    const { repository: pairingCodeRepository, issueCode } =
-      makePairingRepository();
-    const registerDisplay = new RegisterDisplayUseCase({
-      displayRepository: repo,
-      displayPairingCodeRepository: pairingCodeRepository,
-    });
-
-    const created = await repo.create({
-      name: "Lobby",
-      identifier: "AA:BB",
-      location: null,
-    });
-
-    issueCode("234567");
-    const updated = await registerDisplay.execute({
-      pairingCode: "234567",
-      name: "Lobby Display",
-      identifier: "AA:BB",
-      location: "Hallway",
-      screenWidth: 1366,
-      screenHeight: 768,
-    });
-
-    expect(updated.id).toBe(created.id);
-    expect(updated.name).toBe("Lobby Display");
-    expect(updated.location).toBe("Hallway");
-  });
-
-  test("RegisterDisplayUseCase reuses existing display by fingerprint", async () => {
-    const { repo } = makeRepository();
-    const { repository: pairingCodeRepository, issueCode } =
-      makePairingRepository();
-    const registerDisplay = new RegisterDisplayUseCase({
-      displayRepository: repo,
-      displayPairingCodeRepository: pairingCodeRepository,
-    });
-
-    issueCode("345678");
-    const created = await registerDisplay.execute({
-      pairingCode: "345678",
-      name: "Lobby",
-      identifier: "old-identifier",
-      displayFingerprint: "fp-1",
-      location: null,
-      screenWidth: 1366,
-      screenHeight: 768,
-    });
-
-    issueCode("456789");
-    const updated = await registerDisplay.execute({
-      pairingCode: "456789",
-      name: "Lobby Renamed",
-      identifier: "new-identifier",
-      displayFingerprint: "fp-1",
-      location: "Hallway",
-      screenWidth: 1920,
-      screenHeight: 1080,
-    });
-
-    expect(updated.id).toBe(created.id);
-    expect(updated.identifier).toBe("new-identifier");
-    expect(updated.displayFingerprint).toBe("fp-1");
-  });
-
-  test("RegisterDisplayUseCase rejects conflicting identifier and fingerprint", async () => {
-    const { repo } = makeRepository();
-    const { repository: pairingCodeRepository, issueCode } =
-      makePairingRepository();
-    const registerDisplay = new RegisterDisplayUseCase({
-      displayRepository: repo,
-      displayPairingCodeRepository: pairingCodeRepository,
-    });
-
-    issueCode("567890");
-    await registerDisplay.execute({
-      pairingCode: "567890",
-      name: "Display A",
-      identifier: "display-a",
-      displayFingerprint: "fp-a",
-      location: null,
-      screenWidth: 1366,
-      screenHeight: 768,
-    });
-    issueCode("678901");
-    await registerDisplay.execute({
-      pairingCode: "678901",
-      name: "Display B",
-      identifier: "display-b",
-      displayFingerprint: "fp-b",
-      location: null,
-      screenWidth: 1366,
-      screenHeight: 768,
-    });
-
-    issueCode("789012");
-    await expect(
-      registerDisplay.execute({
-        pairingCode: "789012",
-        name: "Conflict",
-        identifier: "display-a",
-        displayFingerprint: "fp-b",
-        location: null,
-        screenWidth: 1366,
-        screenHeight: 768,
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
-  });
-
-  test("RegisterDisplayUseCase rejects invalid pairing code", async () => {
-    const { repo } = makeRepository();
-    const { repository: pairingCodeRepository } = makePairingRepository();
-    const registerDisplay = new RegisterDisplayUseCase({
-      displayRepository: repo,
-      displayPairingCodeRepository: pairingCodeRepository,
-    });
-
-    await expect(
-      registerDisplay.execute({
-        pairingCode: "111111",
-        name: "Lobby",
-        identifier: "AA:BB",
-        location: null,
-        screenWidth: 1366,
-        screenHeight: 768,
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
-  });
-
-  test("IssueDisplayPairingCodeUseCase returns 6-digit code and expiry", async () => {
-    const { repository: pairingCodeRepository } = makePairingRepository();
-    const useCase = new IssueDisplayPairingCodeUseCase({
-      displayPairingCodeRepository: pairingCodeRepository,
-    });
-
-    const result = await useCase.execute({ createdById: "user-1" });
-
-    expect(result.code).toMatch(/^\d{6}$/);
-    expect(Date.parse(result.expiresAt)).toBeGreaterThan(Date.now());
   });
 
   test("UpdateDisplayUseCase updates mutable display fields", async () => {

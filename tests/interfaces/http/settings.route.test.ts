@@ -7,12 +7,22 @@ import { createSettingsRouter } from "#/interfaces/http/routes/settings.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
+const authSessionRepository = {
+  create: async () => {},
+  extendExpiry: async () => {},
+  revokeById: async () => {},
+  revokeAllForUser: async () => {},
+  isActive: async () => true,
+  isOwnedByUser: async () => true,
+};
 
 const makeApp = async (permissions: string[]) => {
   const app = new Hono();
   const store = new Map<string, SystemSettingRecord>();
   const router = createSettingsRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session",
     repositories: {
       authorizationRepository: {
         findPermissionsForUser: async () =>
@@ -48,14 +58,27 @@ const makeApp = async (permissions: string[]) => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
+        listPage: async () => ({
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 20,
+        }),
         findByIds: async () => [],
         findById: async () => null,
         findByIdentifier: async () => null,
+        findBySlug: async () => null,
         findByFingerprint: async () => null,
+        findByFingerprintAndOutput: async () => null,
         create: async () => {
           throw new Error("not used");
         },
+        createRegisteredDisplay: async () => {
+          throw new Error("not used");
+        },
         update: async () => null,
+        setStatus: async () => {},
+        touchSeen: async () => {},
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },
@@ -70,6 +93,7 @@ const makeApp = async (permissions: string[]) => {
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
     });
   return { app, issueToken };

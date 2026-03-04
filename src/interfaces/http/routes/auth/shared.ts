@@ -49,7 +49,6 @@ export interface AuthRouterDeps {
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
-  authSessionDualMode: boolean;
   authSecurityStore: InMemoryAuthSecurityStore;
   authLoginRateLimitMaxAttempts: number;
   authLoginRateLimitWindowSeconds: number;

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type DisplayRecord,
   type DisplayRepository,
@@ -67,6 +67,36 @@ export class DisplayDbRepository implements DisplayRepository {
       .from(displays)
       .orderBy(desc(displays.createdAt));
     return rows.map(toRecord);
+  }
+
+  async listPage(input: { page: number; pageSize: number }): Promise<{
+    items: DisplayRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const page = Number.isInteger(input.page) ? Math.max(1, input.page) : 1;
+    const pageSize = Number.isInteger(input.pageSize)
+      ? Math.min(100, Math.max(1, input.pageSize))
+      : 20;
+    const offset = (page - 1) * pageSize;
+
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select()
+        .from(displays)
+        .orderBy(desc(displays.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` }).from(displays),
+    ]);
+
+    return {
+      items: rows.map(toRecord),
+      total: Number(totalRows[0]?.count ?? 0),
+      page,
+      pageSize,
+    };
   }
 
   async findByIds(ids: string[]): Promise<DisplayRecord[]> {

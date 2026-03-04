@@ -356,13 +356,7 @@ const signedDisplayRequest = (deps: DisplayRouteDeps) => {
       return unauthorized(c, "Signed request timestamp out of bounds");
     }
 
-    const displayRepo = deps.repositories.displayRepository;
-    const findBySlug = displayRepo.findBySlug?.bind(displayRepo);
-    if (!findBySlug) {
-      return unauthorized(c, "Display repository does not support slug lookup");
-    }
-
-    const display = await findBySlug(slug);
+    const display = await deps.repositories.displayRepository.findBySlug(slug);
     if (!display) {
       return notFound(c, "Display not found");
     }
@@ -447,13 +441,9 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const findBySlug = deps.repositories.displayRepository.findBySlug?.bind(
-          deps.repositories.displayRepository,
+        const display = await deps.repositories.displayRepository.findBySlug(
+          payload.displaySlug,
         );
-        if (!findBySlug) {
-          throw new Error("Display repository does not support slug lookup");
-        }
-        const display = await findBySlug(payload.displaySlug);
         if (!display) {
           return notFound(c, "Display not found");
         }
@@ -524,13 +514,9 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           return unauthorized(c, "Challenge context mismatch");
         }
 
-        const findBySlug = deps.repositories.displayRepository.findBySlug?.bind(
-          deps.repositories.displayRepository,
+        const display = await deps.repositories.displayRepository.findBySlug(
+          payload.displaySlug,
         );
-        if (!findBySlug) {
-          throw new Error("Display repository does not support slug lookup");
-        }
-        const display = await findBySlug(payload.displaySlug);
         if (!display) {
           return notFound(c, "Display not found");
         }
@@ -641,7 +627,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     async (c) => {
       const displayId = String(c.get("displayId"));
       const now = new Date();
-      await deps.repositories.displayRepository.touchSeen?.(displayId, now);
+      await deps.repositories.displayRepository.touchSeen(displayId, now);
 
       const [display, schedules] = await Promise.all([
         deps.repositories.displayRepository.findById(displayId),
@@ -659,7 +645,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           now,
         });
         if (display.status !== nextStatus) {
-          await deps.repositories.displayRepository.setStatus?.({
+          await deps.repositories.displayRepository.setStatus({
             id: display.id,
             status: nextStatus,
             at: now,

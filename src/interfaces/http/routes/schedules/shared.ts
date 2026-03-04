@@ -18,9 +18,8 @@ import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/str
 
 export interface SchedulesRouterDeps {
   jwtSecret: string;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
   repositories: {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;

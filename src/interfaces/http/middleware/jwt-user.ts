@@ -7,6 +7,9 @@ export type JwtUserVariables = {
   username?: string;
   userEmail?: string;
   sessionId?: string;
+  deniedPermission?: string;
+  denyErrorCode?: string;
+  denyErrorType?: string;
   fileId?: string;
   action?: string;
   route?: string;

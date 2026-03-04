@@ -53,7 +53,6 @@ export const env = createEnv({
     JWT_SECRET: z.string(),
     JWT_ISSUER: z.string().default("wildfire"),
     AUTH_SESSION_COOKIE_NAME: z.string().default("wildfire_session_token"),
-    AUTH_SESSION_DUAL_MODE: z.string().default("true").pipe(z.stringbool()),
     AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().default(10),
     AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     AUTH_LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().default(5),

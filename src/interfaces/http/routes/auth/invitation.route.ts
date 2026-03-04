@@ -63,7 +63,6 @@ export const registerAuthInvitationRoutes = (args: {
     authorizationRepository: deps.authorizationRepository,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
-    authSessionDualMode: deps.authSessionDualMode,
   });
 
   router.post(

@@ -35,9 +35,8 @@ import { publishDisplayStreamEvent } from "./stream";
 
 export interface DisplaysRouterDeps {
   jwtSecret: string;
-  authSessionRepository?: AuthSessionRepository;
-  authSessionCookieName?: string;
-  authSessionDualMode?: boolean;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
   downloadUrlExpiresInSeconds: number;
   scheduleTimeZone?: string;
   repositories: {

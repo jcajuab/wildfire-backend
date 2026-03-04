@@ -120,9 +120,19 @@ const makeApp = async (permissions: string[]) => {
     findPermissionsForUser: async () =>
       permissions.map((permission) => Permission.parse(permission)),
   };
+  const authSessionRepository = {
+    create: async () => {},
+    extendExpiry: async () => {},
+    revokeById: async () => {},
+    revokeAllForUser: async () => {},
+    isActive: async () => true,
+    isOwnedByUser: async () => true,
+  };
 
   const router = createContentRouter({
     jwtSecret: "test-secret",
+    authSessionRepository,
+    authSessionCookieName: "wildfire_session_token",
     maxUploadBytes: 5 * 1024 * 1024,
     downloadUrlExpiresInSeconds: 3600,
     thumbnailUrlExpiresInSeconds: 3600,
@@ -149,6 +159,7 @@ const makeApp = async (permissions: string[]) => {
       email: "user@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
+      sessionId: crypto.randomUUID(),
       issuer: undefined,
     });
 
