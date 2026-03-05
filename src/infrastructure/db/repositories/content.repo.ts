@@ -56,6 +56,13 @@ const toRecord = (row: typeof content.$inferSelect): ContentRecord => {
     width: row.width ?? null,
     height: row.height ?? null,
     duration: row.duration ?? null,
+    flashMessage: row.flashMessage ?? null,
+    flashTone:
+      row.flashTone === "INFO" ||
+      row.flashTone === "WARNING" ||
+      row.flashTone === "CRITICAL"
+        ? row.flashTone
+        : null,
     createdById: row.createdById,
     createdAt:
       row.createdAt instanceof Date
@@ -87,6 +94,8 @@ export class ContentDbRepository implements ContentRepository {
       width: input.width,
       height: input.height,
       duration: input.duration,
+      flashMessage: input.flashMessage ?? null,
+      flashTone: input.flashTone ?? null,
       createdById: input.createdById,
       createdAt: now,
     });
@@ -233,6 +242,8 @@ export class ContentDbRepository implements ContentRepository {
         | "width"
         | "height"
         | "duration"
+        | "flashMessage"
+        | "flashTone"
         | "checksum"
       >
     >,

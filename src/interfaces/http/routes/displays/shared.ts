@@ -13,13 +13,20 @@ import {
   type DisplayGroupRepository,
   type DisplayRepository,
 } from "#/application/ports/displays";
+import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
+import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
+  ActivateDisplayEmergencyUseCase,
+  ActivateGlobalEmergencyUseCase,
   CreateDisplayGroupUseCase,
+  DeactivateDisplayEmergencyUseCase,
+  DeactivateGlobalEmergencyUseCase,
   DeleteDisplayGroupUseCase,
   GetDisplayUseCase,
+  GetRuntimeOverridesUseCase,
   ListDisplayGroupsUseCase,
   ListDisplaysUseCase,
   RequestDisplayRefreshUseCase,
@@ -44,6 +51,8 @@ export interface DisplaysRouterDeps {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
+    runtimeControlRepository: RuntimeControlRepository;
+    flashActivationRepository: FlashActivationRepository;
     authorizationRepository: AuthorizationRepository;
     displayGroupRepository: DisplayGroupRepository;
     displayPairingCodeRepository: DisplayPairingCodeRepository;
@@ -51,6 +60,7 @@ export interface DisplaysRouterDeps {
     displayKeyRepository: DisplayKeyRepository;
   };
   storage: ContentStorage;
+  defaultEmergencyContentId?: string;
   registrationAttemptStore?: DisplayRegistrationAttemptStore;
 }
 
@@ -65,6 +75,11 @@ export interface DisplaysRouterUseCases {
   setDisplayGroups: SetDisplayGroupsUseCase;
   requestDisplayRefresh: RequestDisplayRefreshUseCase;
   unregisterDisplay: UnregisterDisplayUseCase;
+  activateGlobalEmergency: ActivateGlobalEmergencyUseCase;
+  deactivateGlobalEmergency: DeactivateGlobalEmergencyUseCase;
+  activateDisplayEmergency: ActivateDisplayEmergencyUseCase;
+  deactivateDisplayEmergency: DeactivateDisplayEmergencyUseCase;
+  getRuntimeOverrides: GetRuntimeOverridesUseCase;
 }
 
 export type DisplaysRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -110,7 +125,34 @@ export const createDisplaysUseCases = (
     updateDisplay: new UpdateDisplayUseCase({
       displayRepository: deps.repositories.displayRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
+      contentRepository: deps.repositories.contentRepository,
       scheduleTimeZone: deps.scheduleTimeZone,
+    }),
+    activateGlobalEmergency: new ActivateGlobalEmergencyUseCase({
+      displayRepository: deps.repositories.displayRepository,
+      contentRepository: deps.repositories.contentRepository,
+      runtimeControlRepository: deps.repositories.runtimeControlRepository,
+      displayEventPublisher,
+      defaultEmergencyContentId: deps.defaultEmergencyContentId,
+    }),
+    deactivateGlobalEmergency: new DeactivateGlobalEmergencyUseCase({
+      displayRepository: deps.repositories.displayRepository,
+      runtimeControlRepository: deps.repositories.runtimeControlRepository,
+      displayEventPublisher,
+    }),
+    activateDisplayEmergency: new ActivateDisplayEmergencyUseCase({
+      displayRepository: deps.repositories.displayRepository,
+      contentRepository: deps.repositories.contentRepository,
+      displayEventPublisher,
+      defaultEmergencyContentId: deps.defaultEmergencyContentId,
+    }),
+    deactivateDisplayEmergency: new DeactivateDisplayEmergencyUseCase({
+      displayRepository: deps.repositories.displayRepository,
+      displayEventPublisher,
+    }),
+    getRuntimeOverrides: new GetRuntimeOverridesUseCase({
+      runtimeControlRepository: deps.repositories.runtimeControlRepository,
+      flashActivationRepository: deps.repositories.flashActivationRepository,
     }),
     requestDisplayRefresh: new RequestDisplayRefreshUseCase({
       displayRepository: deps.repositories.displayRepository,

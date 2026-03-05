@@ -18,6 +18,8 @@ export interface ContentView {
   width: number | null;
   height: number | null;
   duration: number | null;
+  flashMessage: string | null;
+  flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
   createdAt: string;
   createdBy: {
     id: string;
@@ -48,6 +50,8 @@ export const toContentView = (
   width: record.width,
   height: record.height,
   duration: record.duration,
+  flashMessage: record.flashMessage ?? null,
+  flashTone: record.flashTone ?? null,
   createdAt: record.createdAt,
   createdBy: {
     id: record.createdById,

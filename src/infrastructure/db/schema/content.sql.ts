@@ -32,6 +32,8 @@ export const content = mysqlTable(
     width: int("width"),
     height: int("height"),
     duration: int("duration"),
+    flashMessage: varchar("flash_message", { length: 240 }),
+    flashTone: varchar("flash_tone", { length: 16 }),
     createdById: varchar("created_by_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

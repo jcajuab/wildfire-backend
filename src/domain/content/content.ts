@@ -1,4 +1,5 @@
-export type ContentType = "IMAGE" | "VIDEO" | "PDF";
+export type ContentType = "IMAGE" | "VIDEO" | "PDF" | "FLASH";
+export type MediaContentType = "IMAGE" | "VIDEO" | "PDF";
 export type ContentStatus = "PROCESSING" | "READY" | "FAILED";
 export type ContentKind = "ROOT" | "PAGE";
 
@@ -19,6 +20,7 @@ const mimeTypeToExtension = new Map<string, string>([
   ["image/gif", "gif"],
   ["video/mp4", "mp4"],
   ["application/pdf", "pdf"],
+  ["text/plain", "txt"],
 ]);
 
 export const isSupportedMimeType = (mimeType: string): boolean =>
@@ -26,7 +28,9 @@ export const isSupportedMimeType = (mimeType: string): boolean =>
   videoMimeTypes.has(mimeType) ||
   documentMimeTypes.has(mimeType);
 
-export const resolveContentType = (mimeType: string): ContentType | null => {
+export const resolveContentType = (
+  mimeType: string,
+): MediaContentType | null => {
   if (imageMimeTypes.has(mimeType)) return "IMAGE";
   if (videoMimeTypes.has(mimeType)) return "VIDEO";
   if (documentMimeTypes.has(mimeType)) return "PDF";
@@ -34,7 +38,12 @@ export const resolveContentType = (mimeType: string): ContentType | null => {
 };
 
 export const parseContentType = (value: string): ContentType | null => {
-  if (value === "IMAGE" || value === "VIDEO" || value === "PDF") {
+  if (
+    value === "IMAGE" ||
+    value === "VIDEO" ||
+    value === "PDF" ||
+    value === "FLASH"
+  ) {
     return value;
   }
   return null;
@@ -72,7 +81,9 @@ export const buildContentFileKey = (input: {
       ? "images"
       : input.type === "VIDEO"
         ? "videos"
-        : "documents";
+        : input.type === "PDF"
+          ? "documents"
+          : "flash";
 
   return `content/${directory}/${input.id}.${extension}`;
 };

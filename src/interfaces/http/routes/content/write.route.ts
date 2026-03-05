@@ -2,6 +2,7 @@ import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
 import {
   ContentInUseError,
+  FlashActivationConflictError,
   InvalidContentTypeError,
 } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -9,6 +10,8 @@ import {
   apiResponseSchema,
   conflict,
   errorResponseSchema,
+  notFound,
+  type ResponseContext,
   toApiResponse,
   validationError,
 } from "#/interfaces/http/responses";
@@ -24,9 +27,16 @@ import {
   contentIngestionAcceptedSchema,
   contentSchema,
   contentUploadRequestBodySchema,
+  createFlashActivationRequestBodySchema,
+  createFlashActivationSchema,
   createReplaceContentFileSchema,
   createUploadContentSchema,
+  flashActivationConflictSchema,
+  flashActivationCreateResponseSchema,
+  flashActivationSchema,
   replaceContentFileRequestBodySchema,
+  stopFlashActivationRequestBodySchema,
+  stopFlashActivationSchema,
   updateContentRequestBodySchema,
   updateContentSchema,
 } from "#/interfaces/http/validators/content.schema";
@@ -52,6 +62,15 @@ export const registerContentWriteRoutes = (args: {
   const uploadSchema = createUploadContentSchema(maxUploadBytes);
   const replaceContentFileSchema =
     createReplaceContentFileSchema(maxUploadBytes);
+  const mapFlashConflictToResponse = (
+    c: ResponseContext,
+    error: unknown,
+  ): Response | null => {
+    if (!(error instanceof FlashActivationConflictError)) {
+      return null;
+    }
+    return c.json(toApiResponse(error.details), 409);
+  };
 
   router.post(
     "/",
@@ -132,8 +151,130 @@ export const registerContentWriteRoutes = (args: {
     ),
   );
 
+  router.post(
+    "/flash/activate",
+    setAction("content.flash.activate", {
+      route: "/content/flash/activate",
+      resourceType: "content",
+    }),
+    requirePermission("content:update"),
+    validateJson(createFlashActivationSchema),
+    describeRoute({
+      description: "Activate flash marquee overlay for a target display",
+      tags: contentTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: createFlashActivationRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Flash content activated",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(flashActivationCreateResponseSchema),
+              ),
+            },
+          },
+        },
+        409: {
+          description: "A flash activation is already active",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(flashActivationConflictSchema),
+              ),
+            },
+          },
+        },
+        422: {
+          description: "Invalid request",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const activated = await useCases.createFlashActivation.execute({
+          message: payload.message,
+          targetDisplayId: payload.targetDisplayId,
+          durationSeconds: payload.durationSeconds,
+          tone: payload.tone,
+          conflictDecision: payload.conflictDecision,
+          expectedActiveActivationId: payload.expectedActiveActivationId,
+          createdById: c.get("userId"),
+        });
+        return c.json(toApiResponse(activated));
+      },
+      mapFlashConflictToResponse,
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/flash/active/stop",
+    setAction("content.flash.stop", {
+      route: "/content/flash/active/stop",
+      resourceType: "content",
+    }),
+    requirePermission("content:update"),
+    validateJson(stopFlashActivationSchema),
+    describeRoute({
+      description: "Stop the active flash marquee overlay",
+      tags: contentTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: stopFlashActivationRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Flash content stopped",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(flashActivationSchema)),
+            },
+          },
+        },
+        404: {
+          description: "No active flash content",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const stopped = await useCases.stopFlashActivation.execute({
+          reason: payload.reason,
+        });
+        if (!stopped || stopped.status !== "STOPPED") {
+          return notFound(c, "No active flash content");
+        }
+        return c.json(toApiResponse(stopped));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
   router.patch(
-    "/:id",
+    "/:id{[0-9a-fA-F-]{36}}",
     setAction("content.content.update", {
       route: "/content/:id",
       resourceType: "content",
@@ -205,7 +346,7 @@ export const registerContentWriteRoutes = (args: {
   );
 
   router.put(
-    "/:id/file",
+    "/:id{[0-9a-fA-F-]{36}}/file",
     setAction("content.content.replace-file", {
       route: "/content/:id/file",
       resourceType: "content",
@@ -287,7 +428,7 @@ export const registerContentWriteRoutes = (args: {
   );
 
   router.patch(
-    "/:id/exclusion",
+    "/:id{[0-9a-fA-F-]{36}}/exclusion",
     setAction("content.content.set-exclusion", {
       route: "/content/:id/exclusion",
       resourceType: "content",
@@ -350,7 +491,7 @@ export const registerContentWriteRoutes = (args: {
   );
 
   router.delete(
-    "/:id",
+    "/:id{[0-9a-fA-F-]{36}}",
     setAction("content.content.delete", {
       route: "/content/:id",
       resourceType: "content",

@@ -3,9 +3,10 @@ import { z } from "zod";
 import { isSupportedMimeType } from "#/domain/content/content";
 import { apiListResponseSchema } from "#/interfaces/http/responses";
 
-export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF"]);
+export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF", "FLASH"]);
 export const contentKindSchema = z.enum(["ROOT", "PAGE"]);
 export const contentStatusSchema = z.enum(["PROCESSING", "READY", "FAILED"]);
+export const flashToneSchema = z.enum(["INFO", "WARNING", "CRITICAL"]);
 
 export const contentSchema = z.object({
   id: z.string(),
@@ -24,6 +25,8 @@ export const contentSchema = z.object({
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   duration: z.number().int().nullable(),
+  flashMessage: z.string().nullable(),
+  flashTone: flashToneSchema.nullable(),
   createdAt: z.string(),
   createdBy: z.object({
     id: z.string(),
@@ -49,6 +52,87 @@ export const contentListQuerySchema = z.object({
     .default("createdAt"),
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
+
+export const flashActivationStatusSchema = z.enum([
+  "ACTIVE",
+  "STOPPED",
+  "EXPIRED",
+]);
+
+export const flashActivationSchema = z.object({
+  id: z.string().uuid(),
+  contentId: z.string().uuid(),
+  targetDisplayId: z.string().uuid(),
+  message: z.string(),
+  tone: flashToneSchema,
+  status: flashActivationStatusSchema,
+  startedAt: z.string(),
+  endsAt: z.string(),
+  stoppedAt: z.string().nullable(),
+  stoppedReason: z.string().nullable(),
+  createdById: z.string().uuid(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  replacementCount: z.number().int().nonnegative(),
+});
+
+export const createFlashActivationSchema = z.object({
+  message: z.string().trim().min(1).max(240),
+  targetDisplayId: z.string().uuid(),
+  durationSeconds: z.number().int().min(5).max(600).default(60),
+  tone: flashToneSchema.default("INFO"),
+  conflictDecision: z.enum(["prompt", "replace", "keep"]).optional(),
+  expectedActiveActivationId: z.string().uuid().optional(),
+});
+
+export const createFlashActivationRequestBodySchema: OpenAPIV3_1.SchemaObject =
+  {
+    type: "object",
+    properties: {
+      message: { type: "string", minLength: 1, maxLength: 240 },
+      targetDisplayId: { type: "string", format: "uuid" },
+      durationSeconds: { type: "integer", minimum: 5, maximum: 600 },
+      tone: {
+        type: "string",
+        enum: ["INFO", "WARNING", "CRITICAL"],
+      },
+      conflictDecision: {
+        type: "string",
+        enum: ["prompt", "replace", "keep"],
+      },
+      expectedActiveActivationId: { type: "string", format: "uuid" },
+    },
+    required: ["message", "targetDisplayId"],
+    additionalProperties: false,
+  };
+
+export const flashActivationCreateResponseSchema = z.object({
+  content: contentSchema,
+  activation: flashActivationSchema,
+  replacedActivation: flashActivationSchema.nullable().optional(),
+});
+
+export const flashActivationConflictSchema = z.object({
+  active: flashActivationSchema,
+  pending: z.object({
+    message: z.string(),
+    targetDisplayId: z.string().uuid(),
+    durationSeconds: z.number().int(),
+    tone: flashToneSchema,
+  }),
+});
+
+export const stopFlashActivationSchema = z.object({
+  reason: z.string().trim().min(1).max(64).optional(),
+});
+
+export const stopFlashActivationRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    reason: { type: "string", minLength: 1, maxLength: 64 },
+  },
+  additionalProperties: false,
+};
 
 export const createUploadContentSchema = (maxBytes: number) =>
   z.object({

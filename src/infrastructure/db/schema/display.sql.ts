@@ -1,4 +1,5 @@
 import {
+  boolean,
   int,
   mysqlTable,
   primaryKey,
@@ -7,6 +8,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
+import { content } from "./content.sql";
 
 export const displays = mysqlTable(
   "displays",
@@ -25,6 +27,13 @@ export const displays = mysqlTable(
       .notNull()
       .default("unknown"),
     orientation: varchar("orientation", { length: 16 }),
+    emergencyContentId: varchar("emergency_content_id", {
+      length: 36,
+    }).references(() => content.id, { onDelete: "set null" }),
+    localEmergencyActive: boolean("local_emergency_active")
+      .notNull()
+      .default(false),
+    localEmergencyStartedAt: timestamp("local_emergency_started_at"),
     lastSeenAt: timestamp("last_seen_at"),
     refreshNonce: int("refresh_nonce").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),

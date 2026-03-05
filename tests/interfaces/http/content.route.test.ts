@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
 import { type ContentRecord } from "#/application/ports/content";
+import { type DisplayRepository } from "#/application/ports/displays";
+import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
@@ -187,6 +189,21 @@ const makeApp = async (permissions: string[]) => {
         findById: async () => null,
         update: async () => null,
       },
+      displayRepository: {
+        findById: async () => null,
+      } as unknown as DisplayRepository,
+      flashActivationRepository: {
+        findActive: async () => null,
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not needed in test");
+        },
+        stopById: async () => null,
+        stopActive: async () => null,
+        createReplacingActive: async () => {
+          throw new Error("not needed in test");
+        },
+      } as FlashActivationRepository,
       userRepository,
       authorizationRepository,
     },

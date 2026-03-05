@@ -14,12 +14,14 @@ import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
 import { EmailChangeTokenRedisRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
+import { FlashActivationDbRepository } from "#/infrastructure/db/repositories/flash-activation.repo";
 import { InvitationRedisRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenRedisRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
+import { RuntimeControlDbRepository } from "#/infrastructure/db/repositories/runtime-control.repo";
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
@@ -67,6 +69,8 @@ export interface HttpContainer {
     displayKeyRepository: DisplayKeyDbRepository;
     displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
+    runtimeControlRepository: RuntimeControlDbRepository;
+    flashActivationRepository: FlashActivationDbRepository;
     passwordResetTokenRepository: PasswordResetTokenRedisRepository;
     emailChangeTokenRepository: EmailChangeTokenRedisRepository;
     invitationRepository: InvitationRedisRepository;
@@ -113,6 +117,8 @@ export const createHttpContainer = (
   const displayPairingSessionRepository =
     new DisplayPairingSessionRedisRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
+  const runtimeControlRepository = new RuntimeControlDbRepository();
+  const flashActivationRepository = new FlashActivationDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenRedisRepository();
   const emailChangeTokenRepository = new EmailChangeTokenRedisRepository();
   const invitationRepository = new InvitationRedisRepository();
@@ -163,6 +169,8 @@ export const createHttpContainer = (
       displayKeyRepository,
       displayPairingSessionRepository,
       displayAuthNonceRepository,
+      runtimeControlRepository,
+      flashActivationRepository,
       passwordResetTokenRepository,
       emailChangeTokenRepository,
       invitationRepository,

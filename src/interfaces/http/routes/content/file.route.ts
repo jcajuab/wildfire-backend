@@ -29,7 +29,7 @@ export const registerContentFileRoutes = (args: {
   const { router, useCases, requirePermission } = args;
 
   router.get(
-    "/:id/file",
+    "/:id{[0-9a-fA-F-]{36}}/file",
     setAction("content.file.get", {
       route: "/content/:id/file",
       resourceType: "content",

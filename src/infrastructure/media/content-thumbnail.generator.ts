@@ -9,8 +9,10 @@ import {
   resolveFileExtension,
 } from "#/domain/content/content";
 
+type ThumbnailContentType = "IMAGE" | "VIDEO" | "PDF";
+
 type GenerateJpegInput = {
-  type: ContentType;
+  type: ThumbnailContentType;
   mimeType: string;
   data: Uint8Array;
   maxWidth: number;
@@ -19,7 +21,7 @@ type GenerateJpegInput = {
 };
 
 type GeneratePdfInput = {
-  type: ContentType;
+  type: ThumbnailContentType;
   mimeType: string;
   data: Uint8Array;
   maxWidth: number;
@@ -154,7 +156,7 @@ const generatePdfWithPdftoppm: GeneratePdfFn = async (input) => {
 };
 
 const defaultsByType: Record<
-  ContentType,
+  ThumbnailContentType,
   Pick<GenerateJpegInput, "maxWidth" | "maxHeight" | "seekSeconds">
 > = {
   IMAGE: { maxWidth: 400, maxHeight: 300, seekSeconds: 0 },
@@ -181,16 +183,28 @@ export class DefaultContentThumbnailGenerator
     mimeType: string;
     data: Uint8Array;
   }): Promise<Uint8Array | null> {
-    const defaults = defaultsByType[input.type];
+    if (input.type === "FLASH") {
+      return null;
+    }
 
-    if (input.type === "PDF") {
+    const mediaType: ThumbnailContentType = input.type;
+    const defaults = defaultsByType[mediaType];
+
+    if (mediaType === "PDF") {
       return this.generatePdf({
-        ...input,
+        type: mediaType,
+        mimeType: input.mimeType,
+        data: input.data,
         maxWidth: defaults.maxWidth,
         maxHeight: defaults.maxHeight,
       }).catch(() => null);
     }
 
-    return this.generateJpeg({ ...input, ...defaults }).catch(() => null);
+    return this.generateJpeg({
+      type: mediaType,
+      mimeType: input.mimeType,
+      data: input.data,
+      ...defaults,
+    }).catch(() => null);
   }
 }

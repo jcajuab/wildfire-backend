@@ -11,24 +11,30 @@ import {
   type ContentIngestionQueue,
   type ContentJobEventPublisher,
 } from "#/application/ports/content-jobs";
+import { type DisplayRepository } from "#/application/ports/displays";
+import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
+  CreateFlashActivationUseCase,
   DeleteContentUseCase,
+  GetActiveFlashActivationUseCase,
   GetContentDownloadUrlUseCase,
   GetContentJobUseCase,
   GetContentUseCase,
   ListContentUseCase,
   ReplaceContentFileUseCase,
   SetContentExclusionUseCase,
+  StopFlashActivationUseCase,
   UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 import { publishContentJobEvent } from "./jobs-stream";
 
 export interface ContentRouterDeps {
@@ -41,6 +47,8 @@ export interface ContentRouterDeps {
   repositories: {
     contentRepository: ContentRepository;
     contentIngestionJobRepository: ContentIngestionJobRepository;
+    displayRepository: DisplayRepository;
+    flashActivationRepository: FlashActivationRepository;
     userRepository: UserRepository;
     authorizationRepository: AuthorizationRepository;
   };
@@ -56,6 +64,9 @@ export interface ContentRouterUseCases {
   listContent: ListContentUseCase;
   getContent: GetContentUseCase;
   getContentJob: GetContentJobUseCase;
+  createFlashActivation: CreateFlashActivationUseCase;
+  getActiveFlashActivation: GetActiveFlashActivationUseCase;
+  stopFlashActivation: StopFlashActivationUseCase;
   updateContent: UpdateContentUseCase;
   setContentExclusion: SetContentExclusionUseCase;
   deleteContent: DeleteContentUseCase;
@@ -142,6 +153,40 @@ export const createContentUseCases = (
     getContentJob: new GetContentJobUseCase({
       contentIngestionJobRepository:
         deps.repositories.contentIngestionJobRepository,
+    }),
+    createFlashActivation: new CreateFlashActivationUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      displayRepository: deps.repositories.displayRepository,
+      flashActivationRepository: deps.repositories.flashActivationRepository,
+      userRepository: deps.repositories.userRepository,
+      displayEventPublisher: {
+        publish(input) {
+          publishDisplayStreamEvent({
+            type: input.type,
+            displayId: input.displayId,
+            reason: input.reason,
+            timestamp: input.timestamp ?? new Date().toISOString(),
+          });
+        },
+      },
+    }),
+    getActiveFlashActivation: new GetActiveFlashActivationUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      flashActivationRepository: deps.repositories.flashActivationRepository,
+      userRepository: deps.repositories.userRepository,
+    }),
+    stopFlashActivation: new StopFlashActivationUseCase({
+      flashActivationRepository: deps.repositories.flashActivationRepository,
+      displayEventPublisher: {
+        publish(input) {
+          publishDisplayStreamEvent({
+            type: input.type,
+            displayId: input.displayId,
+            reason: input.reason,
+            timestamp: input.timestamp ?? new Date().toISOString(),
+          });
+        },
+      },
     }),
     updateContent: new UpdateContentUseCase({
       contentRepository: deps.repositories.contentRepository,

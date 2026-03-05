@@ -15,6 +15,9 @@ export const displaySchema = z.object({
   screenHeight: z.number().int().nullable(),
   outputType: z.string().nullable(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
+  emergencyContentId: z.string().uuid().nullable().optional(),
+  localEmergencyActive: z.boolean().optional(),
+  localEmergencyStartedAt: z.string().nullable().optional(),
   lastSeenAt: z.string().nullable(),
   status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]),
   nowPlaying: z
@@ -56,6 +59,7 @@ export const registerDisplaySchema = z.object({
   screenHeight: z.number().int().positive(),
   outputType: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
+  emergencyContentId: z.string().uuid().nullable().optional(),
 });
 
 export const patchDisplaySchema = z.object({
@@ -67,6 +71,7 @@ export const patchDisplaySchema = z.object({
   screenHeight: z.number().int().positive().nullable().optional(),
   outputType: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
+  emergencyContentId: z.string().uuid().nullable().optional(),
 });
 
 export const createDisplayGroupSchema = z.object({
@@ -139,8 +144,42 @@ export const patchDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
         { type: "null" },
       ],
     },
+    emergencyContentId: {
+      oneOf: [{ type: "string", format: "uuid" }, { type: "null" }],
+    },
   },
 };
+
+export const displayRuntimeOverridesSchema = z.object({
+  globalEmergency: z.object({
+    active: z.boolean(),
+    startedAt: z.string().nullable(),
+  }),
+  flash: z
+    .object({
+      active: z.boolean(),
+      activationId: z.string().uuid(),
+      targetDisplayId: z.string().uuid(),
+      message: z.string(),
+      tone: z.enum(["INFO", "WARNING", "CRITICAL"]),
+      startedAt: z.string(),
+      endsAt: z.string(),
+    })
+    .nullable(),
+});
+
+export const runtimeOverrideEmergencyActionSchema = z.object({
+  reason: z.string().trim().min(1).max(64).optional(),
+});
+
+export const runtimeOverrideEmergencyActionBodySchema: OpenAPIV3_1.SchemaObject =
+  {
+    type: "object",
+    properties: {
+      reason: { type: "string", minLength: 1, maxLength: 64 },
+    },
+    additionalProperties: false,
+  };
 
 export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
@@ -209,6 +248,36 @@ export const displayManifestSchema = z.object({
   generatedAt: z.string(),
   runtimeSettings: z.object({
     scrollPxPerSecond: z.number().int().positive(),
+  }),
+  playback: z.object({
+    mode: z.enum(["SCHEDULE", "EMERGENCY"]),
+    emergency: z
+      .object({
+        source: z.enum(["DISPLAY", "DEFAULT"]),
+        startedAt: z.string().nullable(),
+        isGlobal: z.boolean(),
+        content: z.object({
+          id: z.string(),
+          type: z.enum(["IMAGE", "VIDEO", "PDF"]),
+          checksum: z.string(),
+          downloadUrl: z.string().url(),
+          mimeType: z.string(),
+          width: z.number().int().nullable(),
+          height: z.number().int().nullable(),
+          duration: z.number().int().nullable(),
+        }),
+      })
+      .nullable(),
+    flash: z
+      .object({
+        activationId: z.string().uuid(),
+        targetDisplayId: z.string().uuid(),
+        message: z.string(),
+        tone: z.enum(["INFO", "WARNING", "CRITICAL"]),
+        startedAt: z.string(),
+        endsAt: z.string(),
+      })
+      .nullable(),
   }),
   items: z.array(displayManifestItemSchema),
 });

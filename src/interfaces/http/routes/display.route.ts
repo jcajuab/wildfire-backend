@@ -17,7 +17,9 @@ import {
   type DisplayKeyRepository,
 } from "#/application/ports/display-auth";
 import { type DisplayRepository } from "#/application/ports/displays";
+import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PlaylistRepository } from "#/application/ports/playlists";
+import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   deriveDisplayStatus,
@@ -282,10 +284,13 @@ type DisplayRouteDeps = {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
+    runtimeControlRepository: RuntimeControlRepository;
+    flashActivationRepository: FlashActivationRepository;
     displayKeyRepository: DisplayKeyRepository;
     displayAuthNonceRepository: DisplayAuthNonceRepository;
   };
   storage: ContentStorage;
+  defaultEmergencyContentId?: string;
 };
 
 type DisplayVars = {
@@ -459,8 +464,11 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     contentRepository: deps.repositories.contentRepository,
     contentStorage: deps.storage,
     displayRepository: deps.repositories.displayRepository,
+    runtimeControlRepository: deps.repositories.runtimeControlRepository,
+    flashActivationRepository: deps.repositories.flashActivationRepository,
     downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
     scheduleTimeZone: deps.scheduleTimeZone,
+    defaultEmergencyContentId: deps.defaultEmergencyContentId,
   });
 
   router.post(

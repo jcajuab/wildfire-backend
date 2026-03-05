@@ -37,6 +37,12 @@ const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
     row.orientation === "LANDSCAPE" || row.orientation === "PORTRAIT"
       ? row.orientation
       : null,
+  emergencyContentId: row.emergencyContentId ?? null,
+  localEmergencyActive: row.localEmergencyActive,
+  localEmergencyStartedAt:
+    row.localEmergencyStartedAt instanceof Date
+      ? row.localEmergencyStartedAt.toISOString()
+      : (row.localEmergencyStartedAt ?? null),
   lastSeenAt:
     row.lastSeenAt instanceof Date
       ? row.lastSeenAt.toISOString()
@@ -181,6 +187,9 @@ export class DisplayDbRepository implements DisplayRepository {
       outputType: "unknown",
       displayOutput: "unknown",
       orientation: null,
+      emergencyContentId: null,
+      localEmergencyActive: false,
+      localEmergencyStartedAt: null,
       lastSeenAt: null,
       refreshNonce: 0,
       createdAt: now.toISOString(),
@@ -215,6 +224,9 @@ export class DisplayDbRepository implements DisplayRepository {
       screenHeight: input.screenHeight,
       displayOutput: input.displayOutput,
       orientation: input.orientation ?? null,
+      emergencyContentId: null,
+      localEmergencyActive: false,
+      localEmergencyStartedAt: null,
       createdAt: input.now,
       updatedAt: input.now,
     });
@@ -239,6 +251,9 @@ export class DisplayDbRepository implements DisplayRepository {
       screenHeight?: number | null;
       outputType?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+      emergencyContentId?: string | null;
+      localEmergencyActive?: boolean;
+      localEmergencyStartedAt?: string | null;
     },
   ): Promise<DisplayRecord | null> {
     const existing = await this.findById(id);
@@ -273,6 +288,18 @@ export class DisplayDbRepository implements DisplayRepository {
         input.orientation !== undefined
           ? input.orientation
           : existing.orientation,
+      emergencyContentId:
+        input.emergencyContentId !== undefined
+          ? input.emergencyContentId
+          : (existing.emergencyContentId ?? null),
+      localEmergencyActive:
+        input.localEmergencyActive !== undefined
+          ? input.localEmergencyActive
+          : (existing.localEmergencyActive ?? false),
+      localEmergencyStartedAt:
+        input.localEmergencyStartedAt !== undefined
+          ? input.localEmergencyStartedAt
+          : (existing.localEmergencyStartedAt ?? null),
     };
 
     const now = new Date();
@@ -289,6 +316,12 @@ export class DisplayDbRepository implements DisplayRepository {
         screenHeight: next.screenHeight,
         displayOutput: next.displayOutput,
         orientation: next.orientation,
+        emergencyContentId: next.emergencyContentId,
+        localEmergencyActive: next.localEmergencyActive,
+        localEmergencyStartedAt:
+          next.localEmergencyStartedAt != null
+            ? new Date(next.localEmergencyStartedAt)
+            : null,
         updatedAt: now,
       })
       .where(eq(displays.id, id));

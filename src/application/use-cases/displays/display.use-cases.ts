@@ -10,7 +10,9 @@ import {
   type DisplayRepository,
   type DisplayStatus,
 } from "#/application/ports/displays";
+import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PlaylistRepository } from "#/application/ports/playlists";
+import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { sha256Hex } from "#/domain/content/checksum";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
@@ -55,6 +57,39 @@ const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 export const DISPLAY_DOWN_TIMEOUT_MS = ONLINE_WINDOW_MS;
 const DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND = 24;
 
+type ManifestRenderableType = "IMAGE" | "VIDEO" | "PDF";
+
+interface ManifestRenderableContent {
+  id: string;
+  type: ManifestRenderableType;
+  checksum: string;
+  downloadUrl: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+}
+
+interface ManifestFlashState {
+  activationId: string;
+  targetDisplayId: string;
+  message: string;
+  tone: "INFO" | "WARNING" | "CRITICAL";
+  startedAt: string;
+  endsAt: string;
+}
+
+interface ManifestPlaybackState {
+  mode: "SCHEDULE" | "EMERGENCY";
+  emergency: {
+    source: "DISPLAY" | "DEFAULT";
+    startedAt: string | null;
+    isGlobal: boolean;
+    content: ManifestRenderableContent;
+  } | null;
+  flash: ManifestFlashState | null;
+}
+
 const isRecentlySeen = (lastSeenAt: string | null, now: Date): boolean => {
   const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.NaN;
   return (
@@ -84,6 +119,9 @@ function withTelemetry(display: DisplayRecord) {
     screenHeight: display.screenHeight ?? null,
     outputType: display.outputType ?? null,
     orientation: display.orientation ?? null,
+    emergencyContentId: display.emergencyContentId ?? null,
+    localEmergencyActive: display.localEmergencyActive ?? false,
+    localEmergencyStartedAt: display.localEmergencyStartedAt ?? null,
     lastSeenAt,
     status: display.status,
   } as const;
@@ -243,6 +281,7 @@ export class UpdateDisplayUseCase {
     private readonly deps: {
       displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
+      contentRepository: ContentRepository;
       scheduleTimeZone?: string;
     },
   ) {}
@@ -257,6 +296,7 @@ export class UpdateDisplayUseCase {
     screenHeight?: number | null;
     outputType?: string | null;
     orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+    emergencyContentId?: string | null;
   }) {
     const normalizedName =
       input.name === undefined ? undefined : input.name.trim();
@@ -298,6 +338,17 @@ export class UpdateDisplayUseCase {
 
     const screenWidth = normalizeDimension(input.screenWidth, "screenWidth");
     const screenHeight = normalizeDimension(input.screenHeight, "screenHeight");
+    if (input.emergencyContentId !== undefined && input.emergencyContentId) {
+      const emergencyAsset = await this.deps.contentRepository.findById(
+        input.emergencyContentId,
+      );
+      if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
+        throw new ValidationError(
+          "emergencyContentId must reference a READY root IMAGE, VIDEO, or PDF asset",
+        );
+      }
+    }
+
     const updated = await this.deps.displayRepository.update(input.id, {
       name: normalizedName,
       location: input.location,
@@ -307,6 +358,7 @@ export class UpdateDisplayUseCase {
       screenHeight,
       outputType: normalizedOutputType,
       orientation: input.orientation,
+      emergencyContentId: input.emergencyContentId,
     });
     if (!updated) throw new NotFoundError("Display not found");
     return withTelemetry(updated);
@@ -331,6 +383,231 @@ export class RequestDisplayRefreshUseCase {
       displayId: input.id,
       reason: "refresh_nonce_bumped",
     });
+  }
+}
+
+const isRenderableEmergencyAsset = (content: {
+  type: string;
+  kind?: string;
+  status: string;
+}): content is {
+  type: ManifestRenderableType;
+  kind: "ROOT" | "PAGE";
+  status: "READY";
+} =>
+  (content.type === "IMAGE" ||
+    content.type === "VIDEO" ||
+    content.type === "PDF") &&
+  content.kind === "ROOT" &&
+  content.status === "READY";
+
+const pickDisplayEmergencyAssetId = (input: {
+  display: DisplayRecord;
+  defaultEmergencyContentId?: string;
+}): string | null =>
+  input.display.emergencyContentId ?? input.defaultEmergencyContentId ?? null;
+
+export class ActivateGlobalEmergencyUseCase {
+  constructor(
+    private readonly deps: {
+      displayRepository: DisplayRepository;
+      contentRepository: ContentRepository;
+      runtimeControlRepository: RuntimeControlRepository;
+      displayEventPublisher?: DisplayStreamEventPublisher;
+      defaultEmergencyContentId?: string;
+    },
+  ) {}
+
+  async execute(input: { reason?: string }): Promise<void> {
+    const now = new Date();
+    const displays = await this.deps.displayRepository.list();
+    if (displays.length === 0) {
+      await this.deps.runtimeControlRepository.setGlobalEmergencyState({
+        active: true,
+        startedAt: now,
+        at: now,
+      });
+      return;
+    }
+
+    const assetIds = Array.from(
+      new Set(
+        displays
+          .map((display) =>
+            pickDisplayEmergencyAssetId({
+              display,
+              defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
+            }),
+          )
+          .filter((value): value is string => value != null),
+      ),
+    );
+
+    const assets = await this.deps.contentRepository.findByIds(assetIds);
+    const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+
+    const missingDisplay = displays.find((display) => {
+      const selectedAssetId = pickDisplayEmergencyAssetId({
+        display,
+        defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
+      });
+      if (!selectedAssetId) {
+        return true;
+      }
+      const asset = assetsById.get(selectedAssetId);
+      return !asset || !isRenderableEmergencyAsset(asset);
+    });
+
+    if (missingDisplay) {
+      throw new ValidationError(
+        `Display ${missingDisplay.displaySlug} has no valid emergency content asset`,
+      );
+    }
+
+    await this.deps.runtimeControlRepository.setGlobalEmergencyState({
+      active: true,
+      startedAt: now,
+      at: now,
+    });
+
+    for (const display of displays) {
+      this.deps.displayEventPublisher?.publish({
+        type: "manifest_updated",
+        displayId: display.id,
+        reason: input.reason ?? "global_emergency_activated",
+        timestamp: now.toISOString(),
+      });
+    }
+  }
+}
+
+export class DeactivateGlobalEmergencyUseCase {
+  constructor(
+    private readonly deps: {
+      displayRepository: DisplayRepository;
+      runtimeControlRepository: RuntimeControlRepository;
+      displayEventPublisher?: DisplayStreamEventPublisher;
+    },
+  ) {}
+
+  async execute(input: { reason?: string }): Promise<void> {
+    const now = new Date();
+    await this.deps.runtimeControlRepository.setGlobalEmergencyState({
+      active: false,
+      startedAt: null,
+      at: now,
+    });
+    const displays = await this.deps.displayRepository.list();
+    for (const display of displays) {
+      this.deps.displayEventPublisher?.publish({
+        type: "manifest_updated",
+        displayId: display.id,
+        reason: input.reason ?? "global_emergency_deactivated",
+        timestamp: now.toISOString(),
+      });
+    }
+  }
+}
+
+export class ActivateDisplayEmergencyUseCase {
+  constructor(
+    private readonly deps: {
+      displayRepository: DisplayRepository;
+      contentRepository: ContentRepository;
+      displayEventPublisher?: DisplayStreamEventPublisher;
+      defaultEmergencyContentId?: string;
+    },
+  ) {}
+
+  async execute(input: { displayId: string; reason?: string }): Promise<void> {
+    const now = new Date();
+    const display = await this.deps.displayRepository.findById(input.displayId);
+    if (!display) {
+      throw new NotFoundError("Display not found");
+    }
+
+    const assetId = pickDisplayEmergencyAssetId({
+      display,
+      defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
+    });
+    if (!assetId) {
+      throw new ValidationError("No emergency asset is configured for display");
+    }
+    const asset = await this.deps.contentRepository.findById(assetId);
+    if (!asset || !isRenderableEmergencyAsset(asset)) {
+      throw new ValidationError("Configured emergency asset is invalid");
+    }
+
+    await this.deps.displayRepository.update(input.displayId, {
+      localEmergencyActive: true,
+      localEmergencyStartedAt: now.toISOString(),
+    });
+    this.deps.displayEventPublisher?.publish({
+      type: "manifest_updated",
+      displayId: input.displayId,
+      reason: input.reason ?? "display_emergency_activated",
+      timestamp: now.toISOString(),
+    });
+  }
+}
+
+export class DeactivateDisplayEmergencyUseCase {
+  constructor(
+    private readonly deps: {
+      displayRepository: DisplayRepository;
+      displayEventPublisher?: DisplayStreamEventPublisher;
+    },
+  ) {}
+
+  async execute(input: { displayId: string; reason?: string }): Promise<void> {
+    const now = new Date();
+    const updated = await this.deps.displayRepository.update(input.displayId, {
+      localEmergencyActive: false,
+      localEmergencyStartedAt: null,
+    });
+    if (!updated) {
+      throw new NotFoundError("Display not found");
+    }
+    this.deps.displayEventPublisher?.publish({
+      type: "manifest_updated",
+      displayId: input.displayId,
+      reason: input.reason ?? "display_emergency_deactivated",
+      timestamp: now.toISOString(),
+    });
+  }
+}
+
+export class GetRuntimeOverridesUseCase {
+  constructor(
+    private readonly deps: {
+      runtimeControlRepository: RuntimeControlRepository;
+      flashActivationRepository: FlashActivationRepository;
+    },
+  ) {}
+
+  async execute(input: { now: Date }) {
+    const [global, flash] = await Promise.all([
+      this.deps.runtimeControlRepository.getGlobal(),
+      this.deps.flashActivationRepository.findActive(input.now),
+    ]);
+
+    return {
+      globalEmergency: {
+        active: global.globalEmergencyActive,
+        startedAt: global.globalEmergencyStartedAt,
+      },
+      flash: flash
+        ? {
+            active: true,
+            activationId: flash.id,
+            targetDisplayId: flash.targetDisplayId,
+            message: flash.message,
+            tone: flash.tone,
+            startedAt: flash.startedAt,
+            endsAt: flash.endsAt,
+          }
+        : null,
+    };
   }
 }
 
@@ -425,31 +702,105 @@ export class GetDisplayManifestUseCase {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
       displayRepository: DisplayRepository;
+      runtimeControlRepository?: RuntimeControlRepository;
+      flashActivationRepository?: FlashActivationRepository;
       downloadUrlExpiresInSeconds: number;
       scheduleTimeZone?: string;
+      defaultEmergencyContentId?: string;
     },
   ) {}
 
   async execute(input: { displayId: string; now: Date }) {
     await this.deps.displayRepository.touchSeen(input.displayId, input.now);
-    const [display, schedules] = await Promise.all([
+    const [display, schedules, runtimeOverrides] = await Promise.all([
       this.deps.displayRepository.findById(input.displayId),
       this.deps.scheduleRepository.listByDisplay(input.displayId),
+      this.getRuntimeOverrides(input.now),
     ]);
     if (!display) throw new NotFoundError("Display not found");
+
+    const flash =
+      runtimeOverrides.flash &&
+      runtimeOverrides.flash.targetDisplayId === display.id
+        ? {
+            activationId: runtimeOverrides.flash.id,
+            targetDisplayId: runtimeOverrides.flash.targetDisplayId,
+            message: runtimeOverrides.flash.message,
+            tone: runtimeOverrides.flash.tone,
+            startedAt: runtimeOverrides.flash.startedAt,
+            endsAt: runtimeOverrides.flash.endsAt,
+          }
+        : null;
+
+    const emergency = await this.resolveEmergencyPlayback({
+      display,
+      now: input.now,
+      globalEmergencyActive: runtimeOverrides.global.globalEmergencyActive,
+      globalEmergencyStartedAt:
+        runtimeOverrides.global.globalEmergencyStartedAt,
+    });
+    if (emergency) {
+      const runtimeSettings = await this.getRuntimeSettings();
+      const emergencyDuration =
+        emergency.content.type === "VIDEO"
+          ? Math.max(1, emergency.content.duration ?? 1)
+          : 86_400;
+      const items = [
+        {
+          id: `emergency:${emergency.content.id}`,
+          sequence: 1,
+          duration: emergencyDuration,
+          content: emergency.content,
+        },
+      ];
+      const playback: ManifestPlaybackState = {
+        mode: "EMERGENCY",
+        emergency,
+        flash,
+      };
+
+      return {
+        playlistId: null,
+        playlistVersion: await this.computePlaylistVersion({
+          playlistId: null,
+          refreshNonce: display.refreshNonce ?? 0,
+          runtimeSettings,
+          playback,
+          items,
+        }),
+        generatedAt: input.now.toISOString(),
+        runtimeSettings,
+        playback,
+        items,
+      };
+    }
+
     const active = selectActiveSchedule(
       schedules,
       input.now,
       this.deps.scheduleTimeZone ?? "UTC",
     );
 
+    const runtimeSettings = await this.getRuntimeSettings();
+    const playback: ManifestPlaybackState = {
+      mode: "SCHEDULE",
+      emergency: null,
+      flash,
+    };
+
     if (!active) {
-      const runtimeSettings = await this.getRuntimeSettings();
       return {
         playlistId: null,
-        playlistVersion: "",
+        playlistVersion: await this.computePlaylistVersion({
+          playlistId: null,
+          refreshNonce: display.refreshNonce ?? 0,
+          runtimeSettings,
+          playback,
+          items: [],
+        }),
         generatedAt: input.now.toISOString(),
         runtimeSettings,
+        playback,
         items: [],
       };
     }
@@ -546,6 +897,15 @@ export class GetDisplayManifestUseCase {
       expandedItems,
       8,
       async (item) => {
+        if (
+          item.content.type !== "IMAGE" &&
+          item.content.type !== "VIDEO" &&
+          item.content.type !== "PDF"
+        ) {
+          throw new ValidationError(
+            `Unsupported content type in playlist: ${item.content.type}`,
+          );
+        }
         const downloadUrl =
           await this.deps.contentStorage.getPresignedDownloadUrl({
             key: item.content.fileKey,
@@ -570,13 +930,159 @@ export class GetDisplayManifestUseCase {
       },
     );
 
-    const runtimeSettings = await this.getRuntimeSettings();
-
-    const versionPayload = JSON.stringify({
+    return {
       playlistId: playlist.id,
-      refreshNonce: display.refreshNonce ?? 0,
-      scrollPxPerSecond: runtimeSettings.scrollPxPerSecond,
-      items: manifestItems.map((item) => ({
+      playlistVersion: await this.computePlaylistVersion({
+        playlistId: playlist.id,
+        refreshNonce: display.refreshNonce ?? 0,
+        runtimeSettings,
+        playback,
+        items: manifestItems,
+      }),
+      generatedAt: input.now.toISOString(),
+      runtimeSettings,
+      playback,
+      items: manifestItems,
+    };
+  }
+
+  private async getRuntimeOverrides(now: Date): Promise<{
+    global: {
+      globalEmergencyActive: boolean;
+      globalEmergencyStartedAt: string | null;
+    };
+    flash: {
+      id: string;
+      targetDisplayId: string;
+      message: string;
+      tone: "INFO" | "WARNING" | "CRITICAL";
+      startedAt: string;
+      endsAt: string;
+    } | null;
+  }> {
+    const [global, flash] = await Promise.all([
+      this.deps.runtimeControlRepository
+        ? this.deps.runtimeControlRepository.getGlobal()
+        : Promise.resolve({
+            id: "global" as const,
+            globalEmergencyActive: false,
+            globalEmergencyStartedAt: null,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+          }),
+      this.deps.flashActivationRepository
+        ? this.deps.flashActivationRepository.findActive(now)
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      global: {
+        globalEmergencyActive: global.globalEmergencyActive,
+        globalEmergencyStartedAt: global.globalEmergencyStartedAt,
+      },
+      flash: flash
+        ? {
+            id: flash.id,
+            targetDisplayId: flash.targetDisplayId,
+            message: flash.message,
+            tone: flash.tone,
+            startedAt: flash.startedAt,
+            endsAt: flash.endsAt,
+          }
+        : null,
+    };
+  }
+
+  private async resolveEmergencyPlayback(input: {
+    display: DisplayRecord;
+    now: Date;
+    globalEmergencyActive: boolean;
+    globalEmergencyStartedAt: string | null;
+  }): Promise<ManifestPlaybackState["emergency"]> {
+    const localEmergencyActive = input.display.localEmergencyActive ?? false;
+    if (!input.globalEmergencyActive && !localEmergencyActive) {
+      return null;
+    }
+
+    const emergencyContentId = pickDisplayEmergencyAssetId({
+      display: input.display,
+      defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
+    });
+    if (!emergencyContentId) {
+      return null;
+    }
+    const emergencyAsset =
+      await this.deps.contentRepository.findById(emergencyContentId);
+    if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
+      return null;
+    }
+
+    const downloadUrl = await this.deps.contentStorage.getPresignedDownloadUrl({
+      key: emergencyAsset.fileKey,
+      expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+    });
+
+    const startedAt = input.globalEmergencyActive
+      ? input.globalEmergencyStartedAt
+      : (input.display.localEmergencyStartedAt ?? null);
+
+    return {
+      source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
+      startedAt,
+      isGlobal: input.globalEmergencyActive,
+      content: {
+        id: emergencyAsset.id,
+        type: emergencyAsset.type,
+        checksum: emergencyAsset.checksum,
+        downloadUrl,
+        mimeType: emergencyAsset.mimeType,
+        width: emergencyAsset.width,
+        height: emergencyAsset.height,
+        duration: emergencyAsset.duration,
+      },
+    };
+  }
+
+  private async computePlaylistVersion(input: {
+    playlistId: string | null;
+    refreshNonce: number;
+    runtimeSettings: { scrollPxPerSecond: number };
+    playback: ManifestPlaybackState;
+    items: Array<{
+      id: string;
+      sequence: number;
+      duration: number;
+      content: {
+        id: string;
+        checksum: string;
+      };
+    }>;
+  }): Promise<string> {
+    const versionPayload = JSON.stringify({
+      playlistId: input.playlistId,
+      refreshNonce: input.refreshNonce,
+      scrollPxPerSecond: input.runtimeSettings.scrollPxPerSecond,
+      playback: {
+        mode: input.playback.mode,
+        emergency: input.playback.emergency
+          ? {
+              contentId: input.playback.emergency.content.id,
+              isGlobal: input.playback.emergency.isGlobal,
+              source: input.playback.emergency.source,
+              startedAt: input.playback.emergency.startedAt,
+            }
+          : null,
+        flash: input.playback.flash
+          ? {
+              activationId: input.playback.flash.activationId,
+              targetDisplayId: input.playback.flash.targetDisplayId,
+              startedAt: input.playback.flash.startedAt,
+              endsAt: input.playback.flash.endsAt,
+              tone: input.playback.flash.tone,
+            }
+          : null,
+      },
+      items: input.items.map((item) => ({
         id: item.id,
         sequence: item.sequence,
         duration: item.duration,
@@ -584,17 +1090,7 @@ export class GetDisplayManifestUseCase {
         checksum: item.content.checksum,
       })),
     });
-    const playlistVersion = await sha256Hex(
-      new TextEncoder().encode(versionPayload).buffer,
-    );
-
-    return {
-      playlistId: playlist.id,
-      playlistVersion,
-      generatedAt: input.now.toISOString(),
-      runtimeSettings,
-      items: manifestItems,
-    };
+    return sha256Hex(new TextEncoder().encode(versionPayload).buffer);
   }
 
   private async getRuntimeSettings(): Promise<{ scrollPxPerSecond: number }> {

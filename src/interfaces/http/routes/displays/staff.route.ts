@@ -49,9 +49,12 @@ import {
   displayIdParamSchema,
   displayListQuerySchema,
   displayListResponseSchema,
+  displayRuntimeOverridesSchema,
   displaySchema,
   patchDisplayRequestBodySchema,
   patchDisplaySchema,
+  runtimeOverrideEmergencyActionBodySchema,
+  runtimeOverrideEmergencyActionSchema,
   setDisplayGroupsRequestBodySchema,
   setDisplayGroupsSchema,
   updateDisplayGroupRequestBodySchema,
@@ -773,6 +776,233 @@ export const registerDisplayStaffRoutes = (args: {
   );
 
   router.get(
+    "/runtime-overrides",
+    setAction("displays.runtime-overrides.get", {
+      route: "/displays/runtime-overrides",
+      resourceType: "display",
+    }),
+    ...authorize("displays:read"),
+    describeRoute({
+      description: "Get global emergency and active flash runtime overrides",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Runtime overrides",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(displayRuntimeOverridesSchema),
+              ),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const result = await useCases.getRuntimeOverrides.execute({
+          now: new Date(),
+        });
+        return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/runtime-overrides/emergency/activate",
+    setAction("displays.runtime-overrides.emergency.activate", {
+      route: "/displays/runtime-overrides/emergency/activate",
+      resourceType: "display",
+    }),
+    ...authorize("displays:update"),
+    validateJson(runtimeOverrideEmergencyActionSchema),
+    describeRoute({
+      description: "Activate global emergency mode",
+      tags: displayTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: runtimeOverrideEmergencyActionBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        204: { description: "Global emergency mode activated" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        await useCases.activateGlobalEmergency.execute({
+          reason: payload.reason,
+        });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/runtime-overrides/emergency/deactivate",
+    setAction("displays.runtime-overrides.emergency.deactivate", {
+      route: "/displays/runtime-overrides/emergency/deactivate",
+      resourceType: "display",
+    }),
+    ...authorize("displays:update"),
+    validateJson(runtimeOverrideEmergencyActionSchema),
+    describeRoute({
+      description: "Deactivate global emergency mode",
+      tags: displayTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: runtimeOverrideEmergencyActionBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        204: { description: "Global emergency mode deactivated" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        await useCases.deactivateGlobalEmergency.execute({
+          reason: payload.reason,
+        });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/:id{[0-9a-fA-F-]{36}}/emergency/activate",
+    setAction("displays.display.emergency.activate", {
+      route: "/displays/:id/emergency/activate",
+      resourceType: "display",
+    }),
+    ...authorize("displays:update"),
+    validateParams(displayIdParamSchema),
+    validateJson(runtimeOverrideEmergencyActionSchema),
+    describeRoute({
+      description: "Activate emergency mode for a display",
+      tags: displayTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: runtimeOverrideEmergencyActionBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        204: { description: "Display emergency mode activated" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
+        c.set("resourceId", params.id);
+        await useCases.activateDisplayEmergency.execute({
+          displayId: params.id,
+          reason: payload.reason,
+        });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/:id{[0-9a-fA-F-]{36}}/emergency/deactivate",
+    setAction("displays.display.emergency.deactivate", {
+      route: "/displays/:id/emergency/deactivate",
+      resourceType: "display",
+    }),
+    ...authorize("displays:update"),
+    validateParams(displayIdParamSchema),
+    validateJson(runtimeOverrideEmergencyActionSchema),
+    describeRoute({
+      description: "Deactivate emergency mode for a display",
+      tags: displayTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: runtimeOverrideEmergencyActionBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        204: { description: "Display emergency mode deactivated" },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
+        c.set("resourceId", params.id);
+        await useCases.deactivateDisplayEmergency.execute({
+          displayId: params.id,
+          reason: payload.reason,
+        });
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
     "/",
     setAction("displays.display.list", { route: "/displays" }),
     ...authorize("displays:read"),
@@ -912,6 +1142,7 @@ export const registerDisplayStaffRoutes = (args: {
           screenHeight: payload.screenHeight,
           outputType: payload.outputType,
           orientation: payload.orientation,
+          emergencyContentId: payload.emergencyContentId,
         });
         return c.json(toApiResponse(result));
       },

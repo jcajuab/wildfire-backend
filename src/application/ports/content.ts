@@ -22,6 +22,8 @@ export interface ContentRecord {
   width: number | null;
   height: number | null;
   duration: number | null;
+  flashMessage?: string | null;
+  flashTone?: "INFO" | "WARNING" | "CRITICAL" | null;
   createdById: string;
   createdAt: string;
 }
@@ -73,6 +75,8 @@ export interface ContentRepository {
         | "width"
         | "height"
         | "duration"
+        | "flashMessage"
+        | "flashTone"
         | "checksum"
       >
     >,

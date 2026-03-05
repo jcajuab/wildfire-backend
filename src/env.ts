@@ -79,6 +79,7 @@ export const env = createEnv({
     REDIS_STREAM_MAX_DELIVERIES: z.coerce.number().default(5),
     CONTENT_INGEST_QUEUE_CAPACITY: z.coerce.number().default(5000),
     CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(100 * 1024 * 1024),
+    DEFAULT_EMERGENCY_CONTENT_ID: z.string().uuid().optional(),
     HTSHADOW_PATH: z.string(),
     JWT_SECRET: z.string(),
     JWT_ISSUER: z.string().default("wildfire"),

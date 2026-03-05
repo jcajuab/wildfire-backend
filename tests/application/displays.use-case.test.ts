@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { type ContentRepository } from "#/application/ports/content";
 import {
   type DisplayRecord,
   type DisplayRepository,
@@ -408,6 +409,9 @@ describe("Displays use cases", () => {
         delete: async () => false,
         countByPlaylistId: async () => 0,
       },
+      contentRepository: {
+        findById: async () => null,
+      } as unknown as ContentRepository,
     });
     const updated = await updateDisplay.execute({
       id: created.id,

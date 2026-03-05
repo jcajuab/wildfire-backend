@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
 import { type DisplayRecord } from "#/application/ports/displays";
+import { type FlashActivationRepository } from "#/application/ports/flash-activations";
+import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { type DisplayRegistrationAttemptStore } from "#/interfaces/http/routes/displays/registration-attempt.store";
@@ -648,6 +650,34 @@ const makeApp = async (
         delete: async () => false,
         update: async () => null,
       },
+      runtimeControlRepository: {
+        getGlobal: async () => ({
+          id: "global",
+          globalEmergencyActive: false,
+          globalEmergencyStartedAt: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+        setGlobalEmergencyState: async () => ({
+          id: "global",
+          globalEmergencyActive: false,
+          globalEmergencyStartedAt: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      } as RuntimeControlRepository,
+      flashActivationRepository: {
+        findActive: async () => null,
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        stopById: async () => null,
+        stopActive: async () => null,
+        createReplacingActive: async () => {
+          throw new Error("not used");
+        },
+      } as FlashActivationRepository,
       authorizationRepository,
       displayGroupRepository,
       displayPairingCodeRepository,

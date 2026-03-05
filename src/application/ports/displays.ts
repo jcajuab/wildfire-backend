@@ -15,6 +15,9 @@ export interface DisplayRecord {
   outputType?: string | null;
   displayOutput?: string | null;
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+  emergencyContentId?: string | null;
+  localEmergencyActive?: boolean;
+  localEmergencyStartedAt?: string | null;
   lastSeenAt?: string | null;
   refreshNonce?: number;
   createdAt: string;
@@ -57,6 +60,9 @@ export interface DisplayRepository {
       screenHeight?: number | null;
       outputType?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+      emergencyContentId?: string | null;
+      localEmergencyActive?: boolean;
+      localEmergencyStartedAt?: string | null;
     },
   ): Promise<DisplayRecord | null>;
   createRegisteredDisplay(input: {

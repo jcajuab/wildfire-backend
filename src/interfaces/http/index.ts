@@ -383,11 +383,14 @@ const displaysRouter = createDisplaysRouter({
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   downloadUrlExpiresInSeconds: 60 * 60,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
+  defaultEmergencyContentId: env.DEFAULT_EMERGENCY_CONTENT_ID,
   repositories: {
     displayRepository: container.repositories.displayRepository,
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
+    runtimeControlRepository: container.repositories.runtimeControlRepository,
+    flashActivationRepository: container.repositories.flashActivationRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     displayGroupRepository: container.repositories.displayGroupRepository,
     displayPairingCodeRepository:
@@ -414,11 +417,14 @@ const displayRouter = createDisplayRouter({
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
+    runtimeControlRepository: container.repositories.runtimeControlRepository,
+    flashActivationRepository: container.repositories.flashActivationRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
     displayAuthNonceRepository:
       container.repositories.displayAuthNonceRepository,
   },
   storage: container.storage.contentStorage,
+  defaultEmergencyContentId: env.DEFAULT_EMERGENCY_CONTENT_ID,
 });
 
 const contentRouter = createContentRouter({
@@ -432,6 +438,8 @@ const contentRouter = createContentRouter({
     contentRepository: container.repositories.contentRepository,
     contentIngestionJobRepository:
       container.repositories.contentIngestionJobRepository,
+    displayRepository: container.repositories.displayRepository,
+    flashActivationRepository: container.repositories.flashActivationRepository,
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
@@ -452,6 +460,8 @@ const contentJobsRouter = createContentJobsRouter({
     contentRepository: container.repositories.contentRepository,
     contentIngestionJobRepository:
       container.repositories.contentIngestionJobRepository,
+    displayRepository: container.repositories.displayRepository,
+    flashActivationRepository: container.repositories.flashActivationRepository,
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
