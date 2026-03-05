@@ -51,6 +51,26 @@ export interface PasswordResetTokenRepository {
   deleteExpired(now: Date): Promise<void>;
 }
 
+export interface EmailChangeTokenRepository {
+  store(input: {
+    userId: string;
+    email: string;
+    hashedToken: string;
+    expiresAt: Date;
+  }): Promise<void>;
+  findByHashedToken(
+    hashedToken: string,
+    now: Date,
+  ): Promise<{ userId: string; email: string; expiresAt: Date } | null>;
+  findPendingByUserId(
+    userId: string,
+    now: Date,
+  ): Promise<{ email: string; expiresAt: Date } | null>;
+  consumeByHashedToken(hashedToken: string): Promise<void>;
+  deleteByUserId(userId: string): Promise<void>;
+  deleteExpired(now: Date): Promise<void>;
+}
+
 export interface InvitationRepository {
   create(input: {
     id: string;

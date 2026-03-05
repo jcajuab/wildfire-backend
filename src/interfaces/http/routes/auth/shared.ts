@@ -4,6 +4,7 @@ import {
   type AuthSessionRepository,
   type Clock,
   type CredentialsRepository,
+  type EmailChangeTokenRepository,
   type InvitationRepository,
   type PasswordHasher,
   type PasswordResetTokenRepository,
@@ -12,6 +13,7 @@ import {
 } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
 import {
+  type EmailChangeVerificationEmailSender,
   type InvitationEmailSender,
   type PasswordResetEmailSender,
 } from "#/application/ports/notifications";
@@ -27,10 +29,12 @@ import {
   ForgotPasswordUseCase,
   ListInvitationsUseCase,
   RefreshSessionUseCase,
+  RequestEmailChangeUseCase,
   ResendInvitationUseCase,
   ResetPasswordUseCase,
   type SetCurrentUserAvatarUseCase,
   type UpdateCurrentUserProfileUseCase,
+  VerifyEmailChangeUseCase,
 } from "#/application/use-cases/auth";
 import { type DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
@@ -55,12 +59,16 @@ export interface AuthRouterDeps {
   authLoginLockoutThreshold: number;
   authLoginLockoutSeconds: number;
   passwordResetTokenRepository: PasswordResetTokenRepository;
+  emailChangeTokenRepository?: EmailChangeTokenRepository;
   invitationRepository: InvitationRepository;
   invitationEmailSender: InvitationEmailSender;
+  emailChangeVerificationEmailSender?: EmailChangeVerificationEmailSender;
   passwordResetEmailSender?: PasswordResetEmailSender;
   inviteTokenTtlSeconds: number;
   inviteAcceptBaseUrl: string;
   resetPasswordBaseUrl?: string;
+  emailChangeTokenTtlSeconds?: number;
+  emailChangeVerifyBaseUrl?: string;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
   updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
@@ -78,6 +86,8 @@ export interface AuthRouterUseCases {
   acceptInvitation: AcceptInvitationUseCase;
   listInvitations: ListInvitationsUseCase;
   resendInvitation: ResendInvitationUseCase;
+  requestEmailChange: RequestEmailChangeUseCase;
+  verifyEmailChange: VerifyEmailChangeUseCase;
 }
 
 export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -95,6 +105,7 @@ export const authResponseSchema = z.object({
     id: z.string(),
     username: z.string(),
     email: z.string().email().nullable(),
+    pendingEmail: z.string().email().nullable().optional(),
     name: z.string(),
     isRoot: z.boolean(),
     timezone: z.string().nullable().optional(),
@@ -122,6 +133,22 @@ type AuthResultBase = {
 export const createAuthUseCases = (
   deps: AuthRouterDeps,
 ): AuthRouterUseCases => {
+  const emailChangeTokenRepository =
+    deps.emailChangeTokenRepository ??
+    ({
+      store: async () => {},
+      findByHashedToken: async () => null,
+      findPendingByUserId: async () => null,
+      consumeByHashedToken: async () => {},
+      deleteByUserId: async () => {},
+      deleteExpired: async () => {},
+    } satisfies EmailChangeTokenRepository);
+  const emailChangeVerificationEmailSender =
+    deps.emailChangeVerificationEmailSender ??
+    ({
+      sendVerificationLink: async () => {},
+    } satisfies EmailChangeVerificationEmailSender);
+
   const createInvitation = new CreateInvitationUseCase({
     userRepository: deps.userRepository,
     invitationRepository: deps.invitationRepository,
@@ -179,6 +206,20 @@ export const createAuthUseCases = (
       invitationRepository: deps.invitationRepository,
       createInvitationUseCase: createInvitation,
     }),
+    requestEmailChange: new RequestEmailChangeUseCase({
+      userRepository: deps.userRepository,
+      emailChangeTokenRepository,
+      emailChangeVerificationEmailSender,
+      emailChangeTokenTtlSeconds:
+        deps.emailChangeTokenTtlSeconds ?? 60 * 60 * 24,
+      emailChangeVerifyBaseUrl:
+        deps.emailChangeVerifyBaseUrl ??
+        "http://localhost:3000/verify-email-change",
+    }),
+    verifyEmailChange: new VerifyEmailChangeUseCase({
+      userRepository: deps.userRepository,
+      emailChangeTokenRepository,
+    }),
   };
 };
 
@@ -187,10 +228,12 @@ const enrichUserWithAvatarUrl = async (
   storage: ContentStorage,
   expiresInSeconds: number,
   isRoot: boolean,
+  pendingEmail: string | null,
 ): Promise<{
   id: string;
   username: string;
   email: string | null;
+  pendingEmail: string | null;
   name: string;
   isRoot: boolean;
   timezone?: string | null;
@@ -200,6 +243,7 @@ const enrichUserWithAvatarUrl = async (
     id: user.id,
     username: user.username,
     email: user.email,
+    pendingEmail,
     name: user.name,
     isRoot,
     timezone: user.timezone ?? null,
@@ -228,11 +272,18 @@ export const buildAuthResponse = async (
     result.user.id,
   );
   const permissionStrings = permissions.map((p) => `${p.resource}:${p.action}`);
+  const pendingEmailRecord = deps.emailChangeTokenRepository
+    ? await deps.emailChangeTokenRepository.findPendingByUserId(
+        result.user.id,
+        new Date(),
+      )
+    : null;
   const user = await enrichUserWithAvatarUrl(
     result.user,
     deps.avatarStorage,
     deps.avatarUrlExpiresInSeconds,
     isRoot,
+    pendingEmailRecord?.email ?? null,
   );
 
   return {

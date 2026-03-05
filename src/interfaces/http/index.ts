@@ -319,12 +319,17 @@ const authRouter = createAuthRouter({
   authLoginLockoutSeconds: env.AUTH_LOGIN_LOCKOUT_SECONDS,
   passwordResetTokenRepository:
     container.repositories.passwordResetTokenRepository,
+  emailChangeTokenRepository: container.repositories.emailChangeTokenRepository,
   invitationRepository: container.repositories.invitationRepository,
   invitationEmailSender: container.auth.invitationEmailSender,
+  emailChangeVerificationEmailSender:
+    container.auth.emailChangeVerificationEmailSender,
   passwordResetEmailSender: container.auth.passwordResetEmailSender,
   inviteTokenTtlSeconds: env.INVITE_TOKEN_TTL_SECONDS,
   inviteAcceptBaseUrl: env.INVITE_ACCEPT_BASE_URL,
   resetPasswordBaseUrl: env.RESET_PASSWORD_BASE_URL,
+  emailChangeTokenTtlSeconds: env.EMAIL_CHANGE_TOKEN_TTL_SECONDS,
+  emailChangeVerifyBaseUrl: env.EMAIL_CHANGE_VERIFY_BASE_URL,
   deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({
     userRepository: container.repositories.userRepository,
   }),

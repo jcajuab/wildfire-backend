@@ -13,6 +13,8 @@ export const setTestEnv = (overrides: EnvOverrides = {}) => {
     MYSQL_USER: "wildfire",
     MYSQL_PASSWORD: "wildfire",
     JWT_SECRET: "test-secret",
+    EMAIL_CHANGE_TOKEN_TTL_SECONDS: "86400",
+    EMAIL_CHANGE_VERIFY_BASE_URL: "http://localhost:3000/verify-email-change",
     ...overrides,
   });
 };

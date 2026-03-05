@@ -13,6 +13,7 @@ import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/displ
 import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
+import { EmailChangeTokenRedisRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
 import { InvitationRedisRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenRedisRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -24,6 +25,7 @@ import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
 import { DefaultContentThumbnailGenerator } from "#/infrastructure/media/content-thumbnail.generator";
+import { LogEmailChangeVerificationEmailSender } from "#/infrastructure/notifications/log-email-change-verification-email.sender";
 import { LogInvitationEmailSender } from "#/infrastructure/notifications/log-invitation-email.sender";
 import { LogPasswordResetEmailSender } from "#/infrastructure/notifications/log-password-reset-email.sender";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
@@ -66,6 +68,7 @@ export interface HttpContainer {
     displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
     passwordResetTokenRepository: PasswordResetTokenRedisRepository;
+    emailChangeTokenRepository: EmailChangeTokenRedisRepository;
     invitationRepository: InvitationRedisRepository;
   };
   auth: {
@@ -74,6 +77,7 @@ export interface HttpContainer {
     passwordHasher: BcryptPasswordHasher;
     tokenIssuer: JwtTokenIssuer;
     clock: SystemClock;
+    emailChangeVerificationEmailSender: LogEmailChangeVerificationEmailSender;
     invitationEmailSender: LogInvitationEmailSender;
     passwordResetEmailSender: LogPasswordResetEmailSender;
   };
@@ -110,6 +114,7 @@ export const createHttpContainer = (
     new DisplayPairingSessionRedisRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const passwordResetTokenRepository = new PasswordResetTokenRedisRepository();
+  const emailChangeTokenRepository = new EmailChangeTokenRedisRepository();
   const invitationRepository = new InvitationRedisRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
@@ -122,6 +127,8 @@ export const createHttpContainer = (
     issuer: config.jwtIssuer,
   });
   const clock = new SystemClock();
+  const emailChangeVerificationEmailSender =
+    new LogEmailChangeVerificationEmailSender();
   const invitationEmailSender = new LogInvitationEmailSender();
   const passwordResetEmailSender = new LogPasswordResetEmailSender();
 
@@ -157,6 +164,7 @@ export const createHttpContainer = (
       displayPairingSessionRepository,
       displayAuthNonceRepository,
       passwordResetTokenRepository,
+      emailChangeTokenRepository,
       invitationRepository,
     },
     auth: {
@@ -165,6 +173,7 @@ export const createHttpContainer = (
       passwordHasher,
       tokenIssuer,
       clock,
+      emailChangeVerificationEmailSender,
       invitationEmailSender,
       passwordResetEmailSender,
     },

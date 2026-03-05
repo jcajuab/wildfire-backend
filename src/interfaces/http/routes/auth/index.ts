@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { registerAuthAvatarRoute } from "./avatar.route";
+import { registerAuthEmailChangeRoutes } from "./email-change.route";
 import { registerAuthInvitationRoutes } from "./invitation.route";
 import { registerAuthLoginRoute } from "./login.route";
 import { registerAuthPasswordRoute } from "./password.route";
@@ -22,6 +23,7 @@ export const createAuthRouter = (deps: AuthRouterDeps) => {
   });
 
   registerAuthProfileRoute({ router, deps, useCases, jwtMiddleware });
+  registerAuthEmailChangeRoutes({ router, deps, useCases, jwtMiddleware });
   registerAuthLoginRoute({ router, deps, useCases });
   registerAuthSessionRoutes({ router, deps, useCases, jwtMiddleware });
   registerAuthPasswordRoute({ router, deps, jwtMiddleware });

@@ -32,6 +32,8 @@ const defaults: Record<string, string> = {
   INVITE_TOKEN_TTL_SECONDS: "86400",
   INVITE_ACCEPT_BASE_URL: "http://localhost:3000/accept-invite",
   RESET_PASSWORD_BASE_URL: "http://localhost:3000/reset-password",
+  EMAIL_CHANGE_TOKEN_TTL_SECONDS: "86400",
+  EMAIL_CHANGE_VERIFY_BASE_URL: "http://localhost:3000/verify-email-change",
   LOG_LEVEL: "info",
   LOG_PRETTY: "false",
   AUDIT_QUEUE_ENABLED: "true",

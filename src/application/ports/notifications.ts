@@ -13,3 +13,11 @@ export interface PasswordResetEmailSender {
     expiresAt: Date;
   }): Promise<void>;
 }
+
+export interface EmailChangeVerificationEmailSender {
+  sendVerificationLink(input: {
+    email: string;
+    verifyUrl: string;
+    expiresAt: Date;
+  }): Promise<void>;
+}

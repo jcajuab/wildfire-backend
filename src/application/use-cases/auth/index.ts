@@ -8,7 +8,9 @@ export { ForgotPasswordUseCase } from "#/application/use-cases/auth/forgot-passw
 export { ListInvitationsUseCase } from "#/application/use-cases/auth/list-invitations.use-case";
 export type { RefreshSessionResult } from "#/application/use-cases/auth/refresh-session.use-case";
 export { RefreshSessionUseCase } from "#/application/use-cases/auth/refresh-session.use-case";
+export { RequestEmailChangeUseCase } from "#/application/use-cases/auth/request-email-change.use-case";
 export { ResendInvitationUseCase } from "#/application/use-cases/auth/resend-invitation.use-case";
 export { ResetPasswordUseCase } from "#/application/use-cases/auth/reset-password.use-case";
 export { SetCurrentUserAvatarUseCase } from "#/application/use-cases/auth/set-current-user-avatar.use-case";
 export { UpdateCurrentUserProfileUseCase } from "#/application/use-cases/auth/update-current-user-profile.use-case";
+export { VerifyEmailChangeUseCase } from "#/application/use-cases/auth/verify-email-change.use-case";
