@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildSeedStages, runSeedStages } from "../../../scripts/seed/runner";
+import {
+  buildSeedCleanupStages,
+  buildSeedStages,
+  runSeedStages,
+} from "../../../scripts/seed/runner";
 import {
   type SeedContext,
   type SeedStage,
@@ -25,11 +29,29 @@ const makeReporter = () => ({
 const fakeCtx = {} as SeedContext;
 
 describe("buildSeedStages", () => {
-  test("builds bootstrap stages", () => {
+  test("builds demo seed stages", () => {
     const stages = buildSeedStages();
     expect(stages.map((stage) => stage.name)).toEqual([
-      "seed-standard-permissions",
-      "seed-root",
+      "seed-demo-rbac",
+      "seed-demo-displays",
+      "seed-demo-content",
+      "seed-demo-playlists",
+      "seed-demo-schedules",
+      "seed-demo-audit-events",
+    ]);
+  });
+});
+
+describe("buildSeedCleanupStages", () => {
+  test("builds cleanup stages in dependency-safe order", () => {
+    const stages = buildSeedCleanupStages();
+    expect(stages.map((stage) => stage.name)).toEqual([
+      "cleanup-demo-audit-events",
+      "cleanup-demo-schedules",
+      "cleanup-demo-playlists",
+      "cleanup-demo-content",
+      "cleanup-demo-displays",
+      "cleanup-demo-rbac",
     ]);
   });
 });

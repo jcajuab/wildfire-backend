@@ -136,6 +136,7 @@ const makeApp = async (permissions: string[]) => {
       countCalls.push(query);
       return 1;
     },
+    deleteByRequestIdPrefix: async () => 0,
   };
   const authorizationRepository = {
     findPermissionsForUser: async () =>
@@ -297,6 +298,7 @@ describe("Audit routes", () => {
         }),
       ],
       count: async () => 1,
+      deleteByRequestIdPrefix: async () => 0,
     };
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
@@ -353,6 +355,7 @@ describe("Audit routes", () => {
       create: async () => buildAuditEvent("event-created"),
       list: async () => [buildAuditEvent("event-1")],
       count: async () => 3,
+      deleteByRequestIdPrefix: async () => 0,
     };
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
@@ -412,6 +415,7 @@ describe("Audit routes", () => {
       create: async () => buildAuditEvent("event-created"),
       list: async () => [buildAuditEvent("event-1", { userAgent: "=2+5" })],
       count: async () => 1,
+      deleteByRequestIdPrefix: async () => 0,
     };
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
@@ -460,6 +464,7 @@ describe("Audit routes", () => {
       count: async () => {
         throw new Error("db unavailable");
       },
+      deleteByRequestIdPrefix: async () => 0,
     };
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],

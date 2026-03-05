@@ -30,6 +30,7 @@ const makeRepository = () => {
       },
       list: async () => [],
       count: async () => 0,
+      deleteByRequestIdPrefix: async () => 0,
     },
   };
 };

@@ -41,6 +41,7 @@ const makeRepository = () => {
         countCalls.push(query);
         return 1;
       },
+      deleteByRequestIdPrefix: async () => 0,
     },
   };
 };
@@ -88,6 +89,7 @@ describe("ExportAuditEventsUseCase", () => {
       auditEventRepository: {
         ...repository,
         count: async () => 101,
+        deleteByRequestIdPrefix: async () => 0,
       },
       maxRows: 100,
     });
@@ -133,6 +135,7 @@ describe("ExportAuditEventsUseCase", () => {
           }));
         },
         count: async () => 5,
+        deleteByRequestIdPrefix: async () => 0,
       },
       maxRows: 100,
       chunkSize: 2,

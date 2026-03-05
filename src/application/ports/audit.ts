@@ -55,4 +55,5 @@ export interface AuditEventRepository {
   create(input: CreateAuditEventInput): Promise<AuditEventRecord>;
   list(query: ListAuditEventsQuery): Promise<AuditEventRecord[]>;
   count(query: ListAuditEventsQuery): Promise<number>;
+  deleteByRequestIdPrefix(prefix: string): Promise<number>;
 }

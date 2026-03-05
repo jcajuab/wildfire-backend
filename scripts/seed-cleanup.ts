@@ -1,12 +1,12 @@
 import { parseSeedArgs } from "./seed/args";
 import { consoleSeedReporter } from "./seed/reporter";
-import { buildSeedStages, runSeedStages } from "./seed/runner";
+import { buildSeedCleanupStages, runSeedStages } from "./seed/runner";
 
 const usage = [
-  "Usage: bun run db:seed -- [--dry-run]",
+  "Usage: bun run db:seed:cleanup -- [--dry-run]",
   "",
   "Purpose:",
-  "  Seed demo data for local development (RBAC demo users/roles, displays, content, playlists, schedules, and audit events).",
+  "  Remove demo seed data for local development only.",
   "  Startup remains responsible for root identity and canonical permission sync.",
   "",
   "Flags:",
@@ -14,8 +14,8 @@ const usage = [
   "  --help, -h               Print this help and exit.",
   "",
   "Examples:",
-  "  bun run db:seed",
-  "  bun run db:seed -- --dry-run",
+  "  bun run db:seed:cleanup",
+  "  bun run db:seed:cleanup -- --dry-run",
 ].join("\n");
 
 let exitCode = 0;
@@ -32,7 +32,7 @@ try {
   const runtime = createSeedRuntimeContext({ args });
   closeRuntime = runtime.close;
 
-  const stages = buildSeedStages();
+  const stages = buildSeedCleanupStages();
 
   await runSeedStages({
     ctx: runtime.ctx,

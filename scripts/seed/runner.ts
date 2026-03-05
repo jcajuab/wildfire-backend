@@ -4,16 +4,38 @@ import {
   type SeedStage,
   type SeedStageResult,
 } from "./stage-types";
-import { runSeedRoot } from "./stages/seed-root";
-import { runSeedStandardPermissions } from "./stages/seed-standard-permissions";
+import { runCleanupDemoAuditEvents } from "./stages/cleanup-demo-audit-events";
+import { runCleanupDemoContent } from "./stages/cleanup-demo-content";
+import { runCleanupDemoDisplays } from "./stages/cleanup-demo-displays";
+import { runCleanupDemoPlaylists } from "./stages/cleanup-demo-playlists";
+import { runCleanupDemoRbac } from "./stages/cleanup-demo-rbac";
+import { runCleanupDemoSchedules } from "./stages/cleanup-demo-schedules";
+import { runSeedDemoAuditEvents } from "./stages/seed-demo-audit-events";
+import { runSeedDemoContent } from "./stages/seed-demo-content";
+import { runSeedDemoDisplays } from "./stages/seed-demo-displays";
+import { runSeedDemoPlaylists } from "./stages/seed-demo-playlists";
+import { runSeedDemoRbac } from "./stages/seed-demo-rbac";
+import { runSeedDemoSchedules } from "./stages/seed-demo-schedules";
 
 export const buildSeedStages = (): SeedStage[] => {
   return [
-    {
-      name: "seed-standard-permissions",
-      execute: runSeedStandardPermissions,
-    },
-    { name: "seed-root", execute: runSeedRoot },
+    { name: "seed-demo-rbac", execute: runSeedDemoRbac },
+    { name: "seed-demo-displays", execute: runSeedDemoDisplays },
+    { name: "seed-demo-content", execute: runSeedDemoContent },
+    { name: "seed-demo-playlists", execute: runSeedDemoPlaylists },
+    { name: "seed-demo-schedules", execute: runSeedDemoSchedules },
+    { name: "seed-demo-audit-events", execute: runSeedDemoAuditEvents },
+  ];
+};
+
+export const buildSeedCleanupStages = (): SeedStage[] => {
+  return [
+    { name: "cleanup-demo-audit-events", execute: runCleanupDemoAuditEvents },
+    { name: "cleanup-demo-schedules", execute: runCleanupDemoSchedules },
+    { name: "cleanup-demo-playlists", execute: runCleanupDemoPlaylists },
+    { name: "cleanup-demo-content", execute: runCleanupDemoContent },
+    { name: "cleanup-demo-displays", execute: runCleanupDemoDisplays },
+    { name: "cleanup-demo-rbac", execute: runCleanupDemoRbac },
   ];
 };
 

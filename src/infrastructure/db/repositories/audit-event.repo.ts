@@ -170,4 +170,11 @@ export class AuditEventDbRepository implements AuditEventRepository {
 
     return result[0]?.value ?? 0;
   }
+
+  async deleteByRequestIdPrefix(prefix: string): Promise<number> {
+    const result = await db
+      .delete(auditEvents)
+      .where(like(auditEvents.requestId, `${escapeLike(prefix)}%`));
+    return Number(result[0]?.affectedRows ?? 0);
+  }
 }

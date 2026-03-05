@@ -38,6 +38,7 @@ const makeRepository = () => {
         countCalls.push(query);
         return 1;
       },
+      deleteByRequestIdPrefix: async () => 0,
     },
   };
 };

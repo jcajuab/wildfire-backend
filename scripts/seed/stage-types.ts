@@ -1,3 +1,13 @@
+import { type AuditEventRepository } from "#/application/ports/audit";
+import {
+  type ContentRepository,
+  type ContentStorage,
+} from "#/application/ports/content";
+import {
+  type DisplayGroupRepository,
+  type DisplayRepository,
+} from "#/application/ports/displays";
+import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
   type PermissionRecord,
   type PermissionRepository,
@@ -6,15 +16,11 @@ import {
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type SeedArgs } from "./args";
 
 export interface SeedContext {
   args: SeedArgs;
-  root: {
-    username: string;
-    email: string | null;
-    password: string;
-  };
   htshadowPath: string;
   repos: {
     permissionRepository: PermissionRepository;
@@ -22,6 +28,15 @@ export interface SeedContext {
     rolePermissionRepository: RolePermissionRepository;
     userRepository: UserRepository;
     userRoleRepository: UserRoleRepository;
+    displayRepository: DisplayRepository;
+    displayGroupRepository: DisplayGroupRepository;
+    contentRepository: ContentRepository;
+    playlistRepository: PlaylistRepository;
+    scheduleRepository: ScheduleRepository;
+    auditEventRepository: AuditEventRepository;
+  };
+  storage: {
+    contentStorage: ContentStorage;
   };
   io: {
     readFile(path: string): Promise<string>;
