@@ -300,6 +300,8 @@ const createRuntimeRateLimitMiddleware = (
     if (!stats.allowed) {
       logger.warn(
         {
+          component: "displays",
+          event: "display.rate_limit.exceeded",
           route: c.req.path,
           action: c.get("action"),
           ip,

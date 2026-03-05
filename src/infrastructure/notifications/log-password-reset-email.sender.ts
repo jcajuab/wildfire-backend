@@ -9,6 +9,8 @@ export class LogPasswordResetEmailSender implements PasswordResetEmailSender {
   }): Promise<void> {
     logger.info(
       {
+        component: "notifications",
+        event: "email.password_reset.requested",
         route: "/auth/password/forgot",
         expiresAt: input.expiresAt.toISOString(),
       },
@@ -18,6 +20,8 @@ export class LogPasswordResetEmailSender implements PasswordResetEmailSender {
     if (process.env.NODE_ENV === "development") {
       logger.info(
         {
+          component: "notifications",
+          event: "email.password_reset.previewed",
           route: "/auth/password/forgot",
           resetUrl: input.resetUrl,
         },

@@ -20,6 +20,7 @@ import {
   UploadContentUseCase,
 } from "#/application/use-cases/content";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface ContentRouterDeps {
@@ -72,13 +73,17 @@ export const createContentUseCases = (
       error: unknown;
     }) {
       logger.error(
-        {
-          route: input.route,
-          contentId: input.contentId,
-          fileKey: input.fileKey,
-          failurePhase: input.failurePhase,
-          err: input.error,
-        },
+        addErrorContext(
+          {
+            component: "content",
+            event: "content.cleanup.failed",
+            route: input.route,
+            contentId: input.contentId,
+            fileKey: input.fileKey,
+            failurePhase: input.failurePhase,
+          },
+          input.error,
+        ),
         "content storage cleanup failed",
       );
     },

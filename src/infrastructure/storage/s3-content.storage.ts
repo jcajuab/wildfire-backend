@@ -9,6 +9,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { type ContentStorage } from "#/application/ports/content";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -85,6 +86,7 @@ export class S3ContentStorage implements ContentStorage {
       );
       logger.info(
         {
+          component: "storage",
           operation,
           bucket: this.config.bucket,
           key: input.key,
@@ -95,14 +97,17 @@ export class S3ContentStorage implements ContentStorage {
       );
     } catch (error) {
       logger.error(
-        {
-          err: error,
-          operation,
-          bucket: this.config.bucket,
-          key: input.key,
-          durationMs: Date.now() - start,
-          success: false,
-        },
+        addErrorContext(
+          {
+            component: "storage",
+            operation,
+            bucket: this.config.bucket,
+            key: input.key,
+            durationMs: Date.now() - start,
+            success: false,
+          },
+          error,
+        ),
         "storage upload failed",
       );
       throw error;
@@ -127,6 +132,7 @@ export class S3ContentStorage implements ContentStorage {
       );
       logger.info(
         {
+          component: "storage",
           operation,
           bucket: this.config.bucket,
           key,
@@ -137,14 +143,17 @@ export class S3ContentStorage implements ContentStorage {
       );
     } catch (error) {
       logger.error(
-        {
-          err: error,
-          operation,
-          bucket: this.config.bucket,
-          key,
-          durationMs: Date.now() - start,
-          success: false,
-        },
+        addErrorContext(
+          {
+            component: "storage",
+            operation,
+            bucket: this.config.bucket,
+            key,
+            durationMs: Date.now() - start,
+            success: false,
+          },
+          error,
+        ),
         "storage delete failed",
       );
       throw error;
@@ -175,6 +184,7 @@ export class S3ContentStorage implements ContentStorage {
       );
       logger.info(
         {
+          component: "storage",
           operation,
           bucket: this.config.bucket,
           key: input.key,
@@ -186,14 +196,17 @@ export class S3ContentStorage implements ContentStorage {
       return url;
     } catch (error) {
       logger.error(
-        {
-          err: error,
-          operation,
-          bucket: this.config.bucket,
-          key: input.key,
-          durationMs: Date.now() - start,
-          success: false,
-        },
+        addErrorContext(
+          {
+            component: "storage",
+            operation,
+            bucket: this.config.bucket,
+            key: input.key,
+            durationMs: Date.now() - start,
+            success: false,
+          },
+          error,
+        ),
         "storage presign failed",
       );
       throw error;
@@ -212,6 +225,7 @@ export class S3ContentStorage implements ContentStorage {
       );
       logger.info(
         {
+          component: "storage",
           operation,
           bucket: this.config.bucket,
           durationMs: Date.now() - start,
@@ -227,13 +241,16 @@ export class S3ContentStorage implements ContentStorage {
           ? `${err.message} (${(err as { code?: string }).code})`
           : err.message;
       logger.warn(
-        {
+        addErrorContext(
+          {
+            component: "storage",
+            operation,
+            bucket: this.config.bucket,
+            durationMs: Date.now() - start,
+            success: false,
+          },
           err,
-          operation,
-          bucket: this.config.bucket,
-          durationMs: Date.now() - start,
-          success: false,
-        },
+        ),
         "storage connectivity check failed",
       );
       return { ok: false, error: message };
@@ -265,6 +282,7 @@ export class S3ContentStorage implements ContentStorage {
       );
       logger.info(
         {
+          component: "storage",
           operation,
           bucket: this.config.bucket,
           durationMs: Date.now() - start,
@@ -276,16 +294,18 @@ export class S3ContentStorage implements ContentStorage {
       return;
     } catch (error) {
       if (!this.isBucketMissing(error)) {
-        const err = error instanceof Error ? error : new Error(String(error));
         logger.error(
-          {
-            err,
-            operation,
-            bucket: this.config.bucket,
-            durationMs: Date.now() - start,
-            success: false,
-            action: "check_bucket",
-          },
+          addErrorContext(
+            {
+              component: "storage",
+              operation,
+              bucket: this.config.bucket,
+              durationMs: Date.now() - start,
+              success: false,
+              action: "check_bucket",
+            },
+            error,
+          ),
           "storage bucket readiness check failed",
         );
         throw error;
@@ -303,6 +323,7 @@ export class S3ContentStorage implements ContentStorage {
       );
       logger.info(
         {
+          component: "storage",
           operation,
           bucket: this.config.bucket,
           durationMs: Date.now() - createStartMs,
@@ -316,6 +337,7 @@ export class S3ContentStorage implements ContentStorage {
       if (this.isBucketAlreadyAvailable(error)) {
         logger.info(
           {
+            component: "storage",
             operation,
             bucket: this.config.bucket,
             durationMs: Date.now() - createStartMs,
@@ -329,14 +351,17 @@ export class S3ContentStorage implements ContentStorage {
 
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(
-        {
-          err,
-          operation,
-          bucket: this.config.bucket,
-          durationMs: Date.now() - createStartMs,
-          success: false,
-          action: "create_bucket",
-        },
+        addErrorContext(
+          {
+            component: "storage",
+            operation,
+            bucket: this.config.bucket,
+            durationMs: Date.now() - createStartMs,
+            success: false,
+            action: "create_bucket",
+          },
+          error,
+        ),
         "storage bucket creation failed",
       );
       throw err;

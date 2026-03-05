@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   getRedisPublisherClient,
   getRedisSubscriberClient,
@@ -127,6 +128,8 @@ const emitDisplayStreamEventLocally = (event: DisplayStreamEvent): void => {
 
   logger.info(
     {
+      component: "displays",
+      event: "display-stream.event_emitted",
       route: "/display-runtime/:displaySlug/stream",
       displayId: event.displayId,
       eventType: event.type,
@@ -161,10 +164,14 @@ const ensureStreamRedisSubscription = (): void => {
     } catch (error) {
       hasStreamSubscription = false;
       logger.error(
-        {
-          err: error,
-          channel: redisChannel,
-        },
+        addErrorContext(
+          {
+            component: "displays",
+            event: "display-stream.subscription.failed",
+            channel: redisChannel,
+          },
+          error,
+        ),
         "display stream Redis subscription failed",
       );
     } finally {
@@ -186,12 +193,16 @@ const publishDisplayStreamEventToRedis = async (
     await publisher.publish(redisChannel, JSON.stringify(envelope));
   } catch (error) {
     logger.warn(
-      {
-        err: error,
-        channel: redisChannel,
-        displayId: event.displayId,
-        eventType: event.type,
-      },
+      addErrorContext(
+        {
+          component: "displays",
+          event: "display-stream.publish.failed",
+          channel: redisChannel,
+          displayId: event.displayId,
+          eventType: event.type,
+        },
+        error,
+      ),
       "display stream Redis publish failed",
     );
   }
@@ -255,6 +266,8 @@ export const subscribeToDisplayStream = (
   streamSubscribers.set(displayId, subscribers);
   logger.info(
     {
+      component: "displays",
+      event: "display-stream.subscriber.connected",
       route: "/display-runtime/:displaySlug/stream",
       displayId,
       subscriberCount: subscribers.size,
@@ -270,6 +283,8 @@ export const subscribeToDisplayStream = (
       streamSubscribers.delete(displayId);
       logger.info(
         {
+          component: "displays",
+          event: "display-stream.subscriber.disconnected",
           route: "/display-runtime/:displaySlug/stream",
           displayId,
           subscriberCount: 0,
@@ -280,6 +295,8 @@ export const subscribeToDisplayStream = (
     }
     logger.info(
       {
+        component: "displays",
+        event: "display-stream.subscriber.disconnected",
         route: "/display-runtime/:displaySlug/stream",
         displayId,
         subscriberCount: current.size,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   getRedisPublisherClient,
   getRedisSubscriberClient,
@@ -133,10 +134,14 @@ const ensureRegistrationAttemptSubscription = (): void => {
     } catch (error) {
       hasRegistrationAttemptSubscription = false;
       logger.error(
-        {
-          err: error,
-          channel: redisChannel,
-        },
+        addErrorContext(
+          {
+            component: "displays",
+            event: "registration-attempt.subscription.failed",
+            channel: redisChannel,
+          },
+          error,
+        ),
         "registration-attempt Redis subscription failed",
       );
     } finally {
@@ -158,11 +163,15 @@ const publishRegistrationAttemptEventToRedis = async (
     await publisher.publish(redisChannel, JSON.stringify(envelope));
   } catch (error) {
     logger.warn(
-      {
-        err: error,
-        channel: redisChannel,
-        attemptId: event.attemptId,
-      },
+      addErrorContext(
+        {
+          component: "displays",
+          event: "registration-attempt.publish.failed",
+          channel: redisChannel,
+          attemptId: event.attemptId,
+        },
+        error,
+      ),
       "registration-attempt Redis publish failed",
     );
   }

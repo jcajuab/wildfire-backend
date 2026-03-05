@@ -1,4 +1,5 @@
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 
 export type StartupPhaseStatus =
   | "started"
@@ -14,24 +15,10 @@ export interface StartupPhaseContext {
 }
 
 export interface StartupPhaseEventContext extends StartupPhaseContext {
+  event: "startup.phase";
   status: StartupPhaseStatus;
   durationMs?: number;
 }
-
-const toErrorEvent = (
-  error: unknown,
-): { error: string; errorName: string; errorCode?: string } => {
-  const safeError = error instanceof Error ? error : new Error(String(error));
-  const code =
-    safeError && typeof safeError === "object" && "code" in safeError
-      ? String((safeError as { code?: unknown }).code)
-      : undefined;
-  return {
-    error: safeError.message,
-    errorName: safeError.name,
-    ...(code && code.length > 0 ? { errorCode: code } : {}),
-  };
-};
 
 export const createStartupRunId = (prefix: string): string =>
   `${prefix}-${crypto.randomUUID?.() ?? `fallback-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`}`;
@@ -42,6 +29,7 @@ export const buildStartupPhasePayload = (
   durationMs?: number,
   metadata?: Record<string, unknown>,
 ): StartupPhaseEventContext & Record<string, unknown> => ({
+  event: "startup.phase",
   ...context,
   status,
   ...(durationMs != null ? { durationMs } : {}),
@@ -76,10 +64,10 @@ export const logStartupPhaseFailed = (
   metadata?: Record<string, unknown>,
 ): void => {
   logger.error(
-    buildStartupPhasePayload(context, "failed", durationMs, {
-      ...metadata,
-      ...toErrorEvent(error),
-    }),
+    addErrorContext(
+      buildStartupPhasePayload(context, "failed", durationMs, metadata),
+      error,
+    ),
     `${context.operation} failed`,
   );
 };
@@ -89,11 +77,20 @@ export const logStartupPhaseDegraded = (
   durationMs: number,
   message: string,
   metadata?: Record<string, unknown>,
+  error?: unknown,
 ): void => {
-  logger.warn(
-    buildStartupPhasePayload(context, "degraded", durationMs, metadata),
-    message,
+  const payload = buildStartupPhasePayload(
+    context,
+    "degraded",
+    durationMs,
+    metadata,
   );
+  if (error == null) {
+    logger.warn(payload, message);
+    return;
+  }
+
+  logger.warn(addErrorContext(payload, error), message);
 };
 
 export const asSeedRunId = (): string => createStartupRunId("seed");

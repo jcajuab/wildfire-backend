@@ -48,6 +48,7 @@ export const env = createEnv({
     MINIO_BUCKET: z.string().default("content"),
     MINIO_REGION: z.string().default("us-east-1"),
     MINIO_REQUEST_TIMEOUT_MS: z.coerce.number().default(15_000),
+    IDLE_TIMEOUT_MS: z.coerce.number().nonnegative().default(0),
     REDIS_URL: z.string().default("redis://localhost:6379"),
     REDIS_KEY_PREFIX: z.string().default("wf"),
     REDIS_CONNECT_TIMEOUT_MS: z.coerce.number().default(10_000),

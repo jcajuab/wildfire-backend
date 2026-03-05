@@ -1,5 +1,6 @@
 import { type CreateAuditEventInput } from "#/application/ports/audit";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import { getRedisCommandClient } from "#/infrastructure/redis/client";
 import {
   type AuditEventQueue,
@@ -80,12 +81,16 @@ export class RedisAuditQueue implements AuditEventQueue {
       this.stats.dropped += 1;
       this.stats.queued = Math.max(0, this.stats.queued - 1);
       logger.warn(
-        {
-          err: error,
-          action: event.action,
-          requestId: event.requestId,
-          streamName: this.config.streamName,
-        },
+        addErrorContext(
+          {
+            component: "audit",
+            event: "audit.queue.enqueue_failed",
+            action: event.action,
+            requestId: event.requestId,
+            streamName: this.config.streamName,
+          },
+          error,
+        ),
         "audit queue enqueue failed",
       );
     }

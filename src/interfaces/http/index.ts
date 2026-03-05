@@ -12,6 +12,7 @@ import {
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   createStartupRunId,
   logStartupPhaseDegraded,
@@ -97,6 +98,8 @@ const minioStartupContext = {
 
 logger.info(
   {
+    component: "api-bootstrap",
+    event: "storage.minio.configured",
     minioEndpoint: container.storage.minioEndpoint,
     bucket: env.MINIO_BUCKET,
   },
@@ -173,8 +176,8 @@ void (async () => {
       "MinIO connectivity check failed. Avatar/content uploads may fail while uploads are requested.",
       {
         ...storageConfig,
-        error: result.error,
       },
+      result.error != null ? new Error(result.error) : undefined,
     );
   } catch (error) {
     logStartupPhaseFailed(
@@ -473,7 +476,8 @@ app.onError((err, c) => {
     getVar<string>("fileId") ??
     (resourceType === "content" && resourceId != null ? resourceId : undefined);
   const logPayload = {
-    err,
+    event: "http.request.error",
+    component: "http",
     requestId: c.get("requestId"),
     method: c.req.method,
     path: c.req.path,
@@ -488,9 +492,9 @@ app.onError((err, c) => {
   };
 
   if (status >= 500) {
-    logger.error(logPayload, "request error");
+    logger.error(addErrorContext(logPayload, err), "request error");
   } else {
-    logger.warn(logPayload, "request error");
+    logger.warn(addErrorContext(logPayload, err), "request error");
   }
 
   if (err instanceof HTTPException) {

@@ -3,6 +3,7 @@ import { type ScheduleRepository } from "#/application/ports/schedules";
 import { deriveDisplayStatus } from "#/application/use-cases/displays";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import { publishAdminDisplayLifecycleEvent } from "./admin-lifecycle-events";
 
 const DEFAULT_RECONCILE_INTERVAL_MS = 30_000;
@@ -65,9 +66,13 @@ export const startDisplayStatusReconciler = (input: {
       }
     } catch (error) {
       logger.warn(
-        {
-          error: error instanceof Error ? error.message : String(error),
-        },
+        addErrorContext(
+          {
+            component: "displays",
+            event: "display-status-reconciler.failed",
+          },
+          error,
+        ),
         "Display status reconciler iteration failed",
       );
     } finally {

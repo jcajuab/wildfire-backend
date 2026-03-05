@@ -150,6 +150,8 @@ export const createAuditTrailMiddleware = (deps: {
     if (!result.accepted && result.reason === "overflow") {
       logger.warn(
         {
+          component: "audit",
+          event: "audit.event.dropped",
           requestId,
           action,
           reason: result.reason,

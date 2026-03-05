@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type DisplayStatus } from "#/application/ports/displays";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   getRedisPublisherClient,
   getRedisSubscriberClient,
@@ -162,10 +163,14 @@ const ensureLifecycleSubscription = (): void => {
     } catch (error) {
       hasLifecycleSubscription = false;
       logger.error(
-        {
-          err: error,
-          channel: redisChannel,
-        },
+        addErrorContext(
+          {
+            component: "displays",
+            event: "admin-lifecycle.subscription.failed",
+            channel: redisChannel,
+          },
+          error,
+        ),
         "admin lifecycle Redis subscription failed",
       );
     } finally {
@@ -187,12 +192,16 @@ const publishLifecycleEventToRedis = async (
     await publisher.publish(redisChannel, JSON.stringify(envelope));
   } catch (error) {
     logger.warn(
-      {
-        err: error,
-        channel: redisChannel,
-        eventType: event.type,
-        displayId: event.displayId,
-      },
+      addErrorContext(
+        {
+          component: "displays",
+          event: "admin-lifecycle.publish.failed",
+          channel: redisChannel,
+          eventType: event.type,
+          displayId: event.displayId,
+        },
+        error,
+      ),
       "admin lifecycle Redis publish failed",
     );
   }

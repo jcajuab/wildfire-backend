@@ -41,7 +41,7 @@ const makeReporter = () => ({
   ) {},
 });
 
-const fakeCtx = {} as SeedContext;
+const fakeCtx = { args: { dryRun: false } } as SeedContext;
 
 describe("buildSeedStages", () => {
   test("builds demo seed stages", () => {

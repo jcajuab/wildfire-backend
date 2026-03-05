@@ -1,6 +1,7 @@
 import { createClient } from "redis";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 
 type RedisConnectionKind = "command" | "publisher" | "subscriber";
 type RedisClient = ReturnType<typeof createClient>;
@@ -31,15 +32,49 @@ const createRedisConnection = (kind: RedisConnectionKind): RedisClient => {
 
   client.on("error", (error) => {
     logger.error(
-      {
-        err: error,
-        redisConnection: kind,
-      },
+      addErrorContext(
+        {
+          component: "redis",
+          redisConnection: kind,
+          event: "redis.connection.error",
+        },
+        error,
+      ),
       "Redis client error",
     );
   });
 
   return client;
+};
+
+const logRedisConnectionClosed = (
+  kind: RedisConnectionKind,
+  state: "closed" | "error",
+  error?: unknown,
+): void => {
+  if (state === "closed") {
+    logger.info(
+      {
+        component: "redis",
+        event: "redis.connection.closed",
+        redisConnection: kind,
+      },
+      "Redis connection closed",
+    );
+    return;
+  }
+
+  logger.warn(
+    addErrorContext(
+      {
+        component: "redis",
+        event: "redis.connection.shutdown_error",
+        redisConnection: kind,
+      },
+      error,
+    ),
+    "Redis graceful shutdown failed; destroying connection",
+  );
 };
 
 const clients: Partial<Record<RedisConnectionKind, RedisClient>> = {};
@@ -68,6 +103,8 @@ const getConnectedClient = async (
       await client.connect();
       logger.info(
         {
+          component: "redis",
+          event: "redis.connection.established",
           redisConnection: kind,
         },
         "Redis connection established",
@@ -110,19 +147,15 @@ export const closeRedisClients = async (): Promise<void> => {
           await client.quit();
           logger.info(
             {
+              component: "redis",
+              event: "redis.connection.closed",
               redisConnection: kind,
             },
             "Redis connection closed",
           );
         }
       } catch (error) {
-        logger.warn(
-          {
-            err: error,
-            redisConnection: kind,
-          },
-          "Redis graceful shutdown failed; destroying connection",
-        );
+        logRedisConnectionClosed(kind, "error", error);
         client.destroy();
       } finally {
         clients[kind] = undefined;

@@ -86,7 +86,14 @@ export const registerAuthAvatarRoute = (args: {
         const userId = c.get("userId");
         c.set("resourceId", userId);
         const payload = c.req.valid("form");
-        logger.info({ userId }, "avatar upload start");
+        logger.info(
+          {
+            component: "auth",
+            event: "avatar.upload.started",
+            userId,
+          },
+          "avatar upload start",
+        );
 
         const file = payload.file;
         const buffer = await file.arrayBuffer();
@@ -98,7 +105,14 @@ export const registerAuthAvatarRoute = (args: {
           contentLength: file.size,
         });
 
-        logger.info({ userId }, "avatar upload done");
+        logger.info(
+          {
+            component: "auth",
+            event: "avatar.upload.completed",
+            userId,
+          },
+          "avatar upload done",
+        );
 
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);

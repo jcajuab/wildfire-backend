@@ -5,6 +5,7 @@ import { env } from "#/env";
 import { closeDbConnection } from "#/infrastructure/db/client";
 import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   closeRedisClients,
   getRedisCommandClient,
@@ -186,14 +187,18 @@ const processEntry = async (input: {
       const isLastAttempt = attempt >= maxDeliveries;
       if (!isLastAttempt) {
         logger.warn(
-          {
-            err: error,
-            attempt,
-            maxAttempts: maxDeliveries,
-            streamEntryId: input.entry.id,
-            requestId: event.requestId,
-            action: event.action,
-          },
+          addErrorContext(
+            {
+              component: "audit",
+              event: "audit.worker.retry",
+              attempt,
+              maxAttempts: maxDeliveries,
+              streamEntryId: input.entry.id,
+              requestId: event.requestId,
+              action: event.action,
+            },
+            error,
+          ),
           "audit worker retrying stream entry",
         );
         continue;
@@ -207,13 +212,17 @@ const processEntry = async (input: {
       });
       await ackAndDeleteEntry(input.entry.id);
       logger.error(
-        {
-          err: error,
-          attempts: maxDeliveries,
-          streamEntryId: input.entry.id,
-          requestId: event.requestId,
-          action: event.action,
-        },
+        addErrorContext(
+          {
+            component: "audit",
+            event: "audit.worker.dead_letter",
+            attempts: maxDeliveries,
+            streamEntryId: input.entry.id,
+            requestId: event.requestId,
+            action: event.action,
+          },
+          error,
+        ),
         "audit worker moved entry to DLQ",
       );
       return;
@@ -231,6 +240,8 @@ const runWorker = async (): Promise<void> => {
 
   logger.info(
     {
+      component: "audit",
+      event: "audit.worker.started",
       streamName,
       streamGroup,
       consumerName,
@@ -276,12 +287,16 @@ const runWorker = async (): Promise<void> => {
         break;
       }
       logger.error(
-        {
-          err: error,
-          streamName,
-          streamGroup,
-          consumerName,
-        },
+        addErrorContext(
+          {
+            component: "audit",
+            event: "audit.worker.loop_error",
+            streamName,
+            streamGroup,
+            consumerName,
+          },
+          error,
+        ),
         "audit stream worker loop failed",
       );
     }
@@ -289,6 +304,8 @@ const runWorker = async (): Promise<void> => {
 
   logger.info(
     {
+      component: "audit",
+      event: "audit.worker.stopped",
       streamName,
       streamGroup,
       consumerName,
@@ -321,9 +338,13 @@ if (import.meta.main) {
   } catch (error) {
     exitCode = 1;
     logger.error(
-      {
-        err: error,
-      },
+      addErrorContext(
+        {
+          component: "audit",
+          event: "audit.worker.terminated",
+        },
+        error,
+      ),
       "audit stream worker terminated with error",
     );
   } finally {

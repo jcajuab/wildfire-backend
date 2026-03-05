@@ -70,6 +70,8 @@ export const requestLogger: MiddlewareHandler<{
   const path = c.req.path;
 
   const logPayload: Record<string, unknown> = {
+    event: "http.request.completed",
+    component: "http",
     requestId,
     method,
     path,

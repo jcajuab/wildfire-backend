@@ -7,7 +7,6 @@ const transport = env.LOG_PRETTY
       options: {
         colorize: true,
         translateTime: "SYS:standard",
-        singleLine: true,
       },
     })
   : undefined;

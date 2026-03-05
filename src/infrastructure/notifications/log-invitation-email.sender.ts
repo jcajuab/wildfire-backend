@@ -9,6 +9,8 @@ export class LogInvitationEmailSender implements InvitationEmailSender {
   }): Promise<void> {
     logger.info(
       {
+        component: "notifications",
+        event: "email.invite.requested",
         route: "/auth/invitations",
         expiresAt: input.expiresAt.toISOString(),
       },
@@ -18,6 +20,8 @@ export class LogInvitationEmailSender implements InvitationEmailSender {
     if (process.env.NODE_ENV === "development") {
       logger.info(
         {
+          component: "notifications",
+          event: "email.invite.previewed",
           route: "/auth/invitations",
           inviteUrl: input.inviteUrl,
         },

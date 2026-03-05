@@ -1,5 +1,6 @@
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   app,
   stopHttpBackgroundWorkers,
@@ -32,12 +33,23 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 if (import.meta.main) {
   try {
     await syncAuthIdentityOnStartup();
-    logger.info("Startup auth identity sync completed");
+    logger.info(
+      {
+        component: "api-bootstrap",
+        event: "startup.auth_identity_sync.succeeded",
+      },
+      "Startup auth identity sync completed",
+    );
   } catch (error) {
     logger.error(
-      {
-        err: error,
-      },
+      addErrorContext(
+        {
+          service: "wildfire",
+          component: "api-bootstrap",
+          event: "startup.auth_identity_sync.failed",
+        },
+        error,
+      ),
       "Startup auth identity sync failed",
     );
     process.exit(1);
@@ -45,11 +57,15 @@ if (import.meta.main) {
 
   server = Bun.serve({
     port: env.PORT,
+    idleTimeout: env.IDLE_TIMEOUT_MS,
     fetch: app.fetch,
   });
 
   logger.info(
     {
+      component: "api",
+      event: "server.started",
+      idleTimeoutMs: env.IDLE_TIMEOUT_MS,
       port: env.PORT,
       serverUrl: server.url.toString(),
     },
