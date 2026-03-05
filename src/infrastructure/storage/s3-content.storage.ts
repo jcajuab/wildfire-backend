@@ -91,7 +91,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: true,
         },
-        "storage operation completed",
+        "storage upload completed",
       );
     } catch (error) {
       logger.error(
@@ -103,7 +103,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: false,
         },
-        "storage operation failed",
+        "storage upload failed",
       );
       throw error;
     }
@@ -133,7 +133,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: true,
         },
-        "storage operation completed",
+        "storage delete completed",
       );
     } catch (error) {
       logger.error(
@@ -145,7 +145,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: false,
         },
-        "storage operation failed",
+        "storage delete failed",
       );
       throw error;
     }
@@ -181,7 +181,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: true,
         },
-        "storage operation completed",
+        "storage presign completed",
       );
       return url;
     } catch (error) {
@@ -194,7 +194,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: false,
         },
-        "storage operation failed",
+        "storage presign failed",
       );
       throw error;
     }
@@ -217,7 +217,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: true,
         },
-        "storage operation completed",
+        "storage connectivity check completed",
       );
       return { ok: true };
     } catch (e) {
@@ -234,7 +234,7 @@ export class S3ContentStorage implements ContentStorage {
           durationMs: Date.now() - start,
           success: false,
         },
-        "storage operation failed",
+        "storage connectivity check failed",
       );
       return { ok: false, error: message };
     }

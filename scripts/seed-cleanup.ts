@@ -1,3 +1,4 @@
+import { asSeedRunId } from "#/infrastructure/observability/startup-logging";
 import { parseSeedArgs } from "./seed/args";
 import { consoleSeedReporter } from "./seed/reporter";
 import { buildSeedCleanupStages, runSeedStages } from "./seed/runner";
@@ -31,6 +32,7 @@ try {
   const { createSeedRuntimeContext } = await import("./seed/context");
   const runtime = createSeedRuntimeContext({ args });
   closeRuntime = runtime.close;
+  const runId = asSeedRunId();
 
   const stages = buildSeedCleanupStages();
 
@@ -38,6 +40,7 @@ try {
     ctx: runtime.ctx,
     stages,
     reporter: consoleSeedReporter,
+    runId,
   });
 } catch (error) {
   exitCode = 1;

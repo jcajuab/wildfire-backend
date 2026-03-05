@@ -14,16 +14,31 @@ const makeReporter = () => ({
   started: [] as string[],
   completed: [] as string[],
   failed: [] as string[],
-  onStageStart(name: string) {
+  onRunStart(_runId: string, _isDryRun: boolean) {},
+  onStageStart(name: string, _runId?: string) {
     this.started.push(name);
   },
-  onStageComplete(name: string) {
+  onStageComplete(
+    name: string,
+    _durationMs: number,
+    _result: SeedStageResult,
+    _runId?: string,
+  ) {
     this.completed.push(name);
   },
-  onStageError(name: string) {
+  onStageError(
+    name: string,
+    _durationMs: number,
+    _error: unknown,
+    _runId?: string,
+  ) {
     this.failed.push(name);
   },
-  onRunComplete() {},
+  onRunComplete(
+    _durationMs: number,
+    _results: SeedStageResult[],
+    _runId?: string,
+  ) {},
 });
 
 const fakeCtx = {} as SeedContext;
@@ -32,6 +47,7 @@ describe("buildSeedStages", () => {
   test("builds demo seed stages", () => {
     const stages = buildSeedStages();
     expect(stages.map((stage) => stage.name)).toEqual([
+      "seed-demo-permissions",
       "seed-demo-rbac",
       "seed-demo-displays",
       "seed-demo-content",

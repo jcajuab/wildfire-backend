@@ -12,6 +12,13 @@ import {
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import {
+  createStartupRunId,
+  logStartupPhaseDegraded,
+  logStartupPhaseFailed,
+  logStartupPhaseStarted,
+  logStartupPhaseSucceeded,
+} from "#/infrastructure/observability/startup-logging";
 import { closeRedisClients } from "#/infrastructure/redis/client";
 import { RedisAuditQueue } from "#/interfaces/http/audit/redis-audit-queue";
 import { createHttpContainer } from "#/interfaces/http/container";
@@ -81,6 +88,12 @@ startDisplayStatusReconciler({
   scheduleRepository: container.repositories.scheduleRepository,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
 });
+const minioStartupRunId = createStartupRunId("minio-bootstrap");
+const minioStartupContext = {
+  component: "api-bootstrap",
+  phase: "storage",
+  runId: minioStartupRunId,
+};
 
 logger.info(
   {
@@ -90,46 +103,91 @@ logger.info(
   "MinIO storage configured",
 );
 
-void container.storage.contentStorage
-  .ensureBucketExists()
-  .then(() => {
-    logger.info(
+void (async () => {
+  const storageConfig = {
+    minioEndpoint: container.storage.minioEndpoint,
+    bucket: env.MINIO_BUCKET,
+  };
+
+  const bucketStartupStartedAt = Date.now();
+  logStartupPhaseStarted(
+    {
+      ...minioStartupContext,
+      operation: "ensure-bucket-exists",
+    },
+    storageConfig,
+  );
+
+  try {
+    await container.storage.contentStorage.ensureBucketExists();
+    logStartupPhaseSucceeded(
       {
-        minioEndpoint: container.storage.minioEndpoint,
-        bucket: env.MINIO_BUCKET,
+        ...minioStartupContext,
+        operation: "ensure-bucket-exists",
       },
-      "MinIO bucket readiness check completed",
+      Date.now() - bucketStartupStartedAt,
+      storageConfig,
     );
-  })
-  .then(() => container.storage.contentStorage.checkConnectivity())
-  .then((result) => {
+  } catch (error) {
+    logStartupPhaseFailed(
+      {
+        ...minioStartupContext,
+        operation: "ensure-bucket-exists",
+      },
+      Date.now() - bucketStartupStartedAt,
+      error,
+      storageConfig,
+    );
+    return;
+  }
+
+  const connectivityStartedAt = Date.now();
+  logStartupPhaseStarted(
+    {
+      ...minioStartupContext,
+      operation: "check-connectivity",
+    },
+    storageConfig,
+  );
+  try {
+    const result = await container.storage.contentStorage.checkConnectivity();
+    const durationMs = Date.now() - connectivityStartedAt;
     if (result.ok) {
-      logger.info(
-        "MinIO connectivity check OK. MinIO running at endpoint: " +
-          container.storage.minioEndpoint,
-      );
-    } else {
-      logger.warn(
+      logStartupPhaseSucceeded(
         {
-          minioEndpoint: container.storage.minioEndpoint,
-          bucket: env.MINIO_BUCKET,
-          error: result.error,
+          ...minioStartupContext,
+          operation: "check-connectivity",
         },
-        "MinIO connectivity check failed — avatar/content uploads will fail. Please check which ports your MinIO is running at and ensure connectivity.",
+        durationMs,
+        storageConfig,
       );
+      return;
     }
-  })
-  .catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(
+
+    logStartupPhaseDegraded(
       {
-        minioEndpoint: container.storage.minioEndpoint,
-        bucket: env.MINIO_BUCKET,
-        error: message,
+        ...minioStartupContext,
+        operation: "check-connectivity",
       },
-      "MinIO bucket readiness failed — avatar/content uploads will fail. Please check MinIO permissions and connectivity.",
+      durationMs,
+      "MinIO connectivity check failed. Avatar/content uploads may fail while uploads are requested.",
+      {
+        ...storageConfig,
+        error: result.error,
+      },
     );
-  });
+  } catch (error) {
+    logStartupPhaseFailed(
+      {
+        ...minioStartupContext,
+        operation: "check-connectivity",
+      },
+      Date.now() - connectivityStartedAt,
+      error,
+      storageConfig,
+    );
+  }
+})();
 
 const authRouter = createAuthRouter({
   credentialsRepository: container.auth.credentialsRepository,

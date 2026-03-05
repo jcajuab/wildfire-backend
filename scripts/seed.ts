@@ -1,3 +1,4 @@
+import { asSeedRunId } from "#/infrastructure/observability/startup-logging";
 import { parseSeedArgs } from "./seed/args";
 import { consoleSeedReporter } from "./seed/reporter";
 import { buildSeedStages, runSeedStages } from "./seed/runner";
@@ -6,8 +7,8 @@ const usage = [
   "Usage: bun run db:seed -- [--dry-run]",
   "",
   "Purpose:",
-  "  Seed demo data for local development (RBAC demo users/roles, displays, content, playlists, schedules, and audit events).",
-  "  Startup remains responsible for root identity and canonical permission sync.",
+  "  Seed demo data for local development (permissions, RBAC demo users/roles, displays, content, playlists, schedules, and audit events).",
+  "  Startup remains responsible for root identity enforcement.",
   "",
   "Flags:",
   "  --dry-run                Show actions without writing DB/files.",
@@ -31,6 +32,7 @@ try {
   const { createSeedRuntimeContext } = await import("./seed/context");
   const runtime = createSeedRuntimeContext({ args });
   closeRuntime = runtime.close;
+  const runId = asSeedRunId();
 
   const stages = buildSeedStages();
 
@@ -38,6 +40,7 @@ try {
     ctx: runtime.ctx,
     stages,
     reporter: consoleSeedReporter,
+    runId,
   });
 } catch (error) {
   exitCode = 1;

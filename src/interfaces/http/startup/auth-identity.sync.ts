@@ -12,9 +12,20 @@ import {
   canonicalPermissionKey,
   ROOT_PERMISSION,
 } from "#/domain/rbac/canonical-permissions";
+import {
+  createStartupRunId,
+  logStartupPhaseFailed,
+  logStartupPhaseStarted,
+  logStartupPhaseSucceeded,
+  type StartupPhaseContext,
+} from "#/infrastructure/observability/startup-logging";
 
 const ROOT_ROLE_NAME = "Root";
 const BCRYPT_SALT_ROUNDS = 10;
+const CANONICAL_PERMISSION_SEEDS = [
+  ...CANONICAL_STANDARD_RESOURCE_ACTIONS,
+  ROOT_PERMISSION,
+];
 
 const normalizeUsername = (value: string): string => value.trim().toLowerCase();
 
@@ -37,10 +48,77 @@ const uniqueIds = (values: readonly string[]): string[] => {
   return out;
 };
 
+interface PermissionSyncMetrics {
+  created: number;
+  updated: number;
+  removed: number;
+  unchanged: number;
+}
+
+interface RootRolePermissionSyncMetrics {
+  createdRootRole: boolean;
+  createdRootPermission: boolean;
+  assignedRootPermissionToRootRole: boolean;
+  rootPermissionPurgedFromOtherRoles: number;
+}
+
+interface RootUserSyncMetrics {
+  rootUserCreated: boolean;
+  rootUserUpdated: boolean;
+  rootRoleAssignedToRootUser: boolean;
+}
+
+interface HtshadowUserImportMetrics {
+  importedUserCount: number;
+  skippedExistingUsers: number;
+}
+
+const buildStartupContext = (input: {
+  runId: string;
+  operation: string;
+}): Omit<StartupPhaseContext, "operation"> & { operation: string } => ({
+  component: "api-bootstrap",
+  phase: "auth-identity",
+  operation: input.operation,
+  runId: input.runId,
+});
+
+const runStartupPhase = async <T>(input: {
+  context: StartupPhaseContext;
+  action: () => Promise<T>;
+  metadata?: Record<string, unknown>;
+}): Promise<T> => {
+  const startedAt = Date.now();
+  logStartupPhaseStarted(input.context, input.metadata);
+  try {
+    const result = await input.action();
+    logStartupPhaseSucceeded(
+      input.context,
+      Date.now() - startedAt,
+      input.metadata,
+    );
+    return result;
+  } catch (error) {
+    logStartupPhaseFailed(
+      input.context,
+      Date.now() - startedAt,
+      error,
+      input.metadata,
+    );
+    throw error;
+  }
+};
+
 const ensureCanonicalStandardPermissions = async (deps: {
   permissionRepository: PermissionRepository;
-}): Promise<void> => {
-  const rootPermissionKey = canonicalPermissionKey(ROOT_PERMISSION);
+}): Promise<PermissionSyncMetrics> => {
+  const result: PermissionSyncMetrics = {
+    created: 0,
+    updated: 0,
+    removed: 0,
+    unchanged: 0,
+  };
+
   const existing = await deps.permissionRepository.list();
   const existingByKey = new Map(
     existing.map((permission) => [
@@ -49,48 +127,48 @@ const ensureCanonicalStandardPermissions = async (deps: {
     ]),
   );
   const canonicalKeys = new Set(
-    CANONICAL_STANDARD_RESOURCE_ACTIONS.map((permission) =>
+    CANONICAL_PERMISSION_SEEDS.map((permission) =>
       canonicalPermissionKey(permission),
     ),
   );
 
-  for (const permission of CANONICAL_STANDARD_RESOURCE_ACTIONS) {
+  for (const permission of CANONICAL_PERMISSION_SEEDS) {
     const key = canonicalPermissionKey(permission);
     const existingPermission = existingByKey.get(key);
     if (!existingPermission) {
       await deps.permissionRepository.create(permission);
+      result.created += 1;
       continue;
     }
-    if (
-      existingPermission.isRoot === true &&
-      deps.permissionRepository.updateIsRoot
-    ) {
+
+    const expectedIsRoot =
+      existingPermission.resource === ROOT_PERMISSION.resource &&
+      existingPermission.action === ROOT_PERMISSION.action;
+    if (existingPermission.isRoot !== expectedIsRoot) {
+      if (!deps.permissionRepository.updateIsRoot) {
+        throw new Error(
+          "permissionRepository.updateIsRoot is required for strict permission normalization",
+        );
+      }
       await deps.permissionRepository.updateIsRoot(
         existingPermission.id,
-        false,
+        expectedIsRoot,
       );
-    } else if (
-      existingPermission.isRoot === true &&
-      !deps.permissionRepository.updateIsRoot
-    ) {
-      throw new Error(
-        "permissionRepository.updateIsRoot is required for strict permission normalization",
-      );
+      result.updated += 1;
+      continue;
     }
+
+    result.unchanged += 1;
   }
 
   const stalePermissionIds = existing
-    .filter((permission) => {
-      const key = canonicalPermissionKey(permission);
-      if (key === rootPermissionKey) {
-        return false;
-      }
-      return !canonicalKeys.has(key);
-    })
+    .filter(
+      (permission) => !canonicalKeys.has(canonicalPermissionKey(permission)),
+    )
     .map((permission) => permission.id);
 
   if (stalePermissionIds.length === 0) {
-    return;
+    return result;
   }
 
   if (!deps.permissionRepository.deleteByIds) {
@@ -99,6 +177,8 @@ const ensureCanonicalStandardPermissions = async (deps: {
     );
   }
   await deps.permissionRepository.deleteByIds(stalePermissionIds);
+  result.removed += stalePermissionIds.length;
+  return result;
 };
 
 const parseHtshadow = (input: string): Map<string, string> => {
@@ -148,10 +228,23 @@ const ensureRootRoleAndPermission = async (deps: {
   roleRepository: RoleRepository;
   permissionRepository: PermissionRepository;
   rolePermissionRepository: RolePermissionRepository;
-}): Promise<{ rootRoleId: string; rootPermissionId: string }> => {
+}): Promise<
+  RootRolePermissionSyncMetrics & {
+    rootRoleId: string;
+    rootPermissionId: string;
+  }
+> => {
+  const result: RootRolePermissionSyncMetrics = {
+    createdRootRole: false,
+    createdRootPermission: false,
+    assignedRootPermissionToRootRole: false,
+    rootPermissionPurgedFromOtherRoles: 0,
+  };
+
   const roles = await deps.roleRepository.list();
   let rootRole = roles.find((role) => role.name === ROOT_ROLE_NAME) ?? null;
   if (!rootRole) {
+    result.createdRootRole = true;
     rootRole = await deps.roleRepository.create({
       name: ROOT_ROLE_NAME,
       description: "Global root access",
@@ -168,6 +261,7 @@ const ensureRootRoleAndPermission = async (deps: {
     ) ?? null;
 
   if (!rootPermission) {
+    result.createdRootPermission = true;
     rootPermission = await deps.permissionRepository.create(ROOT_PERMISSION);
   } else if (rootPermission.isRoot !== true) {
     if (!deps.permissionRepository.updateIsRoot) {
@@ -188,6 +282,7 @@ const ensureRootRoleAndPermission = async (deps: {
     rootPermissionIds.length === 1 &&
     rootPermissionIds[0] === rootPermission.id;
   if (!hasExactRootPermissionOnly) {
+    result.assignedRootPermissionToRootRole = true;
     await deps.rolePermissionRepository.setRolePermissions(rootRole.id, [
       rootPermission.id,
     ]);
@@ -205,6 +300,7 @@ const ensureRootRoleAndPermission = async (deps: {
     if (!permissionIds.includes(rootPermission.id)) {
       continue;
     }
+    result.rootPermissionPurgedFromOtherRoles += 1;
     const nextPermissionIds = uniqueIds(
       permissionIds.filter(
         (permissionId) => permissionId !== rootPermission.id,
@@ -216,7 +312,11 @@ const ensureRootRoleAndPermission = async (deps: {
     );
   }
 
-  return { rootRoleId: rootRole.id, rootPermissionId: rootPermission.id };
+  return {
+    ...result,
+    rootRoleId: rootRole.id,
+    rootPermissionId: rootPermission.id,
+  };
 };
 
 const ensureRootUser = async (deps: {
@@ -225,7 +325,13 @@ const ensureRootUser = async (deps: {
   rootRoleId: string;
   rootUsername: string;
   rootEmail: string | null;
-}): Promise<void> => {
+}): Promise<RootUserSyncMetrics> => {
+  const result: RootUserSyncMetrics = {
+    rootUserCreated: false,
+    rootUserUpdated: false,
+    rootRoleAssignedToRootUser: false,
+  };
+
   const expectedName = deriveUserName(deps.rootUsername);
   let rootUser = await deps.userRepository.findByUsername(deps.rootUsername);
 
@@ -236,6 +342,7 @@ const ensureRootUser = async (deps: {
       name: expectedName,
       isActive: true,
     });
+    result.rootUserCreated = true;
   } else {
     const shouldUpdate =
       rootUser.email !== deps.rootEmail ||
@@ -248,6 +355,7 @@ const ensureRootUser = async (deps: {
           name: expectedName,
           isActive: true,
         })) ?? rootUser;
+      result.rootUserUpdated = true;
     }
   }
 
@@ -258,6 +366,7 @@ const ensureRootUser = async (deps: {
   const hasExactRootRoleOnly =
     roleIds.length === 1 && roleIds[0] === deps.rootRoleId;
   if (!hasExactRootRoleOnly) {
+    result.rootRoleAssignedToRootUser = true;
     await deps.userRoleRepository.setUserRoles(rootUser.id, [deps.rootRoleId]);
   }
 
@@ -278,21 +387,29 @@ const ensureRootUser = async (deps: {
     );
     await deps.userRoleRepository.setUserRoles(user.id, nextRoleIds);
   }
+
+  return result;
 };
 
 const importHtshadowUsers = async (deps: {
   userRepository: UserRepository;
   usernames: readonly string[];
   rootUsername: string;
-}): Promise<void> => {
+}): Promise<HtshadowUserImportMetrics> => {
+  const result: HtshadowUserImportMetrics = {
+    importedUserCount: 0,
+    skippedExistingUsers: 0,
+  };
   for (const username of deps.usernames) {
     if (username === deps.rootUsername) {
       continue;
     }
     const existing = await deps.userRepository.findByUsername(username);
     if (existing) {
+      result.skippedExistingUsers += 1;
       continue;
     }
+    result.importedUserCount += 1;
     await deps.userRepository.create({
       username,
       email: null,
@@ -300,6 +417,7 @@ const importHtshadowUsers = async (deps: {
       isActive: true,
     });
   }
+  return result;
 };
 
 const ensureRootHtshadowEntry = async (input: {
@@ -307,18 +425,19 @@ const ensureRootHtshadowEntry = async (input: {
   rootUsername: string;
   rootPassword: string;
   map: Map<string, string>;
-}): Promise<void> => {
+}): Promise<boolean> => {
   const currentHash = input.map.get(input.rootUsername);
   const isCurrentValid =
     currentHash != null
       ? await bcrypt.compare(input.rootPassword, currentHash)
       : false;
   if (isCurrentValid) {
-    return;
+    return false;
   }
   const nextHash = await bcrypt.hash(input.rootPassword, BCRYPT_SALT_ROUNDS);
   input.map.set(input.rootUsername, nextHash);
   await writeHtshadowMap(input.htshadowPath, input.map);
+  return true;
 };
 
 export const runStartupAuthIdentitySync = async (deps: {
@@ -334,6 +453,8 @@ export const runStartupAuthIdentitySync = async (deps: {
     userRoleRepository: UserRoleRepository;
   };
 }): Promise<void> => {
+  const runId = createStartupRunId("auth-bootstrap");
+  const runStartMs = Date.now();
   const rootUsername = normalizeUsername(deps.rootUsername);
   const rootEmail = deps.rootEmail?.trim().toLowerCase() ?? null;
   const rootPassword = deps.rootPassword.trim();
@@ -348,35 +469,147 @@ export const runStartupAuthIdentitySync = async (deps: {
     throw new Error("ROOT_EMAIL must be a valid email when provided.");
   }
 
-  const htshadowMap = await readHtshadowMap(deps.htshadowPath);
-  await ensureRootHtshadowEntry({
-    htshadowPath: deps.htshadowPath,
-    rootUsername,
-    rootPassword,
-    map: htshadowMap,
+  const contextBase = buildStartupContext({
+    runId,
+    operation: "",
   });
-
-  await ensureCanonicalStandardPermissions({
-    permissionRepository: deps.repositories.permissionRepository,
-  });
-
-  const rolePermissionState = await ensureRootRoleAndPermission({
-    roleRepository: deps.repositories.roleRepository,
-    permissionRepository: deps.repositories.permissionRepository,
-    rolePermissionRepository: deps.repositories.rolePermissionRepository,
-  });
-
-  await ensureRootUser({
-    userRepository: deps.repositories.userRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-    rootRoleId: rolePermissionState.rootRoleId,
+  const topLevelContext = {
+    ...contextBase,
+    operation: "auth-identity-sync",
+  };
+  logStartupPhaseStarted(topLevelContext, {
     rootUsername,
     rootEmail,
   });
 
-  await importHtshadowUsers({
-    userRepository: deps.repositories.userRepository,
-    usernames: [...htshadowMap.keys()],
-    rootUsername,
-  });
+  try {
+    const permissionSyncResult = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "permission-sync",
+      },
+      action: () =>
+        ensureCanonicalStandardPermissions({
+          permissionRepository: deps.repositories.permissionRepository,
+        }),
+      metadata: {
+        targetCount: CANONICAL_PERMISSION_SEEDS.length,
+      },
+    });
+
+    const rootSyncState = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "root-role-permission-sync",
+      },
+      action: () =>
+        ensureRootRoleAndPermission({
+          roleRepository: deps.repositories.roleRepository,
+          permissionRepository: deps.repositories.permissionRepository,
+          rolePermissionRepository: deps.repositories.rolePermissionRepository,
+        }),
+      metadata: {
+        rootPermissionAction:
+          permissionSyncResult.created > 0 ? "upserted" : "already-present",
+      },
+    });
+
+    const htshadowMap = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "htshadow-load",
+      },
+      action: () => readHtshadowMap(deps.htshadowPath),
+    });
+
+    const rootHtshadowUpdated = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "root-htshadow-sync",
+      },
+      action: () =>
+        ensureRootHtshadowEntry({
+          htshadowPath: deps.htshadowPath,
+          rootUsername,
+          rootPassword,
+          map: htshadowMap,
+        }),
+      metadata: {
+        rootUsername,
+        htshadowPath: deps.htshadowPath,
+      },
+    });
+
+    const rootUserSyncResult = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "root-user-sync",
+      },
+      action: () =>
+        ensureRootUser({
+          userRepository: deps.repositories.userRepository,
+          userRoleRepository: deps.repositories.userRoleRepository,
+          rootRoleId: rootSyncState.rootRoleId,
+          rootUsername,
+          rootEmail,
+        }),
+      metadata: {
+        rootUsername,
+      },
+    });
+
+    const importedUsers = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "htshadow-user-import",
+      },
+      action: () =>
+        importHtshadowUsers({
+          userRepository: deps.repositories.userRepository,
+          usernames: [...htshadowMap.keys()],
+          rootUsername,
+        }),
+      metadata: {
+        importedFromHtshadow: htshadowMap.size,
+        rootRoleId: rootSyncState.rootRoleId,
+        rootPermissionId: rootSyncState.rootPermissionId,
+      },
+    });
+
+    const totalRolesCount = (await deps.repositories.roleRepository.list())
+      .length;
+    logStartupPhaseSucceeded(
+      {
+        ...contextBase,
+        operation: "auth-identity-sync-complete",
+      },
+      Date.now() - runStartMs,
+      {
+        permissionSyncCreated: permissionSyncResult.created,
+        permissionSyncUpdated: permissionSyncResult.updated,
+        permissionSyncRemoved: permissionSyncResult.removed,
+        permissionSyncUnchanged: permissionSyncResult.unchanged,
+        importedUsersCreated: importedUsers.importedUserCount,
+        importedUsersSkipped: importedUsers.skippedExistingUsers,
+        createdRootRole: rootSyncState.createdRootRole,
+        createdRootPermission: rootSyncState.createdRootPermission,
+        assignedRootPermissionToRootRole:
+          rootSyncState.assignedRootPermissionToRootRole,
+        rootPermissionPurgedFromOtherRoles:
+          rootSyncState.rootPermissionPurgedFromOtherRoles,
+        rootHtshadowUpdated,
+        rootUserCreated: rootUserSyncResult.rootUserCreated,
+        rootUserUpdated: rootUserSyncResult.rootUserUpdated,
+        rootRoleAssignedToRootUser:
+          rootUserSyncResult.rootRoleAssignedToRootUser,
+        totalRoles: totalRolesCount,
+        runId,
+      },
+    );
+  } catch (error) {
+    logStartupPhaseFailed(topLevelContext, Date.now() - runStartMs, error, {
+      rootUsername,
+    });
+    throw error;
+  }
 };
