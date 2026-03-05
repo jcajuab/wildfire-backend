@@ -1,7 +1,11 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { ScheduleConflictError } from "#/application/use-cases/schedules";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict, errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  conflict,
+  errorResponseSchema,
+  toApiResponse,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -88,7 +92,8 @@ export const registerScheduleCommandRoutes = (args: {
           isActive: payload.isActive ?? true,
         });
         c.set("resourceId", result.id);
-        return c.json(result, 201);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        return c.json(toApiResponse(result), 201);
       },
       mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
@@ -138,7 +143,7 @@ export const registerScheduleCommandRoutes = (args: {
           priority: payload.priority,
           isActive: payload.isActive,
         });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,

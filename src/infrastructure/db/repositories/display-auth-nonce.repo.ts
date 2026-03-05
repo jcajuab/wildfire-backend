@@ -1,26 +1,15 @@
-import { lte } from "drizzle-orm";
 import { type DisplayAuthNonceRepository } from "#/application/ports/display-auth";
-import { db } from "#/infrastructure/db/client";
-import { displayAuthNonces } from "#/infrastructure/db/schema/display-auth-nonce.sql";
+import { env } from "#/env";
+import { getRedisCommandClient } from "#/infrastructure/redis/client";
 
-const isDuplicateNonceError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) return false;
-  const dbError = error as {
-    code?: string;
-    message?: string;
-    sqlMessage?: string;
-  };
-  const details = [dbError.message, dbError.sqlMessage]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .toLowerCase();
-  return (
-    dbError.code === "ER_DUP_ENTRY" &&
-    details.includes("display_auth_nonces_display_nonce_unique")
-  );
-};
+const noncePrefix = `${env.REDIS_KEY_PREFIX}:display-auth-nonce`;
 
-export class DisplayAuthNonceDbRepository
+const nonceKey = (displayId: string, nonce: string): string =>
+  `${noncePrefix}:${displayId}:${nonce}`;
+const toUnixSeconds = (value: Date): string =>
+  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
+
+export class DisplayAuthNonceRedisRepository
   implements DisplayAuthNonceRepository
 {
   async consumeUnique(input: {
@@ -29,24 +18,16 @@ export class DisplayAuthNonceDbRepository
     now: Date;
     expiresAt: Date;
   }): Promise<boolean> {
-    await db
-      .delete(displayAuthNonces)
-      .where(lte(displayAuthNonces.expiresAt, input.now));
+    const redis = await getRedisCommandClient();
+    const result = await redis.sendCommand([
+      "SET",
+      nonceKey(input.displayId, input.nonce),
+      "1",
+      "NX",
+      "EXAT",
+      toUnixSeconds(input.expiresAt),
+    ]);
 
-    try {
-      await db.insert(displayAuthNonces).values({
-        id: crypto.randomUUID(),
-        displayId: input.displayId,
-        nonce: input.nonce,
-        expiresAt: input.expiresAt,
-        createdAt: input.now,
-      });
-      return true;
-    } catch (error) {
-      if (isDuplicateNonceError(error)) {
-        return false;
-      }
-      throw error;
-    }
+    return String(result) === "OK";
   }
 }

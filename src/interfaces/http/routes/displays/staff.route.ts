@@ -10,6 +10,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { ValidationError } from "#/application/errors/validation";
 import { DisplayGroupConflictError } from "#/application/use-cases/displays";
+import { DisplayPairingCodeCollisionError } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -17,12 +18,13 @@ import {
   conflict,
   notFound,
   toApiListResponse,
+  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   publishAdminDisplayLifecycleEvent,
   subscribeToAdminDisplayLifecycleEvents,
 } from "#/interfaces/http/routes/displays/admin-lifecycle-events";
-import { InMemoryDisplayRegistrationAttemptStore } from "#/interfaces/http/routes/displays/registration-attempt.store";
+import { RedisDisplayRegistrationAttemptStore } from "#/interfaces/http/routes/displays/registration-attempt.store";
 import {
   publishRegistrationAttemptEvent,
   subscribeToRegistrationAttemptEvents,
@@ -75,12 +77,8 @@ type AuthorizePermission = (
 ];
 
 const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
-const PAIRING_CODE_DUPLICATE_INDEX = "pairing_codes_code_hash_unique";
 const REGISTRATION_ATTEMPT_HEARTBEAT_INTERVAL_MS = 20 * 1000;
 const DISPLAY_EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
-
-const registrationAttemptStore = new InMemoryDisplayRegistrationAttemptStore();
-registrationAttemptStore.startCleanup();
 
 const registrationAttemptParamSchema = z.object({
   attemptId: z.string().uuid(),
@@ -177,23 +175,6 @@ const isDuplicateIndexError = (error: unknown, indexName: string): boolean => {
   );
 };
 
-const isDuplicatePairingCodeError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) return false;
-  const dbError = error as {
-    code?: string;
-    message?: string;
-    sqlMessage?: string;
-  };
-  const details = [dbError.message, dbError.sqlMessage]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .toLowerCase();
-  return (
-    dbError.code === "ER_DUP_ENTRY" &&
-    details.includes(PAIRING_CODE_DUPLICATE_INDEX)
-  );
-};
-
 const issuePairingCode = async (input: {
   deps: DisplaysRouterDeps;
   createdById: string;
@@ -221,7 +202,7 @@ const issuePairingCode = async (input: {
         expiresAt,
       };
     } catch (error) {
-      if (!isDuplicatePairingCodeError(error)) {
+      if (!(error instanceof DisplayPairingCodeCollisionError)) {
         throw error;
       }
     }
@@ -246,6 +227,8 @@ export const registerDisplayStaffRoutes = (args: {
   deps: DisplaysRouterDeps;
 }) => {
   const { router, useCases, authorize, deps } = args;
+  const registrationAttemptStore =
+    deps.registrationAttemptStore ?? new RedisDisplayRegistrationAttemptStore();
 
   router.get(
     "/events",
@@ -299,10 +282,10 @@ export const registerDisplayStaffRoutes = (args: {
       const params = c.req.valid("param");
       const userId = c.get("userId");
       if (
-        !registrationAttemptStore.isAttemptOwnedBy({
+        !(await registrationAttemptStore.isAttemptOwnedBy({
           attemptId: params.attemptId,
           createdById: userId,
-        })
+        }))
       ) {
         return notFound(c, "Registration attempt not found");
       }
@@ -356,15 +339,16 @@ export const registerDisplayStaffRoutes = (args: {
           deps,
           createdById,
         });
-        const created = registrationAttemptStore.createOrReplaceOpenAttempt({
-          createdById,
-          activeCode: {
-            code: issued.code,
-            codeHash: issued.codeHash,
-            pairingCodeId: issued.pairingCodeId,
-            expiresAt: issued.expiresAt,
-          },
-        });
+        const created =
+          await registrationAttemptStore.createOrReplaceOpenAttempt({
+            createdById,
+            activeCode: {
+              code: issued.code,
+              codeHash: issued.codeHash,
+              pairingCodeId: issued.pairingCodeId,
+              expiresAt: issued.expiresAt,
+            },
+          });
 
         if (created.invalidatedPairingCodeId) {
           await deps.repositories.displayPairingCodeRepository.invalidateById({
@@ -373,12 +357,16 @@ export const registerDisplayStaffRoutes = (args: {
           });
         }
 
+        c.header(
+          "Location",
+          `${c.req.path}/${encodeURIComponent(created.attemptId)}`,
+        );
         return c.json(
-          {
+          toApiResponse({
             attemptId: created.attemptId,
             code: issued.code,
             expiresAt: issued.expiresAt.toISOString(),
-          },
+          }),
           201,
         );
       },
@@ -402,7 +390,7 @@ export const registerDisplayStaffRoutes = (args: {
           deps,
           createdById,
         });
-        const rotated = registrationAttemptStore.rotateCode({
+        const rotated = await registrationAttemptStore.rotateCode({
           attemptId: params.attemptId,
           createdById,
           nextCode: {
@@ -423,10 +411,12 @@ export const registerDisplayStaffRoutes = (args: {
           });
         }
 
-        return c.json({
-          code: issued.code,
-          expiresAt: issued.expiresAt.toISOString(),
-        });
+        return c.json(
+          toApiResponse({
+            code: issued.code,
+            expiresAt: issued.expiresAt.toISOString(),
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -443,7 +433,7 @@ export const registerDisplayStaffRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
-        const closed = registrationAttemptStore.closeAttempt({
+        const closed = await registrationAttemptStore.closeAttempt({
           attemptId: params.attemptId,
           createdById: c.get("userId"),
         });
@@ -475,7 +465,7 @@ export const registerDisplayStaffRoutes = (args: {
         const payload = c.req.valid("json");
         const now = new Date();
         const codeHash = hashPairingCode(payload.registrationCode);
-        const consumedAttempt = registrationAttemptStore.consumeCodeHash({
+        const consumedAttempt = await registrationAttemptStore.consumeCodeHash({
           codeHash,
           now,
         });
@@ -506,13 +496,14 @@ export const registerDisplayStaffRoutes = (args: {
             challengeExpiresAt: expiresAt,
           });
 
-        registrationAttemptStore.bindSessionAttempt({
+        await registrationAttemptStore.bindSessionAttempt({
           sessionId: session.id,
           attemptId: consumedAttempt.attemptId,
         });
 
+        c.header("Location", `${c.req.path}/${encodeURIComponent(session.id)}`);
         return c.json(
-          {
+          toApiResponse({
             registrationSessionId: session.id,
             expiresAt: session.challengeExpiresAt,
             challengeNonce: session.challengeNonce,
@@ -521,7 +512,7 @@ export const registerDisplayStaffRoutes = (args: {
               minSlugLength: 3,
               maxSlugLength: 120,
             },
-          },
+          }),
           201,
         );
       },
@@ -663,9 +654,10 @@ export const registerDisplayStaffRoutes = (args: {
           throw new Error("Display registration did not produce a result");
         }
 
-        const attemptId = registrationAttemptStore.consumeSessionAttemptId(
-          payload.registrationSessionId,
-        );
+        const attemptId =
+          await registrationAttemptStore.consumeSessionAttemptId(
+            payload.registrationSessionId,
+          );
         if (attemptId) {
           publishRegistrationAttemptEvent({
             type: "registration_succeeded",
@@ -682,7 +674,11 @@ export const registerDisplayStaffRoutes = (args: {
           occurredAt: new Date().toISOString(),
         });
 
-        return c.json(registered, 201);
+        c.header(
+          "Location",
+          `/api/v1/displays/${encodeURIComponent(registered.displayId)}`,
+        );
+        return c.json(toApiResponse(registered), 201);
       },
       mapErrorToResponse(DisplayConflictError, conflict),
       ...applicationErrorMappers,
@@ -765,7 +761,7 @@ export const registerDisplayStaffRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const result = await useCases.getDisplay.execute({ id: params.id });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),
@@ -830,7 +826,7 @@ export const registerDisplayStaffRoutes = (args: {
           outputType: payload.outputType,
           orientation: payload.orientation,
         });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),
@@ -967,8 +963,8 @@ export const registerDisplayStaffRoutes = (args: {
         required: true,
       },
       responses: {
-        200: {
-          description: "Display group",
+        201: {
+          description: "Display group created",
           content: {
             "application/json": {
               schema: resolver(apiResponseSchema(displayGroupSchema)),
@@ -988,7 +984,8 @@ export const registerDisplayStaffRoutes = (args: {
           colorIndex: payload.colorIndex,
         });
         c.set("resourceId", result.id);
-        return c.json(result);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        return c.json(toApiResponse(result), 201);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DisplayGroupConflictError, conflict),
@@ -1039,7 +1036,7 @@ export const registerDisplayStaffRoutes = (args: {
           colorIndex: payload.colorIndex,
         });
         c.set("resourceId", result.id);
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DisplayGroupConflictError, conflict),

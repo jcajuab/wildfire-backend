@@ -1,6 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiListResponse } from "#/interfaces/http/responses";
+import { toApiListResponse, toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -107,7 +107,7 @@ export const registerRbacRoleReadRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const role = await useCases.getRole.execute({ id: params.id });
-        return c.json(role);
+        return c.json(toApiResponse(role));
       },
       ...applicationErrorMappers,
     ),

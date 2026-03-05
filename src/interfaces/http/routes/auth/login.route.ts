@@ -86,7 +86,7 @@ export const registerAuthLoginRoute = (args: {
           realIp: c.req.header("x-real-ip"),
         });
         const loginKey = `${username}|${ip}`;
-        const allowed = deps.authSecurityStore.checkLoginAllowed(
+        const allowed = await deps.authSecurityStore.checkLoginAllowed(
           loginKey,
           nowMs,
         );
@@ -98,12 +98,12 @@ export const registerAuthLoginRoute = (args: {
         }
         // Per-username rate limit: prevents brute-force even with IP rotation
         if (
-          !deps.authSecurityStore.consumeEndpointAttempt({
+          !(await deps.authSecurityStore.consumeEndpointAttempt({
             key: `login-username|${username}`,
             nowMs,
             windowSeconds: deps.authLoginRateLimitWindowSeconds,
             maxAttempts: 10,
-          })
+          }))
         ) {
           return tooManyRequests(
             c,
@@ -112,12 +112,12 @@ export const registerAuthLoginRoute = (args: {
         }
         // Per-IP rate limit: secondary layer
         if (
-          !deps.authSecurityStore.consumeEndpointAttempt({
+          !(await deps.authSecurityStore.consumeEndpointAttempt({
             key: `login-window|${ip}`,
             nowMs,
             windowSeconds: deps.authLoginRateLimitWindowSeconds,
             maxAttempts: deps.authLoginRateLimitMaxAttempts,
-          })
+          }))
         ) {
           return tooManyRequests(
             c,
@@ -128,10 +128,10 @@ export const registerAuthLoginRoute = (args: {
         try {
           const result = await useCases.authenticateUser.execute(payload);
           body = await buildAuthResponse(deps, result);
-          deps.authSecurityStore.clearLoginFailures(loginKey);
+          await deps.authSecurityStore.clearLoginFailures(loginKey);
         } catch (error) {
           if (error instanceof InvalidCredentialsError) {
-            deps.authSecurityStore.registerLoginFailure({
+            await deps.authSecurityStore.registerLoginFailure({
               key: loginKey,
               nowMs,
               windowSeconds: deps.authLoginRateLimitWindowSeconds,

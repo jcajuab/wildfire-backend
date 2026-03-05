@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { logger } from "#/infrastructure/observability/logger";
-import { type AuditEventQueue } from "#/interfaces/http/audit/in-memory-audit-queue";
+import { type AuditEventQueue } from "#/interfaces/http/audit/audit-queue";
 import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
 import {
   type ObservabilityVariables,

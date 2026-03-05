@@ -4,16 +4,12 @@ import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
   type PermissionRepository,
-  type PolicyHistoryRepository,
-  type RoleDeletionRequestRepository,
   type RolePermissionRepository,
   type RoleRepository,
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
 import {
-  ApproveRoleDeletionRequestUseCase,
-  CreateRoleDeletionRequestUseCase,
   CreateRoleUseCase,
   CreateUserUseCase,
   DeleteRoleUseCase,
@@ -24,11 +20,8 @@ import {
   GetUserRolesUseCase,
   GetUserUseCase,
   ListPermissionsUseCase,
-  ListPolicyHistoryUseCase,
-  ListRoleDeletionRequestsUseCase,
   ListRolesUseCase,
   ListUsersUseCase,
-  RejectRoleDeletionRequestUseCase,
   SetRolePermissionsUseCase,
   SetUserRolesUseCase,
   UpdateRoleUseCase,
@@ -47,9 +40,7 @@ export interface RbacRouterDeps {
     permissionRepository: PermissionRepository;
     userRoleRepository: UserRoleRepository;
     rolePermissionRepository: RolePermissionRepository;
-    roleDeletionRequestRepository: RoleDeletionRequestRepository;
     authorizationRepository: AuthorizationRepository;
-    policyHistoryRepository: PolicyHistoryRepository;
   };
   avatarStorage?: ContentStorage;
   avatarUrlExpiresInSeconds?: number;
@@ -64,11 +55,6 @@ export interface RbacRouterUseCases {
   getRolePermissions: GetRolePermissionsUseCase;
   setRolePermissions: SetRolePermissionsUseCase;
   listPermissions: ListPermissionsUseCase;
-  listPolicyHistory: ListPolicyHistoryUseCase;
-  createRoleDeletionRequest: CreateRoleDeletionRequestUseCase;
-  listRoleDeletionRequests: ListRoleDeletionRequestsUseCase;
-  approveRoleDeletionRequest: ApproveRoleDeletionRequestUseCase;
-  rejectRoleDeletionRequest: RejectRoleDeletionRequestUseCase;
   listUsers: ListUsersUseCase;
   createUser: CreateUserUseCase;
   getUser: GetUserUseCase;
@@ -110,28 +96,6 @@ export const createRbacUseCases = (
   }),
   deleteRole: new DeleteRoleUseCase({
     roleRepository: deps.repositories.roleRepository,
-    authorizationRepository: deps.repositories.authorizationRepository,
-  }),
-  createRoleDeletionRequest: new CreateRoleDeletionRequestUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    authorizationRepository: deps.repositories.authorizationRepository,
-    roleDeletionRequestRepository:
-      deps.repositories.roleDeletionRequestRepository,
-  }),
-  listRoleDeletionRequests: new ListRoleDeletionRequestsUseCase({
-    roleDeletionRequestRepository:
-      deps.repositories.roleDeletionRequestRepository,
-  }),
-  approveRoleDeletionRequest: new ApproveRoleDeletionRequestUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    authorizationRepository: deps.repositories.authorizationRepository,
-    roleDeletionRequestRepository:
-      deps.repositories.roleDeletionRequestRepository,
-  }),
-  rejectRoleDeletionRequest: new RejectRoleDeletionRequestUseCase({
-    authorizationRepository: deps.repositories.authorizationRepository,
-    roleDeletionRequestRepository:
-      deps.repositories.roleDeletionRequestRepository,
   }),
   getRolePermissions: new GetRolePermissionsUseCase({
     roleRepository: deps.repositories.roleRepository,
@@ -142,13 +106,9 @@ export const createRbacUseCases = (
     roleRepository: deps.repositories.roleRepository,
     rolePermissionRepository: deps.repositories.rolePermissionRepository,
     permissionRepository: deps.repositories.permissionRepository,
-    policyHistoryRepository: deps.repositories.policyHistoryRepository,
   }),
   listPermissions: new ListPermissionsUseCase({
     permissionRepository: deps.repositories.permissionRepository,
-  }),
-  listPolicyHistory: new ListPolicyHistoryUseCase({
-    policyHistoryRepository: deps.repositories.policyHistoryRepository,
   }),
   listUsers: new ListUsersUseCase({
     userRepository: deps.repositories.userRepository,
@@ -171,7 +131,6 @@ export const createRbacUseCases = (
     userRepository: deps.repositories.userRepository,
     roleRepository: deps.repositories.roleRepository,
     userRoleRepository: deps.repositories.userRoleRepository,
-    policyHistoryRepository: deps.repositories.policyHistoryRepository,
     permissionRepository: deps.repositories.permissionRepository,
     rolePermissionRepository: deps.repositories.rolePermissionRepository,
     authorizationRepository: deps.repositories.authorizationRepository,

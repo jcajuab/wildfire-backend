@@ -1,38 +1,107 @@
-import { and, eq, gt } from "drizzle-orm";
 import {
   type DisplayPairingSessionRecord,
   type DisplayPairingSessionRepository,
 } from "#/application/ports/display-auth";
-import { db } from "#/infrastructure/db/client";
-import { displayPairingSessions } from "#/infrastructure/db/schema/display-pairing-session.sql";
+import { env } from "#/env";
+import { getRedisCommandClient } from "#/infrastructure/redis/client";
+
+const pairingSessionPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-session`;
+
+const pairingSessionKey = (id: string): string =>
+  `${pairingSessionPrefix}:${id}`;
+const toUnixSeconds = (value: Date): string =>
+  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
+
+interface StoredPairingSession {
+  id: string;
+  pairingCodeId: string;
+  state: DisplayPairingSessionRecord["state"];
+  challengeNonce: string;
+  challengeExpiresAtMs: number;
+  completedAtMs: number | null;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+const parseMilliseconds = (value: string | undefined): number | null => {
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseState = (
+  value: string | undefined,
+): DisplayPairingSessionRecord["state"] | null => {
+  if (
+    value === "open" ||
+    value === "completed" ||
+    value === "aborted" ||
+    value === "expired"
+  ) {
+    return value;
+  }
+
+  return null;
+};
+
+const parseStoredPairingSession = (
+  value: Record<string, string>,
+): StoredPairingSession | null => {
+  const id = value.id;
+  const pairingCodeId = value.pairingCodeId;
+  const challengeNonce = value.challengeNonce;
+  const state = parseState(value.state);
+  const challengeExpiresAtMs = parseMilliseconds(value.challengeExpiresAtMs);
+  const createdAtMs = parseMilliseconds(value.createdAtMs);
+  const updatedAtMs = parseMilliseconds(value.updatedAtMs);
+
+  if (
+    typeof id !== "string" ||
+    id.length === 0 ||
+    typeof pairingCodeId !== "string" ||
+    pairingCodeId.length === 0 ||
+    typeof challengeNonce !== "string" ||
+    challengeNonce.length === 0 ||
+    state == null ||
+    challengeExpiresAtMs == null ||
+    createdAtMs == null ||
+    updatedAtMs == null
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    pairingCodeId,
+    state,
+    challengeNonce,
+    challengeExpiresAtMs,
+    completedAtMs: parseMilliseconds(value.completedAtMs),
+    createdAtMs,
+    updatedAtMs,
+  };
+};
 
 const toRecord = (
-  row: typeof displayPairingSessions.$inferSelect,
+  value: StoredPairingSession,
 ): DisplayPairingSessionRecord => ({
-  id: row.id,
-  pairingCodeId: row.pairingCodeId,
-  state:
-    row.state === "completed" ||
-    row.state === "aborted" ||
-    row.state === "expired"
-      ? row.state
-      : "open",
-  challengeNonce: row.challengeNonce,
-  challengeExpiresAt:
-    row.challengeExpiresAt instanceof Date
-      ? row.challengeExpiresAt.toISOString()
-      : row.challengeExpiresAt,
+  id: value.id,
+  pairingCodeId: value.pairingCodeId,
+  state: value.state,
+  challengeNonce: value.challengeNonce,
+  challengeExpiresAt: new Date(value.challengeExpiresAtMs).toISOString(),
   completedAt:
-    row.completedAt instanceof Date
-      ? row.completedAt.toISOString()
-      : (row.completedAt ?? null),
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+    value.completedAtMs == null
+      ? null
+      : new Date(value.completedAtMs).toISOString(),
+  createdAt: new Date(value.createdAtMs).toISOString(),
+  updatedAt: new Date(value.updatedAtMs).toISOString(),
 });
 
-export class DisplayPairingSessionDbRepository
+export class DisplayPairingSessionRedisRepository
   implements DisplayPairingSessionRepository
 {
   async create(input: {
@@ -40,58 +109,85 @@ export class DisplayPairingSessionDbRepository
     challengeNonce: string;
     challengeExpiresAt: Date;
   }): Promise<DisplayPairingSessionRecord> {
+    const redis = await getRedisCommandClient();
     const id = crypto.randomUUID();
-    const now = new Date();
-    await db.insert(displayPairingSessions).values({
+    const nowMs = Date.now();
+    const challengeExpiresAtMs = input.challengeExpiresAt.getTime();
+
+    await redis.hSet(pairingSessionKey(id), {
       id,
       pairingCodeId: input.pairingCodeId,
       state: "open",
       challengeNonce: input.challengeNonce,
-      challengeExpiresAt: input.challengeExpiresAt,
-      createdAt: now,
-      updatedAt: now,
+      challengeExpiresAtMs: String(challengeExpiresAtMs),
+      completedAtMs: "",
+      createdAtMs: String(nowMs),
+      updatedAtMs: String(nowMs),
     });
-    const rows = await db
-      .select()
-      .from(displayPairingSessions)
-      .where(eq(displayPairingSessions.id, id))
-      .limit(1);
-    const created = rows[0];
-    if (!created) {
-      throw new Error("Failed to load created display pairing session");
-    }
-    return toRecord(created);
+    await redis.sendCommand([
+      "EXPIREAT",
+      pairingSessionKey(id),
+      toUnixSeconds(input.challengeExpiresAt),
+    ]);
+
+    return toRecord({
+      id,
+      pairingCodeId: input.pairingCodeId,
+      state: "open",
+      challengeNonce: input.challengeNonce,
+      challengeExpiresAtMs,
+      completedAtMs: null,
+      createdAtMs: nowMs,
+      updatedAtMs: nowMs,
+    });
   }
 
   async findOpenById(input: {
     id: string;
     now: Date;
   }): Promise<DisplayPairingSessionRecord | null> {
-    const rows = await db
-      .select()
-      .from(displayPairingSessions)
-      .where(
-        and(
-          eq(displayPairingSessions.id, input.id),
-          eq(displayPairingSessions.state, "open"),
-          gt(displayPairingSessions.challengeExpiresAt, input.now),
-        ),
-      )
-      .limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+    const redis = await getRedisCommandClient();
+    const stored = parseStoredPairingSession(
+      await redis.hGetAll(pairingSessionKey(input.id)),
+    );
+
+    if (!stored) {
+      return null;
+    }
+
+    if (
+      stored.state !== "open" ||
+      stored.challengeExpiresAtMs <= input.now.getTime()
+    ) {
+      return null;
+    }
+
+    return toRecord(stored);
   }
 
   async complete(id: string, completedAt: Date): Promise<boolean> {
-    const result = await db
-      .update(displayPairingSessions)
-      .set({ state: "completed", completedAt, updatedAt: completedAt })
-      .where(
-        and(
-          eq(displayPairingSessions.id, id),
-          eq(displayPairingSessions.state, "open"),
-          gt(displayPairingSessions.challengeExpiresAt, completedAt),
-        ),
-      );
-    return (result[0]?.affectedRows ?? 0) > 0;
+    const redis = await getRedisCommandClient();
+    const key = pairingSessionKey(id);
+    const stored = parseStoredPairingSession(await redis.hGetAll(key));
+
+    if (!stored) {
+      return false;
+    }
+
+    const completedAtMs = completedAt.getTime();
+    if (
+      stored.state !== "open" ||
+      stored.challengeExpiresAtMs <= completedAtMs
+    ) {
+      return false;
+    }
+
+    await redis.hSet(key, {
+      state: "completed",
+      completedAtMs: String(completedAtMs),
+      updatedAtMs: String(completedAtMs),
+    });
+
+    return true;
   }
 }

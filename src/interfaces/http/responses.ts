@@ -14,8 +14,7 @@ type AppContextVariables = {
   actorType: "user" | "display";
   resourceId: string;
   resourceType: string;
-  rbacPolicyVersion: string;
-  rbacTargetCount: string;
+  rbacAssignmentCount: string;
   deniedPermission: string;
   denyErrorCode: string;
   denyErrorType: string;
@@ -91,6 +90,10 @@ export interface ApiListResponse<T> {
   meta: ApiMeta;
   links?: ApiLinks;
 }
+
+export const toApiResponse = <T>(data: T): ApiResponse<T> => ({
+  data,
+});
 
 export const apiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({

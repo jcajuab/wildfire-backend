@@ -1,6 +1,6 @@
 import { type MiddlewareHandler } from "hono";
 import { logger } from "#/infrastructure/observability/logger";
-import { type AuditEventQueue } from "#/interfaces/http/audit/in-memory-audit-queue";
+import { type AuditEventQueue } from "#/interfaces/http/audit/audit-queue";
 import { type ObservabilityVariables } from "#/interfaces/http/middleware/observability";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -65,8 +65,7 @@ const resolveIpAddress = (headers: {
 const buildSafeAuditMetadata = (input: {
   sessionId?: string;
   fileId?: string;
-  rbacPolicyVersion?: string;
-  rbacTargetCount?: string;
+  rbacAssignmentCount?: string;
   deniedPermission?: string;
   denyErrorCode?: string;
   denyErrorType?: string;
@@ -78,11 +77,8 @@ const buildSafeAuditMetadata = (input: {
   if (input.fileId) {
     metadata.fileId = input.fileId;
   }
-  if (input.rbacPolicyVersion) {
-    metadata.rbacPolicyVersion = input.rbacPolicyVersion;
-  }
-  if (input.rbacTargetCount) {
-    metadata.rbacTargetCount = input.rbacTargetCount;
+  if (input.rbacAssignmentCount) {
+    metadata.rbacAssignmentCount = input.rbacAssignmentCount;
   }
   if (input.deniedPermission) {
     metadata.deniedPermission = input.deniedPermission;
@@ -118,8 +114,7 @@ export const createAuditTrailMiddleware = (deps: {
     const resourceType = c.get("resourceType");
     const sessionId = c.get("sessionId");
     const fileId = c.get("fileId");
-    const rbacPolicyVersion = c.get("rbacPolicyVersion");
-    const rbacTargetCount = c.get("rbacTargetCount");
+    const rbacAssignmentCount = c.get("rbacAssignmentCount");
     const deniedPermission = c.get("deniedPermission");
     const denyErrorCode = c.get("denyErrorCode");
     const denyErrorType = c.get("denyErrorType");
@@ -145,8 +140,7 @@ export const createAuditTrailMiddleware = (deps: {
       metadataJson: buildSafeAuditMetadata({
         sessionId,
         fileId,
-        rbacPolicyVersion,
-        rbacTargetCount,
+        rbacAssignmentCount,
         deniedPermission,
         denyErrorCode,
         denyErrorType,

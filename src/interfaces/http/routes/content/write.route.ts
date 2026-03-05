@@ -10,6 +10,7 @@ import {
   apiResponseSchema,
   conflict,
   errorResponseSchema,
+  toApiResponse,
   validationError,
 } from "#/interfaces/http/responses";
 import {
@@ -115,7 +116,8 @@ export const registerContentWriteRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.set("fileId", result.id);
-        return c.json(result, 201);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        return c.json(toApiResponse(result), 201);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
@@ -190,7 +192,7 @@ export const registerContentWriteRoutes = (args: {
           title: body.title,
           status: body.status,
         });
-        return c.json(result, 200);
+        return c.json(toApiResponse(result), 200);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
@@ -265,7 +267,7 @@ export const registerContentWriteRoutes = (args: {
           title: body.title,
           status: body.status,
         });
-        return c.json(result, 200);
+        return c.json(toApiResponse(result), 200);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),

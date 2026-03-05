@@ -18,7 +18,7 @@ import {
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
-import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
+import { InMemoryAuthSecurityStore } from "../../helpers/in-memory-auth-security.store";
 
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 
@@ -313,20 +313,6 @@ const buildRbacActionApp = async () => {
       rolePermissionRepository: {
         listPermissionsByRoleId: async () => [],
         setRolePermissions: async () => {},
-      },
-      roleDeletionRequestRepository: {
-        createPending: async () => {},
-        findPendingByRoleId: async () => null,
-        findById: async () => null,
-        list: async () => [],
-        count: async () => 0,
-        markApproved: async () => false,
-        markRejected: async () => false,
-      },
-      policyHistoryRepository: {
-        create: async () => {},
-        list: async () => [],
-        count: async () => 0,
       },
       authorizationRepository: {
         findPermissionsForUser: async () => [new Permission("users", "read")],

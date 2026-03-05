@@ -25,6 +25,30 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
 
+  redis:
+    image: redis:7.4
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--save",
+        "60",
+        "1000",
+        "--save",
+        "300",
+        "100",
+        "--save",
+        "900",
+        "1",
+      ]
+    restart: unless-stopped
+
 volumes:
   mysql_data:
   minio_data:
+  redis_data:

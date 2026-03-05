@@ -289,8 +289,9 @@ describe("Playlists routes", () => {
     });
 
     expect(response.status).toBe(201);
-    const json = await parseJson<{ id: string }>(response);
-    expect(json.id).toBeDefined();
+    const json = await parseJson<{ data: { id: string } }>(response);
+    expect(json.data.id).toBeDefined();
+    expect(response.headers.get("Location")).toBe(`/playlists/${json.data.id}`);
   });
 
   test("POST /playlists returns 404 when creator is missing", async () => {
@@ -337,6 +338,11 @@ describe("Playlists routes", () => {
     });
 
     expect(response.status).toBe(201);
+    const body = await parseJson<{ data: { id: string } }>(response);
+    expect(body.data.id).toBeDefined();
+    expect(response.headers.get("Location")).toBe(
+      `/playlists/${playlistId}/items/${body.data.id}`,
+    );
   });
 
   test("DELETE /playlists/:id returns 404 when missing", async () => {

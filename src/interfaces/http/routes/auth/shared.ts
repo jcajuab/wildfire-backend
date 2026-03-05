@@ -34,7 +34,7 @@ import {
 } from "#/application/use-cases/auth";
 import { type DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
-import { type InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
+import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 
 export interface AuthRouterDeps {
   credentialsRepository: CredentialsRepository;
@@ -49,7 +49,7 @@ export interface AuthRouterDeps {
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
-  authSecurityStore: InMemoryAuthSecurityStore;
+  authSecurityStore: AuthSecurityStore;
   authLoginRateLimitMaxAttempts: number;
   authLoginRateLimitWindowSeconds: number;
   authLoginLockoutThreshold: number;

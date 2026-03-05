@@ -1,6 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { badRequest, toApiListResponse } from "#/interfaces/http/responses";
+import { toApiListResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -126,25 +126,10 @@ export const registerRbacPermissionRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const payload = c.req.valid("json");
-        if (
-          payload.permissionIds.length > 20 &&
-          payload.policyVersion === undefined
-        ) {
-          return badRequest(
-            c,
-            "policyVersion is required when changing many permissions at once.",
-          );
-        }
-        if (payload.policyVersion !== undefined) {
-          c.set("rbacPolicyVersion", String(payload.policyVersion));
-        }
-        c.set("rbacTargetCount", String(payload.permissionIds.length));
+        c.set("rbacAssignmentCount", String(payload.permissionIds.length));
         const permissions = await useCases.setRolePermissions.execute({
           roleId: params.id,
           permissionIds: payload.permissionIds,
-          policyVersion: payload.policyVersion,
-          actorId: c.get("userId"),
-          requestId: c.get("requestId"),
         });
         return c.json(
           toApiListResponse({

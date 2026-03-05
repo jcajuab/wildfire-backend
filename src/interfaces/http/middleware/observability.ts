@@ -14,8 +14,7 @@ export type ObservabilityVariables = RequestIdVariables & {
   userId?: string;
   sessionId?: string;
   fileId?: string;
-  rbacPolicyVersion?: string;
-  rbacTargetCount?: string;
+  rbacAssignmentCount?: string;
   deniedPermission?: string;
   denyErrorCode?: string;
   denyErrorType?: string;

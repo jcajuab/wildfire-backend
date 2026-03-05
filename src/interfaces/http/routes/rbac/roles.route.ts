@@ -1,4 +1,3 @@
-import { registerRbacRoleDeletionRequestRoutes } from "./role-deletion-requests.route";
 import { registerRbacRoleMembershipRoutes } from "./role-memberships.route";
 import { registerRbacRoleReadRoutes } from "./roles-read.route";
 import { registerRbacRoleWriteRoutes } from "./roles-write.route";
@@ -15,7 +14,6 @@ export const registerRbacRoleRoutes = (args: {
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
-  registerRbacRoleDeletionRequestRoutes(args);
   registerRbacRoleReadRoutes(args);
   registerRbacRoleWriteRoutes(args);
   registerRbacRoleMembershipRoutes(args);

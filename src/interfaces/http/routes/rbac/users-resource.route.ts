@@ -4,7 +4,11 @@ import {
   DuplicateUsernameError,
 } from "#/application/use-cases/rbac/errors";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { conflict, toApiListResponse } from "#/interfaces/http/responses";
+import {
+  conflict,
+  toApiListResponse,
+  toApiResponse,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -124,7 +128,8 @@ export const registerRbacUserResourceRoutes = (args: {
         const payload = c.req.valid("json");
         const user = await useCases.createUser.execute(payload);
         c.set("resourceId", user.id);
-        return c.json(user, 201);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(user.id)}`);
+        return c.json(toApiResponse(user), 201);
       },
       mapErrorToResponse(DuplicateEmailError, conflict),
       mapErrorToResponse(DuplicateUsernameError, conflict),
@@ -165,7 +170,7 @@ export const registerRbacUserResourceRoutes = (args: {
         c.set("resourceId", params.id);
         const user = await useCases.getUser.execute({ id: params.id });
         const enriched = await maybeEnrichUserForResponse(user, deps);
-        return c.json(enriched);
+        return c.json(toApiResponse(enriched));
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DuplicateEmailError, conflict),
@@ -211,7 +216,7 @@ export const registerRbacUserResourceRoutes = (args: {
           ...payload,
           callerUserId: c.get("userId"),
         });
-        return c.json(user);
+        return c.json(toApiResponse(user));
       },
       ...applicationErrorMappers,
     ),

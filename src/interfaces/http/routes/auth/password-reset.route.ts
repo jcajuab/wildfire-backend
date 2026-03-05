@@ -64,7 +64,7 @@ export const registerAuthPasswordResetRoutes = (args: {
           forwardedFor: c.req.header("x-forwarded-for"),
           realIp: c.req.header("x-real-ip"),
         });
-        const allowed = deps.authSecurityStore.consumeEndpointAttempt({
+        const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `forgot-password|${ip}`,
           nowMs: Date.now(),
           windowSeconds: deps.authLoginRateLimitWindowSeconds,
@@ -121,7 +121,7 @@ export const registerAuthPasswordResetRoutes = (args: {
           forwardedFor: c.req.header("x-forwarded-for"),
           realIp: c.req.header("x-real-ip"),
         });
-        const allowed = deps.authSecurityStore.consumeEndpointAttempt({
+        const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `reset-password|${ip}`,
           nowMs: Date.now(),
           windowSeconds: deps.authLoginRateLimitWindowSeconds,

@@ -1,5 +1,10 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import {
+  getRedisPublisherClient,
+  getRedisSubscriberClient,
+} from "#/infrastructure/redis/client";
 
 export type DisplayStreamEventType =
   | "manifest_updated"
@@ -16,7 +21,17 @@ export interface DisplayStreamEvent {
 
 type DisplaySubscriber = (event: DisplayStreamEvent) => void;
 
+interface DisplayStreamEnvelope {
+  origin: string;
+  event: DisplayStreamEvent;
+}
+
 const streamSubscribers = new Map<string, Map<string, DisplaySubscriber>>();
+const redisChannel = `${env.REDIS_KEY_PREFIX}:events:display-stream`;
+const streamOrigin = randomUUID();
+
+let hasStreamSubscription = false;
+let streamSubscriptionPromise: Promise<void> | null = null;
 
 const toBase64Url = (value: string | Uint8Array): string =>
   Buffer.from(value)
@@ -34,6 +49,153 @@ const fromBase64Url = (value: string): Buffer => {
 
 const sign = (payload: string, secret: string): string =>
   toBase64Url(createHmac("sha256", secret).update(payload).digest());
+
+const isDisplayStreamEventType = (
+  value: unknown,
+): value is DisplayStreamEventType =>
+  value === "manifest_updated" ||
+  value === "schedule_updated" ||
+  value === "playlist_updated" ||
+  value === "display_refresh_requested";
+
+const isDisplayStreamEvent = (value: unknown): value is DisplayStreamEvent => {
+  if (value == null || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as {
+    type?: unknown;
+    displayId?: unknown;
+    timestamp?: unknown;
+    reason?: unknown;
+  };
+
+  if (!isDisplayStreamEventType(candidate.type)) {
+    return false;
+  }
+
+  if (
+    typeof candidate.displayId !== "string" ||
+    candidate.displayId.length === 0
+  ) {
+    return false;
+  }
+
+  if (
+    typeof candidate.timestamp !== "string" ||
+    candidate.timestamp.length === 0
+  ) {
+    return false;
+  }
+
+  if (candidate.reason != null && typeof candidate.reason !== "string") {
+    return false;
+  }
+
+  return true;
+};
+
+const parseEnvelope = (rawMessage: string): DisplayStreamEnvelope | null => {
+  try {
+    const parsed = JSON.parse(rawMessage) as {
+      origin?: unknown;
+      event?: unknown;
+    };
+
+    if (typeof parsed.origin !== "string" || parsed.origin.length === 0) {
+      return null;
+    }
+
+    if (!isDisplayStreamEvent(parsed.event)) {
+      return null;
+    }
+
+    return {
+      origin: parsed.origin,
+      event: parsed.event,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const emitDisplayStreamEventLocally = (event: DisplayStreamEvent): void => {
+  const subscribers = streamSubscribers.get(event.displayId);
+  if (!subscribers) {
+    return;
+  }
+
+  logger.info(
+    {
+      route: "/display-runtime/:displaySlug/stream",
+      displayId: event.displayId,
+      eventType: event.type,
+      subscriberCount: subscribers.size,
+      reason: event.reason,
+    },
+    "display stream event emitted",
+  );
+
+  for (const handler of subscribers.values()) {
+    handler(event);
+  }
+};
+
+const ensureStreamRedisSubscription = (): void => {
+  if (hasStreamSubscription || streamSubscriptionPromise) {
+    return;
+  }
+
+  streamSubscriptionPromise = (async () => {
+    try {
+      const subscriber = await getRedisSubscriberClient();
+      await subscriber.subscribe(redisChannel, (rawMessage) => {
+        const envelope = parseEnvelope(rawMessage);
+        if (!envelope || envelope.origin === streamOrigin) {
+          return;
+        }
+
+        emitDisplayStreamEventLocally(envelope.event);
+      });
+      hasStreamSubscription = true;
+    } catch (error) {
+      hasStreamSubscription = false;
+      logger.error(
+        {
+          err: error,
+          channel: redisChannel,
+        },
+        "display stream Redis subscription failed",
+      );
+    } finally {
+      streamSubscriptionPromise = null;
+    }
+  })();
+};
+
+const publishDisplayStreamEventToRedis = async (
+  event: DisplayStreamEvent,
+): Promise<void> => {
+  try {
+    const publisher = await getRedisPublisherClient();
+    const envelope: DisplayStreamEnvelope = {
+      origin: streamOrigin,
+      event,
+    };
+
+    await publisher.publish(redisChannel, JSON.stringify(envelope));
+  } catch (error) {
+    logger.warn(
+      {
+        err: error,
+        channel: redisChannel,
+        displayId: event.displayId,
+        eventType: event.type,
+      },
+      "display stream Redis publish failed",
+    );
+  }
+};
 
 export const createDisplayStreamToken = (input: {
   displayId: string;
@@ -85,6 +247,8 @@ export const subscribeToDisplayStream = (
   displayId: string,
   handler: DisplaySubscriber,
 ): (() => void) => {
+  ensureStreamRedisSubscription();
+
   const subscriberId = randomUUID();
   const subscribers = streamSubscribers.get(displayId) ?? new Map();
   subscribers.set(subscriberId, handler);
@@ -126,19 +290,7 @@ export const subscribeToDisplayStream = (
 };
 
 export const publishDisplayStreamEvent = (event: DisplayStreamEvent): void => {
-  const subscribers = streamSubscribers.get(event.displayId);
-  if (!subscribers) return;
-  logger.info(
-    {
-      route: "/display-runtime/:displaySlug/stream",
-      displayId: event.displayId,
-      eventType: event.type,
-      subscriberCount: subscribers.size,
-      reason: event.reason,
-    },
-    "display stream event emitted",
-  );
-  for (const handler of subscribers.values()) {
-    handler(event);
-  }
+  ensureStreamRedisSubscription();
+  emitDisplayStreamEventLocally(event);
+  void publishDisplayStreamEventToRedis(event);
 };

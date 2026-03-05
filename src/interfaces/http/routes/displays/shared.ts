@@ -31,6 +31,7 @@ import {
 } from "#/application/use-cases/displays";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { publishAdminDisplayLifecycleEvent } from "./admin-lifecycle-events";
+import { type DisplayRegistrationAttemptStore } from "./registration-attempt.store";
 import { publishDisplayStreamEvent } from "./stream";
 
 export interface DisplaysRouterDeps {
@@ -52,6 +53,7 @@ export interface DisplaysRouterDeps {
     systemSettingRepository: SystemSettingRepository;
   };
   storage: ContentStorage;
+  registrationAttemptStore?: DisplayRegistrationAttemptStore;
 }
 
 export interface DisplaysRouterUseCases {

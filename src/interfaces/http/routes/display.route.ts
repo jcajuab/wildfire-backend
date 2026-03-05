@@ -43,7 +43,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
-import { type InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
+import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import {
   validateJson,
   validateParams,
@@ -241,7 +241,7 @@ type DisplayRouteDeps = {
   jwtSecret: string;
   downloadUrlExpiresInSeconds: number;
   scheduleTimeZone?: string;
-  authSecurityStore: InMemoryAuthSecurityStore;
+  authSecurityStore: AuthSecurityStore;
   rateLimits: {
     windowSeconds: number;
     authChallengeMaxAttempts: number;
@@ -287,7 +287,7 @@ const createRuntimeRateLimitMiddleware = (
       realIp: c.req.header("x-real-ip"),
     });
     const key = `${input.keyPrefix}|${ip}`;
-    const stats = deps.authSecurityStore.consumeEndpointAttemptWithStats({
+    const stats = await deps.authSecurityStore.consumeEndpointAttemptWithStats({
       key,
       nowMs,
       windowSeconds: deps.rateLimits.windowSeconds,

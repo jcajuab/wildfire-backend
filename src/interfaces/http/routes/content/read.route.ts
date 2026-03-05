@@ -3,6 +3,7 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   toApiListResponse,
+  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -121,7 +122,7 @@ export const registerContentReadRoutes = (args: {
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
         const result = await useCases.getContent.execute({ id: params.id });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

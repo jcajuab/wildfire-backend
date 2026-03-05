@@ -1,30 +1,95 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
 import {
   type DisplayPairingCodeRecord,
   type DisplayPairingCodeRepository,
 } from "#/application/ports/display-pairing";
-import { db } from "#/infrastructure/db/client";
-import { pairingCodes } from "#/infrastructure/db/schema/pairing-code.sql";
+import { env } from "#/env";
+import { getRedisCommandClient } from "#/infrastructure/redis/client";
 
-const toRecord = (
-  row: typeof pairingCodes.$inferSelect,
-): DisplayPairingCodeRecord => ({
-  id: row.id,
-  codeHash: row.codeHash,
-  expiresAt:
-    row.expiresAt instanceof Date ? row.expiresAt.toISOString() : row.expiresAt,
+const pairingCodePrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code`;
+const pairingCodeLookupPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code-lookup`;
+
+const pairingCodeKey = (id: string): string => `${pairingCodePrefix}:${id}`;
+const pairingCodeLookupKey = (codeHash: string): string =>
+  `${pairingCodeLookupPrefix}:${codeHash}`;
+
+const toUnixSeconds = (value: Date): string =>
+  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
+const toScriptString = (value: unknown): string =>
+  typeof value === "string" ? value : value == null ? "" : String(value);
+
+interface StoredPairingCode {
+  id: string;
+  codeHash: string;
+  expiresAtMs: number;
+  usedAtMs: number | null;
+  createdById: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+const parseMilliseconds = (value: string | undefined): number | null => {
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseStoredPairingCode = (
+  value: Record<string, string>,
+): StoredPairingCode | null => {
+  const id = value.id;
+  const codeHash = value.codeHash;
+  const createdById = value.createdById;
+  const expiresAtMs = parseMilliseconds(value.expiresAtMs);
+  const createdAtMs = parseMilliseconds(value.createdAtMs);
+  const updatedAtMs = parseMilliseconds(value.updatedAtMs);
+
+  if (
+    typeof id !== "string" ||
+    id.length === 0 ||
+    typeof codeHash !== "string" ||
+    codeHash.length === 0 ||
+    typeof createdById !== "string" ||
+    createdById.length === 0 ||
+    expiresAtMs == null ||
+    createdAtMs == null ||
+    updatedAtMs == null
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    codeHash,
+    expiresAtMs,
+    usedAtMs: parseMilliseconds(value.usedAtMs),
+    createdById,
+    createdAtMs,
+    updatedAtMs,
+  };
+};
+
+const toRecord = (value: StoredPairingCode): DisplayPairingCodeRecord => ({
+  id: value.id,
+  codeHash: value.codeHash,
+  expiresAt: new Date(value.expiresAtMs).toISOString(),
   usedAt:
-    row.usedAt instanceof Date
-      ? row.usedAt.toISOString()
-      : (row.usedAt ?? null),
-  createdById: row.createdById,
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+    value.usedAtMs == null ? null : new Date(value.usedAtMs).toISOString(),
+  createdById: value.createdById,
+  createdAt: new Date(value.createdAtMs).toISOString(),
+  updatedAt: new Date(value.updatedAtMs).toISOString(),
 });
 
-export class DisplayPairingCodeDbRepository
+export class DisplayPairingCodeCollisionError extends Error {
+  constructor() {
+    super("Display pairing code collision detected");
+    this.name = "DisplayPairingCodeCollisionError";
+  }
+}
+
+export class DisplayPairingCodeRedisRepository
   implements DisplayPairingCodeRepository
 {
   async create(input: {
@@ -32,84 +97,99 @@ export class DisplayPairingCodeDbRepository
     expiresAt: Date;
     createdById: string;
   }): Promise<DisplayPairingCodeRecord> {
+    const redis = await getRedisCommandClient();
     const id = crypto.randomUUID();
-    const now = new Date();
-    await db.insert(pairingCodes).values({
+    const nowMs = Date.now();
+    const expiresAtMs = input.expiresAt.getTime();
+
+    await redis.hSet(pairingCodeKey(id), {
       id,
       codeHash: input.codeHash,
-      expiresAt: input.expiresAt,
+      expiresAtMs: String(expiresAtMs),
+      usedAtMs: "",
       createdById: input.createdById,
-      createdAt: now,
-      updatedAt: now,
+      createdAtMs: String(nowMs),
+      updatedAtMs: String(nowMs),
     });
 
-    return {
+    const setResult = await redis.sendCommand([
+      "SET",
+      pairingCodeLookupKey(input.codeHash),
+      id,
+      "EXAT",
+      toUnixSeconds(input.expiresAt),
+      "NX",
+    ]);
+
+    if (toScriptString(setResult) !== "OK") {
+      throw new DisplayPairingCodeCollisionError();
+    }
+
+    return toRecord({
       id,
       codeHash: input.codeHash,
-      expiresAt: input.expiresAt.toISOString(),
-      usedAt: null,
+      expiresAtMs,
+      usedAtMs: null,
       createdById: input.createdById,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    };
+      createdAtMs: nowMs,
+      updatedAtMs: nowMs,
+    });
   }
 
   async consumeValidCode(input: {
     codeHash: string;
     now: Date;
   }): Promise<DisplayPairingCodeRecord | null> {
-    const rows = await db
-      .select()
-      .from(pairingCodes)
-      .where(
-        and(
-          eq(pairingCodes.codeHash, input.codeHash),
-          isNull(pairingCodes.usedAt),
-          gt(pairingCodes.expiresAt, input.now),
-        ),
-      )
-      .limit(1);
-    const found = rows[0];
-    if (!found) return null;
+    const redis = await getRedisCommandClient();
+    const consumedId = toScriptString(
+      await redis.sendCommand(["GETDEL", pairingCodeLookupKey(input.codeHash)]),
+    );
 
-    const updatedAt = new Date();
-    const result = await db
-      .update(pairingCodes)
-      .set({
-        usedAt: input.now,
-        updatedAt,
-      })
-      .where(
-        and(
-          eq(pairingCodes.id, found.id),
-          isNull(pairingCodes.usedAt),
-          gt(pairingCodes.expiresAt, input.now),
-        ),
-      );
-    if (result[0]?.affectedRows === 0) {
+    if (consumedId.length === 0) {
       return null;
     }
 
+    const key = pairingCodeKey(consumedId);
+    const stored = parseStoredPairingCode(await redis.hGetAll(key));
+    if (!stored) {
+      return null;
+    }
+
+    const nowMs = input.now.getTime();
+    if (stored.usedAtMs != null || stored.expiresAtMs <= nowMs) {
+      return null;
+    }
+
+    await redis.hSet(key, {
+      usedAtMs: String(nowMs),
+      updatedAtMs: String(nowMs),
+    });
+
     return toRecord({
-      ...found,
-      usedAt: input.now,
-      updatedAt,
+      ...stored,
+      usedAtMs: nowMs,
+      updatedAtMs: nowMs,
     });
   }
 
   async invalidateById(input: { id: string; now: Date }): Promise<void> {
-    await db
-      .update(pairingCodes)
-      .set({
-        usedAt: input.now,
-        updatedAt: input.now,
-      })
-      .where(
-        and(
-          eq(pairingCodes.id, input.id),
-          isNull(pairingCodes.usedAt),
-          gt(pairingCodes.expiresAt, input.now),
-        ),
-      );
+    const redis = await getRedisCommandClient();
+    const key = pairingCodeKey(input.id);
+    const stored = parseStoredPairingCode(await redis.hGetAll(key));
+
+    if (!stored) {
+      return;
+    }
+
+    const nowMs = input.now.getTime();
+    if (stored.usedAtMs != null || stored.expiresAtMs <= nowMs) {
+      return;
+    }
+
+    await redis.hSet(key, {
+      usedAtMs: String(nowMs),
+      updatedAtMs: String(nowMs),
+    });
+    await redis.del(pairingCodeLookupKey(stored.codeHash));
   }
 }

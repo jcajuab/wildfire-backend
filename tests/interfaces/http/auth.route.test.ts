@@ -24,7 +24,7 @@ import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.ve
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
-import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
+import { InMemoryAuthSecurityStore } from "../../helpers/in-memory-auth-security.store";
 
 const fixturePath = path.join(
   import.meta.dir,

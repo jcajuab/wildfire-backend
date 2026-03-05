@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { normalizeApiPayload } from "#/interfaces/http/responses";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
@@ -23,50 +22,6 @@ const makeApp = async (
   options?: { createScheduleError?: Error },
 ) => {
   const app = new Hono();
-  app.use("*", async (c, next) => {
-    const originalJson = c.json.bind(c) as (
-      body: unknown,
-      ...rest: unknown[]
-    ) => Response;
-
-    const getJsonStatus = (init: unknown): number => {
-      if (typeof init === "number") return init;
-      if (init != null && typeof init === "object" && "status" in init) {
-        const status = (init as { status?: unknown }).status;
-        return typeof status === "number" ? status : 200;
-      }
-      return 200;
-    };
-
-    (c as { json: typeof originalJson }).json = ((
-      value: unknown,
-      init,
-      headers,
-    ) => {
-      const normalized = normalizeApiPayload(value, {
-        requestUrl: c.req.url,
-      });
-
-      const status = getJsonStatus(init);
-      if (
-        status === 201 &&
-        value != null &&
-        typeof value === "object" &&
-        !Array.isArray(value) &&
-        Object.hasOwn(value, "id")
-      ) {
-        const id = (value as { id: unknown }).id;
-        if (typeof id === "string" && id.length > 0) {
-          c.header("Location", `${c.req.path}/${encodeURIComponent(id)}`);
-        }
-      }
-
-      return originalJson(normalized, init as unknown, headers as unknown);
-    }) as typeof originalJson;
-
-    await next();
-  });
-
   const schedules: Array<{
     id: string;
     name: string;

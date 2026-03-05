@@ -107,8 +107,10 @@ describe("Settings routes", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(response.status).toBe(200);
-    const body = await parseJson<{ scrollPxPerSecond: number }>(response);
-    expect(body.scrollPxPerSecond).toBe(24);
+    const body = await parseJson<{ data: { scrollPxPerSecond: number } }>(
+      response,
+    );
+    expect(body.data.scrollPxPerSecond).toBe(24);
   });
 
   test("PATCH /settings/display-runtime updates value with settings:update", async () => {
@@ -126,8 +128,10 @@ describe("Settings routes", () => {
       body: JSON.stringify({ scrollPxPerSecond: 40 }),
     });
     expect(response.status).toBe(200);
-    const body = await parseJson<{ scrollPxPerSecond: number }>(response);
-    expect(body.scrollPxPerSecond).toBe(40);
+    const body = await parseJson<{ data: { scrollPxPerSecond: number } }>(
+      response,
+    );
+    expect(body.data.scrollPxPerSecond).toBe(40);
   });
 
   test("PATCH /settings/display-runtime returns 403 without permission", async () => {

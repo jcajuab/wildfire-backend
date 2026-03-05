@@ -4,7 +4,6 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type RequestIdVariables } from "hono/request-id";
 import { openAPIRouteHandler } from "hono-openapi";
-import { RecordAuditEventUseCase } from "#/application/use-cases/audit";
 import {
   ChangeCurrentUserPasswordUseCase,
   SetCurrentUserAvatarUseCase,
@@ -13,7 +12,8 @@ import {
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
-import { InMemoryAuditQueue } from "#/interfaces/http/audit/in-memory-audit-queue";
+import { closeRedisClients } from "#/infrastructure/redis/client";
+import { RedisAuditQueue } from "#/interfaces/http/audit/redis-audit-queue";
 import { createHttpContainer } from "#/interfaces/http/container";
 import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
 import {
@@ -35,7 +35,7 @@ import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route"
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
 import { createSettingsRouter } from "#/interfaces/http/routes/settings.route";
-import { InMemoryAuthSecurityStore } from "#/interfaces/http/security/in-memory-auth-security.store";
+import { RedisAuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import { runStartupAuthIdentitySync } from "#/interfaces/http/startup/auth-identity.sync";
 import packageJSON from "#/package.json" with { type: "json" };
 
@@ -44,8 +44,7 @@ export const app = new Hono<{ Variables: RequestIdVariables }>();
 const tokenTtlSeconds = 60 * 60;
 const avatarUrlExpiresInSeconds = 60 * 60;
 const contentThumbnailUrlExpiresInSeconds = 60 * 60;
-const authSecurityStore = new InMemoryAuthSecurityStore();
-authSecurityStore.startCleanup();
+const authSecurityStore = new RedisAuthSecurityStore();
 
 const container = createHttpContainer({
   jwtSecret: env.JWT_SECRET,
@@ -281,9 +280,6 @@ const rbacRouter = createRbacRouter({
     permissionRepository: container.repositories.permissionRepository,
     userRoleRepository: container.repositories.userRoleRepository,
     rolePermissionRepository: container.repositories.rolePermissionRepository,
-    roleDeletionRequestRepository:
-      container.repositories.roleDeletionRequestRepository,
-    policyHistoryRepository: container.repositories.policyHistoryRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
   avatarStorage: container.storage.contentStorage,
@@ -314,20 +310,11 @@ const settingsRouter = createSettingsRouter({
   },
 });
 
-const recordAuditEvent = new RecordAuditEventUseCase({
-  auditEventRepository: container.repositories.auditEventRepository,
+const auditQueue = new RedisAuditQueue({
+  enabled: env.AUDIT_QUEUE_ENABLED,
+  maxStreamLength: env.AUDIT_QUEUE_CAPACITY,
+  streamName: env.REDIS_STREAM_AUDIT_NAME,
 });
-const auditQueue = new InMemoryAuditQueue(
-  {
-    enabled: env.AUDIT_QUEUE_ENABLED,
-    capacity: env.AUDIT_QUEUE_CAPACITY,
-    flushBatchSize: env.AUDIT_FLUSH_BATCH_SIZE,
-    flushIntervalMs: env.AUDIT_FLUSH_INTERVAL_MS,
-  },
-  {
-    recordAuditEvent,
-  },
-);
 
 app.use(
   "*",
@@ -492,4 +479,5 @@ if (env.NODE_ENV !== "production") {
 
 export const stopHttpBackgroundWorkers = async (): Promise<void> => {
   await auditQueue.stop();
+  await closeRedisClients();
 };

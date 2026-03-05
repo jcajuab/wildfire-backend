@@ -17,8 +17,7 @@ export type JwtUserVariables = {
   actorType?: "user" | "display";
   resourceId?: string;
   resourceType?: string;
-  rbacPolicyVersion?: string;
-  rbacTargetCount?: string;
+  rbacAssignmentCount?: string;
 };
 
 export const requireJwtUser: MiddlewareHandler<{

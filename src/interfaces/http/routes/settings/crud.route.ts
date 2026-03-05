@@ -1,6 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { apiResponseSchema } from "#/interfaces/http/responses";
+import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
 import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 import {
   applicationErrorMappers,
@@ -51,7 +51,7 @@ export const registerSettingsCrudRoutes = (args: {
       async (c) => {
         const result = await useCases.getDisplayRuntimeSettings.execute();
         c.set("resourceId", "display-runtime");
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),
@@ -95,7 +95,7 @@ export const registerSettingsCrudRoutes = (args: {
           });
         }
         c.set("resourceId", "display-runtime");
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

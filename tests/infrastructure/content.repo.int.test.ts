@@ -40,6 +40,13 @@ describe("ContentDbRepository (integration)", () => {
         )
       `,
     );
+    await db.execute(
+      sql`
+        INSERT INTO users (id, username, email, name, is_active)
+        VALUES ('user-1', 'user-1', 'user-1@example.com', 'User 1', true)
+        ON DUPLICATE KEY UPDATE id = id
+      `,
+    );
     await db.execute(sql`DELETE FROM content`);
 
     const repo = new ContentDbRepository();

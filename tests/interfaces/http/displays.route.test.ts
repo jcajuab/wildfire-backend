@@ -4,6 +4,7 @@ import { type ContentRecord } from "#/application/ports/content";
 import { type DisplayRecord } from "#/application/ports/displays";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
+import { type DisplayRegistrationAttemptStore } from "#/interfaces/http/routes/displays/registration-attempt.store";
 import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
@@ -99,6 +100,18 @@ const makeApp = async (
     displayId: string;
     groupIds: string[];
   }> = [];
+  const registrationAttempts = new Map<
+    string,
+    {
+      attemptId: string;
+      createdById: string;
+      codeHash: string | null;
+      pairingCodeId: string | null;
+    }
+  >();
+  const openAttemptByUserId = new Map<string, string>();
+  const attemptIdByCodeHash = new Map<string, string>();
+  const sessionAttemptIdBySessionId = new Map<string, string>();
 
   const playlists = [
     {
@@ -475,6 +488,100 @@ const makeApp = async (
     },
   };
 
+  const registrationAttemptStore: DisplayRegistrationAttemptStore = {
+    createOrReplaceOpenAttempt: async (input) => {
+      const existingAttemptId = openAttemptByUserId.get(input.createdById);
+      let invalidatedPairingCodeId: string | null = null;
+
+      if (existingAttemptId) {
+        const existingAttempt = registrationAttempts.get(existingAttemptId);
+        if (existingAttempt?.codeHash) {
+          attemptIdByCodeHash.delete(existingAttempt.codeHash);
+        }
+        if (existingAttempt?.pairingCodeId) {
+          invalidatedPairingCodeId = existingAttempt.pairingCodeId;
+          existingAttempt.codeHash = null;
+          existingAttempt.pairingCodeId = null;
+        }
+      }
+
+      const attemptId = crypto.randomUUID();
+      registrationAttempts.set(attemptId, {
+        attemptId,
+        createdById: input.createdById,
+        codeHash: input.activeCode.codeHash,
+        pairingCodeId: input.activeCode.pairingCodeId,
+      });
+      openAttemptByUserId.set(input.createdById, attemptId);
+      attemptIdByCodeHash.set(input.activeCode.codeHash, attemptId);
+
+      return { attemptId, invalidatedPairingCodeId };
+    },
+    rotateCode: async (input) => {
+      const attempt = registrationAttempts.get(input.attemptId);
+      if (!attempt || attempt.createdById !== input.createdById) {
+        return null;
+      }
+
+      const invalidatedPairingCodeId = attempt.pairingCodeId;
+      if (attempt.codeHash) {
+        attemptIdByCodeHash.delete(attempt.codeHash);
+      }
+      attempt.codeHash = input.nextCode.codeHash;
+      attempt.pairingCodeId = input.nextCode.pairingCodeId;
+      attemptIdByCodeHash.set(input.nextCode.codeHash, input.attemptId);
+      return { invalidatedPairingCodeId };
+    },
+    closeAttempt: async (input) => {
+      const attempt = registrationAttempts.get(input.attemptId);
+      if (!attempt || attempt.createdById !== input.createdById) {
+        return null;
+      }
+
+      const invalidatedPairingCodeId = attempt.pairingCodeId;
+      if (attempt.codeHash) {
+        attemptIdByCodeHash.delete(attempt.codeHash);
+      }
+      if (openAttemptByUserId.get(input.createdById) === input.attemptId) {
+        openAttemptByUserId.delete(input.createdById);
+      }
+      attempt.codeHash = null;
+      attempt.pairingCodeId = null;
+      return { invalidatedPairingCodeId };
+    },
+    isAttemptOwnedBy: async (input) =>
+      registrationAttempts.get(input.attemptId)?.createdById ===
+      input.createdById,
+    consumeCodeHash: async (input) => {
+      const attemptId = attemptIdByCodeHash.get(input.codeHash);
+      if (!attemptId) {
+        return null;
+      }
+      const attempt = registrationAttempts.get(attemptId);
+      if (
+        !attempt ||
+        attempt.codeHash !== input.codeHash ||
+        !attempt.pairingCodeId
+      ) {
+        return null;
+      }
+
+      attemptIdByCodeHash.delete(input.codeHash);
+      attempt.codeHash = null;
+      const pairingCodeId = attempt.pairingCodeId;
+      attempt.pairingCodeId = null;
+      return { attemptId, pairingCodeId };
+    },
+    bindSessionAttempt: async (input) => {
+      sessionAttemptIdBySessionId.set(input.sessionId, input.attemptId);
+    },
+    consumeSessionAttemptId: async (sessionId) => {
+      const attemptId = sessionAttemptIdBySessionId.get(sessionId) ?? null;
+      sessionAttemptIdBySessionId.delete(sessionId);
+      return attemptId;
+    },
+  };
+
   const router = createDisplaysRouter({
     jwtSecret: "test-secret",
     authSessionRepository: {
@@ -565,6 +672,7 @@ const makeApp = async (
       delete: async () => {},
       getPresignedDownloadUrl: async () => "https://example.com/file",
     },
+    registrationAttemptStore,
   });
 
   app.route("/displays", router);
@@ -602,15 +710,17 @@ describe("Displays routes", () => {
 
     expect(response.status).toBe(201);
     const json = await parseJson<{
-      attemptId: string;
-      code: string;
-      expiresAt: string;
+      data: {
+        attemptId: string;
+        code: string;
+        expiresAt: string;
+      };
     }>(response);
-    expect(json.attemptId).toMatch(
+    expect(json.data.attemptId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
-    expect(json.code).toMatch(/^\d{6}$/);
-    expect(Date.parse(json.expiresAt)).toBeGreaterThan(Date.now());
+    expect(json.data.code).toMatch(/^\d{6}$/);
+    expect(Date.parse(json.data.expiresAt)).toBeGreaterThan(Date.now());
   });
 
   test("POST /displays/registration-attempts returns 403 without displays:register", async () => {
@@ -701,9 +811,11 @@ describe("Displays routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const json = await parseJson<{ id: string; displaySlug: string }>(response);
-    expect(json.id).toBe(displayId);
-    expect(json.displaySlug).toBe("lobby-display");
+    const json = await parseJson<{
+      data: { id: string; displaySlug: string };
+    }>(response);
+    expect(json.data.id).toBe(displayId);
+    expect(json.data.displaySlug).toBe("lobby-display");
   });
 
   test("PATCH /displays/:id updates display with displays:update permission", async () => {
@@ -726,11 +838,11 @@ describe("Displays routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const json = await parseJson<{ name: string; screenWidth: number | null }>(
-      response,
-    );
-    expect(json.name).toBe("Lobby Updated");
-    expect(json.screenWidth).toBe(1920);
+    const json = await parseJson<{
+      data: { name: string; screenWidth: number | null };
+    }>(response);
+    expect(json.data.name).toBe("Lobby Updated");
+    expect(json.data.screenWidth).toBe(1920);
   });
 
   test("POST /displays/:id/refresh queues refresh with displays:update permission", async () => {
@@ -786,8 +898,8 @@ describe("Displays routes", () => {
       body: JSON.stringify({ name: "Lobby", colorIndex: 2 }),
     });
 
-    expect(create.status).toBe(200);
-    const created = await parseJson<{ id: string }>(create);
+    expect(create.status).toBe(201);
+    const created = await parseJson<{ data: { id: string } }>(create);
 
     const response = await app.request(`/displays/${displayId}/groups`, {
       method: "PUT",
@@ -795,14 +907,14 @@ describe("Displays routes", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ groupIds: [created.id, created.id] }),
+      body: JSON.stringify({ groupIds: [created.data.id, created.data.id] }),
     });
 
     expect(response.status).toBe(204);
     expect(setDisplayGroupsCalls).toEqual([
       {
         displayId,
-        groupIds: [created.id],
+        groupIds: [created.data.id],
       },
     ]);
   });

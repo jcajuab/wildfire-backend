@@ -139,6 +139,11 @@ describe("Module repositories (integration)", () => {
     );
 
     await db.execute(sql`
+      INSERT INTO users (id, username, email, name, is_active)
+      VALUES ('user-1', 'user-1', 'user-1@example.com', 'User 1', true)
+      ON DUPLICATE KEY UPDATE id = id
+    `);
+    await db.execute(sql`
       INSERT INTO content (id, title, type, status, file_key, checksum, mime_type, file_size, created_by_id)
       VALUES ('content-1', 'Welcome', 'IMAGE', 'READY', 'content/images/a.png', 'abc', 'image/png', 100, 'user-1')
     `);
@@ -162,10 +167,26 @@ describe("Module repositories (integration)", () => {
   });
 
   maybeTest("ScheduleDbRepository creates schedule", async () => {
-    await setup();
+    const { db } = await setup();
     const { ScheduleDbRepository } = await import(
       "#/infrastructure/db/repositories/schedule.repo"
     );
+
+    await db.execute(sql`
+      INSERT INTO users (id, username, email, name, is_active)
+      VALUES ('user-1', 'user-1', 'user-1@example.com', 'User 1', true)
+      ON DUPLICATE KEY UPDATE id = id
+    `);
+    await db.execute(sql`
+      INSERT INTO displays (id, display_slug, name, status, display_output)
+      VALUES ('display-1', 'display-1', 'Display 1', 'READY', 'unknown')
+      ON DUPLICATE KEY UPDATE id = id
+    `);
+    await db.execute(sql`
+      INSERT INTO playlists (id, name, description, status, created_by_id)
+      VALUES ('playlist-1', 'Playlist 1', NULL, 'DRAFT', 'user-1')
+      ON DUPLICATE KEY UPDATE id = id
+    `);
 
     const scheduleRepo = new ScheduleDbRepository();
     const created = await scheduleRepo.create({
@@ -182,14 +203,14 @@ describe("Module repositories (integration)", () => {
   });
 
   maybeTest(
-    "DisplayPairingCodeDbRepository consumes valid code once",
+    "DisplayPairingCodeRedisRepository consumes valid code once",
     async () => {
       await setup();
-      const { DisplayPairingCodeDbRepository } = await import(
+      const { DisplayPairingCodeRedisRepository } = await import(
         "#/infrastructure/db/repositories/display-pairing-code.repo"
       );
 
-      const repo = new DisplayPairingCodeDbRepository();
+      const repo = new DisplayPairingCodeRedisRepository();
       const created = await repo.create({
         codeHash: "hash-1",
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),

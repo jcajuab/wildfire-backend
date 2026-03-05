@@ -2,7 +2,6 @@ import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   type AuthorizationRepository,
   type PermissionRepository,
-  type PolicyHistoryRepository,
   type RolePermissionRepository,
   type RoleRepository,
   type UserRepository,
@@ -207,7 +206,6 @@ export class SetUserRolesUseCase {
       userRepository: UserRepository;
       roleRepository: RoleRepository;
       userRoleRepository: UserRoleRepository;
-      policyHistoryRepository: PolicyHistoryRepository;
       permissionRepository: PermissionRepository;
       rolePermissionRepository: RolePermissionRepository;
       authorizationRepository: AuthorizationRepository;
@@ -217,17 +215,11 @@ export class SetUserRolesUseCase {
   async execute(input: {
     userId: string;
     roleIds: string[];
-    policyVersion?: number;
     actorId?: string;
     requestId?: string;
   }) {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
-
-    const currentAssignments =
-      await this.deps.userRoleRepository.listRolesByUserId(input.userId);
-    const currentRoleIds = new Set(currentAssignments.map((a) => a.roleId));
-    const nextRoleIds = new Set(input.roleIds);
 
     const targetIsRoot = this.deps.authorizationRepository.isRootUser
       ? await this.deps.authorizationRepository.isRootUser(input.userId)
@@ -276,27 +268,6 @@ export class SetUserRolesUseCase {
       input.userId,
       input.roleIds,
     );
-
-    if (input.policyVersion !== undefined) {
-      const addedCount = [...nextRoleIds].filter(
-        (roleId) => !currentRoleIds.has(roleId),
-      ).length;
-      const removedCount = [...currentRoleIds].filter(
-        (roleId) => !nextRoleIds.has(roleId),
-      ).length;
-
-      await this.deps.policyHistoryRepository.create({
-        policyVersion: input.policyVersion,
-        changeType: "user_roles",
-        targetId: input.userId,
-        targetType: "user",
-        actorId: input.actorId,
-        requestId: input.requestId,
-        targetCount: nextRoleIds.size,
-        addedCount,
-        removedCount,
-      });
-    }
 
     const roles = await this.deps.roleRepository.list();
     return roles.filter((role) => input.roleIds.includes(role.id));

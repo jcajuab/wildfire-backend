@@ -186,8 +186,11 @@ describe("Content routes", () => {
     });
 
     expect(response.status).toBe(201);
-    const body = await parseJson<{ id: string; title: string }>(response);
-    expect(body.title).toBe("Welcome");
+    const body = await parseJson<{ data: { id: string; title: string } }>(
+      response,
+    );
+    expect(body.data.title).toBe("Welcome");
+    expect(response.headers.get("Location")).toBe(`/content/${body.data.id}`);
   });
 
   test("GET /content returns list", async () => {
@@ -253,11 +256,11 @@ describe("Content routes", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{ downloadUrl: string }>(response);
-    expect(body.downloadUrl).toContain(
+    const body = await parseJson<{ data: { downloadUrl: string } }>(response);
+    expect(body.data.downloadUrl).toContain(
       "content/images/11111111-1111-4111-8111-111111111111.png",
     );
-    expect(body.downloadUrl).toContain("response-content-disposition=");
+    expect(body.data.downloadUrl).toContain("response-content-disposition=");
   });
 
   test("GET /content/:id/file returns 403 with only content:read", async () => {
@@ -349,8 +352,10 @@ describe("Content routes", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{ id: string; title: string }>(response);
-    expect(body.title).toBe("New Title");
+    const body = await parseJson<{ data: { id: string; title: string } }>(
+      response,
+    );
+    expect(body.data.title).toBe("New Title");
   });
 
   test("PATCH /content/:id updates content status", async () => {
@@ -385,8 +390,8 @@ describe("Content routes", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{ status: string }>(response);
-    expect(body.status).toBe("READY");
+    const body = await parseJson<{ data: { status: string } }>(response);
+    expect(body.data.status).toBe("READY");
   });
 
   test("PATCH /content/:id returns 404 for missing content", async () => {
@@ -465,15 +470,17 @@ describe("Content routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      title: string;
-      type: string;
-      status: string;
-      mimeType: string;
+      data: {
+        title: string;
+        type: string;
+        status: string;
+        mimeType: string;
+      };
     }>(response);
-    expect(body.title).toBe("New Video");
-    expect(body.type).toBe("VIDEO");
-    expect(body.status).toBe("READY");
-    expect(body.mimeType).toBe("video/mp4");
+    expect(body.data.title).toBe("New Video");
+    expect(body.data.type).toBe("VIDEO");
+    expect(body.data.status).toBe("READY");
+    expect(body.data.mimeType).toBe("video/mp4");
   });
 
   test("PUT /content/:id/file returns 409 when content is in use", async () => {

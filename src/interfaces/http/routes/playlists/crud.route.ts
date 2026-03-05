@@ -6,6 +6,7 @@ import {
   conflict,
   errorResponseSchema,
   toApiListResponse,
+  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -115,7 +116,8 @@ export const registerPlaylistCrudRoutes = (args: {
           createdById: c.get("userId"),
         });
         c.set("resourceId", result.id);
-        return c.json(result, 201);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        return c.json(toApiResponse(result), 201);
       },
       ...applicationErrorMappers,
     ),
@@ -156,7 +158,7 @@ export const registerPlaylistCrudRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const result = await useCases.getPlaylist.execute({ id: params.id });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),
@@ -195,7 +197,7 @@ export const registerPlaylistCrudRoutes = (args: {
           name: payload.name,
           description: payload.description,
         });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

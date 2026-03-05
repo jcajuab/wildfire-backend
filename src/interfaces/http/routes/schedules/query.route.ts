@@ -3,6 +3,7 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   errorResponseSchema,
   toApiListResponse,
+  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -107,7 +108,7 @@ export const registerScheduleQueryRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const result = await useCases.getSchedule.execute({ id: params.id });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

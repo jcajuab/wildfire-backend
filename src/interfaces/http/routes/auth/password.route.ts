@@ -83,7 +83,7 @@ export const registerAuthPasswordRoute = (args: {
     withRouteErrorHandling(
       async (c) => {
         const userId = c.get("userId");
-        const allowed = deps.authSecurityStore.consumeEndpointAttempt({
+        const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `password-change|${userId}|${resolveClientIp({
             forwardedFor: c.req.header("x-forwarded-for"),
             realIp: c.req.header("x-real-ip"),

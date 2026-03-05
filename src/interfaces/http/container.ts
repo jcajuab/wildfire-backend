@@ -3,22 +3,20 @@ import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.ve
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
-import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-session.repo";
+import { AuthSessionRedisRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
-import { DisplayAuthNonceDbRepository } from "#/infrastructure/db/repositories/display-auth-nonce.repo";
+import { DisplayAuthNonceRedisRepository } from "#/infrastructure/db/repositories/display-auth-nonce.repo";
 import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
 import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
-import { DisplayPairingCodeDbRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
-import { DisplayPairingSessionDbRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
-import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
-import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
+import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
+import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
+import { InvitationRedisRepository } from "#/infrastructure/db/repositories/invitation.repo";
+import { PasswordResetTokenRedisRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
-import { PolicyHistoryDbRepository } from "#/infrastructure/db/repositories/policy-history.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
-import { RoleDeletionRequestDbRepository } from "#/infrastructure/db/repositories/role-deletion-request.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
 import { SystemSettingDbRepository } from "#/infrastructure/db/repositories/system-setting.repo";
@@ -54,22 +52,20 @@ export interface HttpContainer {
     permissionRepository: PermissionDbRepository;
     userRoleRepository: UserRoleDbRepository;
     rolePermissionRepository: RolePermissionDbRepository;
-    policyHistoryRepository: PolicyHistoryDbRepository;
-    roleDeletionRequestRepository: RoleDeletionRequestDbRepository;
     authorizationRepository: AuthorizationDbRepository;
-    authSessionRepository: AuthSessionDbRepository;
+    authSessionRepository: AuthSessionRedisRepository;
     auditEventRepository: AuditEventDbRepository;
     contentRepository: ContentDbRepository;
     playlistRepository: PlaylistDbRepository;
     scheduleRepository: ScheduleDbRepository;
     displayRepository: DisplayDbRepository;
     displayGroupRepository: DisplayGroupDbRepository;
-    displayPairingCodeRepository: DisplayPairingCodeDbRepository;
+    displayPairingCodeRepository: DisplayPairingCodeRedisRepository;
     displayKeyRepository: DisplayKeyDbRepository;
-    displayPairingSessionRepository: DisplayPairingSessionDbRepository;
-    displayAuthNonceRepository: DisplayAuthNonceDbRepository;
-    passwordResetTokenRepository: PasswordResetTokenDbRepository;
-    invitationRepository: InvitationDbRepository;
+    displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
+    displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
+    passwordResetTokenRepository: PasswordResetTokenRedisRepository;
+    invitationRepository: InvitationRedisRepository;
     systemSettingRepository: SystemSettingDbRepository;
   };
   auth: {
@@ -99,23 +95,21 @@ export const createHttpContainer = (
   const permissionRepository = new PermissionDbRepository();
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
-  const policyHistoryRepository = new PolicyHistoryDbRepository();
-  const roleDeletionRequestRepository = new RoleDeletionRequestDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
-  const authSessionRepository = new AuthSessionDbRepository();
+  const authSessionRepository = new AuthSessionRedisRepository();
   const auditEventRepository = new AuditEventDbRepository();
   const contentRepository = new ContentDbRepository();
   const playlistRepository = new PlaylistDbRepository();
   const scheduleRepository = new ScheduleDbRepository();
   const displayRepository = new DisplayDbRepository();
   const displayGroupRepository = new DisplayGroupDbRepository();
-  const displayPairingCodeRepository = new DisplayPairingCodeDbRepository();
+  const displayPairingCodeRepository = new DisplayPairingCodeRedisRepository();
   const displayKeyRepository = new DisplayKeyDbRepository();
   const displayPairingSessionRepository =
-    new DisplayPairingSessionDbRepository();
-  const displayAuthNonceRepository = new DisplayAuthNonceDbRepository();
-  const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
-  const invitationRepository = new InvitationDbRepository();
+    new DisplayPairingSessionRedisRepository();
+  const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
+  const passwordResetTokenRepository = new PasswordResetTokenRedisRepository();
+  const invitationRepository = new InvitationRedisRepository();
   const systemSettingRepository = new SystemSettingDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
@@ -149,8 +143,6 @@ export const createHttpContainer = (
       permissionRepository,
       userRoleRepository,
       rolePermissionRepository,
-      policyHistoryRepository,
-      roleDeletionRequestRepository,
       authorizationRepository,
       authSessionRepository,
       auditEventRepository,

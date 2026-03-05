@@ -1,5 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -59,7 +60,8 @@ export const registerRbacRoleWriteRoutes = (args: {
         const payload = c.req.valid("json");
         const role = await useCases.createRole.execute(payload);
         c.set("resourceId", role.id);
-        return c.json(role, 201);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(role.id)}`);
+        return c.json(toApiResponse(role), 201);
       },
       ...applicationErrorMappers,
     ),
@@ -102,7 +104,7 @@ export const registerRbacRoleWriteRoutes = (args: {
           id: params.id,
           ...payload,
         });
-        return c.json(role);
+        return c.json(toApiResponse(role));
       },
       ...applicationErrorMappers,
     ),
