@@ -7,7 +7,7 @@ const usage = [
   "Usage: bun run db:seed -- [--dry-run]",
   "",
   "Purpose:",
-  "  Seed demo data for local development (permissions, RBAC demo users/roles, displays, content, playlists, schedules, and audit events).",
+  "  Seed demo data for local development (permissions, displays, content, playlists, schedules, and audit events).",
   "  Startup remains responsible for root identity enforcement.",
   "",
   "Flags:",

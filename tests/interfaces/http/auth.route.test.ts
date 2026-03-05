@@ -23,6 +23,7 @@ import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hash
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
+import { normalizeApiPayload } from "#/interfaces/http/responses";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { InMemoryAuthSecurityStore } from "../../helpers/in-memory-auth-security.store";
 
@@ -32,6 +33,7 @@ const fixturePath = path.join(
 );
 const tokenTtlSeconds = 60 * 60;
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
+type ApiData<T> = { data: T };
 
 const DEACTIVATED_MESSAGE =
   "Your account is currently deactivated. Please contact your administrator.";
@@ -343,6 +345,23 @@ const buildApp = (opts?: {
   });
 
   const app = new Hono();
+  app.use("*", async (c, next) => {
+    const originalJson = c.json.bind(c) as (
+      body: unknown,
+      ...rest: unknown[]
+    ) => Response;
+    (c as { json: typeof originalJson }).json = ((
+      value: unknown,
+      init,
+      headers,
+    ) => {
+      const normalized = normalizeApiPayload(value, {
+        requestUrl: c.req.url,
+      });
+      return originalJson(normalized, init as unknown, headers as unknown);
+    }) as typeof originalJson;
+    await next();
+  });
   app.route("/auth", authRouter);
   return { app, nowSeconds };
 };
@@ -379,22 +398,25 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{
-      type: "bearer";
-      token: string;
-      expiresAt: string;
-      user: {
-        id: string;
-        username: string;
-        email: string | null;
-        name: string;
-        timezone: string | null;
-        isRoot: boolean;
-      };
-      permissions: string[];
-    }>(response);
+    const body =
+      await parseJson<
+        ApiData<{
+          type: "bearer";
+          token: string;
+          expiresAt: string;
+          user: {
+            id: string;
+            username: string;
+            email: string | null;
+            name: string;
+            timezone: string | null;
+            isRoot: boolean;
+          };
+          permissions: string[];
+        }>
+      >(response);
 
-    expect(body).toMatchObject({
+    expect(body.data).toMatchObject({
       type: "bearer",
       expiresAt: new Date(
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
@@ -409,7 +431,7 @@ describe("Auth routes", () => {
       },
       permissions: ["roles:read", "roles:create"],
     });
-    expect(typeof body.token).toBe("string");
+    expect(typeof body.data.token).toBe("string");
   });
 
   test("POST /auth/login returns 401 for invalid credentials", async () => {
@@ -474,8 +496,9 @@ describe("Auth routes", () => {
       }),
     });
 
-    const loginBody = await parseJson<{ token: string }>(loginResponse);
-    const token = loginBody.token;
+    const loginBody =
+      await parseJson<ApiData<{ token: string }>>(loginResponse);
+    const token = loginBody.data.token;
 
     const response = await app.request("/auth/session/refresh", {
       method: "POST",
@@ -483,22 +506,25 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{
-      type: "bearer";
-      token: string;
-      expiresAt: string;
-      user: {
-        id: string;
-        username: string;
-        email: string | null;
-        name: string;
-        timezone: string | null;
-        isRoot: boolean;
-      };
-      permissions: string[];
-    }>(response);
+    const body =
+      await parseJson<
+        ApiData<{
+          type: "bearer";
+          token: string;
+          expiresAt: string;
+          user: {
+            id: string;
+            username: string;
+            email: string | null;
+            name: string;
+            timezone: string | null;
+            isRoot: boolean;
+          };
+          permissions: string[];
+        }>
+      >(response);
 
-    expect(body).toMatchObject({
+    expect(body.data).toMatchObject({
       type: "bearer",
       expiresAt: new Date(
         nowSeconds * 1000 + tokenTtlSeconds * 1000,
@@ -513,7 +539,7 @@ describe("Auth routes", () => {
       },
       permissions: ["roles:read", "roles:create"],
     });
-    expect(typeof body.token).toBe("string");
+    expect(typeof body.data.token).toBe("string");
   });
 
   test("POST /auth/session/refresh returns 401 for invalid token payload", async () => {
@@ -550,7 +576,8 @@ describe("Auth routes", () => {
       }),
     });
 
-    const { token } = await parseJson<{ token: string }>(loginResponse);
+    const { data } = await parseJson<ApiData<{ token: string }>>(loginResponse);
+    const { token } = data;
 
     const response = await app.request("/auth/logout", {
       method: "POST",
@@ -577,14 +604,17 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await parseJson<{
-      user: {
-        name: string;
-        timezone: string | null;
-      };
-    }>(response);
-    expect(body.user.name).toBe("Updated Name");
-    expect(body.user.timezone).toBe("Asia/Taipei");
+    const body =
+      await parseJson<
+        ApiData<{
+          user: {
+            name: string;
+            timezone: string | null;
+          };
+        }>
+      >(response);
+    expect(body.data.user.name).toBe("Updated Name");
+    expect(body.data.user.timezone).toBe("Asia/Taipei");
   });
 
   test("POST /auth/password/change returns 204 when current password is valid", async () => {
@@ -700,13 +730,16 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(201);
-    const body = await parseJson<{
-      id: string;
-      expiresAt: string;
-      inviteUrl?: string;
-    }>(response);
-    expect(body.id).toEqual(expect.any(String));
-    expect(body.expiresAt).toEqual(expect.any(String));
+    const body =
+      await parseJson<
+        ApiData<{
+          id: string;
+          expiresAt: string;
+          inviteUrl?: string;
+        }>
+      >(response);
+    expect(body.data.id).toEqual(expect.any(String));
+    expect(body.data.expiresAt).toEqual(expect.any(String));
     expect(inviteUrl).toContain("token=");
   });
 
@@ -778,10 +811,10 @@ describe("Auth routes", () => {
       },
       body: JSON.stringify({ email: "resend.invite@example.com" }),
     });
-    const created = await parseJson<{ id: string }>(createResponse);
+    const created = await parseJson<ApiData<{ id: string }>>(createResponse);
 
     const resendResponse = await app.request(
-      `/auth/invitations/${created.id}/resend`,
+      `/auth/invitations/${created.data.id}/resend`,
       {
         method: "POST",
         headers: {
@@ -791,8 +824,8 @@ describe("Auth routes", () => {
     );
 
     expect(resendResponse.status).toBe(201);
-    const resent = await parseJson<{ id: string }>(resendResponse);
-    expect(resent.id).not.toBe(created.id);
+    const resent = await parseJson<ApiData<{ id: string }>>(resendResponse);
+    expect(resent.data.id).not.toBe(created.data.id);
     expect(inviteUrls).toHaveLength(2);
     expect(inviteUrls.at(-1)).toContain("token=");
   });

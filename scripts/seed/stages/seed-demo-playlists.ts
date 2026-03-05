@@ -2,6 +2,9 @@ import { DEMO_PLAYLISTS, DEMO_USERS } from "../fixtures";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
 
 const DRY_RUN_PLAYLIST_OWNER_ID = "dry-run:demo.content";
+const DEMO_PLAYLIST_OWNER_USERNAME =
+  DEMO_USERS.find((user) => user.username === "demo.content")?.username ??
+  "demo.content";
 
 const sameItems = (
   left: Array<{ contentId: string; sequence: number; duration: number }>,
@@ -27,13 +30,15 @@ export async function runSeedDemoPlaylists(
   let updated = 0;
   let skipped = 0;
 
-  const playlistOwner = await ctx.repos.userRepository.findByUsername(
-    DEMO_USERS.find((user) => user.username === "demo.content")?.username ??
-      "demo.content",
-  );
+  const playlistOwner =
+    (await ctx.repos.userRepository.findByUsername(
+      DEMO_PLAYLIST_OWNER_USERNAME,
+    )) ??
+    (await ctx.repos.userRepository.list())[0] ??
+    null;
   if (!playlistOwner && !ctx.args.dryRun) {
     throw new Error(
-      "Missing demo playlist owner user. Run seed-demo-rbac before seed-demo-playlists.",
+      "Missing playlist owner user. Create at least one user before running db:seed.",
     );
   }
   const playlistOwnerId = playlistOwner?.id ?? DRY_RUN_PLAYLIST_OWNER_ID;

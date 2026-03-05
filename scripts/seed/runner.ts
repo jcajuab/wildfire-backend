@@ -17,13 +17,11 @@ import { runSeedDemoContentJobs } from "./stages/seed-demo-content-jobs";
 import { runSeedDemoDisplays } from "./stages/seed-demo-displays";
 import { runSeedDemoPermissions } from "./stages/seed-demo-permissions";
 import { runSeedDemoPlaylists } from "./stages/seed-demo-playlists";
-import { runSeedDemoRbac } from "./stages/seed-demo-rbac";
 import { runSeedDemoSchedules } from "./stages/seed-demo-schedules";
 
 export const buildSeedStages = (): SeedStage[] => {
   return [
     { name: "seed-demo-permissions", execute: runSeedDemoPermissions },
-    { name: "seed-demo-rbac", execute: runSeedDemoRbac },
     { name: "seed-demo-displays", execute: runSeedDemoDisplays },
     { name: "seed-demo-content", execute: runSeedDemoContent },
     { name: "seed-demo-content-jobs", execute: runSeedDemoContentJobs },

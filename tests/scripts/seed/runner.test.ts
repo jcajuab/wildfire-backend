@@ -48,7 +48,6 @@ describe("buildSeedStages", () => {
     const stages = buildSeedStages();
     expect(stages.map((stage) => stage.name)).toEqual([
       "seed-demo-permissions",
-      "seed-demo-rbac",
       "seed-demo-displays",
       "seed-demo-content",
       "seed-demo-content-jobs",

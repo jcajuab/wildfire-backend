@@ -2,6 +2,9 @@ import { DEMO_CONTENT_JOBS, DEMO_USERS } from "../fixtures";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
 
 const DRY_RUN_CONTENT_OWNER_ID = "dry-run:demo.content";
+const DEMO_CONTENT_OWNER_USERNAME =
+  DEMO_USERS.find((user) => user.username === "demo.content")?.username ??
+  "demo.content";
 
 export async function runSeedDemoContentJobs(
   ctx: SeedContext,
@@ -10,13 +13,15 @@ export async function runSeedDemoContentJobs(
   let updated = 0;
   let skipped = 0;
 
-  const contentOwner = await ctx.repos.userRepository.findByUsername(
-    DEMO_USERS.find((user) => user.username === "demo.content")?.username ??
-      "demo.content",
-  );
+  const contentOwner =
+    (await ctx.repos.userRepository.findByUsername(
+      DEMO_CONTENT_OWNER_USERNAME,
+    )) ??
+    (await ctx.repos.userRepository.list())[0] ??
+    null;
   if (!contentOwner && !ctx.args.dryRun) {
     throw new Error(
-      "Missing demo content owner user. Run seed-demo-rbac before seed-demo-content-jobs.",
+      "Missing content owner user. Create at least one user before running db:seed.",
     );
   }
   const contentOwnerId = contentOwner?.id ?? DRY_RUN_CONTENT_OWNER_ID;
