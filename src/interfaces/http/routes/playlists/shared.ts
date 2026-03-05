@@ -8,7 +8,6 @@ import {
   type UserRepository,
 } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   AddPlaylistItemUseCase,
   CreatePlaylistUseCase,
@@ -34,7 +33,6 @@ export interface PlaylistsRouterDeps {
     authorizationRepository: AuthorizationRepository;
     scheduleRepository: ScheduleRepository;
     displayRepository: DisplayRepository;
-    systemSettingRepository: SystemSettingRepository;
   };
 }
 
@@ -113,7 +111,6 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       displayRepository: deps.repositories.displayRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
       displayEventPublisher,
     }),
     updatePlaylistItem: new UpdatePlaylistItemUseCase({
@@ -121,7 +118,6 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       displayRepository: deps.repositories.displayRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
       displayEventPublisher,
     }),
     reorderPlaylistItems: new ReorderPlaylistItemsUseCase({
@@ -129,7 +125,6 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       displayRepository: deps.repositories.displayRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
       displayEventPublisher,
     }),
     deletePlaylistItem: new DeletePlaylistItemUseCase({
@@ -137,7 +132,6 @@ export const createPlaylistsUseCases = (
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
       displayRepository: deps.repositories.displayRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
       displayEventPublisher,
     }),
   };

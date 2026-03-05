@@ -12,10 +12,6 @@ import {
 } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import {
-  DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-  type SystemSettingRepository,
-} from "#/application/ports/settings";
 import { sha256Hex } from "#/domain/content/checksum";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
@@ -429,7 +425,6 @@ export class GetDisplayManifestUseCase {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
       displayRepository: DisplayRepository;
-      systemSettingRepository: SystemSettingRepository;
       downloadUrlExpiresInSeconds: number;
       scheduleTimeZone?: string;
     },
@@ -526,18 +521,8 @@ export class GetDisplayManifestUseCase {
   }
 
   private async getRuntimeSettings(): Promise<{ scrollPxPerSecond: number }> {
-    const setting = await this.deps.systemSettingRepository.findByKey(
-      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-    );
-    if (!setting) {
-      return { scrollPxPerSecond: DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND };
-    }
-    const parsed = Number.parseInt(setting.value, 10);
     return {
-      scrollPxPerSecond:
-        Number.isInteger(parsed) && parsed > 0
-          ? parsed
-          : DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND,
+      scrollPxPerSecond: DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND,
     };
   }
 }

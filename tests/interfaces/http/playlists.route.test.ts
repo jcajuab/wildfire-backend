@@ -221,15 +221,6 @@ const makeApp = async (
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async (input) => ({
-          key: input.key,
-          value: input.value,
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        }),
-      },
     },
   });
 

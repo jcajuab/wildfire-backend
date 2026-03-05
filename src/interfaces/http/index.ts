@@ -34,7 +34,6 @@ import { healthRouter } from "#/interfaces/http/routes/health.route";
 import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
 import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
-import { createSettingsRouter } from "#/interfaces/http/routes/settings.route";
 import { RedisAuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import { runStartupAuthIdentitySync } from "#/interfaces/http/startup/auth-identity.sync";
 import packageJSON from "#/package.json" with { type: "json" };
@@ -189,7 +188,6 @@ const playlistsRouter = createPlaylistsRouter({
     authorizationRepository: container.repositories.authorizationRepository,
     scheduleRepository: container.repositories.scheduleRepository,
     displayRepository: container.repositories.displayRepository,
-    systemSettingRepository: container.repositories.systemSettingRepository,
   },
 });
 
@@ -203,7 +201,6 @@ const schedulesRouter = createSchedulesRouter({
     displayRepository: container.repositories.displayRepository,
     contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
-    systemSettingRepository: container.repositories.systemSettingRepository,
   },
 });
 
@@ -225,7 +222,6 @@ const displaysRouter = createDisplaysRouter({
     displayPairingSessionRepository:
       container.repositories.displayPairingSessionRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
-    systemSettingRepository: container.repositories.systemSettingRepository,
   },
   storage: container.storage.contentStorage,
 });
@@ -245,7 +241,6 @@ const displayRouter = createDisplayRouter({
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
-    systemSettingRepository: container.repositories.systemSettingRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
     displayAuthNonceRepository:
       container.repositories.displayAuthNonceRepository,
@@ -295,17 +290,6 @@ const auditRouter = createAuditRouter({
     auditEventRepository: container.repositories.auditEventRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     userRepository: container.repositories.userRepository,
-    displayRepository: container.repositories.displayRepository,
-  },
-});
-
-const settingsRouter = createSettingsRouter({
-  jwtSecret: env.JWT_SECRET,
-  authSessionRepository: container.repositories.authSessionRepository,
-  authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  repositories: {
-    authorizationRepository: container.repositories.authorizationRepository,
-    systemSettingRepository: container.repositories.systemSettingRepository,
     displayRepository: container.repositories.displayRepository,
   },
 });
@@ -414,7 +398,6 @@ app.route("/api/v1/displays", displaysRouter);
 app.route("/api/v1/display-runtime", displayRouter);
 app.route("/api/v1/content", contentRouter);
 app.route("/api/v1/audit", auditRouter);
-app.route("/api/v1/settings", settingsRouter);
 app.route("/api/v1", rbacRouter);
 
 app.onError((err, c) => {

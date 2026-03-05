@@ -5,7 +5,6 @@ import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   CreateScheduleUseCase,
   DeleteScheduleUseCase,
@@ -26,7 +25,6 @@ export interface SchedulesRouterDeps {
     displayRepository: DisplayRepository;
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
-    systemSettingRepository: SystemSettingRepository;
   };
 }
 
@@ -83,7 +81,6 @@ export const createSchedulesUseCases = (
       playlistRepository: deps.repositories.playlistRepository,
       displayRepository: deps.repositories.displayRepository,
       contentRepository: deps.repositories.contentRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
       displayEventPublisher,
     }),
     getSchedule: new GetScheduleUseCase({
@@ -96,7 +93,6 @@ export const createSchedulesUseCases = (
       playlistRepository: deps.repositories.playlistRepository,
       displayRepository: deps.repositories.displayRepository,
       contentRepository: deps.repositories.contentRepository,
-      systemSettingRepository: deps.repositories.systemSettingRepository,
       displayEventPublisher,
     }),
     deleteSchedule: new DeleteScheduleUseCase({

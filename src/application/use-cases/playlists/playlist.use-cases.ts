@@ -9,10 +9,6 @@ import {
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
-  DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-  type SystemSettingRepository,
-} from "#/application/ports/settings";
-import {
   isValidDuration,
   isValidSequence,
   type PlaylistStatus,
@@ -107,7 +103,6 @@ const invalidateImpactedSchedules = async (
   deps: {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
-    systemSettingRepository?: SystemSettingRepository;
     scheduleRepository?: ScheduleRepository;
     displayRepository?: DisplayRepository;
     displayEventPublisher?: DisplayStreamEventPublisher;
@@ -117,9 +112,7 @@ const invalidateImpactedSchedules = async (
   if (!deps.scheduleRepository || !deps.displayRepository) {
     return;
   }
-  const scrollPxPerSecond = await resolveScrollPxPerSecond(
-    deps.systemSettingRepository,
-  );
+  const scrollPxPerSecond = DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
   const schedules = await deps.scheduleRepository.list();
   const impacted = schedules.filter(
     (schedule) => schedule.playlistId === playlistId && schedule.isActive,
@@ -156,18 +149,6 @@ const invalidateImpactedSchedules = async (
       });
     }
   }
-};
-
-const resolveScrollPxPerSecond = async (
-  systemSettingRepository?: SystemSettingRepository,
-): Promise<number> => {
-  const setting = await systemSettingRepository?.findByKey(
-    DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-  );
-  const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
-  return Number.isInteger(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
 };
 
 export class ListPlaylistsUseCase {
@@ -396,7 +377,6 @@ export class AddPlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
@@ -458,7 +438,6 @@ export class UpdatePlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
@@ -497,7 +476,6 @@ export class ReorderPlaylistItemsUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
@@ -536,7 +514,6 @@ export class DeletePlaylistItemUseCase {
     private readonly deps: {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
       scheduleRepository?: ScheduleRepository;
       displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;

@@ -25,7 +25,6 @@ describe("createHttpContainer", () => {
     expect(container.repositories.auditEventRepository).toBeDefined();
     expect(container.repositories.contentRepository).toBeDefined();
     expect(container.repositories.invitationRepository).toBeDefined();
-    expect(container.repositories.systemSettingRepository).toBeDefined();
     expect(container.auth.credentialsRepository).toBeDefined();
     expect(container.auth.passwordVerifier).toBeDefined();
     expect(container.auth.passwordHasher).toBeDefined();

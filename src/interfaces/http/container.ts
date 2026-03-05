@@ -19,7 +19,6 @@ import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
 import { RolePermissionDbRepository } from "#/infrastructure/db/repositories/role-permission.repo";
 import { ScheduleDbRepository } from "#/infrastructure/db/repositories/schedule.repo";
-import { SystemSettingDbRepository } from "#/infrastructure/db/repositories/system-setting.repo";
 import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
@@ -66,7 +65,6 @@ export interface HttpContainer {
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
     passwordResetTokenRepository: PasswordResetTokenRedisRepository;
     invitationRepository: InvitationRedisRepository;
-    systemSettingRepository: SystemSettingDbRepository;
   };
   auth: {
     credentialsRepository: HtshadowCredentialsRepository;
@@ -110,7 +108,6 @@ export const createHttpContainer = (
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const passwordResetTokenRepository = new PasswordResetTokenRedisRepository();
   const invitationRepository = new InvitationRedisRepository();
-  const systemSettingRepository = new SystemSettingDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
@@ -157,7 +154,6 @@ export const createHttpContainer = (
       displayAuthNonceRepository,
       passwordResetTokenRepository,
       invitationRepository,
-      systemSettingRepository,
     },
     auth: {
       credentialsRepository,

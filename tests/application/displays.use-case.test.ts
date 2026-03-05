@@ -506,12 +506,6 @@ describe("Displays use cases", () => {
         getPresignedDownloadUrl: async () => "",
       },
       displayRepository: repo,
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async () => {
-          throw new Error("not used");
-        },
-      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -525,7 +519,7 @@ describe("Displays use cases", () => {
     expect(result.runtimeSettings.scrollPxPerSecond).toBe(24);
   });
 
-  test("GetDisplayManifestUseCase uses persisted runtime scroll setting", async () => {
+  test("GetDisplayManifestUseCase uses default runtime scroll setting", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
@@ -586,17 +580,6 @@ describe("Displays use cases", () => {
         getPresignedDownloadUrl: async () => "",
       },
       displayRepository: repo,
-      systemSettingRepository: {
-        findByKey: async () => ({
-          key: "display_runtime_scroll_px_per_second",
-          value: "36",
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        }),
-        upsert: async () => {
-          throw new Error("not used");
-        },
-      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -604,7 +587,7 @@ describe("Displays use cases", () => {
       displayId: created.id,
       now: new Date("2025-01-01T00:00:00.000Z"),
     });
-    expect(result.runtimeSettings.scrollPxPerSecond).toBe(36);
+    expect(result.runtimeSettings.scrollPxPerSecond).toBe(24);
   });
 
   test("GetDisplayManifestUseCase version changes after refresh request", async () => {
@@ -712,12 +695,6 @@ describe("Displays use cases", () => {
         getPresignedDownloadUrl: async () => "https://example.com/file",
       },
       displayRepository: repo,
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async () => {
-          throw new Error("not used");
-        },
-      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -884,12 +861,6 @@ describe("Displays use cases", () => {
         getPresignedDownloadUrl: async () => "https://example.com/file",
       },
       displayRepository: repo,
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async () => {
-          throw new Error("not used");
-        },
-      },
       downloadUrlExpiresInSeconds: 3600,
     });
 
@@ -1058,12 +1029,6 @@ describe("Displays use cases", () => {
         },
       },
       displayRepository: repo,
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async () => {
-          throw new Error("not used");
-        },
-      },
       downloadUrlExpiresInSeconds: 3600,
     });
 

@@ -640,8 +640,7 @@ export const registerDisplayStaffRoutes = (args: {
               error,
               "displays_fingerprint_output_unique",
             ) ||
-            isDuplicateIndexError(error, "display_keys_display_id_unique") ||
-            isDuplicateIndexError(error, "display_keys_id_unique")
+            isDuplicateIndexError(error, "display_keys_display_id_unique")
           ) {
             throw new DisplayConflictError(
               "Display slug, fingerprint/output, or key already exists",

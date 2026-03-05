@@ -4,10 +4,6 @@ import { type DisplayStreamEventPublisher } from "#/application/ports/display-st
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import {
-  DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-  type SystemSettingRepository,
-} from "#/application/ports/settings";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import {
   isValidDate,
@@ -203,7 +199,6 @@ export class CreateScheduleUseCase {
       playlistRepository: PlaylistRepository;
       displayRepository: DisplayRepository;
       contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
@@ -304,13 +299,7 @@ export class CreateScheduleUseCase {
   }
 
   private async getScrollPxPerSecond(): Promise<number> {
-    const setting = await this.deps.systemSettingRepository?.findByKey(
-      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-    );
-    const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
-    return Number.isInteger(parsed) && parsed > 0
-      ? parsed
-      : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
+    return DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
   }
 }
 
@@ -343,7 +332,6 @@ export class UpdateScheduleUseCase {
       playlistRepository: PlaylistRepository;
       displayRepository: DisplayRepository;
       contentRepository: ContentRepository;
-      systemSettingRepository?: SystemSettingRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
@@ -516,13 +504,7 @@ export class UpdateScheduleUseCase {
   }
 
   private async getScrollPxPerSecond(): Promise<number> {
-    const setting = await this.deps.systemSettingRepository?.findByKey(
-      DISPLAY_RUNTIME_SCROLL_PX_PER_SECOND_KEY,
-    );
-    const parsed = setting ? Number.parseInt(setting.value, 10) : NaN;
-    return Number.isInteger(parsed) && parsed > 0
-      ? parsed
-      : DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
+    return DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
   }
 }
 

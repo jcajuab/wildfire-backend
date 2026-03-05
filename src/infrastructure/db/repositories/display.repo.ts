@@ -42,18 +42,6 @@ const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
       ? row.lastSeenAt.toISOString()
       : (row.lastSeenAt ?? null),
   refreshNonce: row.refreshNonce,
-  registeredAt:
-    row.registeredAt instanceof Date
-      ? row.registeredAt.toISOString()
-      : (row.registeredAt ?? null),
-  activatedAt:
-    row.activatedAt instanceof Date
-      ? row.activatedAt.toISOString()
-      : (row.activatedAt ?? null),
-  unregisteredAt:
-    row.unregisteredAt instanceof Date
-      ? row.unregisteredAt.toISOString()
-      : (row.unregisteredAt ?? null),
   createdAt:
     row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
   updatedAt:
@@ -195,9 +183,6 @@ export class DisplayDbRepository implements DisplayRepository {
       orientation: null,
       lastSeenAt: null,
       refreshNonce: 0,
-      registeredAt: null,
-      activatedAt: null,
-      unregisteredAt: null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -230,7 +215,6 @@ export class DisplayDbRepository implements DisplayRepository {
       screenHeight: input.screenHeight,
       displayOutput: input.displayOutput,
       orientation: input.orientation ?? null,
-      registeredAt: input.now,
       createdAt: input.now,
       updatedAt: input.now,
     });

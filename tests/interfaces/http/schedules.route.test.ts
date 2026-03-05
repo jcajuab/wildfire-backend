@@ -176,15 +176,6 @@ const makeApp = async (
         listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
       },
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async (input) => ({
-          key: input.key,
-          value: input.value,
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        }),
-      },
     },
   });
 

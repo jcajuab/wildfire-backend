@@ -14,7 +14,6 @@ const TABLES = [
   "role_permissions",
   "roles",
   "schedules",
-  "system_settings",
   "user_roles",
   "users",
 ] as const;

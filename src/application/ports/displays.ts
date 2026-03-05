@@ -17,9 +17,6 @@ export interface DisplayRecord {
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
   lastSeenAt?: string | null;
   refreshNonce?: number;
-  registeredAt?: string | null;
-  activatedAt?: string | null;
-  unregisteredAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

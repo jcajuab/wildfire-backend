@@ -22,7 +22,6 @@ export const displayKeys = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    keyIdUnique: uniqueIndex("display_keys_id_unique").on(table.id),
     displayIdUnique: uniqueIndex("display_keys_display_id_unique").on(
       table.displayId,
     ),

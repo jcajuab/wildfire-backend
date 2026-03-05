@@ -16,7 +16,6 @@ import {
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   CreateDisplayGroupUseCase,
   DeleteDisplayGroupUseCase,
@@ -50,7 +49,6 @@ export interface DisplaysRouterDeps {
     displayPairingCodeRepository: DisplayPairingCodeRepository;
     displayPairingSessionRepository: DisplayPairingSessionRepository;
     displayKeyRepository: DisplayKeyRepository;
-    systemSettingRepository: SystemSettingRepository;
   };
   storage: ContentStorage;
   registrationAttemptStore?: DisplayRegistrationAttemptStore;

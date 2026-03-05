@@ -19,7 +19,6 @@ import {
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { type SystemSettingRepository } from "#/application/ports/settings";
 import {
   deriveDisplayStatus,
   GetDisplayManifestUseCase,
@@ -252,7 +251,6 @@ type DisplayRouteDeps = {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
-    systemSettingRepository: SystemSettingRepository;
     displayKeyRepository: DisplayKeyRepository;
     displayAuthNonceRepository: DisplayAuthNonceRepository;
   };
@@ -420,7 +418,6 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     contentRepository: deps.repositories.contentRepository,
     contentStorage: deps.storage,
     displayRepository: deps.repositories.displayRepository,
-    systemSettingRepository: deps.repositories.systemSettingRepository,
     downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
     scheduleTimeZone: deps.scheduleTimeZone,
   });

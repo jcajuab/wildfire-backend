@@ -30,9 +30,6 @@ const makeDisplay = (overrides?: Partial<DisplayRecord>): DisplayRecord => ({
   orientation: null,
   lastSeenAt: null,
   refreshNonce: 0,
-  registeredAt: null,
-  activatedAt: null,
-  unregisteredAt: null,
   createdAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
   ...overrides,
@@ -656,15 +653,6 @@ const makeApp = async (
       displayPairingCodeRepository,
       displayPairingSessionRepository,
       displayKeyRepository,
-      systemSettingRepository: {
-        findByKey: async () => null,
-        upsert: async (input: { key: string; value: string }) => ({
-          key: input.key,
-          value: input.value,
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        }),
-      },
     },
     storage: {
       ensureBucketExists: async () => {},
