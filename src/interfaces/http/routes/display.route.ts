@@ -24,7 +24,9 @@ import {
   GetDisplayManifestUseCase,
 } from "#/application/use-cases/displays";
 import { selectActiveSchedule } from "#/domain/schedules/schedule";
+import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
+import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   notFound,
@@ -52,6 +54,17 @@ const CHALLENGE_TTL_MS = 2 * 60 * 1000;
 const SIGNED_REQUEST_SKEW_MS = 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
 const STREAM_HEARTBEAT_INTERVAL_MS = 20 * 1000;
+const MAX_TOKEN_SEGMENTS = 2;
+const MAX_TOKEN_SEGMENT_BYTES = 2_048;
+const MAX_DISPLAY_TOKEN_FIELD_BYTES = 256;
+const MAX_KEY_ID_BYTES = 64;
+const MAX_SIGNED_SIGNATURE_BYTES = 2_048;
+const MAX_BODY_HASH_BYTES = 128;
+
+const isString = (value: unknown, maxBytes: number): value is string =>
+  typeof value === "string" &&
+  value.length > 0 &&
+  Buffer.byteLength(value) <= maxBytes;
 
 const createChallengeBodySchema = z.object({
   displaySlug: z
@@ -186,19 +199,37 @@ const parseChallengeToken = (input: {
   challengeNonce: string;
   expiresAt: string;
 } | null => {
-  const [encodedPayload, signature] = input.token.split(".");
-  if (!encodedPayload || !signature) {
+  const tokenParts = input.token.split(".");
+  if (
+    tokenParts.length !== MAX_TOKEN_SEGMENTS ||
+    tokenParts[0] == null ||
+    tokenParts[1] == null
+  ) {
     return null;
   }
+
+  const [encodedPayload, signature] = tokenParts;
+  if (
+    encodedPayload.length === 0 ||
+    signature.length === 0 ||
+    encodedPayload.length > MAX_TOKEN_SEGMENT_BYTES ||
+    signature.length > MAX_SIGNED_SIGNATURE_BYTES
+  ) {
+    return null;
+  }
+
   const expected = signChallengeToken(encodedPayload, input.secret);
   if (!safeCompare(expected, signature)) {
     return null;
   }
 
   try {
-    const payload = JSON.parse(
-      fromBase64Url(encodedPayload).toString("utf8"),
-    ) as {
+    const payloadBytes = fromBase64Url(encodedPayload);
+    if (payloadBytes.length > MAX_DISPLAY_TOKEN_FIELD_BYTES) {
+      return null;
+    }
+
+    const payload = JSON.parse(payloadBytes.toString("utf8")) as {
       id?: string;
       s?: string;
       k?: string;
@@ -207,11 +238,11 @@ const parseChallengeToken = (input: {
     };
 
     if (
-      typeof payload.id !== "string" ||
-      typeof payload.s !== "string" ||
-      typeof payload.k !== "string" ||
-      typeof payload.n !== "string" ||
-      typeof payload.e !== "string"
+      !isString(payload.id, MAX_DISPLAY_TOKEN_FIELD_BYTES) ||
+      !isString(payload.s, MAX_DISPLAY_TOKEN_FIELD_BYTES) ||
+      !isString(payload.k, MAX_KEY_ID_BYTES) ||
+      !isString(payload.n, MAX_DISPLAY_TOKEN_FIELD_BYTES) ||
+      !isString(payload.e, MAX_DISPLAY_TOKEN_FIELD_BYTES)
     ) {
       return null;
     }
@@ -261,15 +292,6 @@ type DisplayVars = {
   displayId: string;
 };
 
-const resolveClientIp = (headers: {
-  forwardedFor?: string;
-  realIp?: string;
-}): string => {
-  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  return headers.realIp?.trim() || "unknown";
-};
-
 const createRuntimeRateLimitMiddleware = (
   deps: DisplayRouteDeps,
   input: {
@@ -281,8 +303,14 @@ const createRuntimeRateLimitMiddleware = (
   return async (c: ResponseContext, next: () => Promise<void>) => {
     const nowMs = Date.now();
     const ip = resolveClientIp({
-      forwardedFor: c.req.header("x-forwarded-for"),
-      realIp: c.req.header("x-real-ip"),
+      headers: {
+        forwardedFor: c.req.header("x-forwarded-for"),
+        realIp: c.req.header("x-real-ip"),
+        cfConnectingIp: c.req.header("cf-connecting-ip"),
+        xClientIp: c.req.header("x-client-ip"),
+        forwarded: c.req.header("forwarded"),
+      },
+      trustProxyHeaders: env.TRUST_PROXY_HEADERS,
     });
     const key = `${input.keyPrefix}|${ip}`;
     const stats = await deps.authSecurityStore.consumeEndpointAttemptWithStats({
@@ -342,6 +370,17 @@ const signedDisplayRequest = (deps: DisplayRouteDeps) => {
       !slugHeader
     ) {
       return unauthorized(c, "Missing signed request headers");
+    }
+
+    if (
+      !isString(keyId, MAX_KEY_ID_BYTES) ||
+      !isString(timestamp, MAX_DISPLAY_TOKEN_FIELD_BYTES) ||
+      !isString(nonce, MAX_DISPLAY_TOKEN_FIELD_BYTES) ||
+      !isString(signature, MAX_SIGNED_SIGNATURE_BYTES) ||
+      !isString(bodyHashHeader, MAX_BODY_HASH_BYTES) ||
+      !isString(slugHeader, MAX_DISPLAY_TOKEN_FIELD_BYTES)
+    ) {
+      return unauthorized(c, "Invalid signed request header format");
     }
     if (slugHeader !== slug) {
       return unauthorized(c, "Display slug mismatch");
@@ -582,28 +621,79 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       const encoder = new TextEncoder();
       let unsubscribe: (() => void) | null = null;
       let heartbeat: ReturnType<typeof setInterval> | null = null;
+      let isClosed = false;
+      let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+        null;
+
+      const safeEnqueue = (frame: string | Uint8Array): void => {
+        if (isClosed) {
+          return;
+        }
+        if (!streamController) {
+          return;
+        }
+        try {
+          streamController.enqueue(
+            typeof frame === "string" ? encoder.encode(frame) : frame,
+          );
+        } catch {
+          isClosed = true;
+          if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+          }
+          if (heartbeat) {
+            clearInterval(heartbeat);
+            heartbeat = null;
+          }
+          closeStreamController();
+        }
+      };
+
+      const closeStream = (): void => {
+        if (isClosed) {
+          return;
+        }
+        isClosed = true;
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+        if (heartbeat) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
+      };
+
+      const closeStreamController = (): void => {
+        if (!streamController) {
+          return;
+        }
+        try {
+          streamController.close();
+        } catch {
+          // Ignore repeated close attempts after stream teardown.
+        }
+      };
 
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.enqueue(
-            encoder.encode(
-              `event: connected\ndata: ${JSON.stringify({ displayId, timestamp: new Date().toISOString() })}\n\n`,
-            ),
+          streamController = controller;
+          safeEnqueue(
+            `event: connected\ndata: ${JSON.stringify({ displayId, timestamp: new Date().toISOString() })}\n\n`,
           );
           unsubscribe = subscribeToDisplayStream(displayId, (event) => {
-            controller.enqueue(
-              encoder.encode(
-                `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
-              ),
+            safeEnqueue(
+              `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
             );
           });
           heartbeat = setInterval(() => {
-            controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            safeEnqueue(": heartbeat\n\n");
           }, STREAM_HEARTBEAT_INTERVAL_MS);
         },
         cancel() {
-          if (unsubscribe) unsubscribe();
-          if (heartbeat) clearInterval(heartbeat);
+          closeStream();
+          closeStreamController();
         },
       });
 

@@ -1,4 +1,5 @@
 import { type PasswordResetEmailSender } from "#/application/ports/notifications";
+import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 
 export class LogPasswordResetEmailSender implements PasswordResetEmailSender {
@@ -17,7 +18,7 @@ export class LogPasswordResetEmailSender implements PasswordResetEmailSender {
       "Password reset email dispatch requested",
     );
 
-    if (process.env.NODE_ENV === "development") {
+    if (env.NODE_ENV === "development") {
       logger.info(
         {
           component: "notifications",

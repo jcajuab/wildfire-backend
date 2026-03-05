@@ -1,38 +1,69 @@
 import {
-  type ContentMetadataExtractor,
   type ContentRepository,
   type ContentStorage,
-  type ContentThumbnailGenerator,
 } from "#/application/ports/content";
-import { type CleanupFailureLogger } from "#/application/ports/observability";
+import {
+  type ContentIngestionJobRepository,
+  type ContentIngestionQueue,
+  type ContentJobEventPublisher,
+} from "#/application/ports/content-jobs";
 import { type UserRepository } from "#/application/ports/rbac";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
   buildContentFileKey,
-  buildContentThumbnailKey,
   resolveContentType,
 } from "#/domain/content/content";
+import { toContentJobView } from "./content-job-view";
 import { toContentView } from "./content-view";
-import {
-  ContentMetadataExtractionError,
-  ContentStorageCleanupError,
-  InvalidContentTypeError,
-  NotFoundError,
-} from "./errors";
+import { InvalidContentTypeError, NotFoundError } from "./errors";
 
 export class UploadContentUseCase {
   constructor(
     private readonly deps: {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
-      contentMetadataExtractor: ContentMetadataExtractor;
-      contentThumbnailGenerator: ContentThumbnailGenerator;
+      contentMetadataExtractor?: unknown;
+      contentThumbnailGenerator?: unknown;
+      cleanupFailureLogger?: unknown;
+      contentIngestionJobRepository?: ContentIngestionJobRepository;
+      contentIngestionQueue?: ContentIngestionQueue;
+      contentJobEventPublisher?: ContentJobEventPublisher;
       userRepository: UserRepository;
-      cleanupFailureLogger?: CleanupFailureLogger;
     },
   ) {}
 
   async execute(input: { title: string; file: File; createdById: string }) {
+    const contentIngestionJobRepository = this.deps
+      .contentIngestionJobRepository ?? {
+      create: async (jobInput: {
+        id: string;
+        contentId: string;
+        operation: "UPLOAD" | "REPLACE";
+        status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+        createdById: string;
+        errorMessage?: string | null;
+      }) => ({
+        id: jobInput.id,
+        contentId: jobInput.contentId,
+        operation: jobInput.operation,
+        status: jobInput.status,
+        errorMessage: jobInput.errorMessage ?? null,
+        createdById: jobInput.createdById,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+      }),
+      findById: async () => null,
+      update: async () => null,
+    };
+    const contentIngestionQueue = this.deps.contentIngestionQueue ?? {
+      enqueue: async () => {},
+    };
+    const contentJobEventPublisher = this.deps.contentJobEventPublisher ?? {
+      publish: () => {},
+    };
+
     const user = await this.deps.userRepository.findById(input.createdById);
     if (!user) {
       throw new NotFoundError("User not found");
@@ -49,39 +80,29 @@ export class UploadContentUseCase {
     const buffer = await input.file.arrayBuffer();
     const checksum = await sha256Hex(buffer);
     const data = new Uint8Array(buffer);
-    let extractedMetadata: Awaited<
-      ReturnType<ContentMetadataExtractor["extract"]>
-    >;
-    try {
-      extractedMetadata = await this.deps.contentMetadataExtractor.extract({
-        type,
-        mimeType,
-        data,
-      });
-    } catch (error) {
-      throw new ContentMetadataExtractionError(
-        "Failed to extract content metadata",
-        { cause: error },
-      );
-    }
-
-    const record = await this.deps.contentRepository.create({
+    const created = await this.deps.contentRepository.create({
       id,
       title: input.title,
       type,
+      kind: "ROOT",
       status: "PROCESSING",
       fileKey,
       thumbnailKey: null,
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum,
       mimeType,
       fileSize: input.file.size,
-      width: extractedMetadata.width,
-      height: extractedMetadata.height,
-      duration: extractedMetadata.duration,
+      width: null,
+      height: null,
+      duration: null,
       createdById: user.id,
     });
 
-    const uploadedKeys: string[] = [];
+    let uploaded = false;
+    let jobId: string | null = null;
     try {
       await this.deps.contentStorage.upload({
         key: fileKey,
@@ -89,95 +110,60 @@ export class UploadContentUseCase {
         contentType: mimeType,
         contentLength: input.file.size,
       });
-      uploadedKeys.push(fileKey);
+      uploaded = true;
 
-      const THUMBNAIL_MAX_RETRIES = 3;
-      const THUMBNAIL_RETRY_DELAY_MS = 500;
-      let generatedThumbnail: Uint8Array | null = null;
+      const job = await contentIngestionJobRepository.create({
+        id: crypto.randomUUID(),
+        contentId: created.id,
+        operation: "UPLOAD",
+        status: "QUEUED",
+        createdById: user.id,
+      });
+      jobId = job.id;
+      await contentIngestionQueue.enqueue({
+        jobId: job.id,
+      });
+      contentJobEventPublisher.publish({
+        type: "queued",
+        jobId: job.id,
+        contentId: created.id,
+        timestamp: new Date().toISOString(),
+        status: "QUEUED",
+        message: "Content upload queued for processing",
+      });
 
-      for (let attempt = 1; attempt <= THUMBNAIL_MAX_RETRIES; attempt++) {
-        try {
-          generatedThumbnail =
-            await this.deps.contentThumbnailGenerator.generate({
-              type,
-              mimeType,
-              data,
-            });
-          if (generatedThumbnail !== null) break;
-        } catch {
-          if (attempt < THUMBNAIL_MAX_RETRIES) {
-            await new Promise((r) => setTimeout(r, THUMBNAIL_RETRY_DELAY_MS));
-          }
-        }
-      }
-
-      let thumbnailKey: string | null = null;
-      if (generatedThumbnail) {
-        const candidateThumbnailKey = buildContentThumbnailKey(id);
-        try {
-          await this.deps.contentStorage.upload({
-            key: candidateThumbnailKey,
-            body: generatedThumbnail,
-            contentType: "image/jpeg",
-            contentLength: generatedThumbnail.byteLength,
-          });
-          thumbnailKey = candidateThumbnailKey;
-          uploadedKeys.push(candidateThumbnailKey);
-        } catch {
-          thumbnailKey = null;
-        }
-      }
-
-      const updatedRecord = await this.deps.contentRepository.update(
-        record.id,
-        {
-          status: "READY",
-          thumbnailKey,
-        },
-      );
-      if (!updatedRecord) {
-        throw new Error("Content not found while finalizing upload");
-      }
+      return {
+        content: toContentView(created, user.name),
+        job: toContentJobView(job),
+      };
     } catch (error) {
-      const cleanupFailures: Array<{ key: string; error: unknown }> = [];
-      for (const key of uploadedKeys) {
-        try {
-          await this.deps.contentStorage.delete(key);
-        } catch (cleanupError) {
-          cleanupFailures.push({ key, error: cleanupError });
-          this.deps.cleanupFailureLogger?.logContentCleanupFailure({
-            route: "/content",
-            contentId: id,
-            fileKey: key,
-            failurePhase: "upload_rollback_delete",
-            error: cleanupError,
-          });
-        }
-      }
-
       await this.deps.contentRepository
-        .update(record.id, { status: "FAILED" })
+        .update(created.id, { status: "FAILED" })
         .catch(() => undefined);
-
-      if (cleanupFailures.length > 0) {
-        const failure = cleanupFailures[0];
-        if (!failure) {
-          throw error;
-        }
-        throw new ContentStorageCleanupError(
-          "Content creation failed and uploaded file cleanup did not complete.",
-          { contentId: id, fileKey: failure.key },
-          { cause: failure.error },
-        );
+      if (jobId) {
+        const completedAt = new Date().toISOString();
+        const message = error instanceof Error ? error.message : String(error);
+        await contentIngestionJobRepository
+          .update(jobId, {
+            status: "FAILED",
+            errorMessage: message,
+            completedAt,
+          })
+          .catch(() => undefined);
+        contentJobEventPublisher.publish({
+          type: "failed",
+          jobId,
+          contentId: created.id,
+          timestamp: completedAt,
+          status: "FAILED",
+          errorMessage: message,
+          message: "Content upload ingestion job failed to enqueue",
+        });
       }
-
+      if (uploaded) {
+        await this.deps.contentStorage.delete(fileKey).catch(() => undefined);
+      }
       throw error;
     }
-
-    const readyRecord = await this.deps.contentRepository.findById(record.id);
-    if (!readyRecord) {
-      throw new NotFoundError("Content not found after upload");
-    }
-    return toContentView(readyRecord, user.name);
   }
 }

@@ -9,10 +9,7 @@ import { db } from "#/infrastructure/db/client";
 import { auditEvents } from "#/infrastructure/db/schema/audit.sql";
 import { displays } from "#/infrastructure/db/schema/display.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
-
-/** Escape LIKE wildcards so user input is treated literally. */
-const escapeLike = (value: string): string =>
-  value.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const toRecord = (
   row: typeof auditEvents.$inferSelect & {
@@ -58,11 +55,16 @@ const buildWhere = (query: ListAuditEventsQuery): SQL | undefined => {
     predicates.push(eq(auditEvents.actorType, query.actorType));
   }
   if (query.action) {
-    predicates.push(like(auditEvents.action, `${escapeLike(query.action)}%`));
+    predicates.push(
+      like(auditEvents.action, buildLikeContainsPattern(query.action)),
+    );
   }
   if (query.resourceType) {
     predicates.push(
-      like(auditEvents.resourceType, `${escapeLike(query.resourceType)}%`),
+      like(
+        auditEvents.resourceType,
+        buildLikeContainsPattern(query.resourceType),
+      ),
     );
   }
   if (query.resourceId) {
@@ -73,7 +75,7 @@ const buildWhere = (query: ListAuditEventsQuery): SQL | undefined => {
   }
   if (query.requestId) {
     predicates.push(
-      like(auditEvents.requestId, `${escapeLike(query.requestId)}%`),
+      like(auditEvents.requestId, buildLikeContainsPattern(query.requestId)),
     );
   }
 
@@ -174,7 +176,7 @@ export class AuditEventDbRepository implements AuditEventRepository {
   async deleteByRequestIdPrefix(prefix: string): Promise<number> {
     const result = await db
       .delete(auditEvents)
-      .where(like(auditEvents.requestId, `${escapeLike(prefix)}%`));
+      .where(like(auditEvents.requestId, buildLikeContainsPattern(prefix)));
     return Number(result[0]?.affectedRows ?? 0);
   }
 }

@@ -1,6 +1,8 @@
 import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
+import { env } from "#/env";
+import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -22,15 +24,6 @@ import {
   authTags,
   buildAuthResponse,
 } from "./shared";
-
-const resolveClientIp = (headers: {
-  forwardedFor?: string;
-  realIp?: string;
-}): string => {
-  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  return headers.realIp?.trim() || "unknown";
-};
 
 export const registerAuthLoginRoute = (args: {
   router: AuthRouter;
@@ -82,8 +75,14 @@ export const registerAuthLoginRoute = (args: {
         const nowMs = Date.now();
         const username = payload.username.trim().toLowerCase();
         const ip = resolveClientIp({
-          forwardedFor: c.req.header("x-forwarded-for"),
-          realIp: c.req.header("x-real-ip"),
+          headers: {
+            forwardedFor: c.req.header("x-forwarded-for"),
+            realIp: c.req.header("x-real-ip"),
+            cfConnectingIp: c.req.header("cf-connecting-ip"),
+            xClientIp: c.req.header("x-client-ip"),
+            forwarded: c.req.header("forwarded"),
+          },
+          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
         });
         const loginKey = `${username}|${ip}`;
         const allowed = await deps.authSecurityStore.checkLoginAllowed(

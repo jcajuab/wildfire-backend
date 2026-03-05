@@ -10,28 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { type ContentStorage } from "#/application/ports/content";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
-
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  operation: string,
-): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`MinIO ${operation} timed out after ${ms}ms`)),
-      ms,
-    );
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-  });
-}
+import { withTimeout } from "#/shared/retry";
 
 export class S3ContentStorage implements ContentStorage {
   private readonly client: S3Client;
@@ -72,15 +51,17 @@ export class S3ContentStorage implements ContentStorage {
     const start = Date.now();
     try {
       await withTimeout(
-        this.client.send(
-          new PutObjectCommand({
-            Bucket: this.config.bucket,
-            Key: input.key,
-            Body: input.body,
-            ContentType: input.contentType,
-            ContentLength: input.contentLength,
-          }),
-        ),
+        (signal) =>
+          this.client.send(
+            new PutObjectCommand({
+              Bucket: this.config.bucket,
+              Key: input.key,
+              Body: input.body,
+              ContentType: input.contentType,
+              ContentLength: input.contentLength,
+            }),
+            { abortSignal: signal },
+          ),
         this.requestTimeoutMs,
         "upload",
       );
@@ -121,12 +102,14 @@ export class S3ContentStorage implements ContentStorage {
     const start = Date.now();
     try {
       await withTimeout(
-        this.client.send(
-          new DeleteObjectCommand({
-            Bucket: this.config.bucket,
-            Key: key,
-          }),
-        ),
+        (signal) =>
+          this.client.send(
+            new DeleteObjectCommand({
+              Bucket: this.config.bucket,
+              Key: key,
+            }),
+            { abortSignal: signal },
+          ),
         this.requestTimeoutMs,
         "delete",
       );
@@ -155,6 +138,135 @@ export class S3ContentStorage implements ContentStorage {
           error,
         ),
         "storage delete failed",
+      );
+      throw error;
+    }
+  }
+
+  async download(key: string): Promise<Uint8Array> {
+    await this.ensureBucketExists();
+
+    const operation = "s3.download";
+    const start = Date.now();
+    const complete = (bytes: Uint8Array): Uint8Array => {
+      logger.info(
+        {
+          component: "storage",
+          operation,
+          bucket: this.config.bucket,
+          key,
+          durationMs: Date.now() - start,
+          success: true,
+        },
+        "storage download completed",
+      );
+      return bytes;
+    };
+    try {
+      const response = await withTimeout(
+        (signal) =>
+          this.client.send(
+            new GetObjectCommand({
+              Bucket: this.config.bucket,
+              Key: key,
+            }),
+            { abortSignal: signal },
+          ),
+        this.requestTimeoutMs,
+        "download",
+      );
+
+      const body = response.Body;
+      if (!body) {
+        throw new Error("Missing object body");
+      }
+
+      if (body instanceof Uint8Array) {
+        return complete(body);
+      }
+
+      const transformToByteArray = (
+        body as {
+          transformToByteArray?: () => Promise<Uint8Array | ArrayBuffer>;
+        }
+      ).transformToByteArray;
+      if (typeof transformToByteArray === "function") {
+        const bytes = await transformToByteArray.call(body);
+        return complete(
+          bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes),
+        );
+      }
+
+      if (body instanceof ReadableStream) {
+        const reader = body.getReader();
+        const chunks: Uint8Array[] = [];
+        let total = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value == null) continue;
+          if (!(value instanceof Uint8Array)) {
+            throw new Error("Unsupported response body chunk type");
+          }
+          const chunk = value;
+          chunks.push(chunk);
+          total += chunk.byteLength;
+        }
+        const output = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          output.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        return complete(output);
+      }
+
+      const maybeIterable = body as AsyncIterable<unknown>;
+      if (typeof maybeIterable[Symbol.asyncIterator] === "function") {
+        const chunks: Uint8Array[] = [];
+        let total = 0;
+        for await (const value of maybeIterable) {
+          if (value == null) {
+            continue;
+          }
+          if (value instanceof Uint8Array) {
+            chunks.push(value);
+            total += value.byteLength;
+            continue;
+          }
+          if (value instanceof ArrayBuffer) {
+            const chunk = new Uint8Array(value);
+            chunks.push(chunk);
+            total += chunk.byteLength;
+            continue;
+          }
+
+          throw new Error("Unsupported response body chunk type");
+        }
+        const output = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          output.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        return complete(output);
+      }
+
+      throw new Error("Unsupported response body type");
+    } catch (error) {
+      logger.error(
+        addErrorContext(
+          {
+            component: "storage",
+            operation,
+            bucket: this.config.bucket,
+            key,
+            durationMs: Date.now() - start,
+            success: false,
+          },
+          error,
+        ),
+        "storage download failed",
       );
       throw error;
     }
@@ -219,7 +331,13 @@ export class S3ContentStorage implements ContentStorage {
     const start = Date.now();
     try {
       await withTimeout(
-        this.client.send(new HeadBucketCommand({ Bucket: this.config.bucket })),
+        (signal) =>
+          this.client.send(
+            new HeadBucketCommand({ Bucket: this.config.bucket }),
+            {
+              abortSignal: signal,
+            },
+          ),
         this.requestTimeoutMs,
         "HeadBucket",
       );
@@ -276,7 +394,13 @@ export class S3ContentStorage implements ContentStorage {
 
     try {
       await withTimeout(
-        this.client.send(new HeadBucketCommand({ Bucket: this.config.bucket })),
+        (signal) =>
+          this.client.send(
+            new HeadBucketCommand({ Bucket: this.config.bucket }),
+            {
+              abortSignal: signal,
+            },
+          ),
         this.requestTimeoutMs,
         "HeadBucket",
       );
@@ -315,9 +439,11 @@ export class S3ContentStorage implements ContentStorage {
     const createStartMs = Date.now();
     try {
       await withTimeout(
-        this.client.send(
-          new CreateBucketCommand({ Bucket: this.config.bucket }),
-        ),
+        (signal) =>
+          this.client.send(
+            new CreateBucketCommand({ Bucket: this.config.bucket }),
+            { abortSignal: signal },
+          ),
         this.requestTimeoutMs,
         "CreateBucket",
       );

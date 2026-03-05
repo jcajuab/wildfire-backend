@@ -188,9 +188,34 @@ const buildContentActionApp = async () => {
         findById: async () => null,
         findByIds: async () => [],
         list: async () => ({ items: [], total: 0 }),
+        findChildrenByParentIds: async () => [],
         countPlaylistReferences: async () => 0,
         listPlaylistsReferencingContent: async () => [],
+        deleteByParentId: async () => [],
         delete: async () => false,
+        update: async () => null,
+      },
+      contentIngestionJobRepository: {
+        create: async (input: {
+          id: string;
+          contentId: string;
+          operation: "UPLOAD" | "REPLACE";
+          status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+          createdById: string;
+          errorMessage?: string | null;
+        }) => ({
+          id: input.id,
+          contentId: input.contentId,
+          operation: input.operation,
+          status: input.status,
+          errorMessage: input.errorMessage ?? null,
+          createdById: input.createdById,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          startedAt: null,
+          completedAt: null,
+        }),
+        findById: async () => null,
         update: async () => null,
       },
       userRepository: {
@@ -212,8 +237,12 @@ const buildContentActionApp = async () => {
     storage: {
       ensureBucketExists: async () => {},
       upload: async () => {},
+      download: async () => new Uint8Array(),
       delete: async () => {},
       getPresignedDownloadUrl: async () => "https://example.com/file",
+    },
+    contentIngestionQueue: {
+      enqueue: async () => {},
     },
     contentMetadataExtractor: {
       extract: async () => ({ width: 1366, height: 768, duration: null }),

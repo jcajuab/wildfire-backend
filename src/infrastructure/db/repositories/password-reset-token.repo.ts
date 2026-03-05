@@ -1,6 +1,9 @@
 import { type PasswordResetTokenRepository } from "#/application/ports/auth";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 
 const tokenPrefix = `${env.REDIS_KEY_PREFIX}:password-reset-token`;
 
@@ -18,7 +21,7 @@ export class PasswordResetTokenRedisRepository
     expiresAt: Date;
   }): Promise<void> {
     const redis = await getRedisCommandClient();
-    await redis.sendCommand([
+    await executeRedisCommand<void>(redis, [
       "SET",
       tokenKey(input.hashedToken),
       input.email,
@@ -32,7 +35,10 @@ export class PasswordResetTokenRedisRepository
     _now: Date,
   ): Promise<{ email: string } | null> {
     const redis = await getRedisCommandClient();
-    const email = await redis.get(tokenKey(hashedToken));
+    const email = await executeRedisCommand<string | null>(redis, [
+      "GET",
+      tokenKey(hashedToken),
+    ]);
     if (!email) {
       return null;
     }
@@ -42,7 +48,7 @@ export class PasswordResetTokenRedisRepository
 
   async consumeByHashedToken(hashedToken: string): Promise<void> {
     const redis = await getRedisCommandClient();
-    await redis.del(tokenKey(hashedToken));
+    await executeRedisCommand<number>(redis, ["DEL", tokenKey(hashedToken)]);
   }
 
   async deleteExpired(_now: Date): Promise<void> {

@@ -1,5 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { env } from "#/env";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import {
@@ -109,7 +110,7 @@ export const registerAuthInvitationRoutes = (args: {
           {
             id: result.id,
             expiresAt: result.expiresAt,
-            ...(process.env.NODE_ENV === "development"
+            ...(env.NODE_ENV === "development"
               ? { inviteUrl: result.inviteUrl }
               : {}),
           },
@@ -203,7 +204,7 @@ export const registerAuthInvitationRoutes = (args: {
           {
             id: result.id,
             expiresAt: result.expiresAt,
-            ...(process.env.NODE_ENV === "development"
+            ...(env.NODE_ENV === "development"
               ? { inviteUrl: result.inviteUrl }
               : {}),
           },

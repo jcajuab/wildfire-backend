@@ -3,6 +3,7 @@ import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
+  executeRedisCommand,
   getRedisPublisherClient,
   getRedisSubscriberClient,
 } from "#/infrastructure/redis/client";
@@ -34,8 +35,40 @@ const registrationAttemptOrigin = randomUUID();
 let hasRegistrationAttemptSubscription = false;
 let registrationAttemptSubscriptionPromise: Promise<void> | null = null;
 
-const isStringField = (value: unknown): value is string =>
-  typeof value === "string" && value.length > 0;
+const MAX_REG_ATTEMPT_FIELD_BYTES = 256;
+const MAX_REG_ATTEMPT_MESSAGE_BYTES = 8_192;
+const MAX_REG_ATTEMPT_PREVIEW_BYTES = 256;
+const INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS = 10_000;
+let lastInvalidEnvelopeLogMs = 0;
+
+const isStringField = (value: unknown, maxBytes: number): value is string =>
+  typeof value === "string" &&
+  value.length > 0 &&
+  Buffer.byteLength(value) <= maxBytes;
+
+const logInvalidEnvelope = (
+  reason: string,
+  channel: string,
+  rawMessage: string,
+): void => {
+  const now = Date.now();
+  if (now - lastInvalidEnvelopeLogMs < INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS) {
+    return;
+  }
+  lastInvalidEnvelopeLogMs = now;
+
+  logger.warn(
+    {
+      component: "displays",
+      event: "registration-attempt.envelope.invalid",
+      channel,
+      reason,
+      messageBytes: Buffer.byteLength(rawMessage),
+      messagePreview: rawMessage.slice(0, MAX_REG_ATTEMPT_PREVIEW_BYTES),
+    },
+    "invalid registration attempt Redis message",
+  );
+};
 
 const parseRegistrationAttemptEvent = (
   value: unknown,
@@ -54,10 +87,10 @@ const parseRegistrationAttemptEvent = (
 
   if (
     candidate.type !== "registration_succeeded" ||
-    !isStringField(candidate.attemptId) ||
-    !isStringField(candidate.displayId) ||
-    !isStringField(candidate.displaySlug) ||
-    !isStringField(candidate.occurredAt)
+    !isStringField(candidate.attemptId, MAX_REG_ATTEMPT_FIELD_BYTES) ||
+    !isStringField(candidate.displayId, MAX_REG_ATTEMPT_FIELD_BYTES) ||
+    !isStringField(candidate.displaySlug, MAX_REG_ATTEMPT_FIELD_BYTES) ||
+    !isStringField(candidate.occurredAt, MAX_REG_ATTEMPT_FIELD_BYTES)
   ) {
     return null;
   }
@@ -74,18 +107,37 @@ const parseRegistrationAttemptEvent = (
 const parseEnvelope = (
   rawMessage: string,
 ): RegistrationAttemptEnvelope | null => {
+  if (Buffer.byteLength(rawMessage) > MAX_REG_ATTEMPT_MESSAGE_BYTES) {
+    logInvalidEnvelope(
+      "message_too_large",
+      redisChannel,
+      rawMessage.slice(0, MAX_REG_ATTEMPT_PREVIEW_BYTES),
+    );
+    return null;
+  }
+
   try {
     const parsed = JSON.parse(rawMessage) as {
       origin?: unknown;
       event?: unknown;
     };
 
-    if (!isStringField(parsed.origin)) {
+    if (!isStringField(parsed.origin, MAX_REG_ATTEMPT_FIELD_BYTES)) {
+      logInvalidEnvelope(
+        "invalid_origin",
+        redisChannel,
+        rawMessage.slice(0, MAX_REG_ATTEMPT_PREVIEW_BYTES),
+      );
       return null;
     }
 
     const event = parseRegistrationAttemptEvent(parsed.event);
     if (!event) {
+      logInvalidEnvelope(
+        "invalid_event",
+        redisChannel,
+        rawMessage.slice(0, MAX_REG_ATTEMPT_PREVIEW_BYTES),
+      );
       return null;
     }
 
@@ -94,6 +146,11 @@ const parseEnvelope = (
       event,
     };
   } catch {
+    logInvalidEnvelope(
+      "json_parse_failed",
+      redisChannel,
+      rawMessage.slice(0, MAX_REG_ATTEMPT_PREVIEW_BYTES),
+    );
     return null;
   }
 };
@@ -160,7 +217,11 @@ const publishRegistrationAttemptEventToRedis = async (
       event,
     };
 
-    await publisher.publish(redisChannel, JSON.stringify(envelope));
+    await executeRedisCommand<number>(publisher, [
+      "PUBLISH",
+      redisChannel,
+      JSON.stringify(envelope),
+    ]);
   } catch (error) {
     logger.warn(
       addErrorContext(

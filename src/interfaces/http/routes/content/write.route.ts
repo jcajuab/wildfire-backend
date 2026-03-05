@@ -2,7 +2,6 @@ import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
 import {
   ContentInUseError,
-  ContentMetadataExtractionError,
   InvalidContentTypeError,
 } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -19,7 +18,10 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  contentExclusionRequestBodySchema,
+  contentExclusionSchema,
   contentIdParamSchema,
+  contentIngestionAcceptedSchema,
   contentSchema,
   contentUploadRequestBodySchema,
   createReplaceContentFileSchema,
@@ -72,11 +74,13 @@ export const registerContentWriteRoutes = (args: {
         required: true,
       },
       responses: {
-        201: {
-          description: "Content created",
+        202: {
+          description: "Content accepted for asynchronous ingestion",
           content: {
             "application/json": {
-              schema: resolver(apiResponseSchema(contentSchema)),
+              schema: resolver(
+                apiResponseSchema(contentIngestionAcceptedSchema),
+              ),
             },
           },
         },
@@ -114,15 +118,17 @@ export const registerContentWriteRoutes = (args: {
           file: payload.file,
           createdById: c.get("userId"),
         });
-        c.set("resourceId", result.id);
-        c.set("fileId", result.id);
-        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        return c.json(toApiResponse(result), 201);
+        c.set("resourceId", result.content.id);
+        c.set("fileId", result.content.id);
+        c.header(
+          "Location",
+          `/api/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
+        );
+        return c.json(toApiResponse(result), 202);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
       mapErrorToResponse(InvalidContentTypeError, validationError),
-      mapErrorToResponse(ContentMetadataExtractionError, validationError),
     ),
   );
 
@@ -190,7 +196,6 @@ export const registerContentWriteRoutes = (args: {
         const result = await useCases.updateContent.execute({
           id: params.id,
           title: body.title,
-          status: body.status,
         });
         return c.json(toApiResponse(result), 200);
       },
@@ -221,11 +226,14 @@ export const registerContentWriteRoutes = (args: {
         required: true,
       },
       responses: {
-        200: {
-          description: "Content updated",
+        202: {
+          description:
+            "Content replacement accepted for asynchronous ingestion",
           content: {
             "application/json": {
-              schema: resolver(apiResponseSchema(contentSchema)),
+              schema: resolver(
+                apiResponseSchema(contentIngestionAcceptedSchema),
+              ),
             },
           },
         },
@@ -265,14 +273,79 @@ export const registerContentWriteRoutes = (args: {
           id: params.id,
           file: body.file,
           title: body.title,
-          status: body.status,
         });
-        return c.json(toApiResponse(result), 200);
+        c.header(
+          "Location",
+          `/api/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
+        );
+        return c.json(toApiResponse(result), 202);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
       mapErrorToResponse(InvalidContentTypeError, validationError),
-      mapErrorToResponse(ContentMetadataExtractionError, validationError),
+    ),
+  );
+
+  router.patch(
+    "/:id/exclusion",
+    setAction("content.content.set-exclusion", {
+      route: "/content/:id/exclusion",
+      resourceType: "content",
+    }),
+    requirePermission("content:update"),
+    validateParams(contentIdParamSchema),
+    validateJson(contentExclusionSchema),
+    describeRoute({
+      description: "Set global exclusion flag for a PDF page content item",
+      tags: contentTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: contentExclusionRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Content exclusion updated",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(contentSchema)),
+            },
+          },
+        },
+        422: {
+          description: "Invalid request",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const body = c.req.valid("json");
+        c.set("resourceId", params.id);
+        c.set("fileId", params.id);
+        const result = await useCases.setContentExclusion.execute({
+          id: params.id,
+          isExcluded: body.isExcluded,
+        });
+        return c.json(toApiResponse(result), 200);
+      },
+      ...applicationErrorMappers,
     ),
   );
 

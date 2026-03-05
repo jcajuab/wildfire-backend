@@ -2,9 +2,40 @@ import { createClient } from "redis";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
+import { withTimeout } from "#/shared/retry";
 
 type RedisConnectionKind = "command" | "publisher" | "subscriber";
 type RedisClient = ReturnType<typeof createClient>;
+type RedisCommandClient = {
+  sendCommand(
+    command: readonly string[],
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<unknown>;
+};
+type RedisCommandTimeoutConfig = {
+  operationName?: string;
+  timeoutMs?: number;
+};
+
+const REDIS_COMMAND_DEFAULT_TIMEOUT_MS = Math.max(
+  1_000,
+  Math.floor(env.REDIS_COMMAND_TIMEOUT_MS),
+);
+
+export const executeRedisCommand = <T>(
+  client: RedisCommandClient,
+  command: readonly string[],
+  options: RedisCommandTimeoutConfig = {},
+): Promise<T> => {
+  const operation =
+    options.operationName ?? `Redis ${String(command[0] ?? "command")}`;
+  const timeoutMs = options.timeoutMs ?? REDIS_COMMAND_DEFAULT_TIMEOUT_MS;
+  return withTimeout<unknown>(
+    (signal) => client.sendCommand(command, { abortSignal: signal }),
+    timeoutMs,
+    operation,
+  ) as Promise<T>;
+};
 
 const reconnectStrategy =
   (kind: RedisConnectionKind) =>
@@ -98,26 +129,55 @@ const getConnectedClient = async (
   const client = existingClient ?? createRedisConnection(kind);
   clients[kind] = client;
 
-  const connectPromise = (async () => {
-    if (!client.isOpen) {
-      await client.connect();
-      logger.info(
-        {
-          component: "redis",
-          event: "redis.connection.established",
-          redisConnection: kind,
-        },
-        "Redis connection established",
-      );
-    }
+  const connectPromise = withTimeout(
+    (async () => {
+      if (!client.isOpen) {
+        await client.connect();
+        logger.info(
+          {
+            component: "redis",
+            event: "redis.connection.established",
+            redisConnection: kind,
+          },
+          "Redis connection established",
+        );
+      }
 
-    return client;
-  })();
+      return client;
+    })(),
+    Math.max(1, Math.trunc(env.REDIS_CONNECT_TIMEOUT_MS)),
+    `redis ${kind} connect`,
+  );
 
   connectPromises[kind] = connectPromise;
 
   try {
     return await connectPromise;
+  } catch (error) {
+    try {
+      if (client.isOpen) {
+        await client.quit();
+      } else {
+        client.destroy();
+      }
+    } catch (closeError) {
+      client.destroy();
+      logger.warn(
+        addErrorContext(
+          {
+            component: "redis",
+            event: "redis.connection.disconnect_error",
+            redisConnection: kind,
+            connectPhase: "post-connect-error",
+          },
+          closeError,
+        ),
+        "Redis client cleanup failed after connect error",
+      );
+    } finally {
+      clients[kind] = undefined;
+    }
+    throw error;
   } finally {
     connectPromises[kind] = undefined;
   }

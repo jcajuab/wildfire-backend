@@ -26,24 +26,31 @@ const buildDatabaseUrl = ({
 
 export const env = createEnv({
   server: {
-    PORT: z.coerce.number().default(3000),
+    PORT: z.coerce.number().default(8000),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
     ROOT_USERNAME: z.string().min(1),
     ROOT_EMAIL: z.string().email().optional(),
     ROOT_PASSWORD: z.string(),
-    MYSQL_ROOT_PASSWORD: z.string(),
     MYSQL_HOST: z.string(),
     MYSQL_PORT: z.coerce.number().default(3306),
     MYSQL_DATABASE: z.string(),
     MYSQL_USER: z.string(),
     MYSQL_PASSWORD: z.string(),
+    MYSQL_CONNECT_TIMEOUT_MS: z.coerce.number().default(10_000),
+    MYSQL_POOL_CONNECTION_LIMIT: z.coerce.number().default(10),
+    MYSQL_POOL_QUEUE_LIMIT: z.coerce.number().default(0),
+    MYSQL_POOL_WAIT_FOR_CONNECTIONS: z
+      .string()
+      .default("true")
+      .pipe(z.stringbool()),
+    MYSQL_POOL_IDLE_TIMEOUT_MS: z.coerce.number().default(60_000),
+    MYSQL_POOL_MAX_IDLE: z.coerce.number().default(10_000),
     MINIO_ROOT_USER: z.string().default("minioadmin"),
     MINIO_ROOT_PASSWORD: z.string().default("minioadmin"),
     MINIO_ENDPOINT: z.string().default("localhost"),
     MINIO_PORT: z.coerce.number().default(9000),
-    MINIO_CONSOLE_PORT: z.coerce.number().default(9001),
     MINIO_USE_SSL: z.string().default("false").pipe(z.stringbool()),
     MINIO_BUCKET: z.string().default("content"),
     MINIO_REGION: z.string().default("us-east-1"),
@@ -55,14 +62,22 @@ export const env = createEnv({
     // Applied to command, publisher, and subscriber Redis connections.
     // Set to 0 to disable socket timeouts (useful for long-lived subscribers).
     REDIS_SOCKET_TIMEOUT_MS: z.coerce.number().default(0),
+    REDIS_COMMAND_TIMEOUT_MS: z.coerce.number().default(5_000),
     REDIS_RETRY_MAX_ATTEMPTS: z.coerce.number().default(20),
     REDIS_RETRY_BASE_DELAY_MS: z.coerce.number().default(100),
     REDIS_RETRY_MAX_DELAY_MS: z.coerce.number().default(30_000),
     REDIS_STREAM_AUDIT_NAME: z.string().default("wf:stream:audit"),
     REDIS_STREAM_AUDIT_GROUP: z.string().default("wf-audit-writers"),
+    REDIS_STREAM_CONTENT_INGEST_NAME: z
+      .string()
+      .default("wf:stream:content-ingestion"),
+    REDIS_STREAM_CONTENT_INGEST_GROUP: z
+      .string()
+      .default("wf-content-ingestion-workers"),
     REDIS_STREAM_BLOCK_MS: z.coerce.number().default(5_000),
     REDIS_STREAM_BATCH_SIZE: z.coerce.number().default(100),
     REDIS_STREAM_MAX_DELIVERIES: z.coerce.number().default(5),
+    CONTENT_INGEST_QUEUE_CAPACITY: z.coerce.number().default(5000),
     CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(100 * 1024 * 1024),
     HTSHADOW_PATH: z.string(),
     JWT_SECRET: z.string(),
@@ -73,10 +88,6 @@ export const env = createEnv({
     AUTH_LOGIN_LOCKOUT_THRESHOLD: z.coerce.number().default(5),
     AUTH_LOGIN_LOCKOUT_SECONDS: z.coerce.number().default(300),
     DISPLAY_RUNTIME_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
-    DISPLAY_RUNTIME_REGISTRATION_SESSION_MAX_ATTEMPTS: z.coerce
-      .number()
-      .default(20),
-    DISPLAY_RUNTIME_REGISTRATION_MAX_ATTEMPTS: z.coerce.number().default(20),
     DISPLAY_RUNTIME_AUTH_CHALLENGE_MAX_ATTEMPTS: z.coerce.number().default(60),
     DISPLAY_RUNTIME_AUTH_VERIFY_MAX_ATTEMPTS: z.coerce.number().default(60),
     INVITE_TOKEN_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24),
@@ -90,14 +101,25 @@ export const env = createEnv({
     LOG_PRETTY: z.string().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_ENABLED: z.string().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_CAPACITY: z.coerce.number().default(5000),
-    AUDIT_FLUSH_BATCH_SIZE: z.coerce.number().default(100),
-    AUDIT_FLUSH_INTERVAL_MS: z.coerce.number().default(250),
     AUDIT_EXPORT_MAX_ROWS: z.coerce.number().default(100000),
     SCHEDULE_TIMEZONE: z.string().default("UTC"),
     CORS_ORIGINS: z
       .string()
       .default("http://localhost:3000")
       .transform(parseCorsOrigins),
+    TRUST_PROXY_HEADERS: z.string().default("true").pipe(z.stringbool()),
+    HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().default(1_000),
+    STARTUP_STRICT_STORAGE: z.string().default("false").pipe(z.stringbool()),
+    WORKER_RETRY_BASE_DELAY_MS: z.coerce.number().default(250),
+    WORKER_RETRY_MAX_DELAY_MS: z.coerce.number().default(5_000),
+    AUDIT_QUEUE_ENQUEUE_MAX_ATTEMPTS: z.coerce.number().default(3),
+    AUDIT_QUEUE_ENQUEUE_BASE_DELAY_MS: z.coerce.number().default(250),
+    AUDIT_QUEUE_ENQUEUE_MAX_DELAY_MS: z.coerce.number().default(2_000),
+    AUDIT_QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().default(5_000),
+    CONTENT_INGEST_QUEUE_ENQUEUE_MAX_ATTEMPTS: z.coerce.number().default(3),
+    CONTENT_INGEST_QUEUE_ENQUEUE_BASE_DELAY_MS: z.coerce.number().default(250),
+    CONTENT_INGEST_QUEUE_ENQUEUE_MAX_DELAY_MS: z.coerce.number().default(4_000),
+    CONTENT_INGEST_QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().default(5_000),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

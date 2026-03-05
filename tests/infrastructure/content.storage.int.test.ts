@@ -6,38 +6,16 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
+import {
+  getIntegrationMinioConfig,
+  isRunIntegrationEnabled,
+} from "../helpers/integration-env";
 
-const runIntegration = process.env.RUN_INTEGRATION === "true";
-const hasMinio = Boolean(
-  process.env.MINIO_ENDPOINT &&
-    process.env.MINIO_BUCKET &&
-    process.env.MINIO_ROOT_USER &&
-    process.env.MINIO_ROOT_PASSWORD,
-);
+const runIntegration = isRunIntegrationEnabled();
 const maybeTest = runIntegration ? test : test.skip;
 
 const getMinioConfig = (bucket: string) => {
-  if (!hasMinio) {
-    throw new Error(
-      "RUN_INTEGRATION=true requires MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ROOT_USER, and MINIO_ROOT_PASSWORD",
-    );
-  }
-
-  const endpoint = process.env.MINIO_ENDPOINT ?? "localhost";
-  const port = Number(process.env.MINIO_PORT ?? "9000");
-  const useSsl = process.env.MINIO_USE_SSL === "true";
-  const region = process.env.MINIO_REGION ?? "us-east-1";
-  const accessKeyId = process.env.MINIO_ROOT_USER ?? "minioadmin";
-  const secretAccessKey = process.env.MINIO_ROOT_PASSWORD ?? "minioadmin";
-  const endpointUrl = `${useSsl ? "https" : "http"}://${endpoint}:${port}`;
-
-  return {
-    endpointUrl,
-    region,
-    bucket,
-    accessKeyId,
-    secretAccessKey,
-  };
+  return getIntegrationMinioConfig(bucket);
 };
 
 const createStorage = (bucket: string) => {

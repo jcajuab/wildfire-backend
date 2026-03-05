@@ -220,6 +220,20 @@ const createSseResponse = (stream: ReadableStream<Uint8Array>): Response =>
     },
   });
 
+const closeStreamController = (
+  streamController: ReadableStreamDefaultController<Uint8Array> | null,
+): void => {
+  if (!streamController) {
+    return;
+  }
+
+  try {
+    streamController.close();
+  } catch {
+    // Ignore repeated close attempts after stream teardown.
+  }
+};
+
 export const registerDisplayStaffRoutes = (args: {
   router: DisplaysRouter;
   useCases: DisplaysRouterUseCases;
@@ -241,28 +255,65 @@ export const registerDisplayStaffRoutes = (args: {
       const encoder = new TextEncoder();
       let unsubscribe: (() => void) | null = null;
       let heartbeat: ReturnType<typeof setInterval> | null = null;
+      let isClosed = false;
+      let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+        null;
+
+      const safeEnqueue = (frame: string | Uint8Array): void => {
+        if (isClosed || !streamController) {
+          return;
+        }
+        try {
+          streamController.enqueue(
+            typeof frame === "string" ? encoder.encode(frame) : frame,
+          );
+        } catch {
+          isClosed = true;
+          if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+          }
+          if (heartbeat) {
+            clearInterval(heartbeat);
+            heartbeat = null;
+          }
+          closeStreamController(streamController);
+        }
+      };
+
+      const closeStream = (): void => {
+        if (isClosed) {
+          return;
+        }
+        isClosed = true;
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+        if (heartbeat) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
+      };
 
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.enqueue(
-            encoder.encode(
-              `event: connected\ndata: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`,
-            ),
+          streamController = controller;
+          safeEnqueue(
+            `event: connected\ndata: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`,
           );
           unsubscribe = subscribeToAdminDisplayLifecycleEvents((event) => {
-            controller.enqueue(
-              encoder.encode(
-                `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
-              ),
+            safeEnqueue(
+              `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
             );
           });
           heartbeat = setInterval(() => {
-            controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            safeEnqueue(": heartbeat\n\n");
           }, DISPLAY_EVENTS_HEARTBEAT_INTERVAL_MS);
         },
         cancel() {
-          if (unsubscribe) unsubscribe();
-          if (heartbeat) clearInterval(heartbeat);
+          closeStream();
+          closeStreamController(streamController);
         },
       });
 
@@ -293,31 +344,68 @@ export const registerDisplayStaffRoutes = (args: {
       const encoder = new TextEncoder();
       let unsubscribe: (() => void) | null = null;
       let heartbeat: ReturnType<typeof setInterval> | null = null;
+      let isClosed = false;
+      let streamController: ReadableStreamDefaultController<Uint8Array> | null =
+        null;
+
+      const safeEnqueue = (frame: string | Uint8Array): void => {
+        if (isClosed || !streamController) {
+          return;
+        }
+        try {
+          streamController.enqueue(
+            typeof frame === "string" ? encoder.encode(frame) : frame,
+          );
+        } catch {
+          isClosed = true;
+          if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+          }
+          if (heartbeat) {
+            clearInterval(heartbeat);
+            heartbeat = null;
+          }
+          closeStreamController(streamController);
+        }
+      };
+
+      const closeStream = (): void => {
+        if (isClosed) {
+          return;
+        }
+        isClosed = true;
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+        if (heartbeat) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
+      };
 
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
-          controller.enqueue(
-            encoder.encode(
-              `event: connected\ndata: ${JSON.stringify({ attemptId: params.attemptId, timestamp: new Date().toISOString() })}\n\n`,
-            ),
+          streamController = controller;
+          safeEnqueue(
+            `event: connected\ndata: ${JSON.stringify({ attemptId: params.attemptId, timestamp: new Date().toISOString() })}\n\n`,
           );
           unsubscribe = subscribeToRegistrationAttemptEvents(
             params.attemptId,
             (event) => {
-              controller.enqueue(
-                encoder.encode(
-                  `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
-                ),
+              safeEnqueue(
+                `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
               );
             },
           );
           heartbeat = setInterval(() => {
-            controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            safeEnqueue(": heartbeat\n\n");
           }, REGISTRATION_ATTEMPT_HEARTBEAT_INTERVAL_MS);
         },
         cancel() {
-          if (unsubscribe) unsubscribe();
-          if (heartbeat) clearInterval(heartbeat);
+          closeStream();
+          closeStreamController(streamController);
         },
       });
 

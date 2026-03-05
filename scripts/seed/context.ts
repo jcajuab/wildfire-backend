@@ -4,6 +4,7 @@ import { env } from "#/env";
 import { closeDbConnection } from "#/infrastructure/db/client";
 import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
+import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
 import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -47,6 +48,7 @@ export const createSeedRuntimeContext = (input: {
       displayRepository: new DisplayDbRepository(),
       displayGroupRepository: new DisplayGroupDbRepository(),
       contentRepository: new ContentDbRepository(),
+      contentIngestionJobRepository: new ContentIngestionJobDbRepository(),
       playlistRepository: new PlaylistDbRepository(),
       scheduleRepository: new ScheduleDbRepository(),
       auditEventRepository: new AuditEventDbRepository(),

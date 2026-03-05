@@ -1,19 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import { setTestEnv } from "../helpers/env";
+import {
+  getIntegrationMySqlEnv,
+  isRunIntegrationEnabled,
+} from "../helpers/integration-env";
 
-const runIntegration = process.env.RUN_INTEGRATION === "true";
+const runIntegration = isRunIntegrationEnabled();
 const maybeTest = runIntegration ? test : test.skip;
 
 describe("ContentDbRepository (integration)", () => {
   maybeTest("creates, lists, and deletes content records", async () => {
-    setTestEnv({
-      MYSQL_HOST: process.env.MYSQL_HOST ?? "127.0.0.1",
-      MYSQL_PORT: process.env.MYSQL_PORT ?? "3306",
-      MYSQL_DATABASE: process.env.MYSQL_DATABASE ?? "wildfire_test",
-      MYSQL_USER: process.env.MYSQL_USER ?? "wildfire",
-      MYSQL_PASSWORD: process.env.MYSQL_PASSWORD ?? "wildfire",
-    });
+    setTestEnv(getIntegrationMySqlEnv());
 
     const { db } = await import("#/infrastructure/db/client");
     const { ContentDbRepository } = await import(
@@ -47,7 +45,9 @@ describe("ContentDbRepository (integration)", () => {
         ON DUPLICATE KEY UPDATE id = id
       `,
     );
+    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
     await db.execute(sql`DELETE FROM content`);
+    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
 
     const repo = new ContentDbRepository();
     const id = crypto.randomUUID();

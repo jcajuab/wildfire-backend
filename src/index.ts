@@ -3,6 +3,8 @@ import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   app,
+  runStorageBootstrapChecks,
+  startHttpBackgroundWorkers,
   stopHttpBackgroundWorkers,
   syncAuthIdentityOnStartup,
 } from "#/interfaces/http";
@@ -10,23 +12,37 @@ import {
 let isShuttingDown = false;
 let server: ReturnType<typeof Bun.serve> | null = null;
 
-const handleShutdown = async () => {
+const handleShutdown = async (): Promise<void> => {
   if (isShuttingDown) return;
   isShuttingDown = true;
-  try {
-    if (server) {
-      server.stop(true);
-    }
-    await stopHttpBackgroundWorkers();
-    process.exit(0);
-  } catch {
-    process.exit(1);
+
+  if (server) {
+    server.stop(true);
   }
+
+  await stopHttpBackgroundWorkers();
 };
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    void handleShutdown();
+    void handleShutdown()
+      .then(() => {
+        process.exit(0);
+      })
+      .catch((error) => {
+        logger.error(
+          addErrorContext(
+            {
+              component: "api",
+              event: "http.server.shutdown_failed",
+              signal,
+            },
+            error,
+          ),
+          "HTTP server shutdown handler failed",
+        );
+        process.exit(1);
+      });
   });
 }
 
@@ -40,17 +56,28 @@ if (import.meta.main) {
       },
       "Startup auth identity sync completed",
     );
+
+    await runStorageBootstrapChecks();
+    startHttpBackgroundWorkers();
+
+    logger.info(
+      {
+        component: "api-bootstrap",
+        event: "startup.background_workers.started",
+      },
+      "HTTP background workers started",
+    );
   } catch (error) {
     logger.error(
       addErrorContext(
         {
           service: "wildfire",
           component: "api-bootstrap",
-          event: "startup.auth_identity_sync.failed",
+          event: "startup.initialization.failed",
         },
         error,
       ),
-      "Startup auth identity sync failed",
+      "Startup initialization failed",
     );
     process.exit(1);
   }

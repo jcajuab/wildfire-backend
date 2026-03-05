@@ -1,18 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import { setTestEnv } from "../helpers/env";
+import {
+  getIntegrationMySqlEnv,
+  isRunIntegrationEnabled,
+} from "../helpers/integration-env";
 
-const runIntegration = process.env.RUN_INTEGRATION === "true";
+const runIntegration = isRunIntegrationEnabled();
 const maybeTest = runIntegration ? test : test.skip;
 
 const setup = async () => {
-  setTestEnv({
-    MYSQL_HOST: process.env.MYSQL_HOST ?? "127.0.0.1",
-    MYSQL_PORT: process.env.MYSQL_PORT ?? "3306",
-    MYSQL_DATABASE: process.env.MYSQL_DATABASE ?? "wildfire_test",
-    MYSQL_USER: process.env.MYSQL_USER ?? "wildfire",
-    MYSQL_PASSWORD: process.env.MYSQL_PASSWORD ?? "wildfire",
-  });
+  setTestEnv(getIntegrationMySqlEnv());
 
   const { db } = await import("#/infrastructure/db/client");
 

@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
 
 export interface RegistrationAttemptCode {
@@ -480,7 +483,10 @@ export class RedisDisplayRegistrationAttemptStore
   }): Promise<boolean> {
     const redis = await getRedisCommandClient();
     const attempt = parseRegistrationAttempt(
-      await redis.hGetAll(attemptKey(input.attemptId)),
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        attemptKey(input.attemptId),
+      ]),
     );
     return attempt?.createdById === input.createdById;
   }
@@ -522,7 +528,7 @@ export class RedisDisplayRegistrationAttemptStore
     attemptId: string;
   }): Promise<void> {
     const redis = await getRedisCommandClient();
-    await redis.sendCommand([
+    await executeRedisCommand<void>(redis, [
       "SET",
       sessionAttemptKey(input.sessionId),
       input.attemptId,
@@ -534,7 +540,10 @@ export class RedisDisplayRegistrationAttemptStore
   async consumeSessionAttemptId(sessionId: string): Promise<string | null> {
     const redis = await getRedisCommandClient();
     const reply = toScriptString(
-      await redis.sendCommand(["GETDEL", sessionAttemptKey(sessionId)]),
+      await executeRedisCommand<string | null>(redis, [
+        "GETDEL",
+        sessionAttemptKey(sessionId),
+      ]),
     );
     return reply.length > 0 ? reply : null;
   }

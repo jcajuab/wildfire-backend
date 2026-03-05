@@ -1,6 +1,9 @@
 import { type DisplayAuthNonceRepository } from "#/application/ports/display-auth";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 
 const noncePrefix = `${env.REDIS_KEY_PREFIX}:display-auth-nonce`;
 
@@ -19,7 +22,7 @@ export class DisplayAuthNonceRedisRepository
     expiresAt: Date;
   }): Promise<boolean> {
     const redis = await getRedisCommandClient();
-    const result = await redis.sendCommand([
+    const result = await executeRedisCommand<string>(redis, [
       "SET",
       nonceKey(input.displayId, input.nonce),
       "1",

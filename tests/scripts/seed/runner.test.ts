@@ -51,6 +51,7 @@ describe("buildSeedStages", () => {
       "seed-demo-rbac",
       "seed-demo-displays",
       "seed-demo-content",
+      "seed-demo-content-jobs",
       "seed-demo-playlists",
       "seed-demo-schedules",
       "seed-demo-audit-events",

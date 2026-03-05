@@ -41,6 +41,13 @@ const buildApp = (opts?: {
   avatarStorage?: ContentStorage;
   credentialsRepository?: CredentialsRepository;
   permissions?: Permission[];
+  invitationEmailSender?: {
+    sendInvite: (input: {
+      email: string;
+      inviteUrl: string;
+      expiresAt: Date;
+    }) => Promise<void>;
+  };
 }) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const inactiveUsername = opts?.inactiveUsername;
@@ -312,7 +319,7 @@ const buildApp = (opts?: {
       deleteExpired: async () => {},
     },
     invitationRepository,
-    invitationEmailSender: {
+    invitationEmailSender: opts?.invitationEmailSender ?? {
       sendInvite: async () => {},
     },
     inviteTokenTtlSeconds: 3600,
@@ -669,185 +676,175 @@ describe("Auth routes", () => {
   });
 
   test("POST /auth/invitations returns 201 with metadata", async () => {
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-    try {
-      const { app } = buildApp({
-        permissions: [new Permission("users", "create")],
-      });
-      const token = await issueToken();
-
-      const response = await app.request("/auth/invitations", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    let inviteUrl: string | undefined;
+    const { app } = buildApp({
+      permissions: [new Permission("users", "create")],
+      invitationEmailSender: {
+        sendInvite: async (input) => {
+          inviteUrl = input.inviteUrl;
         },
-        body: JSON.stringify({
-          email: "invited@example.com",
-          name: "Invited User",
-        }),
-      });
+      },
+    });
+    const token = await issueToken();
 
-      expect(response.status).toBe(201);
-      const body = await parseJson<{
-        id: string;
-        expiresAt: string;
-        inviteUrl?: string;
-      }>(response);
-      expect(body.id).toEqual(expect.any(String));
-      expect(body.expiresAt).toEqual(expect.any(String));
-      expect(body.inviteUrl).toContain("token=");
-    } finally {
-      process.env.NODE_ENV = previousNodeEnv;
-    }
+    const response = await app.request("/auth/invitations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "invited@example.com",
+        name: "Invited User",
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    const body = await parseJson<{
+      id: string;
+      expiresAt: string;
+      inviteUrl?: string;
+    }>(response);
+    expect(body.id).toEqual(expect.any(String));
+    expect(body.expiresAt).toEqual(expect.any(String));
+    expect(inviteUrl).toContain("token=");
   });
 
   test("GET /auth/invitations returns invitation statuses", async () => {
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-    try {
-      const { app } = buildApp({
-        permissions: [new Permission("users", "create")],
-      });
-      const token = await issueToken();
+    const { app } = buildApp({
+      permissions: [new Permission("users", "create")],
+    });
+    const token = await issueToken();
 
-      const createResponse = await app.request("/auth/invitations", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: "list.invite@example.com" }),
-      });
-      expect(createResponse.status).toBe(201);
+    const createResponse = await app.request("/auth/invitations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: "list.invite@example.com" }),
+    });
+    expect(createResponse.status).toBe(201);
 
-      const response = await app.request("/auth/invitations", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const response = await app.request("/auth/invitations", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      expect(response.status).toBe(200);
-      const body = await parseJson<{
-        data: {
-          id: string;
-          email: string;
-          status: string;
-          expiresAt: string;
-        }[];
-        meta: {
-          total: number;
-          page: number;
-          per_page: number;
-          total_pages: number;
-        };
-      }>(response);
-      expect(
-        body.data.some((item) => item.email === "list.invite@example.com"),
-      ).toBe(true);
-      const listed = body.data.find(
-        (item) => item.email === "list.invite@example.com",
-      );
-      expect(listed?.status).toBe("pending");
-      expect(listed?.expiresAt).toEqual(expect.any(String));
-      expect(body.meta.total).toBeGreaterThanOrEqual(1);
-    } finally {
-      process.env.NODE_ENV = previousNodeEnv;
-    }
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: {
+        id: string;
+        email: string;
+        status: string;
+        expiresAt: string;
+      }[];
+      meta: {
+        total: number;
+        page: number;
+        per_page: number;
+        total_pages: number;
+      };
+    }>(response);
+    expect(
+      body.data.some((item) => item.email === "list.invite@example.com"),
+    ).toBe(true);
+    const listed = body.data.find(
+      (item) => item.email === "list.invite@example.com",
+    );
+    expect(listed?.status).toBe("pending");
+    expect(listed?.expiresAt).toEqual(expect.any(String));
+    expect(body.meta.total).toBeGreaterThanOrEqual(1);
   });
 
   test("POST /auth/invitations/:id/resend creates new invite", async () => {
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-    try {
-      const { app } = buildApp({
-        permissions: [new Permission("users", "create")],
-      });
-      const token = await issueToken();
+    const inviteUrls: string[] = [];
+    const { app } = buildApp({
+      permissions: [new Permission("users", "create")],
+      invitationEmailSender: {
+        sendInvite: async (input) => {
+          inviteUrls.push(input.inviteUrl);
+        },
+      },
+    });
+    const token = await issueToken();
 
-      const createResponse = await app.request("/auth/invitations", {
+    const createResponse = await app.request("/auth/invitations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: "resend.invite@example.com" }),
+    });
+    const created = await parseJson<{ id: string }>(createResponse);
+
+    const resendResponse = await app.request(
+      `/auth/invitations/${created.id}/resend`,
+      {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: "resend.invite@example.com" }),
-      });
-      const created = await parseJson<{ id: string }>(createResponse);
+      },
+    );
 
-      const resendResponse = await app.request(
-        `/auth/invitations/${created.id}/resend`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      expect(resendResponse.status).toBe(201);
-      const resent = await parseJson<{ id: string; inviteUrl?: string }>(
-        resendResponse,
-      );
-      expect(resent.id).not.toBe(created.id);
-      expect(resent.inviteUrl).toContain("token=");
-    } finally {
-      process.env.NODE_ENV = previousNodeEnv;
-    }
+    expect(resendResponse.status).toBe(201);
+    const resent = await parseJson<{ id: string }>(resendResponse);
+    expect(resent.id).not.toBe(created.id);
+    expect(inviteUrls).toHaveLength(2);
+    expect(inviteUrls.at(-1)).toContain("token=");
   });
 
   test("POST /auth/invitations/accept accepts a valid invitation", async () => {
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-    try {
-      const credentials = new Map<string, string>([["test1", "hash"]]);
-      const credentialsRepository: CredentialsRepository = {
-        findPasswordHash: async (username) => credentials.get(username) ?? null,
-        updatePasswordHash: async (username, newPasswordHash) => {
-          credentials.set(username, newPasswordHash);
-        },
-        createPasswordHash: async (username, passwordHash) => {
-          credentials.set(username, passwordHash);
-        },
-      };
+    const credentials = new Map<string, string>([["test1", "hash"]]);
+    let inviteUrl: string | undefined;
+    const credentialsRepository: CredentialsRepository = {
+      findPasswordHash: async (username) => credentials.get(username) ?? null,
+      updatePasswordHash: async (username, newPasswordHash) => {
+        credentials.set(username, newPasswordHash);
+      },
+      createPasswordHash: async (username, passwordHash) => {
+        credentials.set(username, passwordHash);
+      },
+    };
 
-      const { app } = buildApp({
-        credentialsRepository,
-        permissions: [new Permission("users", "create")],
-      });
-      const token = await issueToken();
-      const createResponse = await app.request("/auth/invitations", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    const { app } = buildApp({
+      credentialsRepository,
+      permissions: [new Permission("users", "create")],
+      invitationEmailSender: {
+        sendInvite: async (input) => {
+          inviteUrl = input.inviteUrl;
         },
-        body: JSON.stringify({ email: "new.invite@example.com" }),
-      });
-      const createBody = await parseJson<{ inviteUrl?: string }>(
-        createResponse,
-      );
-      const inviteUrl = createBody.inviteUrl;
-      expect(inviteUrl).toBeDefined();
-      const parsedUrl = new URL(inviteUrl ?? "http://localhost/invalid");
-      const inviteToken = parsedUrl.searchParams.get("token") ?? "";
+      },
+    });
+    const token = await issueToken();
+    const createResponse = await app.request("/auth/invitations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: "new.invite@example.com" }),
+    });
+    expect(createResponse.status).toBe(201);
+    expect(inviteUrl).toContain("token=");
+    const parsedUrl = new URL(inviteUrl ?? "http://localhost/invalid");
+    const inviteToken = parsedUrl.searchParams.get("token") ?? "";
 
-      const acceptResponse = await app.request("/auth/invitations/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: inviteToken,
-          username: "brandnew",
-          password: "new-password-123",
-          name: "Brand New User",
-        }),
-      });
+    const acceptResponse = await app.request("/auth/invitations/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: inviteToken,
+        username: "brandnew",
+        password: "new-password-123",
+        name: "Brand New User",
+      }),
+    });
 
-      expect(acceptResponse.status).toBe(204);
-      expect(credentials.get("brandnew")).toEqual(expect.any(String));
-    } finally {
-      process.env.NODE_ENV = previousNodeEnv;
-    }
+    expect(acceptResponse.status).toBe(204);
+    expect(credentials.get("brandnew")).toEqual(expect.any(String));
   });
 });

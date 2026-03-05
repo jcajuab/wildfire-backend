@@ -1,6 +1,8 @@
 import { deleteCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
+import { env } from "#/env";
+import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -21,15 +23,6 @@ import {
   type AuthRouterDeps,
   authTags,
 } from "./shared";
-
-const resolveClientIp = (headers: {
-  forwardedFor?: string;
-  realIp?: string;
-}): string => {
-  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  return headers.realIp?.trim() || "unknown";
-};
 
 export const registerAuthPasswordRoute = (args: {
   router: AuthRouter;
@@ -85,8 +78,14 @@ export const registerAuthPasswordRoute = (args: {
         const userId = c.get("userId");
         const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `password-change|${userId}|${resolveClientIp({
-            forwardedFor: c.req.header("x-forwarded-for"),
-            realIp: c.req.header("x-real-ip"),
+            headers: {
+              forwardedFor: c.req.header("x-forwarded-for"),
+              realIp: c.req.header("x-real-ip"),
+              cfConnectingIp: c.req.header("cf-connecting-ip"),
+              xClientIp: c.req.header("x-client-ip"),
+              forwarded: c.req.header("forwarded"),
+            },
+            trustProxyHeaders: env.TRUST_PROXY_HEADERS,
           })}`,
           nowMs: Date.now(),
           windowSeconds: deps.authLoginRateLimitWindowSeconds,

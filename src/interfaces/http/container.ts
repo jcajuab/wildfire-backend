@@ -6,6 +6,7 @@ import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-e
 import { AuthSessionRedisRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
+import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
 import { DisplayAuthNonceRedisRepository } from "#/infrastructure/db/repositories/display-auth-nonce.repo";
 import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
@@ -54,6 +55,7 @@ export interface HttpContainer {
     authorizationRepository: AuthorizationDbRepository;
     authSessionRepository: AuthSessionRedisRepository;
     auditEventRepository: AuditEventDbRepository;
+    contentIngestionJobRepository: ContentIngestionJobDbRepository;
     contentRepository: ContentDbRepository;
     playlistRepository: PlaylistDbRepository;
     scheduleRepository: ScheduleDbRepository;
@@ -96,6 +98,7 @@ export const createHttpContainer = (
   const authorizationRepository = new AuthorizationDbRepository();
   const authSessionRepository = new AuthSessionRedisRepository();
   const auditEventRepository = new AuditEventDbRepository();
+  const contentIngestionJobRepository = new ContentIngestionJobDbRepository();
   const contentRepository = new ContentDbRepository();
   const playlistRepository = new PlaylistDbRepository();
   const scheduleRepository = new ScheduleDbRepository();
@@ -143,6 +146,7 @@ export const createHttpContainer = (
       authorizationRepository,
       authSessionRepository,
       auditEventRepository,
+      contentIngestionJobRepository,
       contentRepository,
       playlistRepository,
       scheduleRepository,

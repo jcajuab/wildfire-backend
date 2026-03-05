@@ -1,18 +1,37 @@
-import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  like,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   type ContentRecord,
   type ContentRepository,
 } from "#/application/ports/content";
-import { parseContentStatus, parseContentType } from "#/domain/content/content";
+import {
+  parseContentKind,
+  parseContentStatus,
+  parseContentType,
+} from "#/domain/content/content";
 import { db } from "#/infrastructure/db/client";
 import { content } from "#/infrastructure/db/schema/content.sql";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const toRecord = (row: typeof content.$inferSelect): ContentRecord => {
   const parsedType = parseContentType(row.type);
   if (!parsedType) {
     throw new Error(`Invalid content type: ${row.type}`);
+  }
+  const parsedKind = parseContentKind(row.kind);
+  if (!parsedKind) {
+    throw new Error(`Invalid content kind: ${row.kind}`);
   }
   const parsedStatus = parseContentStatus(row.status);
   if (!parsedStatus) {
@@ -23,9 +42,14 @@ const toRecord = (row: typeof content.$inferSelect): ContentRecord => {
     id: row.id,
     title: row.title,
     type: parsedType,
+    kind: parsedKind,
     status: parsedStatus,
     fileKey: row.fileKey,
     thumbnailKey: row.thumbnailKey ?? null,
+    parentContentId: row.parentContentId ?? null,
+    pageNumber: row.pageNumber ?? null,
+    pageCount: row.pageCount ?? null,
+    isExcluded: row.isExcluded,
     checksum: row.checksum,
     mimeType: row.mimeType,
     fileSize: row.fileSize,
@@ -49,9 +73,14 @@ export class ContentDbRepository implements ContentRepository {
       id: input.id,
       title: input.title,
       type: input.type,
+      kind: input.kind,
       status: input.status,
       fileKey: input.fileKey,
       thumbnailKey: input.thumbnailKey ?? null,
+      parentContentId: input.parentContentId,
+      pageNumber: input.pageNumber,
+      pageCount: input.pageCount,
+      isExcluded: input.isExcluded,
       checksum: input.checksum,
       mimeType: input.mimeType,
       fileSize: input.fileSize,
@@ -90,6 +119,7 @@ export class ContentDbRepository implements ContentRepository {
   async list({
     offset,
     limit,
+    parentId,
     status,
     type,
     search,
@@ -98,17 +128,21 @@ export class ContentDbRepository implements ContentRepository {
   }: {
     offset: number;
     limit: number;
+    parentId?: string;
     status?: ContentRecord["status"];
     type?: ContentRecord["type"];
     search?: string;
-    sortBy?: "createdAt" | "title" | "fileSize" | "type";
+    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }> {
     const conditions = [
+      parentId
+        ? eq(content.parentContentId, parentId)
+        : isNull(content.parentContentId),
       status ? eq(content.status, status) : undefined,
       type ? eq(content.type, type) : undefined,
       search && search.length > 0
-        ? like(content.title, `%${search.replaceAll("%", "\\%")}%`)
+        ? like(content.title, buildLikeContainsPattern(search))
         : undefined,
     ].filter((value) => value !== undefined);
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -119,15 +153,19 @@ export class ContentDbRepository implements ContentRepository {
           ? content.fileSize
           : sortBy === "type"
             ? content.type
-            : content.createdAt;
+            : sortBy === "pageNumber"
+              ? content.pageNumber
+              : content.createdAt;
     const orderBy =
-      sortDirection === "asc" ? asc(orderColumn) : desc(orderColumn);
+      sortDirection === "asc"
+        ? [asc(orderColumn), asc(content.createdAt)]
+        : [desc(orderColumn), desc(content.createdAt)];
 
     const items = await db
       .select()
       .from(content)
       .where(whereClause)
-      .orderBy(orderBy)
+      .orderBy(...orderBy)
       .limit(limit)
       .offset(offset);
     const totalQuery = db
@@ -144,15 +182,51 @@ export class ContentDbRepository implements ContentRepository {
     };
   }
 
+  async findChildrenByParentIds(
+    parentIds: string[],
+    input?: {
+      includeExcluded?: boolean;
+      onlyReady?: boolean;
+    },
+  ): Promise<ContentRecord[]> {
+    if (parentIds.length === 0) {
+      return [];
+    }
+
+    const conditions = [
+      inArray(content.parentContentId, parentIds),
+      input?.onlyReady ? eq(content.status, "READY") : undefined,
+      input?.includeExcluded ? undefined : eq(content.isExcluded, false),
+    ].filter((value) => value !== undefined);
+    const whereClause = and(...conditions);
+
+    const rows = await db
+      .select()
+      .from(content)
+      .where(whereClause)
+      .orderBy(
+        asc(content.parentContentId),
+        asc(content.pageNumber),
+        asc(content.createdAt),
+      );
+
+    return rows.map(toRecord);
+  }
+
   async update(
     id: string,
     input: Partial<
       Pick<
         ContentRecord,
         | "title"
+        | "kind"
         | "status"
         | "fileKey"
         | "thumbnailKey"
+        | "parentContentId"
+        | "pageNumber"
+        | "pageCount"
+        | "isExcluded"
         | "type"
         | "mimeType"
         | "fileSize"
@@ -171,7 +245,13 @@ export class ContentDbRepository implements ContentRepository {
     const result = await db
       .select({ value: sql<number>`count(*)` })
       .from(playlistItems)
-      .where(eq(playlistItems.contentId, contentId));
+      .leftJoin(content, eq(content.id, playlistItems.contentId))
+      .where(
+        or(
+          eq(playlistItems.contentId, contentId),
+          eq(content.parentContentId, contentId),
+        ),
+      );
     return result[0]?.value ?? 0;
   }
 
@@ -182,9 +262,27 @@ export class ContentDbRepository implements ContentRepository {
       .selectDistinct({ id: playlists.id, name: playlists.name })
       .from(playlistItems)
       .innerJoin(playlists, eq(playlistItems.playlistId, playlists.id))
-      .where(eq(playlistItems.contentId, contentId))
+      .leftJoin(content, eq(content.id, playlistItems.contentId))
+      .where(
+        or(
+          eq(playlistItems.contentId, contentId),
+          eq(content.parentContentId, contentId),
+        ),
+      )
       .limit(10);
     return result;
+  }
+
+  async deleteByParentId(parentId: string): Promise<ContentRecord[]> {
+    const rows = await db
+      .select()
+      .from(content)
+      .where(eq(content.parentContentId, parentId));
+    if (rows.length === 0) {
+      return [];
+    }
+    await db.delete(content).where(eq(content.parentContentId, parentId));
+    return rows.map(toRecord);
   }
 
   async delete(id: string): Promise<boolean> {

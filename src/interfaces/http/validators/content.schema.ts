@@ -4,17 +4,23 @@ import { isSupportedMimeType } from "#/domain/content/content";
 import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF"]);
+export const contentKindSchema = z.enum(["ROOT", "PAGE"]);
 export const contentStatusSchema = z.enum(["PROCESSING", "READY", "FAILED"]);
 
 export const contentSchema = z.object({
   id: z.string(),
   title: z.string(),
   type: contentTypeSchema,
+  kind: contentKindSchema,
   status: contentStatusSchema,
   thumbnailUrl: z.string().url().optional(),
   mimeType: z.string(),
   fileSize: z.number().int(),
   checksum: z.string(),
+  parentContentId: z.string().uuid().nullable(),
+  pageNumber: z.number().int().nullable(),
+  pageCount: z.number().int().nullable(),
+  isExcluded: z.boolean(),
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   duration: z.number().int().nullable(),
@@ -34,11 +40,12 @@ export const contentIdParamSchema = z.object({
 export const contentListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  parentId: z.string().uuid().optional(),
   status: contentStatusSchema.optional(),
   type: contentTypeSchema.optional(),
   search: z.string().trim().min(1).max(255).optional(),
   sortBy: z
-    .enum(["createdAt", "title", "fileSize", "type"])
+    .enum(["createdAt", "title", "fileSize", "type", "pageNumber"])
     .default("createdAt"),
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
@@ -67,28 +74,22 @@ export const createReplaceContentFileSchema = (maxBytes: number) =>
         `File exceeds ${maxBytes} bytes`,
       ),
     title: z.string().min(1).optional(),
-    status: contentStatusSchema.optional(),
   });
 
 export const downloadUrlResponseSchema = z.object({
   downloadUrl: z.string().url(),
 });
 
-export const updateContentSchema = z
-  .object({
-    title: z.string().min(1).optional(),
-    status: contentStatusSchema.optional(),
-  })
-  .refine((value) => value.title !== undefined || value.status !== undefined, {
-    message: "At least one field must be provided",
-  });
+export const updateContentSchema = z.object({
+  title: z.string().min(1),
+});
 
 export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     title: { type: "string", minLength: 1 },
-    status: { type: "string", enum: ["PROCESSING", "READY", "FAILED"] },
   },
+  required: ["title"],
   additionalProperties: false,
 };
 
@@ -106,8 +107,51 @@ export const replaceContentFileRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   properties: {
     file: { type: "string", format: "binary" },
     title: { type: "string", minLength: 1 },
-    status: { type: "string", enum: ["PROCESSING", "READY", "FAILED"] },
   },
   required: ["file"],
+  additionalProperties: false,
+};
+
+export const contentJobIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const contentJobStatusSchema = z.enum([
+  "QUEUED",
+  "PROCESSING",
+  "SUCCEEDED",
+  "FAILED",
+]);
+
+export const contentJobOperationSchema = z.enum(["UPLOAD", "REPLACE"]);
+
+export const contentJobSchema = z.object({
+  id: z.string().uuid(),
+  contentId: z.string().uuid(),
+  operation: contentJobOperationSchema,
+  status: contentJobStatusSchema,
+  errorMessage: z.string().nullable(),
+  createdById: z.string().uuid(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+});
+
+export const contentIngestionAcceptedSchema = z.object({
+  content: contentSchema,
+  job: contentJobSchema,
+});
+
+export const contentExclusionSchema = z.object({
+  isExcluded: z.boolean(),
+});
+
+export const contentExclusionRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    isExcluded: { type: "boolean" },
+  },
+  required: ["isExcluded"],
   additionalProperties: false,
 };

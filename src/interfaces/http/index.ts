@@ -11,6 +11,8 @@ import {
 } from "#/application/use-cases/auth";
 import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
 import { env } from "#/env";
+import { RedisContentIngestionQueue } from "#/infrastructure/content-jobs/redis-content-ingestion-queue";
+import { closeDbConnection } from "#/infrastructure/db/client";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -35,6 +37,7 @@ import {
 import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
+import { createContentJobsRouter } from "#/interfaces/http/routes/content-jobs.route";
 import { createDisplayRouter } from "#/interfaces/http/routes/display.route";
 import { startDisplayStatusReconciler } from "#/interfaces/http/routes/displays/status-reconciler";
 import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
@@ -51,7 +54,23 @@ export const app = new Hono<{ Variables: RequestIdVariables }>();
 const tokenTtlSeconds = 60 * 60;
 const avatarUrlExpiresInSeconds = 60 * 60;
 const contentThumbnailUrlExpiresInSeconds = 60 * 60;
+
+type StartupMode = "failed" | "degraded";
+
+interface HttpStorageStartupState {
+  ensureBucketOk: boolean;
+  connectivityOk: boolean;
+  lastError?: string;
+  lastCheckedAt: number | null;
+  status: StartupMode | "success" | "not-checked";
+}
+
 const authSecurityStore = new RedisAuthSecurityStore();
+const contentIngestionQueue = new RedisContentIngestionQueue({
+  enabled: true,
+  maxStreamLength: env.CONTENT_INGEST_QUEUE_CAPACITY,
+  streamName: env.REDIS_STREAM_CONTENT_INGEST_NAME,
+});
 
 const container = createHttpContainer({
   jwtSecret: env.JWT_SECRET,
@@ -69,6 +88,11 @@ const container = createHttpContainer({
   },
 });
 
+const storageStartupContext = {
+  component: "api-bootstrap",
+  phase: "storage",
+};
+
 export const syncAuthIdentityOnStartup = () =>
   runStartupAuthIdentitySync({
     htshadowPath: env.HTSHADOW_PATH,
@@ -84,38 +108,66 @@ export const syncAuthIdentityOnStartup = () =>
     },
   });
 
-startDisplayStatusReconciler({
-  displayRepository: container.repositories.displayRepository,
-  scheduleRepository: container.repositories.scheduleRepository,
-  scheduleTimeZone: env.SCHEDULE_TIMEZONE,
+let stopDisplayStatusReconciler: (() => Promise<void>) | null = null;
+const getStorageConfig = () => ({
+  minioEndpoint: container.storage.minioEndpoint,
+  bucket: env.MINIO_BUCKET,
 });
-const minioStartupRunId = createStartupRunId("minio-bootstrap");
-const minioStartupContext = {
-  component: "api-bootstrap",
-  phase: "storage",
-  runId: minioStartupRunId,
+let storageStartupState: HttpStorageStartupState = {
+  ensureBucketOk: false,
+  connectivityOk: false,
+  lastCheckedAt: null,
+  status: "not-checked",
 };
 
-logger.info(
-  {
-    component: "api-bootstrap",
-    event: "storage.minio.configured",
-    minioEndpoint: container.storage.minioEndpoint,
-    bucket: env.MINIO_BUCKET,
-  },
-  "MinIO storage configured",
-);
+export const getStorageStartupState = (): HttpStorageStartupState => ({
+  ...storageStartupState,
+});
 
-void (async () => {
-  const storageConfig = {
-    minioEndpoint: container.storage.minioEndpoint,
-    bucket: env.MINIO_BUCKET,
+const startDisplayStatusReconcilerWorker = (): void => {
+  if (stopDisplayStatusReconciler != null) {
+    return;
+  }
+  stopDisplayStatusReconciler = startDisplayStatusReconciler({
+    displayRepository: container.repositories.displayRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
+    scheduleTimeZone: env.SCHEDULE_TIMEZONE,
+  });
+};
+
+export const startHttpBackgroundWorkers = (): void => {
+  startDisplayStatusReconcilerWorker();
+};
+
+const toStorageErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+export const runStorageBootstrapChecks = async (): Promise<void> => {
+  const storageConfig = getStorageConfig();
+  const startupContext = {
+    ...storageStartupContext,
+    runId: createStartupRunId("minio-bootstrap"),
   };
+  const startedAtMs = Date.now();
+  storageStartupState = {
+    ...storageStartupState,
+    lastCheckedAt: startedAtMs,
+    status: "failed",
+  };
+
+  logger.info(
+    {
+      component: "api-bootstrap",
+      event: "storage.minio.configured",
+      ...storageConfig,
+    },
+    "MinIO storage configured",
+  );
 
   const bucketStartupStartedAt = Date.now();
   logStartupPhaseStarted(
     {
-      ...minioStartupContext,
+      ...startupContext,
       operation: "ensure-bucket-exists",
     },
     storageConfig,
@@ -123,42 +175,69 @@ void (async () => {
 
   try {
     await container.storage.contentStorage.ensureBucketExists();
+    storageStartupState = {
+      ...storageStartupState,
+      ensureBucketOk: true,
+      lastError: undefined,
+    };
     logStartupPhaseSucceeded(
       {
-        ...minioStartupContext,
+        ...startupContext,
         operation: "ensure-bucket-exists",
       },
       Date.now() - bucketStartupStartedAt,
       storageConfig,
     );
   } catch (error) {
+    const errorMessage = toStorageErrorMessage(error);
+    storageStartupState = {
+      ...storageStartupState,
+      ensureBucketOk: false,
+      connectivityOk: false,
+      lastError: errorMessage,
+      status: env.STARTUP_STRICT_STORAGE ? "failed" : "degraded",
+    };
     logStartupPhaseFailed(
       {
-        ...minioStartupContext,
+        ...startupContext,
         operation: "ensure-bucket-exists",
       },
       Date.now() - bucketStartupStartedAt,
       error,
       storageConfig,
     );
+    if (env.STARTUP_STRICT_STORAGE) {
+      throw error;
+    }
+
     return;
   }
 
   const connectivityStartedAt = Date.now();
   logStartupPhaseStarted(
     {
-      ...minioStartupContext,
+      ...startupContext,
       operation: "check-connectivity",
     },
     storageConfig,
   );
   try {
     const result = await container.storage.contentStorage.checkConnectivity();
+    storageStartupState = {
+      ...storageStartupState,
+      connectivityOk: result.ok,
+    };
+
     const durationMs = Date.now() - connectivityStartedAt;
     if (result.ok) {
+      storageStartupState = {
+        ...storageStartupState,
+        status: "success",
+        lastError: undefined,
+      };
       logStartupPhaseSucceeded(
         {
-          ...minioStartupContext,
+          ...startupContext,
           operation: "check-connectivity",
         },
         durationMs,
@@ -167,9 +246,15 @@ void (async () => {
       return;
     }
 
+    storageStartupState = {
+      ...storageStartupState,
+      status: "degraded",
+      lastError:
+        result.error ?? "MinIO connectivity check failed without error detail",
+    };
     logStartupPhaseDegraded(
       {
-        ...minioStartupContext,
+        ...startupContext,
         operation: "check-connectivity",
       },
       durationMs,
@@ -179,18 +264,40 @@ void (async () => {
       },
       result.error != null ? new Error(result.error) : undefined,
     );
+    if (env.STARTUP_STRICT_STORAGE) {
+      throw new Error(storageStartupState.lastError);
+    }
   } catch (error) {
+    storageStartupState = {
+      ...storageStartupState,
+      connectivityOk: false,
+      status: env.STARTUP_STRICT_STORAGE ? "failed" : "degraded",
+      lastError: toStorageErrorMessage(error),
+    };
     logStartupPhaseFailed(
       {
-        ...minioStartupContext,
+        ...startupContext,
         operation: "check-connectivity",
       },
       Date.now() - connectivityStartedAt,
       error,
       storageConfig,
     );
+    if (env.STARTUP_STRICT_STORAGE) {
+      throw error;
+    }
   }
-})();
+};
+
+logger.info(
+  {
+    component: "api-bootstrap",
+    event: "storage.bootstrap_not_started",
+    minioEndpoint: container.storage.minioEndpoint,
+    bucket: env.MINIO_BUCKET,
+  },
+  "MinIO storage bootstrap deferred until startup orchestration",
+);
 
 const authRouter = createAuthRouter({
   credentialsRepository: container.auth.credentialsRepository,
@@ -318,10 +425,33 @@ const contentRouter = createContentRouter({
   thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
   repositories: {
     contentRepository: container.repositories.contentRepository,
+    contentIngestionJobRepository:
+      container.repositories.contentIngestionJobRepository,
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
   storage: container.storage.contentStorage,
+  contentIngestionQueue,
+  contentMetadataExtractor: container.storage.contentMetadataExtractor,
+  contentThumbnailGenerator: container.storage.contentThumbnailGenerator,
+});
+
+const contentJobsRouter = createContentJobsRouter({
+  jwtSecret: env.JWT_SECRET,
+  authSessionRepository: container.repositories.authSessionRepository,
+  authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
+  downloadUrlExpiresInSeconds: 60 * 60,
+  thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
+  repositories: {
+    contentRepository: container.repositories.contentRepository,
+    contentIngestionJobRepository:
+      container.repositories.contentIngestionJobRepository,
+    userRepository: container.repositories.userRepository,
+    authorizationRepository: container.repositories.authorizationRepository,
+  },
+  storage: container.storage.contentStorage,
+  contentIngestionQueue,
   contentMetadataExtractor: container.storage.contentMetadataExtractor,
   contentThumbnailGenerator: container.storage.contentThumbnailGenerator,
 });
@@ -458,6 +588,7 @@ app.route("/api/v1/schedules", schedulesRouter);
 app.route("/api/v1/displays", displaysRouter);
 app.route("/api/v1/display-runtime", displayRouter);
 app.route("/api/v1/content", contentRouter);
+app.route("/api/v1/content-jobs", contentJobsRouter);
 app.route("/api/v1/audit", auditRouter);
 app.route("/api/v1", rbacRouter);
 
@@ -524,5 +655,10 @@ if (env.NODE_ENV !== "production") {
 
 export const stopHttpBackgroundWorkers = async (): Promise<void> => {
   await auditQueue.stop();
+  if (stopDisplayStatusReconciler) {
+    await stopDisplayStatusReconciler();
+    stopDisplayStatusReconciler = null;
+  }
   await closeRedisClients();
+  await closeDbConnection();
 };

@@ -27,12 +27,32 @@ const makeRepository = () => {
         records.find((item) => item.id === id) ?? null,
       findByIds: async (ids: string[]) =>
         records.filter((item) => ids.includes(item.id)),
-      list: async ({ offset, limit }: { offset: number; limit: number }) => ({
-        items: records.slice(offset, offset + limit),
-        total: records.length,
+      list: async ({
+        offset,
+        limit,
+        parentId,
+      }: {
+        offset: number;
+        limit: number;
+        parentId?: string;
+      }) => ({
+        items: records
+          .filter((record) =>
+            parentId
+              ? record.parentContentId === parentId
+              : record.parentContentId === null,
+          )
+          .slice(offset, offset + limit),
+        total: records.filter((record) =>
+          parentId
+            ? record.parentContentId === parentId
+            : record.parentContentId === null,
+        ).length,
       }),
+      findChildrenByParentIds: async () => [],
       countPlaylistReferences: async () => 0,
       listPlaylistsReferencingContent: async () => [],
+      deleteByParentId: async () => [],
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
         if (index === -1) return false;
@@ -45,9 +65,14 @@ const makeRepository = () => {
           Pick<
             ContentRecord,
             | "title"
+            | "kind"
             | "status"
             | "fileKey"
             | "thumbnailKey"
+            | "parentContentId"
+            | "pageNumber"
+            | "pageCount"
+            | "isExcluded"
             | "type"
             | "mimeType"
             | "fileSize"
@@ -73,6 +98,7 @@ const makeApp = async (permissions: string[]) => {
   const storage = {
     ensureBucketExists: async () => {},
     upload: async () => {},
+    download: async () => new Uint8Array(),
     delete: async () => {},
     getPresignedDownloadUrl: async ({
       key,
@@ -138,10 +164,36 @@ const makeApp = async (permissions: string[]) => {
     thumbnailUrlExpiresInSeconds: 3600,
     repositories: {
       contentRepository: repository,
+      contentIngestionJobRepository: {
+        create: async (input: {
+          id: string;
+          contentId: string;
+          operation: "UPLOAD" | "REPLACE";
+          status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+          createdById: string;
+          errorMessage?: string | null;
+        }) => ({
+          id: input.id,
+          contentId: input.contentId,
+          operation: input.operation,
+          status: input.status,
+          errorMessage: input.errorMessage ?? null,
+          createdById: input.createdById,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          startedAt: null,
+          completedAt: null,
+        }),
+        findById: async () => null,
+        update: async () => null,
+      },
       userRepository,
       authorizationRepository,
     },
     storage,
+    contentIngestionQueue: {
+      enqueue: async () => {},
+    },
     contentMetadataExtractor: {
       extract: async () => ({ width: 1366, height: 768, duration: null }),
     },
@@ -185,12 +237,14 @@ describe("Content routes", () => {
       body: form,
     });
 
-    expect(response.status).toBe(201);
-    const body = await parseJson<{ data: { id: string; title: string } }>(
-      response,
+    expect(response.status).toBe(202);
+    const body = await parseJson<{
+      data: { content: { id: string; title: string }; job: { id: string } };
+    }>(response);
+    expect(body.data.content.title).toBe("Welcome");
+    expect(response.headers.get("Location")).toBe(
+      `/api/v1/content-jobs/${body.data.job.id}`,
     );
-    expect(body.data.title).toBe("Welcome");
-    expect(response.headers.get("Location")).toBe(`/content/${body.data.id}`);
   });
 
   test("GET /content returns list", async () => {
@@ -200,8 +254,13 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -236,8 +295,13 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -270,8 +334,13 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
+      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -327,8 +396,13 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Old Title",
       type: "IMAGE",
+      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -358,15 +432,20 @@ describe("Content routes", () => {
     expect(body.data.title).toBe("New Title");
   });
 
-  test("PATCH /content/:id updates content status", async () => {
+  test("PATCH /content/:id rejects status-only updates", async () => {
     const { app, issueToken, records } = await makeApp(["content:update"]);
     const token = await issueToken();
     records.push({
       id: "11111111-1111-4111-8111-111111111111",
       title: "Status Test",
       type: "IMAGE",
+      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -389,9 +468,7 @@ describe("Content routes", () => {
       },
     );
 
-    expect(response.status).toBe(200);
-    const body = await parseJson<{ data: { status: string } }>(response);
-    expect(body.data.status).toBe("READY");
+    expect(response.status).toBe(422);
   });
 
   test("PATCH /content/:id returns 404 for missing content", async () => {
@@ -440,8 +517,13 @@ describe("Content routes", () => {
       id,
       title: "Old PDF",
       type: "PDF",
+      kind: "ROOT",
       status: "READY",
       fileKey: `content/documents/${id}.pdf`,
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "old",
       mimeType: "application/pdf",
       fileSize: 10,
@@ -460,7 +542,6 @@ describe("Content routes", () => {
       }),
     );
     form.set("title", "New Video");
-    form.set("status", "READY");
 
     const response = await app.request(`/content/${id}/file`, {
       method: "PUT",
@@ -468,19 +549,25 @@ describe("Content routes", () => {
       body: form,
     });
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     const body = await parseJson<{
       data: {
-        title: string;
-        type: string;
-        status: string;
-        mimeType: string;
+        content: {
+          title: string;
+          type: string;
+          status: string;
+          mimeType: string;
+        };
+        job: { id: string };
       };
     }>(response);
-    expect(body.data.title).toBe("New Video");
-    expect(body.data.type).toBe("VIDEO");
-    expect(body.data.status).toBe("READY");
-    expect(body.data.mimeType).toBe("video/mp4");
+    expect(body.data.content.title).toBe("New Video");
+    expect(body.data.content.type).toBe("VIDEO");
+    expect(body.data.content.status).toBe("PROCESSING");
+    expect(body.data.content.mimeType).toBe("video/mp4");
+    expect(response.headers.get("Location")).toBe(
+      `/api/v1/content-jobs/${body.data.job.id}`,
+    );
   });
 
   test("PUT /content/:id/file returns 409 when content is in use", async () => {
@@ -491,8 +578,13 @@ describe("Content routes", () => {
       id,
       title: "In Use",
       type: "IMAGE",
+      kind: "ROOT",
       status: "PROCESSING",
       fileKey: `content/images/${id}.png`,
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
       checksum: "old",
       mimeType: "image/png",
       fileSize: 10,

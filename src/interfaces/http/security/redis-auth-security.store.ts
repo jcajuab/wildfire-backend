@@ -1,5 +1,8 @@
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
 
 export interface AuthSecurityStore {
@@ -134,10 +137,11 @@ export class RedisAuthSecurityStore implements AuthSecurityStore {
     retryAfterSeconds?: number;
   }> {
     const redis = await getRedisCommandClient();
-    const lockedUntilRaw = await redis.hGet(
+    const lockedUntilRaw = await executeRedisCommand<string | null>(redis, [
+      "HGET",
       loginAttemptKey(key),
       "lockedUntilMs",
-    );
+    ]);
     const lockedUntilMs = parseMilliseconds(lockedUntilRaw ?? undefined);
 
     if (lockedUntilMs == null || lockedUntilMs <= nowMs) {
@@ -179,7 +183,7 @@ export class RedisAuthSecurityStore implements AuthSecurityStore {
 
   async clearLoginFailures(key: string): Promise<void> {
     const redis = await getRedisCommandClient();
-    await redis.del(loginAttemptKey(key));
+    await executeRedisCommand<number>(redis, ["DEL", loginAttemptKey(key)]);
   }
 
   async consumeEndpointAttempt(input: {

@@ -77,12 +77,56 @@ const computeRequiredMinDurationSeconds = async (input: {
   const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
   const contents = await input.contentRepository.findByIds(contentIds);
   const contentById = new Map(contents.map((content) => [content.id, content]));
+  const parentPdfIds = contents
+    .filter((content) => content.kind === "ROOT" && content.type === "PDF")
+    .map((content) => content.id);
+  const childPagesByParentId = new Map<string, typeof contents>();
+  if (
+    parentPdfIds.length > 0 &&
+    input.contentRepository.findChildrenByParentIds
+  ) {
+    const childPages = await input.contentRepository.findChildrenByParentIds(
+      parentPdfIds,
+      {
+        includeExcluded: false,
+        onlyReady: true,
+      },
+    );
+    for (const childPage of childPages) {
+      if (!childPage.parentContentId) {
+        continue;
+      }
+      const current = childPagesByParentId.get(childPage.parentContentId) ?? [];
+      childPagesByParentId.set(childPage.parentContentId, [
+        ...current,
+        childPage,
+      ]);
+    }
+  }
   let baseDuration = 0;
   let overflowExtra = 0;
   for (const item of items) {
-    baseDuration += item.duration;
     const content = contentById.get(item.contentId);
     if (!content) continue;
+    if (content.kind === "ROOT" && content.type === "PDF") {
+      const childPages = childPagesByParentId.get(content.id) ?? [];
+      const pages = childPages.length > 0 ? childPages : [content];
+      baseDuration += item.duration * pages.length;
+      for (const page of pages) {
+        if (
+          page.width !== null &&
+          page.height !== null &&
+          page.width > 0 &&
+          page.height > 0
+        ) {
+          const scaledHeight = (input.displayWidth / page.width) * page.height;
+          const overflow = Math.max(0, scaledHeight - input.displayHeight);
+          overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
+        }
+      }
+      continue;
+    }
+    baseDuration += item.duration;
     if (
       (content.type === "IMAGE" || content.type === "PDF") &&
       content.width !== null &&
@@ -408,10 +452,42 @@ export class AddPlaylistItemUseCase {
         "Only ready content can be added to playlists.",
       );
     }
+    if (content.kind === "PAGE" && content.isExcluded) {
+      throw new ValidationError(
+        "Excluded PDF pages cannot be added to playlists.",
+      );
+    }
 
     const existingItems = await this.deps.playlistRepository.listItems(
       input.playlistId,
     );
+    const existingContentIds = Array.from(
+      new Set(existingItems.map((item) => item.contentId)),
+    );
+    const existingContents =
+      existingContentIds.length > 0
+        ? await this.deps.contentRepository.findByIds(existingContentIds)
+        : [];
+    const hasParentPdfRefs = existingContents.some(
+      (existingContent) =>
+        existingContent.type === "PDF" && existingContent.kind === "ROOT",
+    );
+    const hasChildPdfRefs = existingContents.some(
+      (existingContent) =>
+        existingContent.type === "PDF" && existingContent.kind === "PAGE",
+    );
+    const incomingIsParentPdf =
+      content.type === "PDF" && content.kind === "ROOT";
+    const incomingIsChildPdf =
+      content.type === "PDF" && content.kind === "PAGE";
+    if (
+      (incomingIsParentPdf && hasChildPdfRefs) ||
+      (incomingIsChildPdf && hasParentPdfRefs)
+    ) {
+      throw new ValidationError(
+        "Cannot mix PDF documents and PDF pages in the same playlist.",
+      );
+    }
     if (existingItems.some((item) => item.sequence === input.sequence)) {
       throw new ValidationError("Sequence already exists in playlist");
     }

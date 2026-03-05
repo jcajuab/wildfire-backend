@@ -38,6 +38,17 @@ export class DeleteContentUseCase {
       throw new ContentInUseError(message);
     }
 
+    const children =
+      record.kind === "ROOT" &&
+      this.deps.contentRepository.findChildrenByParentIds
+        ? await this.deps.contentRepository.findChildrenByParentIds(
+            [record.id],
+            {
+              includeExcluded: true,
+            },
+          )
+        : [];
+
     const deleted = await this.deps.contentRepository.delete(input.id);
     if (!deleted) {
       throw new NotFoundError("Content not found");
@@ -45,9 +56,14 @@ export class DeleteContentUseCase {
 
     // Storage deletion after DB commit: orphan files are recoverable,
     // ghost DB records pointing to missing files are not.
-    const keysToDelete = record.thumbnailKey
-      ? [record.fileKey, record.thumbnailKey]
-      : [record.fileKey];
+    const keysToDelete = [
+      record.fileKey,
+      ...(record.thumbnailKey ? [record.thumbnailKey] : []),
+      ...children.map((child) => child.fileKey),
+      ...children
+        .map((child) => child.thumbnailKey)
+        .filter((key): key is string => key != null),
+    ];
     for (const key of keysToDelete) {
       try {
         await this.deps.contentStorage.delete(key);

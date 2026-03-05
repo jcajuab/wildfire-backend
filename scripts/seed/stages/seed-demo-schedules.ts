@@ -1,6 +1,9 @@
 import { DEMO_DISPLAYS, DEMO_PLAYLISTS, DEMO_SCHEDULES } from "../fixtures";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
 
+const toDryRunDisplayId = (slug: string): string => `dry-run:display:${slug}`;
+const toDryRunPlaylistId = (name: string): string => `dry-run:playlist:${name}`;
+
 export async function runSeedDemoSchedules(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
@@ -14,6 +17,13 @@ export async function runSeedDemoSchedules(
       displayFixture.slug,
     );
     if (!display) {
+      if (ctx.args.dryRun) {
+        displaysBySlug.set(
+          displayFixture.slug,
+          toDryRunDisplayId(displayFixture.slug),
+        );
+        continue;
+      }
       throw new Error(
         `Missing demo display for schedule seed: ${displayFixture.slug}`,
       );
@@ -21,12 +31,20 @@ export async function runSeedDemoSchedules(
     displaysBySlug.set(displayFixture.slug, display.id);
   }
 
+  const existingPlaylists = await ctx.repos.playlistRepository.list();
   const playlistsByName = new Map<string, string>();
   for (const playlistFixture of DEMO_PLAYLISTS) {
-    const playlist = (await ctx.repos.playlistRepository.list()).find(
+    const playlist = existingPlaylists.find(
       (candidate) => candidate.name === playlistFixture.name,
     );
     if (!playlist) {
+      if (ctx.args.dryRun) {
+        playlistsByName.set(
+          playlistFixture.name,
+          toDryRunPlaylistId(playlistFixture.name),
+        );
+        continue;
+      }
       throw new Error(
         `Missing demo playlist for schedule seed: ${playlistFixture.name}`,
       );

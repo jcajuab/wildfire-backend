@@ -3,7 +3,10 @@ import {
   type DisplayPairingCodeRepository,
 } from "#/application/ports/display-pairing";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 
 const pairingCodePrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code`;
 const pairingCodeLookupPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code-lookup`;
@@ -102,17 +105,26 @@ export class DisplayPairingCodeRedisRepository
     const nowMs = Date.now();
     const expiresAtMs = input.expiresAt.getTime();
 
-    await redis.hSet(pairingCodeKey(id), {
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      pairingCodeKey(id),
+      "id",
       id,
-      codeHash: input.codeHash,
-      expiresAtMs: String(expiresAtMs),
-      usedAtMs: "",
-      createdById: input.createdById,
-      createdAtMs: String(nowMs),
-      updatedAtMs: String(nowMs),
-    });
+      "codeHash",
+      input.codeHash,
+      "expiresAtMs",
+      String(expiresAtMs),
+      "usedAtMs",
+      "",
+      "createdById",
+      input.createdById,
+      "createdAtMs",
+      String(nowMs),
+      "updatedAtMs",
+      String(nowMs),
+    ]);
 
-    const setResult = await redis.sendCommand([
+    const setResult = await executeRedisCommand<string>(redis, [
       "SET",
       pairingCodeLookupKey(input.codeHash),
       id,
@@ -142,7 +154,10 @@ export class DisplayPairingCodeRedisRepository
   }): Promise<DisplayPairingCodeRecord | null> {
     const redis = await getRedisCommandClient();
     const consumedId = toScriptString(
-      await redis.sendCommand(["GETDEL", pairingCodeLookupKey(input.codeHash)]),
+      await executeRedisCommand<string | null>(redis, [
+        "GETDEL",
+        pairingCodeLookupKey(input.codeHash),
+      ]),
     );
 
     if (consumedId.length === 0) {
@@ -150,7 +165,12 @@ export class DisplayPairingCodeRedisRepository
     }
 
     const key = pairingCodeKey(consumedId);
-    const stored = parseStoredPairingCode(await redis.hGetAll(key));
+    const stored = parseStoredPairingCode(
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        key,
+      ]),
+    );
     if (!stored) {
       return null;
     }
@@ -160,10 +180,14 @@ export class DisplayPairingCodeRedisRepository
       return null;
     }
 
-    await redis.hSet(key, {
-      usedAtMs: String(nowMs),
-      updatedAtMs: String(nowMs),
-    });
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      key,
+      "usedAtMs",
+      String(nowMs),
+      "updatedAtMs",
+      String(nowMs),
+    ]);
 
     return toRecord({
       ...stored,
@@ -175,7 +199,12 @@ export class DisplayPairingCodeRedisRepository
   async invalidateById(input: { id: string; now: Date }): Promise<void> {
     const redis = await getRedisCommandClient();
     const key = pairingCodeKey(input.id);
-    const stored = parseStoredPairingCode(await redis.hGetAll(key));
+    const stored = parseStoredPairingCode(
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        key,
+      ]),
+    );
 
     if (!stored) {
       return;
@@ -186,10 +215,17 @@ export class DisplayPairingCodeRedisRepository
       return;
     }
 
-    await redis.hSet(key, {
-      usedAtMs: String(nowMs),
-      updatedAtMs: String(nowMs),
-    });
-    await redis.del(pairingCodeLookupKey(stored.codeHash));
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      key,
+      "usedAtMs",
+      String(nowMs),
+      "updatedAtMs",
+      String(nowMs),
+    ]);
+    await executeRedisCommand<number>(redis, [
+      "DEL",
+      pairingCodeLookupKey(stored.codeHash),
+    ]);
   }
 }

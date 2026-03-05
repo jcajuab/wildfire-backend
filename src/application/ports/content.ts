@@ -1,12 +1,21 @@
-import { type ContentStatus, type ContentType } from "#/domain/content/content";
+import {
+  type ContentKind,
+  type ContentStatus,
+  type ContentType,
+} from "#/domain/content/content";
 
 export interface ContentRecord {
   id: string;
   title: string;
   type: ContentType;
+  kind?: ContentKind;
   status: ContentStatus;
   fileKey: string;
   thumbnailKey?: string | null;
+  parentContentId?: string | null;
+  pageNumber?: number | null;
+  pageCount?: number | null;
+  isExcluded?: boolean;
   checksum: string;
   mimeType: string;
   fileSize: number;
@@ -30,21 +39,34 @@ export interface ContentRepository {
   list(input: {
     offset: number;
     limit: number;
+    parentId?: string;
     status?: ContentStatus;
     type?: ContentType;
     search?: string;
-    sortBy?: "createdAt" | "title" | "fileSize" | "type";
+    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }>;
+  findChildrenByParentIds?(
+    parentIds: string[],
+    input?: {
+      includeExcluded?: boolean;
+      onlyReady?: boolean;
+    },
+  ): Promise<ContentRecord[]>;
   update(
     id: string,
     input: Partial<
       Pick<
         ContentRecord,
         | "title"
+        | "kind"
         | "status"
         | "fileKey"
         | "thumbnailKey"
+        | "parentContentId"
+        | "pageNumber"
+        | "pageCount"
+        | "isExcluded"
         | "type"
         | "mimeType"
         | "fileSize"
@@ -59,6 +81,7 @@ export interface ContentRepository {
   listPlaylistsReferencingContent(
     contentId: string,
   ): Promise<{ id: string; name: string }[]>;
+  deleteByParentId?(parentId: string): Promise<ContentRecord[]>;
   delete(id: string): Promise<boolean>;
 }
 
@@ -70,6 +93,7 @@ export interface ContentStorage {
     contentType: string;
     contentLength: number;
   }): Promise<void>;
+  download?(key: string): Promise<Uint8Array>;
   delete(key: string): Promise<void>;
   getPresignedDownloadUrl(input: {
     key: string;

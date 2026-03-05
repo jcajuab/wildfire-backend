@@ -13,7 +13,7 @@ const makeQueue = (opts?: { overflow?: boolean }) => {
   const calls: Array<Record<string, unknown>> = [];
 
   const auditQueue: AuditEventQueue = {
-    enqueue: (event) => {
+    enqueue: async (event) => {
       if (opts?.overflow) {
         return {
           accepted: false,

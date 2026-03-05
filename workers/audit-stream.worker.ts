@@ -8,8 +8,10 @@ import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   closeRedisClients,
+  executeRedisCommand,
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
+import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
 
 interface StreamEntry {
   id: string;
@@ -74,6 +76,86 @@ const parseStreamEntries = (reply: unknown): StreamEntry[] => {
   return entries;
 };
 
+const readStreamEntriesWithRetry = async (): Promise<StreamEntry[]> => {
+  const maxAttempts = Math.max(1, Math.trunc(env.REDIS_STREAM_MAX_DELIVERIES));
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const redis = await getRedisCommandClient();
+      const reply = await executeRedisCommand(
+        redis,
+        [
+          "XREADGROUP",
+          "GROUP",
+          streamGroup,
+          consumerName,
+          "COUNT",
+          String(env.REDIS_STREAM_BATCH_SIZE),
+          "BLOCK",
+          String(env.REDIS_STREAM_BLOCK_MS),
+          "STREAMS",
+          streamName,
+          ">",
+        ],
+        {
+          timeoutMs: Math.max(
+            1_000,
+            env.REDIS_STREAM_BLOCK_MS + env.WORKER_RETRY_MAX_DELAY_MS,
+          ),
+          operationName: "audit stream read",
+        },
+      );
+      return parseStreamEntries(reply);
+    } catch (error) {
+      lastError = error;
+      if (isShuttingDown || attempt >= maxAttempts) {
+        break;
+      }
+
+      logger.warn(
+        addErrorContext(
+          {
+            component: "audit",
+            event: "audit.worker.read_retrying",
+            streamName,
+            streamGroup,
+            consumerName,
+            attempt,
+            maxAttempts,
+          },
+          error,
+        ),
+        "audit stream read retrying",
+      );
+
+      await sleep(
+        calculateExponentialDelayMs({
+          attempt,
+          baseDelayMs: env.WORKER_RETRY_BASE_DELAY_MS,
+          maxDelayMs: env.WORKER_RETRY_MAX_DELAY_MS,
+        }),
+      );
+    }
+  }
+
+  logger.error(
+    addErrorContext(
+      {
+        component: "audit",
+        event: "audit.worker.read_failed",
+        streamName,
+        streamGroup,
+        consumerName,
+      },
+      lastError,
+    ),
+    "audit stream read failed after retries",
+  );
+
+  return [];
+};
+
 const parseAuditEventPayload = (
   payload: string,
 ): CreateAuditEventInput | null => {
@@ -108,7 +190,7 @@ const parseAuditEventPayload = (
 const ensureGroup = async (): Promise<void> => {
   const redis = await getRedisCommandClient();
   try {
-    await redis.sendCommand([
+    await executeRedisCommand(redis, [
       "XGROUP",
       "CREATE",
       streamName,
@@ -134,8 +216,8 @@ const ensureGroup = async (): Promise<void> => {
 
 const ackAndDeleteEntry = async (entryId: string): Promise<void> => {
   const redis = await getRedisCommandClient();
-  await redis.sendCommand(["XACK", streamName, streamGroup, entryId]);
-  await redis.sendCommand(["XDEL", streamName, entryId]);
+  await executeRedisCommand(redis, ["XACK", streamName, streamGroup, entryId]);
+  await executeRedisCommand(redis, ["XDEL", streamName, entryId]);
 };
 
 const addToDlq = async (input: {
@@ -144,7 +226,7 @@ const addToDlq = async (input: {
   error?: string;
 }): Promise<void> => {
   const redis = await getRedisCommandClient();
-  await redis.sendCommand([
+  await executeRedisCommand(redis, [
     "XADD",
     streamDlqName,
     "MAXLEN",
@@ -201,6 +283,13 @@ const processEntry = async (input: {
           ),
           "audit worker retrying stream entry",
         );
+        await sleep(
+          calculateExponentialDelayMs({
+            attempt,
+            baseDelayMs: env.WORKER_RETRY_BASE_DELAY_MS,
+            maxDelayMs: env.WORKER_RETRY_MAX_DELAY_MS,
+          }),
+        );
         continue;
       }
 
@@ -254,21 +343,7 @@ const runWorker = async (): Promise<void> => {
 
   while (!isShuttingDown) {
     try {
-      const redis = await getRedisCommandClient();
-      const reply = await redis.sendCommand([
-        "XREADGROUP",
-        "GROUP",
-        streamGroup,
-        consumerName,
-        "COUNT",
-        String(env.REDIS_STREAM_BATCH_SIZE),
-        "BLOCK",
-        String(env.REDIS_STREAM_BLOCK_MS),
-        "STREAMS",
-        streamName,
-        ">",
-      ]);
-      const entries = parseStreamEntries(reply);
+      const entries = await readStreamEntriesWithRetry();
       if (entries.length === 0) {
         continue;
       }
@@ -326,7 +401,18 @@ const handleShutdown = async (): Promise<void> => {
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    void handleShutdown();
+    void handleShutdown().catch((error) => {
+      logger.error(
+        addErrorContext(
+          {
+            component: "audit",
+            event: "audit.worker.shutdown_failed",
+          },
+          error,
+        ),
+        "audit stream worker shutdown handler failed",
+      );
+    });
   });
 }
 

@@ -7,21 +7,29 @@ import {
   type ContentThumbnailGenerator,
 } from "#/application/ports/content";
 import {
+  type ContentIngestionJobRepository,
+  type ContentIngestionQueue,
+  type ContentJobEventPublisher,
+} from "#/application/ports/content-jobs";
+import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
   DeleteContentUseCase,
   GetContentDownloadUrlUseCase,
+  GetContentJobUseCase,
   GetContentUseCase,
   ListContentUseCase,
   ReplaceContentFileUseCase,
+  SetContentExclusionUseCase,
   UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { publishContentJobEvent } from "./jobs-stream";
 
 export interface ContentRouterDeps {
   jwtSecret: string;
@@ -32,10 +40,12 @@ export interface ContentRouterDeps {
   thumbnailUrlExpiresInSeconds: number;
   repositories: {
     contentRepository: ContentRepository;
+    contentIngestionJobRepository: ContentIngestionJobRepository;
     userRepository: UserRepository;
     authorizationRepository: AuthorizationRepository;
   };
   storage: ContentStorage;
+  contentIngestionQueue: ContentIngestionQueue;
   contentMetadataExtractor: ContentMetadataExtractor;
   contentThumbnailGenerator: ContentThumbnailGenerator;
 }
@@ -45,7 +55,9 @@ export interface ContentRouterUseCases {
   replaceContentFile: ReplaceContentFileUseCase;
   listContent: ListContentUseCase;
   getContent: GetContentUseCase;
+  getContentJob: GetContentJobUseCase;
   updateContent: UpdateContentUseCase;
+  setContentExclusion: SetContentExclusionUseCase;
   deleteContent: DeleteContentUseCase;
   getDownloadUrl: GetContentDownloadUrlUseCase;
 }
@@ -61,6 +73,12 @@ export const contentTags = ["Content"];
 export const createContentUseCases = (
   deps: ContentRouterDeps,
 ): ContentRouterUseCases => {
+  const contentJobEventPublisher: ContentJobEventPublisher = {
+    publish(event) {
+      publishContentJobEvent(event);
+    },
+  };
+
   const cleanupFailureLogger = {
     logContentCleanupFailure(input: {
       route: string;
@@ -93,16 +111,19 @@ export const createContentUseCases = (
     uploadContent: new UploadContentUseCase({
       contentRepository: deps.repositories.contentRepository,
       contentStorage: deps.storage,
-      contentMetadataExtractor: deps.contentMetadataExtractor,
-      contentThumbnailGenerator: deps.contentThumbnailGenerator,
+      contentIngestionJobRepository:
+        deps.repositories.contentIngestionJobRepository,
+      contentIngestionQueue: deps.contentIngestionQueue,
+      contentJobEventPublisher,
       userRepository: deps.repositories.userRepository,
-      cleanupFailureLogger,
     }),
     replaceContentFile: new ReplaceContentFileUseCase({
       contentRepository: deps.repositories.contentRepository,
       contentStorage: deps.storage,
-      contentMetadataExtractor: deps.contentMetadataExtractor,
-      contentThumbnailGenerator: deps.contentThumbnailGenerator,
+      contentIngestionJobRepository:
+        deps.repositories.contentIngestionJobRepository,
+      contentIngestionQueue: deps.contentIngestionQueue,
+      contentJobEventPublisher,
       userRepository: deps.repositories.userRepository,
       cleanupFailureLogger,
     }),
@@ -118,7 +139,15 @@ export const createContentUseCases = (
       contentStorage: deps.storage,
       thumbnailUrlExpiresInSeconds: deps.thumbnailUrlExpiresInSeconds,
     }),
+    getContentJob: new GetContentJobUseCase({
+      contentIngestionJobRepository:
+        deps.repositories.contentIngestionJobRepository,
+    }),
     updateContent: new UpdateContentUseCase({
+      contentRepository: deps.repositories.contentRepository,
+      userRepository: deps.repositories.userRepository,
+    }),
+    setContentExclusion: new SetContentExclusionUseCase({
       contentRepository: deps.repositories.contentRepository,
       userRepository: deps.repositories.userRepository,
     }),

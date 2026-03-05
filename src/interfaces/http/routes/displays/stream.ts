@@ -3,6 +3,7 @@ import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
+  executeRedisCommand,
   getRedisPublisherClient,
   getRedisSubscriberClient,
 } from "#/infrastructure/redis/client";
@@ -33,6 +34,44 @@ const streamOrigin = randomUUID();
 
 let hasStreamSubscription = false;
 let streamSubscriptionPromise: Promise<void> | null = null;
+
+const MAX_DISPLAY_STREAM_MESSAGE_BYTES = 8_192;
+const MAX_DISPLAY_STREAM_PREVIEW_BYTES = 256;
+const MAX_DISPLAY_STREAM_TOKEN_SEGMENTS = 2;
+const MAX_DISPLAY_STREAM_TOKEN_SEGMENT_BYTES = 2_048;
+const MAX_DISPLAY_ID_BYTES = 128;
+const MAX_TIMESTAMP_BYTES = 64;
+const INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS = 10_000;
+let lastInvalidEnvelopeLogMs = 0;
+
+const isStringField = (value: unknown, maxBytes: number): value is string =>
+  typeof value === "string" &&
+  value.length > 0 &&
+  Buffer.byteLength(value) <= maxBytes;
+
+const logInvalidEnvelope = (
+  reason: string,
+  channel: string,
+  rawMessage: string,
+): void => {
+  const now = Date.now();
+  if (now - lastInvalidEnvelopeLogMs < INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS) {
+    return;
+  }
+  lastInvalidEnvelopeLogMs = now;
+
+  logger.warn(
+    {
+      component: "displays",
+      event: "display-stream.envelope.invalid",
+      channel,
+      reason,
+      messageBytes: Buffer.byteLength(rawMessage),
+      messagePreview: rawMessage.slice(0, MAX_DISPLAY_STREAM_PREVIEW_BYTES),
+    },
+    "invalid display stream Redis message",
+  );
+};
 
 const toBase64Url = (value: string | Uint8Array): string =>
   Buffer.from(value)
@@ -75,21 +114,18 @@ const isDisplayStreamEvent = (value: unknown): value is DisplayStreamEvent => {
     return false;
   }
 
-  if (
-    typeof candidate.displayId !== "string" ||
-    candidate.displayId.length === 0
-  ) {
+  if (!isStringField(candidate.displayId, MAX_DISPLAY_ID_BYTES)) {
+    return false;
+  }
+
+  if (!isStringField(candidate.timestamp, MAX_TIMESTAMP_BYTES)) {
     return false;
   }
 
   if (
-    typeof candidate.timestamp !== "string" ||
-    candidate.timestamp.length === 0
+    candidate.reason != null &&
+    !isStringField(candidate.reason, MAX_DISPLAY_ID_BYTES)
   ) {
-    return false;
-  }
-
-  if (candidate.reason != null && typeof candidate.reason !== "string") {
     return false;
   }
 
@@ -97,17 +133,36 @@ const isDisplayStreamEvent = (value: unknown): value is DisplayStreamEvent => {
 };
 
 const parseEnvelope = (rawMessage: string): DisplayStreamEnvelope | null => {
+  if (Buffer.byteLength(rawMessage) > MAX_DISPLAY_STREAM_MESSAGE_BYTES) {
+    logInvalidEnvelope(
+      "message_too_large",
+      redisChannel,
+      rawMessage.slice(0, MAX_DISPLAY_STREAM_PREVIEW_BYTES),
+    );
+    return null;
+  }
+
   try {
     const parsed = JSON.parse(rawMessage) as {
       origin?: unknown;
       event?: unknown;
     };
 
-    if (typeof parsed.origin !== "string" || parsed.origin.length === 0) {
+    if (!isStringField(parsed.origin, MAX_DISPLAY_ID_BYTES)) {
+      logInvalidEnvelope(
+        "invalid_origin",
+        redisChannel,
+        rawMessage.slice(0, MAX_DISPLAY_STREAM_PREVIEW_BYTES),
+      );
       return null;
     }
 
     if (!isDisplayStreamEvent(parsed.event)) {
+      logInvalidEnvelope(
+        "invalid_event",
+        redisChannel,
+        rawMessage.slice(0, MAX_DISPLAY_STREAM_PREVIEW_BYTES),
+      );
       return null;
     }
 
@@ -116,6 +171,11 @@ const parseEnvelope = (rawMessage: string): DisplayStreamEnvelope | null => {
       event: parsed.event,
     };
   } catch {
+    logInvalidEnvelope(
+      "json_parse_failed",
+      redisChannel,
+      rawMessage.slice(0, MAX_DISPLAY_STREAM_PREVIEW_BYTES),
+    );
     return null;
   }
 };
@@ -190,7 +250,11 @@ const publishDisplayStreamEventToRedis = async (
       event,
     };
 
-    await publisher.publish(redisChannel, JSON.stringify(envelope));
+    await executeRedisCommand<number>(publisher, [
+      "PUBLISH",
+      redisChannel,
+      JSON.stringify(envelope),
+    ]);
   } catch (error) {
     logger.warn(
       addErrorContext(
@@ -228,12 +292,29 @@ export const verifyDisplayStreamToken = (input: {
   secret: string;
   now: Date;
 }): boolean => {
-  const [encodedPayload, signature] = input.token.split(".");
-  if (!encodedPayload || !signature) return false;
+  const tokenParts = input.token.split(".");
+  if (
+    tokenParts.length !== MAX_DISPLAY_STREAM_TOKEN_SEGMENTS ||
+    tokenParts[0] == null ||
+    tokenParts[1] == null
+  ) {
+    return false;
+  }
+
+  const [encodedPayload, signature] = tokenParts;
+  if (
+    encodedPayload.length === 0 ||
+    signature.length === 0 ||
+    encodedPayload.length > MAX_DISPLAY_STREAM_TOKEN_SEGMENT_BYTES ||
+    signature.length > MAX_DISPLAY_STREAM_TOKEN_SEGMENT_BYTES ||
+    !isStringField(input.displayId, MAX_DISPLAY_ID_BYTES)
+  ) {
+    return false;
+  }
 
   const expectedSignature = sign(encodedPayload, input.secret);
-  if (expectedSignature.length !== signature.length) return false;
   if (
+    expectedSignature.length !== signature.length ||
     !timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature))
   ) {
     return false;
@@ -241,14 +322,27 @@ export const verifyDisplayStreamToken = (input: {
 
   let payload: { d?: string; e?: string };
   try {
-    payload = JSON.parse(fromBase64Url(encodedPayload).toString("utf8")) as {
+    const payloadBytes = fromBase64Url(encodedPayload);
+    if (payloadBytes.length > MAX_DISPLAY_STREAM_MESSAGE_BYTES) {
+      return false;
+    }
+
+    payload = JSON.parse(payloadBytes.toString("utf8")) as {
       d?: string;
       e?: string;
     };
   } catch {
     return false;
   }
-  if (payload.d !== input.displayId || !payload.e) return false;
+
+  if (
+    !isStringField(payload.d, MAX_DISPLAY_ID_BYTES) ||
+    payload.d !== input.displayId ||
+    !isStringField(payload.e, MAX_TIMESTAMP_BYTES)
+  ) {
+    return false;
+  }
+
   const expiresMs = Date.parse(payload.e);
   if (!Number.isFinite(expiresMs)) return false;
   return expiresMs > input.now.getTime();

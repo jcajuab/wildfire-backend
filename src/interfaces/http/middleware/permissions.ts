@@ -2,6 +2,11 @@ import { type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
+import {
+  CANONICAL_STANDARD_RESOURCE_ACTIONS,
+  canonicalPermissionKey,
+  ROOT_PERMISSION,
+} from "#/domain/rbac/canonical-permissions";
 import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
 import {
   type JwtUserVariables,
@@ -25,9 +30,26 @@ export const createPermissionMiddleware = (deps: {
     authorizationRepository: deps.authorizationRepository,
   });
 
+  const canonicalPermissions = new Set(
+    CANONICAL_STANDARD_RESOURCE_ACTIONS.map((permission) =>
+      canonicalPermissionKey(permission),
+    ),
+  );
+  canonicalPermissions.add(canonicalPermissionKey(ROOT_PERMISSION));
+
+  const normalizePermission = (permission: string): string => {
+    const normalized = permission.trim();
+    if (!canonicalPermissions.has(normalized)) {
+      throw new Error(`Unknown permission key: ${permission}`);
+    }
+    return normalized;
+  };
+
   const requirePermission = (
     permission: string,
   ): MiddlewareHandler<{ Variables: JwtUserVariables }> => {
+    const requiredPermission = normalizePermission(permission);
+
     return async (c, next) => {
       const parsed = jwtPayloadSchema.safeParse(c.get("jwtPayload"));
       if (!parsed.success) {
@@ -50,14 +72,14 @@ export const createPermissionMiddleware = (deps: {
 
       const allowed = await checkPermission.execute({
         userId: parsed.data.sub,
-        required: permission,
+        required: requiredPermission,
       });
 
       if (!allowed) {
         c.set("action", "authz.permission.deny");
         c.set("resourceType", "permission");
-        c.set("resourceId", permission);
-        c.set("deniedPermission", permission);
+        c.set("resourceId", requiredPermission);
+        c.set("deniedPermission", requiredPermission);
         c.set("denyErrorCode", "FORBIDDEN");
         c.set("denyErrorType", "PermissionDenied");
         return forbidden(c, "Forbidden");
@@ -67,11 +89,16 @@ export const createPermissionMiddleware = (deps: {
     };
   };
 
-  const authorize = (permission: string) =>
-    [jwtMiddleware, requirePermission(permission)] as const satisfies readonly [
+  const authorize = (permission: string) => {
+    const requiredPermission = normalizePermission(permission);
+    return [
+      jwtMiddleware,
+      requirePermission(requiredPermission),
+    ] as const satisfies readonly [
       MiddlewareHandler,
       MiddlewareHandler<{ Variables: JwtUserVariables }>,
     ];
+  };
 
   return { jwtMiddleware, requirePermission, requireJwtUser, authorize };
 };

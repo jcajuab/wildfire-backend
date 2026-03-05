@@ -1,5 +1,10 @@
+import { executeRedisCommand } from "#/infrastructure/redis/client";
+
 interface RedisScriptingClient {
-  sendCommand(command: readonly string[]): Promise<unknown>;
+  sendCommand(
+    command: readonly string[],
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<unknown>;
 }
 
 const scriptShaByName = new Map<string, string>();
@@ -28,7 +33,11 @@ const loadScript = async (
   scriptName: string,
   script: string,
 ): Promise<string> => {
-  const shaReply = await redis.sendCommand(["SCRIPT", "LOAD", script]);
+  const shaReply = await executeRedisCommand<string>(redis, [
+    "SCRIPT",
+    "LOAD",
+    script,
+  ]);
   const sha = toStringValue(shaReply);
   if (sha.length === 0) {
     throw new Error(`Failed to load Redis script: ${scriptName}`);
@@ -52,7 +61,7 @@ export const evalCachedRedisScript = async (input: {
   }
 
   const evalSha = (scriptSha: string) =>
-    input.redis.sendCommand([
+    executeRedisCommand<unknown>(input.redis, [
       "EVALSHA",
       scriptSha,
       numKeys,

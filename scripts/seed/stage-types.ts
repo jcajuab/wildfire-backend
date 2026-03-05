@@ -3,6 +3,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type ContentIngestionJobRepository } from "#/application/ports/content-jobs";
 import {
   type DisplayGroupRepository,
   type DisplayRepository,
@@ -31,6 +32,7 @@ export interface SeedContext {
     displayRepository: DisplayRepository;
     displayGroupRepository: DisplayGroupRepository;
     contentRepository: ContentRepository;
+    contentIngestionJobRepository: ContentIngestionJobRepository;
     playlistRepository: PlaylistRepository;
     scheduleRepository: ScheduleRepository;
     auditEventRepository: AuditEventRepository;

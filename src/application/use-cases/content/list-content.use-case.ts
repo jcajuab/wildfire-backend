@@ -40,10 +40,11 @@ export class ListContentUseCase {
   async execute(input: {
     page?: number;
     pageSize?: number;
+    parentId?: string;
     status?: ContentStatus;
     type?: ContentType;
     search?: string;
-    sortBy?: "createdAt" | "title" | "fileSize" | "type";
+    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
     sortDirection?: "asc" | "desc";
   }) {
     const page = clamp(Math.trunc(input.page ?? 1), 1, Number.MAX_SAFE_INTEGER);
@@ -53,6 +54,7 @@ export class ListContentUseCase {
     const { items, total } = await this.deps.contentRepository.list({
       offset,
       limit: pageSize,
+      parentId: input.parentId,
       status: input.status,
       type: input.type,
       search: input.search,

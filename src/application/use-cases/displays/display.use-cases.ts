@@ -465,33 +465,110 @@ export class GetDisplayManifestUseCase {
     const contentsById = new Map(
       contents.map((content) => [content.id, content]),
     );
+    const parentPdfContentIds = contents
+      .filter((content) => content.kind === "ROOT" && content.type === "PDF")
+      .map((content) => content.id);
+    const childPagesByParentId = new Map<string, typeof contents>();
+    if (
+      parentPdfContentIds.length > 0 &&
+      this.deps.contentRepository.findChildrenByParentIds
+    ) {
+      const childPages =
+        await this.deps.contentRepository.findChildrenByParentIds(
+          parentPdfContentIds,
+          {
+            includeExcluded: false,
+            onlyReady: true,
+          },
+        );
+      for (const childPage of childPages) {
+        if (!childPage.parentContentId) {
+          continue;
+        }
+        const current =
+          childPagesByParentId.get(childPage.parentContentId) ?? [];
+        childPagesByParentId.set(childPage.parentContentId, [
+          ...current,
+          childPage,
+        ]);
+      }
+      for (const [parentId, pages] of childPagesByParentId) {
+        childPagesByParentId.set(
+          parentId,
+          [...pages].sort(
+            (left, right) => (left.pageNumber ?? 0) - (right.pageNumber ?? 0),
+          ),
+        );
+      }
+    }
 
-    const manifestItems = await mapWithConcurrency(items, 8, async (item) => {
+    const expandedItems: Array<{
+      id: string;
+      sequence: number;
+      duration: number;
+      content: (typeof contents)[number];
+    }> = [];
+    let expandedSequence = 1;
+    const sortedPlaylistItems = [...items].sort(
+      (left, right) => left.sequence - right.sequence,
+    );
+    for (const item of sortedPlaylistItems) {
       const content = contentsById.get(item.contentId);
-      if (!content) throw new NotFoundError("Content not found");
+      if (!content) {
+        throw new NotFoundError("Content not found");
+      }
 
-      const downloadUrl =
-        await this.deps.contentStorage.getPresignedDownloadUrl({
-          key: content.fileKey,
-          expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-        });
+      if (content.kind === "ROOT" && content.type === "PDF") {
+        const childPages = childPagesByParentId.get(content.id) ?? [];
+        const pages = childPages.length > 0 ? childPages : [content];
+        for (const page of pages) {
+          expandedItems.push({
+            id: `${item.id}:${page.id}`,
+            sequence: expandedSequence,
+            duration: item.duration,
+            content: page,
+          });
+          expandedSequence += 1;
+        }
+        continue;
+      }
 
-      return {
+      expandedItems.push({
         id: item.id,
-        sequence: item.sequence,
+        sequence: expandedSequence,
         duration: item.duration,
-        content: {
-          id: content.id,
-          type: content.type,
-          checksum: content.checksum,
-          downloadUrl,
-          mimeType: content.mimeType,
-          width: content.width,
-          height: content.height,
-          duration: content.duration,
-        },
-      };
-    });
+        content,
+      });
+      expandedSequence += 1;
+    }
+
+    const manifestItems = await mapWithConcurrency(
+      expandedItems,
+      8,
+      async (item) => {
+        const downloadUrl =
+          await this.deps.contentStorage.getPresignedDownloadUrl({
+            key: item.content.fileKey,
+            expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+          });
+
+        return {
+          id: item.id,
+          sequence: item.sequence,
+          duration: item.duration,
+          content: {
+            id: item.content.id,
+            type: item.content.type,
+            checksum: item.content.checksum,
+            downloadUrl,
+            mimeType: item.content.mimeType,
+            width: item.content.width,
+            height: item.content.height,
+            duration: item.content.duration,
+          },
+        };
+      },
+    );
 
     const runtimeSettings = await this.getRuntimeSettings();
 

@@ -1,4 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { env } from "#/env";
+import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   errorResponseSchema,
@@ -19,15 +21,6 @@ import {
   type AuthRouterUseCases,
   authTags,
 } from "./shared";
-
-const resolveClientIp = (headers: {
-  forwardedFor?: string;
-  realIp?: string;
-}): string => {
-  const forwarded = headers.forwardedFor?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  return headers.realIp?.trim() || "unknown";
-};
 
 export const registerAuthPasswordResetRoutes = (args: {
   router: AuthRouter;
@@ -61,8 +54,14 @@ export const registerAuthPasswordResetRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const ip = resolveClientIp({
-          forwardedFor: c.req.header("x-forwarded-for"),
-          realIp: c.req.header("x-real-ip"),
+          headers: {
+            forwardedFor: c.req.header("x-forwarded-for"),
+            realIp: c.req.header("x-real-ip"),
+            cfConnectingIp: c.req.header("cf-connecting-ip"),
+            xClientIp: c.req.header("x-client-ip"),
+            forwarded: c.req.header("forwarded"),
+          },
+          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
         });
         const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `forgot-password|${ip}`,
@@ -118,8 +117,14 @@ export const registerAuthPasswordResetRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const ip = resolveClientIp({
-          forwardedFor: c.req.header("x-forwarded-for"),
-          realIp: c.req.header("x-real-ip"),
+          headers: {
+            forwardedFor: c.req.header("x-forwarded-for"),
+            realIp: c.req.header("x-real-ip"),
+            cfConnectingIp: c.req.header("cf-connecting-ip"),
+            xClientIp: c.req.header("x-client-ip"),
+            forwarded: c.req.header("forwarded"),
+          },
+          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
         });
         const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `reset-password|${ip}`,

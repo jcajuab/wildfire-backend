@@ -3,7 +3,10 @@ import {
   type DisplayPairingSessionRepository,
 } from "#/application/ports/display-auth";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 
 const pairingSessionPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-session`;
 
@@ -114,17 +117,27 @@ export class DisplayPairingSessionRedisRepository
     const nowMs = Date.now();
     const challengeExpiresAtMs = input.challengeExpiresAt.getTime();
 
-    await redis.hSet(pairingSessionKey(id), {
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      pairingSessionKey(id),
+      "id",
       id,
-      pairingCodeId: input.pairingCodeId,
-      state: "open",
-      challengeNonce: input.challengeNonce,
-      challengeExpiresAtMs: String(challengeExpiresAtMs),
-      completedAtMs: "",
-      createdAtMs: String(nowMs),
-      updatedAtMs: String(nowMs),
-    });
-    await redis.sendCommand([
+      "pairingCodeId",
+      input.pairingCodeId,
+      "state",
+      "open",
+      "challengeNonce",
+      input.challengeNonce,
+      "challengeExpiresAtMs",
+      String(challengeExpiresAtMs),
+      "completedAtMs",
+      "",
+      "createdAtMs",
+      String(nowMs),
+      "updatedAtMs",
+      String(nowMs),
+    ]);
+    await executeRedisCommand<number>(redis, [
       "EXPIREAT",
       pairingSessionKey(id),
       toUnixSeconds(input.challengeExpiresAt),
@@ -148,7 +161,10 @@ export class DisplayPairingSessionRedisRepository
   }): Promise<DisplayPairingSessionRecord | null> {
     const redis = await getRedisCommandClient();
     const stored = parseStoredPairingSession(
-      await redis.hGetAll(pairingSessionKey(input.id)),
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        pairingSessionKey(input.id),
+      ]),
     );
 
     if (!stored) {
@@ -168,7 +184,12 @@ export class DisplayPairingSessionRedisRepository
   async complete(id: string, completedAt: Date): Promise<boolean> {
     const redis = await getRedisCommandClient();
     const key = pairingSessionKey(id);
-    const stored = parseStoredPairingSession(await redis.hGetAll(key));
+    const stored = parseStoredPairingSession(
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        key,
+      ]),
+    );
 
     if (!stored) {
       return false;
@@ -182,11 +203,16 @@ export class DisplayPairingSessionRedisRepository
       return false;
     }
 
-    await redis.hSet(key, {
-      state: "completed",
-      completedAtMs: String(completedAtMs),
-      updatedAtMs: String(completedAtMs),
-    });
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      key,
+      "state",
+      "completed",
+      "completedAtMs",
+      String(completedAtMs),
+      "updatedAtMs",
+      String(completedAtMs),
+    ]);
 
     return true;
   }

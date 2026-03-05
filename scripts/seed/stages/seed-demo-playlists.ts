@@ -1,6 +1,8 @@
 import { DEMO_PLAYLISTS, DEMO_USERS } from "../fixtures";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
 
+const DRY_RUN_PLAYLIST_OWNER_ID = "dry-run:demo.content";
+
 const sameItems = (
   left: Array<{ contentId: string; sequence: number; duration: number }>,
   right: Array<{ contentId: string; sequence: number; duration: number }>,
@@ -29,11 +31,12 @@ export async function runSeedDemoPlaylists(
     DEMO_USERS.find((user) => user.username === "demo.content")?.username ??
       "demo.content",
   );
-  if (!playlistOwner) {
+  if (!playlistOwner && !ctx.args.dryRun) {
     throw new Error(
       "Missing demo playlist owner user. Run seed-demo-rbac before seed-demo-playlists.",
     );
   }
+  const playlistOwnerId = playlistOwner?.id ?? DRY_RUN_PLAYLIST_OWNER_ID;
 
   const existingPlaylists = await ctx.repos.playlistRepository.list();
   const playlistsByName = new Map(
@@ -47,7 +50,7 @@ export async function runSeedDemoPlaylists(
         playlist = await ctx.repos.playlistRepository.create({
           name: fixture.name,
           description: fixture.description,
-          createdById: playlistOwner.id,
+          createdById: playlistOwnerId,
         });
       } else {
         playlist = {
@@ -55,7 +58,7 @@ export async function runSeedDemoPlaylists(
           name: fixture.name,
           description: fixture.description,
           status: "DRAFT",
-          createdById: playlistOwner.id,
+          createdById: playlistOwnerId,
           createdAt: new Date(0).toISOString(),
           updatedAt: new Date(0).toISOString(),
         };

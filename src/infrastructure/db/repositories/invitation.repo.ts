@@ -1,6 +1,9 @@
 import { type InvitationRepository } from "#/application/ports/auth";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
 
 const invitationPrefix = `${env.REDIS_KEY_PREFIX}:invitation`;
 const invitationCreatedIndexKey = `${invitationPrefix}:index:created`;
@@ -90,34 +93,54 @@ export class InvitationRedisRepository implements InvitationRepository {
     const nowMs = Date.now();
     const expiresAtMs = input.expiresAt.getTime();
 
-    await redis.hSet(invitationHashKey(input.id), {
-      id: input.id,
-      hashedToken: input.hashedToken,
-      email: input.email,
-      name: input.name ?? "",
-      invitedByUserId: input.invitedByUserId,
-      expiresAtMs: String(expiresAtMs),
-      acceptedAtMs: "",
-      revokedAtMs: "",
-      createdAtMs: String(nowMs),
-      updatedAtMs: String(nowMs),
-    });
-    await redis.sendCommand([
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      invitationHashKey(input.id),
+      "id",
+      input.id,
+      "hashedToken",
+      input.hashedToken,
+      "email",
+      input.email,
+      "name",
+      input.name ?? "",
+      "invitedByUserId",
+      input.invitedByUserId,
+      "expiresAtMs",
+      String(expiresAtMs),
+      "acceptedAtMs",
+      "",
+      "revokedAtMs",
+      "",
+      "createdAtMs",
+      String(nowMs),
+      "updatedAtMs",
+      String(nowMs),
+    ]);
+    await executeRedisCommand<string>(redis, [
       "SET",
       invitationTokenKey(input.hashedToken),
       input.id,
       "EXAT",
       toUnixSeconds(input.expiresAt),
     ]);
-    await redis.sAdd(invitationEmailKey(input.email), input.id);
-    await redis.zAdd(invitationCreatedIndexKey, {
-      score: nowMs,
-      value: input.id,
-    });
-    await redis.zAdd(invitationExpiryIndexKey, {
-      score: expiresAtMs,
-      value: input.id,
-    });
+    await executeRedisCommand<number>(redis, [
+      "SADD",
+      invitationEmailKey(input.email),
+      input.id,
+    ]);
+    await executeRedisCommand<number>(redis, [
+      "ZADD",
+      invitationCreatedIndexKey,
+      String(nowMs),
+      input.id,
+    ]);
+    await executeRedisCommand<number>(redis, [
+      "ZADD",
+      invitationExpiryIndexKey,
+      String(expiresAtMs),
+      input.id,
+    ]);
   }
 
   async findActiveByHashedToken(
@@ -125,22 +148,34 @@ export class InvitationRedisRepository implements InvitationRepository {
     now: Date,
   ): Promise<{ id: string; email: string; name: string | null } | null> {
     const redis = await getRedisCommandClient();
-    const invitationId = await redis.get(invitationTokenKey(hashedToken));
+    const invitationId = await executeRedisCommand<string | null>(redis, [
+      "GET",
+      invitationTokenKey(hashedToken),
+    ]);
 
     if (!invitationId) {
       return null;
     }
 
     const stored = parseStoredInvitation(
-      await redis.hGetAll(invitationHashKey(invitationId)),
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        invitationHashKey(invitationId),
+      ]),
     );
     if (!stored) {
-      await redis.del(invitationTokenKey(hashedToken));
+      await executeRedisCommand<number>(redis, [
+        "DEL",
+        invitationTokenKey(hashedToken),
+      ]);
       return null;
     }
 
     if (!isActiveInvitation(stored, now.getTime())) {
-      await redis.del(invitationTokenKey(hashedToken));
+      await executeRedisCommand<number>(redis, [
+        "DEL",
+        invitationTokenKey(hashedToken),
+      ]);
       return null;
     }
 
@@ -156,7 +191,10 @@ export class InvitationRedisRepository implements InvitationRepository {
   }): Promise<{ id: string; email: string; name: string | null } | null> {
     const redis = await getRedisCommandClient();
     const stored = parseStoredInvitation(
-      await redis.hGetAll(invitationHashKey(input.id)),
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        invitationHashKey(input.id),
+      ]),
     );
     if (!stored) {
       return null;
@@ -181,7 +219,7 @@ export class InvitationRedisRepository implements InvitationRepository {
     }[]
   > {
     const redis = await getRedisCommandClient();
-    const idsReply = await redis.sendCommand([
+    const idsReply = await executeRedisCommand<unknown[]>(redis, [
       "ZREVRANGE",
       invitationCreatedIndexKey,
       "0",
@@ -204,7 +242,10 @@ export class InvitationRedisRepository implements InvitationRepository {
 
     for (const invitationId of invitationIds) {
       const stored = parseStoredInvitation(
-        await redis.hGetAll(invitationHashKey(invitationId)),
+        await executeRedisCommand<Record<string, string>>(redis, [
+          "HGETALL",
+          invitationHashKey(invitationId),
+        ]),
       );
       if (!stored) {
         continue;
@@ -229,20 +270,35 @@ export class InvitationRedisRepository implements InvitationRepository {
   async revokeActiveByEmail(email: string, now: Date): Promise<void> {
     const redis = await getRedisCommandClient();
     const nowMs = now.getTime();
-    const invitationIds = await redis.sMembers(invitationEmailKey(email));
+    const invitationIds = await executeRedisCommand<string[]>(redis, [
+      "SMEMBERS",
+      invitationEmailKey(email),
+    ]);
 
     for (const invitationId of invitationIds) {
       const hashKey = invitationHashKey(invitationId);
-      const stored = parseStoredInvitation(await redis.hGetAll(hashKey));
+      const stored = parseStoredInvitation(
+        await executeRedisCommand<Record<string, string>>(redis, [
+          "HGETALL",
+          hashKey,
+        ]),
+      );
       if (!stored || !isActiveInvitation(stored, nowMs)) {
         continue;
       }
 
-      await redis.hSet(hashKey, {
-        revokedAtMs: String(nowMs),
-        updatedAtMs: String(nowMs),
-      });
-      await redis.del(invitationTokenKey(stored.hashedToken));
+      await executeRedisCommand<number>(redis, [
+        "HSET",
+        hashKey,
+        "revokedAtMs",
+        String(nowMs),
+        "updatedAtMs",
+        String(nowMs),
+      ]);
+      await executeRedisCommand<number>(redis, [
+        "DEL",
+        invitationTokenKey(stored.hashedToken),
+      ]);
     }
   }
 
@@ -250,23 +306,35 @@ export class InvitationRedisRepository implements InvitationRepository {
     const redis = await getRedisCommandClient();
     const acceptedAtMs = acceptedAt.getTime();
     const hashKey = invitationHashKey(id);
-    const stored = parseStoredInvitation(await redis.hGetAll(hashKey));
+    const stored = parseStoredInvitation(
+      await executeRedisCommand<Record<string, string>>(redis, [
+        "HGETALL",
+        hashKey,
+      ]),
+    );
 
     if (!stored) {
       return;
     }
 
-    await redis.hSet(hashKey, {
-      acceptedAtMs: String(acceptedAtMs),
-      updatedAtMs: String(acceptedAtMs),
-    });
-    await redis.del(invitationTokenKey(stored.hashedToken));
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      hashKey,
+      "acceptedAtMs",
+      String(acceptedAtMs),
+      "updatedAtMs",
+      String(acceptedAtMs),
+    ]);
+    await executeRedisCommand<number>(redis, [
+      "DEL",
+      invitationTokenKey(stored.hashedToken),
+    ]);
   }
 
   async deleteExpired(now: Date): Promise<void> {
     const redis = await getRedisCommandClient();
     const nowMs = now.getTime();
-    const expiredReply = await redis.sendCommand([
+    const expiredReply = await executeRedisCommand<unknown[]>(redis, [
       "ZRANGEBYSCORE",
       invitationExpiryIndexKey,
       "-inf",
@@ -281,15 +349,35 @@ export class InvitationRedisRepository implements InvitationRepository {
 
     for (const invitationId of expiredIds) {
       const hashKey = invitationHashKey(invitationId);
-      const stored = parseStoredInvitation(await redis.hGetAll(hashKey));
+      const stored = parseStoredInvitation(
+        await executeRedisCommand<Record<string, string>>(redis, [
+          "HGETALL",
+          hashKey,
+        ]),
+      );
 
-      await redis.del(hashKey);
-      await redis.zRem(invitationCreatedIndexKey, invitationId);
-      await redis.zRem(invitationExpiryIndexKey, invitationId);
+      await executeRedisCommand<number>(redis, ["DEL", hashKey]);
+      await executeRedisCommand<number>(redis, [
+        "ZREM",
+        invitationCreatedIndexKey,
+        invitationId,
+      ]);
+      await executeRedisCommand<number>(redis, [
+        "ZREM",
+        invitationExpiryIndexKey,
+        invitationId,
+      ]);
 
       if (stored) {
-        await redis.del(invitationTokenKey(stored.hashedToken));
-        await redis.sRem(invitationEmailKey(stored.email), invitationId);
+        await executeRedisCommand<number>(redis, [
+          "DEL",
+          invitationTokenKey(stored.hashedToken),
+        ]);
+        await executeRedisCommand<number>(redis, [
+          "SREM",
+          invitationEmailKey(stored.email),
+          invitationId,
+        ]);
       }
     }
   }

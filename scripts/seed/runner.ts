@@ -13,6 +13,7 @@ import { runCleanupDemoRbac } from "./stages/cleanup-demo-rbac";
 import { runCleanupDemoSchedules } from "./stages/cleanup-demo-schedules";
 import { runSeedDemoAuditEvents } from "./stages/seed-demo-audit-events";
 import { runSeedDemoContent } from "./stages/seed-demo-content";
+import { runSeedDemoContentJobs } from "./stages/seed-demo-content-jobs";
 import { runSeedDemoDisplays } from "./stages/seed-demo-displays";
 import { runSeedDemoPermissions } from "./stages/seed-demo-permissions";
 import { runSeedDemoPlaylists } from "./stages/seed-demo-playlists";
@@ -25,6 +26,7 @@ export const buildSeedStages = (): SeedStage[] => {
     { name: "seed-demo-rbac", execute: runSeedDemoRbac },
     { name: "seed-demo-displays", execute: runSeedDemoDisplays },
     { name: "seed-demo-content", execute: runSeedDemoContent },
+    { name: "seed-demo-content-jobs", execute: runSeedDemoContentJobs },
     { name: "seed-demo-playlists", execute: runSeedDemoPlaylists },
     { name: "seed-demo-schedules", execute: runSeedDemoSchedules },
     { name: "seed-demo-audit-events", execute: runSeedDemoAuditEvents },

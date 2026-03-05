@@ -1,5 +1,6 @@
 export type ContentType = "IMAGE" | "VIDEO" | "PDF";
 export type ContentStatus = "PROCESSING" | "READY" | "FAILED";
+export type ContentKind = "ROOT" | "PAGE";
 
 const imageMimeTypes = new Set([
   "image/jpeg",
@@ -46,6 +47,13 @@ export const parseContentStatus = (value: string): ContentStatus | null => {
   return null;
 };
 
+export const parseContentKind = (value: string): ContentKind | null => {
+  if (value === "ROOT" || value === "PAGE") {
+    return value;
+  }
+  return null;
+};
+
 export const resolveFileExtension = (mimeType: string): string | null =>
   mimeTypeToExtension.get(mimeType) ?? null;
 
@@ -71,3 +79,12 @@ export const buildContentFileKey = (input: {
 
 export const buildContentThumbnailKey = (id: string): string =>
   `content/thumbnails/${id}.jpg`;
+
+export const buildContentPageFileKey = (input: {
+  parentId: string;
+  pageNumber: number;
+}): string => {
+  const pageNumber = Math.max(1, Math.trunc(input.pageNumber));
+  const pageToken = String(pageNumber).padStart(4, "0");
+  return `content/documents/${input.parentId}/pages/${pageToken}.pdf`;
+};

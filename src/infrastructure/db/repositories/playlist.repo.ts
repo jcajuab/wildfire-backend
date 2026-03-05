@@ -12,6 +12,7 @@ import {
 import { db } from "#/infrastructure/db/client";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const toPlaylistRecord = (
   row: typeof playlists.$inferSelect,
@@ -95,7 +96,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
     const conditions = [
       input.status ? eq(playlists.status, input.status) : undefined,
       input.search && input.search.length > 0
-        ? like(playlists.name, `%${input.search.replaceAll("%", "\\%")}%`)
+        ? like(playlists.name, buildLikeContainsPattern(input.search))
         : undefined,
     ].filter((value) => value !== undefined);
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

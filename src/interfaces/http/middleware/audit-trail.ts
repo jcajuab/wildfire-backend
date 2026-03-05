@@ -1,6 +1,8 @@
 import { type MiddlewareHandler } from "hono";
+import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { type AuditEventQueue } from "#/interfaces/http/audit/audit-queue";
+import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { type ObservabilityVariables } from "#/interfaces/http/middleware/observability";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -51,15 +53,13 @@ const resolveIpAddress = (headers: {
   forwardedFor?: string;
   realIp?: string;
 }): string | undefined => {
-  // Deployment assumes these headers are set by trusted upstream proxies.
-  // If requests can bypass the proxy, these values can be spoofed.
-  const forwardedFor = headers.forwardedFor?.split(",")[0]?.trim();
-  if (forwardedFor) return forwardedFor;
-
-  const realIp = headers.realIp?.trim();
-  if (realIp) return realIp;
-
-  return undefined;
+  return resolveClientIp({
+    headers: {
+      forwardedFor: headers.forwardedFor,
+      realIp: headers.realIp,
+    },
+    trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+  });
 };
 
 const buildSafeAuditMetadata = (input: {
@@ -124,7 +124,7 @@ export const createAuditTrailMiddleware = (deps: {
     });
     const userAgent = c.req.header("user-agent");
 
-    const result = deps.auditQueue.enqueue({
+    const result = await deps.auditQueue.enqueue({
       requestId,
       action,
       route,
@@ -147,7 +147,7 @@ export const createAuditTrailMiddleware = (deps: {
       }),
     });
 
-    if (!result.accepted && result.reason === "overflow") {
+    if (!result.accepted) {
       logger.warn(
         {
           component: "audit",
@@ -155,6 +155,7 @@ export const createAuditTrailMiddleware = (deps: {
           requestId,
           action,
           reason: result.reason,
+          error: result.error,
         },
         "audit event dropped",
       );

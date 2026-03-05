@@ -1,6 +1,10 @@
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { env } from "#/env";
-import { getRedisCommandClient } from "#/infrastructure/redis/client";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
+import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
 
 const authSessionPrefix = `${env.REDIS_KEY_PREFIX}:auth-session`;
 const userSessionPrefix = `${env.REDIS_KEY_PREFIX}:auth-user-sessions`;
@@ -12,6 +16,15 @@ const userSessionsKey = (userId: string): string =>
 const toUnixSeconds = (value: Date): string =>
   String(Math.max(1, Math.ceil(value.getTime() / 1000)));
 
+const REVOKE_BY_ID_SCRIPT = `
+local userId = redis.call('HGET', KEYS[1], 'userId')
+redis.call('DEL', KEYS[1])
+if userId then
+  redis.call('SREM', ARGV[1] .. ':' .. userId, ARGV[2])
+end
+return 1
+`;
+
 export class AuthSessionRedisRepository implements AuthSessionRepository {
   async create(input: {
     id: string;
@@ -21,14 +34,27 @@ export class AuthSessionRedisRepository implements AuthSessionRepository {
     const redis = await getRedisCommandClient();
     const key = sessionKey(input.id);
 
-    await redis.hSet(key, { userId: input.userId });
-    await redis.sendCommand(["EXPIREAT", key, toUnixSeconds(input.expiresAt)]);
-    await redis.sAdd(userSessionsKey(input.userId), input.id);
+    await executeRedisCommand<number>(redis, [
+      "HSET",
+      key,
+      "userId",
+      input.userId,
+    ]);
+    await executeRedisCommand<number>(redis, [
+      "EXPIREAT",
+      key,
+      toUnixSeconds(input.expiresAt),
+    ]);
+    await executeRedisCommand<number>(redis, [
+      "SADD",
+      userSessionsKey(input.userId),
+      input.id,
+    ]);
   }
 
   async extendExpiry(sessionId: string, expiresAt: Date): Promise<void> {
     const redis = await getRedisCommandClient();
-    await redis.sendCommand([
+    await executeRedisCommand<number>(redis, [
       "EXPIREAT",
       sessionKey(sessionId),
       toUnixSeconds(expiresAt),
@@ -38,36 +64,41 @@ export class AuthSessionRedisRepository implements AuthSessionRepository {
   async revokeById(sessionId: string): Promise<void> {
     const redis = await getRedisCommandClient();
     const key = sessionKey(sessionId);
-    const userId = await redis.hGet(key, "userId");
-
-    const transaction = redis.multi().del(key);
-    if (typeof userId === "string" && userId.length > 0) {
-      transaction.sRem(userSessionsKey(userId), sessionId);
-    }
-    await transaction.exec();
+    await evalCachedRedisScript({
+      redis,
+      scriptName: "auth-session:revoke-by-id",
+      script: REVOKE_BY_ID_SCRIPT,
+      keys: [key],
+      args: [userSessionPrefix, sessionId],
+    });
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
     const redis = await getRedisCommandClient();
     const indexKey = userSessionsKey(userId);
-    const sessionIds = await redis.sMembers(indexKey);
+    const sessionIds = await executeRedisCommand<string[]>(redis, [
+      "SMEMBERS",
+      indexKey,
+    ]);
 
     if (sessionIds.length === 0) {
-      await redis.del(indexKey);
+      await executeRedisCommand<number>(redis, ["DEL", indexKey]);
       return;
     }
 
-    const transaction = redis.multi();
-    for (const sessionId of sessionIds) {
-      transaction.del(sessionKey(sessionId));
-    }
-    transaction.del(indexKey);
-    await transaction.exec();
+    await executeRedisCommand<number>(redis, [
+      "DEL",
+      ...sessionIds.map((sessionId) => sessionKey(sessionId)),
+      indexKey,
+    ]);
   }
 
   async isActive(sessionId: string, _now: Date): Promise<boolean> {
     const redis = await getRedisCommandClient();
-    const exists = await redis.exists(sessionKey(sessionId));
+    const exists = await executeRedisCommand<number>(redis, [
+      "EXISTS",
+      sessionKey(sessionId),
+    ]);
     return exists === 1;
   }
 
@@ -77,7 +108,11 @@ export class AuthSessionRedisRepository implements AuthSessionRepository {
     _now: Date,
   ): Promise<boolean> {
     const redis = await getRedisCommandClient();
-    const storedUserId = await redis.hGet(sessionKey(sessionId), "userId");
+    const storedUserId = await executeRedisCommand<string | null>(redis, [
+      "HGET",
+      sessionKey(sessionId),
+      "userId",
+    ]);
     return storedUserId === userId;
   }
 }

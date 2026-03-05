@@ -10,14 +10,14 @@ const buildEvent = () => ({
 });
 
 describe("RedisAuditQueue", () => {
-  test("drops enqueue when disabled", () => {
+  test("drops enqueue when disabled", async () => {
     const queue = new RedisAuditQueue({
       enabled: false,
       maxStreamLength: 10,
       streamName: "wf:stream:audit:test",
     });
 
-    expect(queue.enqueue(buildEvent())).toEqual({
+    expect(await queue.enqueue(buildEvent())).toEqual({
       accepted: false,
       reason: "disabled",
     });
@@ -38,7 +38,7 @@ describe("RedisAuditQueue", () => {
 
     await queue.stop();
 
-    expect(queue.enqueue(buildEvent())).toEqual({
+    expect(await queue.enqueue(buildEvent())).toEqual({
       accepted: false,
       reason: "disabled",
     });

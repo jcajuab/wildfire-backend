@@ -6,10 +6,17 @@ import {
   type ContentStorage,
   type ContentThumbnailGenerator,
 } from "#/application/ports/content";
+import {
+  type ContentIngestionJobRecord,
+  type ContentIngestionJobRepository,
+  type ContentIngestionQueue,
+  type ContentJobEvent,
+  type ContentJobEventPublisher,
+} from "#/application/ports/content-jobs";
+import { type ContentCleanupFailureLog } from "#/application/ports/observability";
 import { type UserRepository } from "#/application/ports/rbac";
 import {
   ContentInUseError,
-  ContentMetadataExtractionError,
   ContentStorageCleanupError,
   DeleteContentUseCase,
   GetContentDownloadUrlUseCase,
@@ -41,8 +48,39 @@ const makeContentRepository = () => {
       items: records.slice(offset, offset + limit),
       total: records.length,
     }),
+    findChildrenByParentIds: async (parentIds, input) =>
+      records.filter((item) => {
+        if (
+          !item.parentContentId ||
+          !parentIds.includes(item.parentContentId)
+        ) {
+          return false;
+        }
+        if (input?.onlyReady && item.status !== "READY") {
+          return false;
+        }
+        if (!input?.includeExcluded && item.isExcluded) {
+          return false;
+        }
+        return true;
+      }),
     countPlaylistReferences: async () => 0,
     listPlaylistsReferencingContent: async () => [],
+    deleteByParentId: async (parentId) => {
+      const children = records.filter(
+        (item) => item.parentContentId === parentId,
+      );
+      if (children.length === 0) {
+        return [];
+      }
+      for (const child of children) {
+        const index = records.findIndex((item) => item.id === child.id);
+        if (index >= 0) {
+          records.splice(index, 1);
+        }
+      }
+      return children;
+    },
     delete: async (id) => {
       const index = records.findIndex((item) => item.id === id);
       if (index === -1) return false;
@@ -50,10 +88,16 @@ const makeContentRepository = () => {
       return true;
     },
     update: async (id, input) => {
-      const record = records.find((item) => item.id === id);
-      if (!record) return null;
-      Object.assign(record, input);
-      return record;
+      const index = records.findIndex((item) => item.id === id);
+      if (index === -1) return null;
+      const current = records[index];
+      if (!current) return null;
+      const next: ContentRecord = {
+        ...current,
+        ...input,
+      };
+      records[index] = next;
+      return next;
     },
   };
 
@@ -149,6 +193,93 @@ const makeStorage = (options?: {
   };
 };
 
+const makeIngestionDeps = (options?: {
+  createError?: Error;
+  enqueueError?: Error;
+}) => {
+  type JobUpdateInput = Parameters<ContentIngestionJobRepository["update"]>[1];
+
+  const createdJobs: ContentIngestionJobRecord[] = [];
+  const updatedJobs: Array<{ id: string; input: JobUpdateInput }> = [];
+  const queuedJobIds: string[] = [];
+  const publishedEvents: ContentJobEvent[] = [];
+  const jobsById = new Map<string, ContentIngestionJobRecord>();
+
+  const contentIngestionJobRepository: ContentIngestionJobRepository = {
+    create: async (input) => {
+      if (options?.createError) {
+        throw options.createError;
+      }
+      const now = new Date().toISOString();
+      const record: ContentIngestionJobRecord = {
+        id: input.id,
+        contentId: input.contentId,
+        operation: input.operation,
+        status: input.status,
+        errorMessage: input.errorMessage ?? null,
+        createdById: input.createdById,
+        createdAt: now,
+        updatedAt: now,
+        startedAt: null,
+        completedAt: null,
+      };
+      jobsById.set(record.id, record);
+      createdJobs.push(record);
+      return record;
+    },
+    findById: async (id) => jobsById.get(id) ?? null,
+    update: async (id, input) => {
+      const existing = jobsById.get(id);
+      if (!existing) {
+        return null;
+      }
+      const next: ContentIngestionJobRecord = {
+        ...existing,
+        status: input.status ?? existing.status,
+        errorMessage:
+          input.errorMessage === undefined
+            ? existing.errorMessage
+            : input.errorMessage,
+        startedAt:
+          input.startedAt === undefined ? existing.startedAt : input.startedAt,
+        completedAt:
+          input.completedAt === undefined
+            ? existing.completedAt
+            : input.completedAt,
+        updatedAt: new Date().toISOString(),
+      };
+      jobsById.set(id, next);
+      updatedJobs.push({ id, input });
+      return next;
+    },
+  };
+
+  const contentIngestionQueue: ContentIngestionQueue = {
+    enqueue: async ({ jobId }) => {
+      queuedJobIds.push(jobId);
+      if (options?.enqueueError) {
+        throw options.enqueueError;
+      }
+    },
+  };
+
+  const contentJobEventPublisher: ContentJobEventPublisher = {
+    publish: (event) => {
+      publishedEvents.push(event);
+    },
+  };
+
+  return {
+    contentIngestionJobRepository,
+    contentIngestionQueue,
+    contentJobEventPublisher,
+    createdJobs,
+    updatedJobs,
+    queuedJobIds,
+    publishedEvents,
+  };
+};
+
 const metadataExtractor: ContentMetadataExtractor = {
   extract: async ({ type }) => {
     if (type === "VIDEO") {
@@ -186,26 +317,34 @@ describe("Content use cases", () => {
       createdById: "user-1",
     });
 
-    expect(result.title).toBe("Welcome");
-    expect(result.type).toBe("IMAGE");
-    expect(result.status).toBe("READY");
-    expect(result.checksum).toBe(checksum);
-    expect(result.createdBy).toEqual({ id: "user-1", name: "Ada" });
+    expect(result.content.title).toBe("Welcome");
+    expect(result.content.type).toBe("IMAGE");
+    expect(result.content.status).toBe("PROCESSING");
+    expect(result.content.checksum).toBe(checksum);
+    expect(result.content.createdBy).toEqual({ id: "user-1", name: "Ada" });
     expect(storage.lastUpload?.contentType).toBe("image/png");
-    expect(storage.lastUpload?.key).toBe(`content/images/${result.id}.png`);
+    expect(storage.lastUpload?.key).toBe(
+      `content/images/${result.content.id}.png`,
+    );
   });
 
-  test("uploads generated thumbnail when available", async () => {
+  test("uploads source file and queues ingestion job", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
+    const ingestion = makeIngestionDeps();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    let thumbnailCalls = 0;
     const useCase = new UploadContentUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
       contentThumbnailGenerator: {
-        generate: async () => new Uint8Array([1, 2, 3]),
+        generate: async () => {
+          thumbnailCalls += 1;
+          return new Uint8Array([1, 2, 3]);
+        },
       },
+      ...ingestion,
       userRepository,
     });
 
@@ -219,13 +358,17 @@ describe("Content use cases", () => {
       createdById: "user-1",
     });
 
-    expect(storage.uploads).toHaveLength(2);
-    expect(storage.uploads[0]?.key).toBe(`content/images/${result.id}.png`);
-    expect(storage.uploads[1]?.key).toBe(`content/thumbnails/${result.id}.jpg`);
-    expect(storage.uploads[1]?.contentType).toBe("image/jpeg");
-    expect(records[0]?.thumbnailKey).toBe(
-      `content/thumbnails/${result.id}.jpg`,
+    expect(thumbnailCalls).toBe(0);
+    expect(storage.uploads).toHaveLength(1);
+    expect(storage.uploads[0]?.key).toBe(
+      `content/images/${result.content.id}.png`,
     );
+    expect(records[0]?.thumbnailKey).toBeNull();
+    expect(result.job.operation).toBe("UPLOAD");
+    expect(result.job.status).toBe("QUEUED");
+    expect(ingestion.createdJobs).toHaveLength(1);
+    expect(ingestion.queuedJobIds).toEqual([result.job.id]);
+    expect(ingestion.publishedEvents[0]?.type).toBe("queued");
   });
 
   test("rejects unsupported file types", async () => {
@@ -330,6 +473,66 @@ describe("Content use cases", () => {
     expect(result.items[0]?.thumbnailUrl).toBe(
       "https://example.com/content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
     );
+  });
+
+  test("passes pageNumber sorting to repository for list queries", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    let observedSortBy: string | undefined;
+    let observedSortDirection: string | undefined;
+    const trackedRepository = {
+      ...repository,
+      list: async (input: {
+        offset: number;
+        limit: number;
+        parentId?: string;
+        status?: "PROCESSING" | "READY" | "FAILED";
+        type?: "IMAGE" | "VIDEO" | "PDF";
+        search?: string;
+        sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+        sortDirection?: "asc" | "desc";
+      }) => {
+        observedSortBy = input.sortBy;
+        observedSortDirection = input.sortDirection;
+        return {
+          items: records.slice(input.offset, input.offset + input.limit),
+          total: records.length,
+        };
+      },
+    } satisfies ContentRepository;
+
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Page 2",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const useCase = new ListContentUseCase({
+      contentRepository: trackedRepository,
+      userRepository,
+      contentStorage: storage.storage,
+      thumbnailUrlExpiresInSeconds: 3600,
+    });
+
+    await useCase.execute({
+      parentId: "00000000-0000-0000-0000-000000000001",
+      sortBy: "pageNumber",
+      sortDirection: "asc",
+    });
+
+    expect(observedSortBy).toBe("pageNumber");
+    expect(observedSortDirection).toBe("asc");
   });
 
   test("gets content by id", async () => {
@@ -483,7 +686,7 @@ describe("Content use cases", () => {
       contentRepository: repository,
       contentStorage: storage.storage,
       cleanupFailureLogger: {
-        logContentCleanupFailure: (input) => {
+        logContentCleanupFailure: (input: ContentCleanupFailureLog) => {
           loggerCalls.push(input);
         },
       },
@@ -502,28 +705,20 @@ describe("Content use cases", () => {
     expect(payload.failurePhase).toBe("delete_after_metadata_remove");
   });
 
-  test("throws cleanup error when upload rollback delete fails", async () => {
-    const storage = makeStorage({
-      deleteError: new Error("cleanup failed"),
+  test("propagates enqueue errors even when upload cleanup delete fails", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage({ deleteError: new Error("cleanup failed") });
+    const ingestion = makeIngestionDeps({
+      enqueueError: new Error("enqueue failed"),
     });
-    const { repository } = makeContentRepository();
-    const repositoryWithFailedFinalize = {
-      ...repository,
-      update: async () => null,
-    };
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
-    const loggerCalls: unknown[] = [];
     const useCase = new UploadContentUseCase({
-      contentRepository: repositoryWithFailedFinalize,
+      contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
       contentThumbnailGenerator: thumbnailGenerator,
+      ...ingestion,
       userRepository,
-      cleanupFailureLogger: {
-        logContentCleanupFailure: (input) => {
-          loggerCalls.push(input);
-        },
-      },
     });
 
     const file = new File([new TextEncoder().encode("hello")], "photo.png", {
@@ -535,13 +730,14 @@ describe("Content use cases", () => {
         file,
         createdById: "user-1",
       }),
-    ).rejects.toBeInstanceOf(ContentStorageCleanupError);
-    expect(loggerCalls).toHaveLength(1);
-    const payload = loggerCalls[0] as Record<string, unknown>;
-    expect(payload.route).toBe("/content");
-    expect(payload.failurePhase).toBe("upload_rollback_delete");
-    expect(payload.contentId).toBeTypeOf("string");
-    expect(payload.fileKey).toBeTypeOf("string");
+    ).rejects.toThrow("enqueue failed");
+    expect(records[0]?.status).toBe("FAILED");
+    const rollbackFailedFileKey = records[0]?.fileKey;
+    expect(rollbackFailedFileKey).toBeTypeOf("string");
+    expect(storage.deletedKeys).toEqual([rollbackFailedFileKey ?? ""]);
+    expect(ingestion.updatedJobs).toHaveLength(1);
+    expect(ingestion.updatedJobs[0]?.input.status).toBe("FAILED");
+    expect(ingestion.publishedEvents[0]?.type).toBe("failed");
   });
 
   test("returns presigned download url", async () => {
@@ -623,19 +819,29 @@ describe("Content use cases", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  test("replaces file and metadata for ready content", async () => {
+  test("replaces file, clears derived metadata, and queues ingestion job", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
+    const ingestion = makeIngestionDeps();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    let metadataCalls = 0;
+    let thumbnailCalls = 0;
     const useCase = new ReplaceContentFileUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: {
-        extract: async () => ({ width: 1920, height: 1080, duration: 42 }),
+        extract: async () => {
+          metadataCalls += 1;
+          return { width: 1920, height: 1080, duration: 42 };
+        },
       },
       contentThumbnailGenerator: {
-        generate: async () => new Uint8Array([1, 2, 3]),
+        generate: async () => {
+          thumbnailCalls += 1;
+          return new Uint8Array([1, 2, 3]);
+        },
       },
+      ...ingestion,
       userRepository,
       cleanupFailureLogger: {
         logContentCleanupFailure: () => undefined,
@@ -670,18 +876,25 @@ describe("Content use cases", () => {
       status: "READY",
     });
 
-    expect(result.title).toBe("After");
-    expect(result.status).toBe("READY");
-    expect(result.type).toBe("VIDEO");
-    expect(result.mimeType).toBe("video/mp4");
-    expect(result.fileSize).toBe(file.size);
-    expect(storage.uploads).toHaveLength(2);
+    expect(result.content.title).toBe("After");
+    expect(result.content.status).toBe("PROCESSING");
+    expect(result.content.type).toBe("VIDEO");
+    expect(result.content.mimeType).toBe("video/mp4");
+    expect(result.content.fileSize).toBe(file.size);
+    expect(result.content.width).toBeNull();
+    expect(result.content.height).toBeNull();
+    expect(result.content.duration).toBeNull();
+    expect(metadataCalls).toBe(0);
+    expect(thumbnailCalls).toBe(0);
+    expect(storage.uploads).toHaveLength(1);
     expect(storage.uploads[0]?.key).toBe(`content/videos/${id}.mp4`);
-    expect(storage.uploads[1]?.key).toBe(`content/thumbnails/${id}.jpg`);
-    // Old thumbnail is not deleted because new thumbnail has the same key (overwritten)
     expect(storage.deletedKeys).toEqual([
       "content/documents/11111111-1111-4111-8111-111111111111.pdf",
+      "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
     ]);
+    expect(result.job.operation).toBe("REPLACE");
+    expect(result.job.status).toBe("QUEUED");
+    expect(ingestion.queuedJobIds).toEqual([result.job.id]);
   });
 
   test("rejects replace when content is processing", async () => {
@@ -719,19 +932,29 @@ describe("Content use cases", () => {
     ).rejects.toBeInstanceOf(ContentInUseError);
   });
 
-  test("surfaces metadata extraction errors while replacing content file", async () => {
+  test("does not invoke metadata extraction during replace flow", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
+    const ingestion = makeIngestionDeps();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    let metadataCalls = 0;
+    let thumbnailCalls = 0;
     const useCase = new ReplaceContentFileUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: {
         extract: async () => {
-          throw new Error("metadata failed");
+          metadataCalls += 1;
+          throw new Error("metadata should not run");
         },
       },
-      contentThumbnailGenerator: thumbnailGenerator,
+      contentThumbnailGenerator: {
+        generate: async () => {
+          thumbnailCalls += 1;
+          throw new Error("thumbnail should not run");
+        },
+      },
+      ...ingestion,
       userRepository,
     });
     records.push({
@@ -753,64 +976,68 @@ describe("Content use cases", () => {
     const file = new File([new TextEncoder().encode("hello")], "poster.png", {
       type: "image/png",
     });
+    const result = await useCase.execute({
+      id: "11111111-1111-4111-8111-111111111111",
+      file,
+    });
+
+    expect(metadataCalls).toBe(0);
+    expect(thumbnailCalls).toBe(0);
+    expect(result.content.status).toBe("PROCESSING");
+    expect(result.job.status).toBe("QUEUED");
+  });
+
+  test("marks upload and job as failed when enqueue fails", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const ingestion = makeIngestionDeps({
+      enqueueError: new Error("queue unavailable"),
+    });
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new UploadContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
+      ...ingestion,
+      userRepository,
+    });
+
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+
     await expect(
-      useCase.execute({ id: "11111111-1111-4111-8111-111111111111", file }),
-    ).rejects.toBeInstanceOf(ContentMetadataExtractionError);
+      useCase.execute({
+        title: "Queue failure",
+        file,
+        createdById: "user-1",
+      }),
+    ).rejects.toThrow("queue unavailable");
+
+    expect(records[0]?.status).toBe("FAILED");
+    const queueFailedFileKey = records[0]?.fileKey;
+    expect(queueFailedFileKey).toBeTypeOf("string");
+    expect(storage.deletedKeys).toEqual([queueFailedFileKey ?? ""]);
+    expect(ingestion.createdJobs).toHaveLength(1);
+    expect(ingestion.updatedJobs).toHaveLength(1);
+    expect(ingestion.updatedJobs[0]?.input.status).toBe("FAILED");
+    expect(ingestion.publishedEvents[0]?.type).toBe("failed");
   });
 
-  test("retries thumbnail generation on failure and succeeds on third attempt", async () => {
-    const { repository } = makeContentRepository();
-    const storage = makeStorage();
-    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
-
-    let attempts = 0;
-    const useCase = new UploadContentUseCase({
-      contentRepository: repository,
-      contentStorage: storage.storage,
-      contentMetadataExtractor: metadataExtractor,
-      contentThumbnailGenerator: {
-        generate: async () => {
-          attempts++;
-          if (attempts < 3) {
-            throw new Error("Transient failure");
-          }
-          return new Uint8Array([1, 2, 3]);
-        },
-      },
-      userRepository,
-    });
-
-    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
-      type: "image/png",
-    });
-
-    const result = await useCase.execute({
-      title: "Retry test",
-      file,
-      createdById: "user-1",
-    });
-
-    expect(attempts).toBe(3);
-    expect(storage.uploads).toHaveLength(2);
-    expect(storage.uploads[1]?.key).toBe(`content/thumbnails/${result.id}.jpg`);
-  });
-
-  test("accepts content without thumbnail after max retries fail", async () => {
+  test("marks upload as failed and rolls back file when job creation fails", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
+    const ingestion = makeIngestionDeps({
+      createError: new Error("job create failed"),
+    });
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
-
-    let attempts = 0;
     const useCase = new UploadContentUseCase({
       contentRepository: repository,
       contentStorage: storage.storage,
       contentMetadataExtractor: metadataExtractor,
-      contentThumbnailGenerator: {
-        generate: async () => {
-          attempts++;
-          throw new Error("Persistent failure");
-        },
-      },
+      contentThumbnailGenerator: thumbnailGenerator,
+      ...ingestion,
       userRepository,
     });
 
@@ -818,54 +1045,76 @@ describe("Content use cases", () => {
       type: "image/png",
     });
 
-    const result = await useCase.execute({
-      title: "No thumbnail",
-      file,
+    await expect(
+      useCase.execute({
+        title: "Create job failure",
+        file,
+        createdById: "user-1",
+      }),
+    ).rejects.toThrow("job create failed");
+
+    expect(records[0]?.status).toBe("FAILED");
+    const createFailedFileKey = records[0]?.fileKey;
+    expect(createFailedFileKey).toBeTypeOf("string");
+    expect(storage.deletedKeys).toEqual([createFailedFileKey ?? ""]);
+    expect(ingestion.queuedJobIds).toHaveLength(0);
+    expect(ingestion.updatedJobs).toHaveLength(0);
+  });
+
+  test("marks replacement content and job as failed when enqueue fails", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const ingestion = makeIngestionDeps({
+      enqueueError: new Error("queue unavailable"),
+    });
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new ReplaceContentFileUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      contentMetadataExtractor: metadataExtractor,
+      contentThumbnailGenerator: thumbnailGenerator,
+      ...ingestion,
+      userRepository,
+    });
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Poster",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      thumbnailKey:
+        "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
       createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
     });
 
-    expect(attempts).toBe(3);
-    expect(result).toBeDefined();
+    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
+      type: "image/png",
+    });
+
+    await expect(
+      useCase.execute({
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "Queue failure",
+        status: "READY",
+        file,
+      }),
+    ).rejects.toThrow("queue unavailable");
+
+    expect(records[0]?.status).toBe("FAILED");
     expect(storage.uploads).toHaveLength(1);
-    expect(records[0]?.thumbnailKey).toBeNull();
-  });
-
-  test("retries when thumbnail generator returns null", async () => {
-    const { repository, records } = makeContentRepository();
-    const storage = makeStorage();
-    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
-
-    let attempts = 0;
-    const useCase = new UploadContentUseCase({
-      contentRepository: repository,
-      contentStorage: storage.storage,
-      contentMetadataExtractor: metadataExtractor,
-      contentThumbnailGenerator: {
-        generate: async () => {
-          attempts++;
-          if (attempts < 2) {
-            return null;
-          }
-          return new Uint8Array([1, 2, 3]);
-        },
-      },
-      userRepository,
-    });
-
-    const file = new File([new TextEncoder().encode("hello")], "photo.png", {
-      type: "image/png",
-    });
-
-    const result = await useCase.execute({
-      title: "Null retry test",
-      file,
-      createdById: "user-1",
-    });
-
-    expect(attempts).toBe(2);
-    expect(storage.uploads).toHaveLength(2);
-    expect(records[0]?.thumbnailKey).toBe(
-      `content/thumbnails/${result.id}.jpg`,
-    );
+    expect(storage.deletedKeys).toEqual([
+      "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
+    ]);
+    expect(ingestion.createdJobs).toHaveLength(1);
+    expect(ingestion.updatedJobs).toHaveLength(1);
+    expect(ingestion.updatedJobs[0]?.input.status).toBe("FAILED");
+    expect(ingestion.publishedEvents[0]?.type).toBe("failed");
   });
 });

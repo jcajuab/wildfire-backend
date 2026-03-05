@@ -1,4 +1,5 @@
 import { type InvitationEmailSender } from "#/application/ports/notifications";
+import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 
 export class LogInvitationEmailSender implements InvitationEmailSender {
@@ -17,7 +18,7 @@ export class LogInvitationEmailSender implements InvitationEmailSender {
       "Invitation email dispatch requested",
     );
 
-    if (process.env.NODE_ENV === "development") {
+    if (env.NODE_ENV === "development") {
       logger.info(
         {
           component: "notifications",
