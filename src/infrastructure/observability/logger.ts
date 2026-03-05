@@ -5,6 +5,7 @@ const transport = env.LOG_PRETTY
   ? pino.transport({
       target: "pino-pretty",
       options: {
+        singleLine: true,
         colorize: true,
         translateTime: "SYS:standard",
       },
