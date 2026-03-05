@@ -168,7 +168,7 @@ export const registerAuditExportRoute = (args: {
 
   router.get(
     "/events/export",
-    setAction("audit.event.download", {
+    setAction("audit.event.export", {
       route: "/audit/events/export",
       resourceType: "audit-event",
     }),

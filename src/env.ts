@@ -51,6 +51,8 @@ export const env = createEnv({
     REDIS_URL: z.string().default("redis://localhost:6379"),
     REDIS_KEY_PREFIX: z.string().default("wf"),
     REDIS_CONNECT_TIMEOUT_MS: z.coerce.number().default(10_000),
+    // Applied to command, publisher, and subscriber Redis connections.
+    // Set to 0 to disable socket timeouts (useful for long-lived subscribers).
     REDIS_SOCKET_TIMEOUT_MS: z.coerce.number().default(0),
     REDIS_RETRY_MAX_ATTEMPTS: z.coerce.number().default(20),
     REDIS_RETRY_BASE_DELAY_MS: z.coerce.number().default(100),

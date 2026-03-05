@@ -30,7 +30,7 @@ export const registerContentFileRoutes = (args: {
 
   router.get(
     "/:id/file",
-    setAction("content.file.download", {
+    setAction("content.file.get", {
       route: "/content/:id/file",
       resourceType: "content",
     }),

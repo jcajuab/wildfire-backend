@@ -20,14 +20,11 @@ const reconnectStrategy =
   };
 
 const createRedisConnection = (kind: RedisConnectionKind): RedisClient => {
-  const socketTimeout =
-    kind === "subscriber" ? undefined : env.REDIS_SOCKET_TIMEOUT_MS;
-
   const client = createClient({
     url: env.REDIS_URL,
     socket: {
       connectTimeout: env.REDIS_CONNECT_TIMEOUT_MS,
-      socketTimeout,
+      socketTimeout: env.REDIS_SOCKET_TIMEOUT_MS,
       reconnectStrategy: reconnectStrategy(kind),
     },
   });
