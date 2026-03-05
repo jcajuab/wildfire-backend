@@ -276,7 +276,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/registration-attempts/:attemptId/events",
       resourceType: "display",
     }),
-    ...authorize("displays:register"),
+    ...authorize("displays:create"),
     validateParams(registrationAttemptParamSchema),
     async (c) => {
       const params = c.req.valid("param");
@@ -331,7 +331,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/registration-attempts",
       resourceType: "display",
     }),
-    ...authorize("displays:register"),
+    ...authorize("displays:create"),
     withRouteErrorHandling(
       async (c) => {
         const createdById = c.get("userId");
@@ -380,7 +380,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/registration-attempts/:attemptId/rotate",
       resourceType: "display",
     }),
-    ...authorize("displays:register"),
+    ...authorize("displays:create"),
     validateParams(registrationAttemptParamSchema),
     withRouteErrorHandling(
       async (c) => {
@@ -428,7 +428,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/registration-attempts/:attemptId",
       resourceType: "display",
     }),
-    ...authorize("displays:register"),
+    ...authorize("displays:create"),
     validateParams(registrationAttemptParamSchema),
     withRouteErrorHandling(
       async (c) => {
@@ -458,7 +458,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/registration-sessions",
       resourceType: "display",
     }),
-    ...authorize("displays:register"),
+    ...authorize("displays:create"),
     validateJson(registrationSessionBodySchema),
     withRouteErrorHandling(
       async (c) => {
@@ -526,7 +526,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/registrations",
       resourceType: "display",
     }),
-    ...authorize("displays:register"),
+    ...authorize("displays:create"),
     validateJson(displayRegistrationBodySchema),
     withRouteErrorHandling(
       async (c) => {
@@ -873,7 +873,7 @@ export const registerDisplayStaffRoutes = (args: {
       route: "/displays/:id/unregister",
       resourceType: "display",
     }),
-    ...authorize("displays:update"),
+    ...authorize("displays:delete"),
     validateParams(displayIdParamSchema),
     describeRoute({
       description: "Unregister display and revoke display authentication",

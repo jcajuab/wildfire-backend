@@ -1,4 +1,4 @@
-import { STANDARD_RESOURCE_ACTIONS } from "../constants";
+import { ROOT_PERMISSION, STANDARD_RESOURCE_ACTIONS } from "../constants";
 import {
   permissionKey,
   type SeedContext,
@@ -8,7 +8,11 @@ import {
 export async function runSeedStandardPermissions(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
+  const rootPermissionKey = permissionKey(ROOT_PERMISSION);
   const existing = await ctx.repos.permissionRepository.list();
+  const canonicalKeys = new Set(
+    STANDARD_RESOURCE_ACTIONS.map((permission) => permissionKey(permission)),
+  );
   const existingByKey = new Map(
     existing.map((permission) => [permissionKey(permission), permission]),
   );
@@ -21,7 +25,12 @@ export async function runSeedStandardPermissions(
     const existingPermission = existingByKey.get(key);
     if (existingPermission) {
       if (existingPermission.isRoot === true) {
-        if (!ctx.args.dryRun && ctx.repos.permissionRepository.updateIsRoot) {
+        if (!ctx.repos.permissionRepository.updateIsRoot) {
+          throw new Error(
+            "permissionRepository.updateIsRoot is required for strict permission normalization",
+          );
+        }
+        if (!ctx.args.dryRun) {
           await ctx.repos.permissionRepository.updateIsRoot(
             existingPermission.id,
             false,
@@ -38,6 +47,28 @@ export async function runSeedStandardPermissions(
       await ctx.repos.permissionRepository.create(permission);
     }
     created += 1;
+  }
+
+  const stalePermissionIds = existing
+    .filter((permission) => {
+      const key = permissionKey(permission);
+      if (key === rootPermissionKey) {
+        return false;
+      }
+      return !canonicalKeys.has(key);
+    })
+    .map((permission) => permission.id);
+
+  if (stalePermissionIds.length > 0) {
+    if (!ctx.repos.permissionRepository.deleteByIds) {
+      throw new Error(
+        "permissionRepository.deleteByIds is required for strict permission normalization",
+      );
+    }
+    if (!ctx.args.dryRun) {
+      await ctx.repos.permissionRepository.deleteByIds(stalePermissionIds);
+    }
+    updated += stalePermissionIds.length;
   }
 
   return {

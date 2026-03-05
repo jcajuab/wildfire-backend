@@ -268,7 +268,7 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns CSV when authorized", async () => {
-    const { app, issueToken } = await makeApp(["audit:download"]);
+    const { app, issueToken } = await makeApp(["audit:read"]);
     const token = await issueToken();
 
     const response = await app.request("/audit/events/export", {
@@ -299,7 +299,7 @@ describe("Audit routes", () => {
       count: async () => 1,
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:download")],
+      findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
@@ -334,13 +334,13 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns 401 without token", async () => {
-    const { app } = await makeApp(["audit:download"]);
+    const { app } = await makeApp(["audit:read"]);
     const response = await app.request("/audit/events/export");
     expect(response.status).toBe(401);
   });
 
   test("GET /audit/events/export returns 403 without permission", async () => {
-    const { app, issueToken } = await makeApp(["audit:read"]);
+    const { app, issueToken } = await makeApp(["users:read"]);
     const token = await issueToken();
     const response = await app.request("/audit/events/export", {
       headers: { Authorization: `Bearer ${token}` },
@@ -355,7 +355,7 @@ describe("Audit routes", () => {
       count: async () => 3,
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:download")],
+      findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
@@ -393,7 +393,7 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns 422 when from is after to", async () => {
-    const { app, issueToken } = await makeApp(["audit:download"]);
+    const { app, issueToken } = await makeApp(["audit:read"]);
     const token = await issueToken();
     const response = await app.request(
       "/audit/events/export?from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z",
@@ -414,7 +414,7 @@ describe("Audit routes", () => {
       count: async () => 1,
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:download")],
+      findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",
@@ -462,7 +462,7 @@ describe("Audit routes", () => {
       },
     };
     const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:download")],
+      findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
     const router = createAuditRouter({
       jwtSecret: "test-secret",

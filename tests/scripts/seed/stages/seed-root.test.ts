@@ -160,7 +160,7 @@ describe("runSeedRoot", () => {
     expect(state.htshadow).toContain(`${rootUsername}:hash-1`);
   });
 
-  test("updates existing root credentials and preserves extra roles", async () => {
+  test("updates existing root credentials and enforces root-only assignments", async () => {
     const preExistingRootRole = {
       id: "root-role",
       name: ROOT_ROLE_NAME,
@@ -278,9 +278,9 @@ describe("runSeedRoot", () => {
       .split("\n")
       .filter((line) => line.startsWith(`${preExistingUser.username}:`));
 
-    expect(result.updated).toBe(2);
+    expect(result.updated).toBe(3);
     expect(result.skipped).toBe(4);
-    expect(state.setRolePermissionsCalls).toBe(0);
+    expect(state.setRolePermissionsCalls).toBe(1);
     expect(state.setUserRolesCalls).toBe(1);
     expect(rootUserLines[0]).toBe(`${preExistingUser.username}:${state.hash}`);
   });

@@ -9,7 +9,12 @@ const unused = () => {
 
 const makeContext = (dryRun = false): SeedContext => {
   const store = {
-    permissions: [] as Array<{ id: string; resource: string; action: string }>,
+    permissions: [] as Array<{
+      id: string;
+      resource: string;
+      action: string;
+      isRoot?: boolean;
+    }>,
   };
 
   let seq = 0;
@@ -38,6 +43,11 @@ const makeContext = (dryRun = false): SeedContext => {
           };
           store.permissions.push(created);
           return created;
+        },
+        deleteByIds: async (ids: string[]) => {
+          store.permissions = store.permissions.filter(
+            (permission) => !ids.includes(permission.id),
+          );
         },
       },
       roleRepository: {
@@ -102,5 +112,29 @@ describe("runSeedStandardPermissions", () => {
     const secondRun = await runSeedStandardPermissions(ctx);
     expect(secondRun.created).toBe(STANDARD_RESOURCE_ACTIONS.length);
     expect(secondRun.skipped).toBe(0);
+  });
+
+  test("removes stale non-root permissions during normalization", async () => {
+    const ctx = makeContext(false);
+
+    const repo = ctx.repos.permissionRepository;
+    if (!repo.create || !repo.list) {
+      throw new Error("test setup missing permission repository functions");
+    }
+
+    const create = repo.create.bind(repo);
+    for (const permission of STANDARD_RESOURCE_ACTIONS) {
+      await create(permission);
+    }
+    await create({ resource: "content", action: "download" });
+
+    const result = await runSeedStandardPermissions(ctx);
+    expect(result.updated).toBe(1);
+
+    const normalized = await repo.list();
+    const keys = normalized.map(
+      (permission) => `${permission.resource}:${permission.action}`,
+    );
+    expect(keys).not.toContain("content:download");
   });
 });

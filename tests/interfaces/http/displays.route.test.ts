@@ -699,8 +699,8 @@ const makeApp = async (
 };
 
 describe("Displays routes", () => {
-  test("POST /displays/registration-attempts issues code with displays:register permission", async () => {
-    const { app, issueToken } = await makeApp(["displays:register"]);
+  test("POST /displays/registration-attempts issues code with displays:create permission", async () => {
+    const { app, issueToken } = await makeApp(["displays:create"]);
     const token = await issueToken();
 
     const response = await app.request("/displays/registration-attempts", {
@@ -723,7 +723,7 @@ describe("Displays routes", () => {
     expect(Date.parse(json.data.expiresAt)).toBeGreaterThan(Date.now());
   });
 
-  test("POST /displays/registration-attempts returns 403 without displays:register", async () => {
+  test("POST /displays/registration-attempts returns 403 without displays:create", async () => {
     const { app, issueToken } = await makeApp(["displays:read"]);
     const token = await issueToken();
 
@@ -863,7 +863,7 @@ describe("Displays routes", () => {
 
   test("POST /displays/:id/unregister revokes key and deletes display", async () => {
     const { app, issueToken, revokedDisplayIds, displays } = await makeApp(
-      ["displays:update"],
+      ["displays:delete"],
       {
         displays: [makeDisplay({ status: "READY" })],
       },

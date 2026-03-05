@@ -230,7 +230,7 @@ describe("Content routes", () => {
   });
 
   test("GET /content/:id/file returns download URL", async () => {
-    const { app, issueToken, records } = await makeApp(["content:download"]);
+    const { app, issueToken, records } = await makeApp(["content:read"]);
     const token = await issueToken();
     records.push({
       id: "11111111-1111-4111-8111-111111111111",
@@ -263,8 +263,8 @@ describe("Content routes", () => {
     expect(body.data.downloadUrl).toContain("response-content-disposition=");
   });
 
-  test("GET /content/:id/file returns 403 with only content:read", async () => {
-    const { app, issueToken, records } = await makeApp(["content:read"]);
+  test("GET /content/:id/file returns 403 without content:read", async () => {
+    const { app, issueToken, records } = await makeApp(["content:update"]);
     const token = await issueToken();
     records.push({
       id: "11111111-1111-4111-8111-111111111111",

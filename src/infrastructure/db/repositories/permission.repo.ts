@@ -35,4 +35,9 @@ export class PermissionDbRepository implements PermissionRepository {
   async updateIsRoot(id: string, isRoot: boolean): Promise<void> {
     await db.update(permissions).set({ isRoot }).where(eq(permissions.id, id));
   }
+
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.delete(permissions).where(inArray(permissions.id, ids));
+  }
 }

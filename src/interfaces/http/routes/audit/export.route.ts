@@ -172,7 +172,7 @@ export const registerAuditExportRoute = (args: {
       route: "/audit/events/export",
       resourceType: "audit-event",
     }),
-    ...authorize("audit:download"),
+    ...authorize("audit:read"),
     validateQuery(auditEventExportQuerySchema),
     describeRoute({
       description: "Export audit events as CSV",

@@ -81,6 +81,7 @@ export interface PermissionRepository {
     isRoot?: boolean;
   }): Promise<PermissionRecord>;
   updateIsRoot?: (id: string, isRoot: boolean) => Promise<void>;
+  deleteByIds?: (ids: string[]) => Promise<void>;
 }
 
 export interface UserRoleRepository {

@@ -1,18 +1,19 @@
 export type PermissionResource =
+  | "root"
+  | "displays"
   | "content"
   | "playlists"
   | "schedules"
-  | "displays"
   | "users"
   | "roles"
   | "audit"
   | "settings";
 
 export type PermissionAction =
+  | "access"
   | "read"
   | "create"
   | "update"
-  | "delete"
-  | "download";
+  | "delete";
 
 export type PermissionType = `${PermissionResource}:${PermissionAction}`;

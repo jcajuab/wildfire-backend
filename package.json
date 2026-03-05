@@ -13,7 +13,7 @@
     "db:studio": "drizzle-kit studio",
     "dev": "concurrently -k -n api,audit \"bun run dev:api\" \"bun run dev:worker\"",
     "dev:api": "bun run --hot src/index.ts",
-    "dev:worker": "bun run --hot src/workers/audit-stream.worker.ts",
+    "dev:worker": "bun run --hot workers/audit-stream.worker.ts",
     "format": "prettier --write \"**/*.{md,yaml}\"",
     "test": "bun test",
     "test:integration": "RUN_INTEGRATION=true bun test tests/infrastructure",

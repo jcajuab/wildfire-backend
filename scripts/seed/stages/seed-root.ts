@@ -35,13 +35,13 @@ const parseHtshadowLines = (input: string): Map<string, string> => {
   return out;
 };
 
-const uniqueRoleIds = (roles: string[]): string[] => {
+const uniqueIds = (values: string[]): string[] => {
   const set = new Set<string>();
   const out: string[] = [];
-  for (const roleId of roles) {
-    if (!set.has(roleId)) {
-      set.add(roleId);
-      out.push(roleId);
+  for (const value of values) {
+    if (!set.has(value)) {
+      set.add(value);
+      out.push(value);
     }
   }
   return out;
@@ -82,7 +82,12 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
     created += 1;
   } else if (rootPermission.isRoot === true) {
     skipped += 1;
-  } else if (ctx.repos.permissionRepository.updateIsRoot) {
+  } else {
+    if (!ctx.repos.permissionRepository.updateIsRoot) {
+      throw new Error(
+        "permissionRepository.updateIsRoot is required for root permission enforcement",
+      );
+    }
     if (!ctx.args.dryRun) {
       await ctx.repos.permissionRepository.updateIsRoot(
         rootPermission.id,
@@ -107,13 +112,11 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
     const permissionIds = assignments.map(
       (assignment) => assignment.permissionId,
     );
-    const assignmentSet = new Set(permissionIds);
+    const hasExactRootPermissionOnly =
+      permissionIds.length === 1 && permissionIds[0] === rootPermission.id;
 
-    if (!assignmentSet.has(rootPermission.id)) {
-      const nextPermissionIds = uniqueRoleIds([
-        ...permissionIds,
-        rootPermission.id,
-      ]);
+    if (!hasExactRootPermissionOnly) {
+      const nextPermissionIds = [rootPermission.id];
       if (!ctx.args.dryRun) {
         await ctx.repos.rolePermissionRepository.setRolePermissions(
           rootRole.id,
@@ -123,6 +126,35 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
       updated += 1;
     } else {
       skipped += 1;
+    }
+
+    for (const role of roles) {
+      if (role.id === rootRole.id) {
+        continue;
+      }
+      const assignmentsForRole =
+        await ctx.repos.rolePermissionRepository.listPermissionsByRoleId(
+          role.id,
+        );
+      const rolePermissionIds = assignmentsForRole.map(
+        (assignment) => assignment.permissionId,
+      );
+      if (!rolePermissionIds.includes(rootPermission.id)) {
+        skipped += 1;
+        continue;
+      }
+      const nextRolePermissionIds = uniqueIds(
+        rolePermissionIds.filter(
+          (permissionId) => permissionId !== rootPermission.id,
+        ),
+      );
+      if (!ctx.args.dryRun) {
+        await ctx.repos.rolePermissionRepository.setRolePermissions(
+          role.id,
+          nextRolePermissionIds,
+        );
+      }
+      updated += 1;
     }
   }
 
@@ -164,10 +196,11 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
     const currentRoleIds = userAssignments.map(
       (assignment) => assignment.roleId,
     );
-    const nextRoleIds = uniqueRoleIds([rootRole.id, ...currentRoleIds]);
-    const hasRootRole = currentRoleIds.includes(rootRole.id);
+    const hasExactRootRoleOnly =
+      currentRoleIds.length === 1 && currentRoleIds[0] === rootRole.id;
 
-    if (!hasRootRole) {
+    if (!hasExactRootRoleOnly) {
+      const nextRoleIds = [rootRole.id];
       if (!ctx.args.dryRun) {
         await ctx.repos.userRoleRepository.setUserRoles(
           rootUser.id,
@@ -177,6 +210,29 @@ export async function runSeedRoot(ctx: SeedContext): Promise<SeedStageResult> {
       updated += 1;
     } else {
       skipped += 1;
+    }
+
+    const users = await ctx.repos.userRepository.list();
+    for (const user of users) {
+      if (user.id === rootUser.id) {
+        continue;
+      }
+      const assignmentsForUser =
+        await ctx.repos.userRoleRepository.listRolesByUserId(user.id);
+      const roleIdsForUser = assignmentsForUser.map(
+        (assignment) => assignment.roleId,
+      );
+      if (!roleIdsForUser.includes(rootRole.id)) {
+        skipped += 1;
+        continue;
+      }
+      const nextRoleIds = uniqueIds(
+        roleIdsForUser.filter((roleId) => roleId !== rootRole.id),
+      );
+      if (!ctx.args.dryRun) {
+        await ctx.repos.userRoleRepository.setUserRoles(user.id, nextRoleIds);
+      }
+      updated += 1;
     }
   }
 
