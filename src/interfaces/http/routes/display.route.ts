@@ -31,9 +31,11 @@ import { logger } from "#/infrastructure/observability/logger";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
+  apiResponseSchema,
   errorResponseSchema,
   notFound,
   type ResponseContext,
+  toApiResponse,
   tooManyRequests,
   unauthorized,
   validationError,
@@ -102,10 +104,12 @@ const challengeTokenParamSchema = z.object({
   challengeToken: z.string().min(1),
 });
 
-const challengeResponseSchema = z.object({
-  challengeToken: z.string().min(1),
-  expiresAt: z.string(),
-});
+const challengeResponseSchema = apiResponseSchema(
+  z.object({
+    challengeToken: z.string().min(1),
+    expiresAt: z.string(),
+  }),
+);
 
 const toBase64Url = (value: string | Uint8Array): string =>
   Buffer.from(value)
@@ -564,10 +568,10 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         });
 
         return c.json(
-          {
+          toApiResponse({
             challengeToken,
             expiresAt: expiresAt.toISOString(),
-          },
+          }),
           201,
         );
       },
