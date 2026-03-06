@@ -107,7 +107,7 @@ export const env = createEnv({
     AUDIT_QUEUE_ENABLED: z.string().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_CAPACITY: z.coerce.number().default(5000),
     AUDIT_EXPORT_MAX_ROWS: z.coerce.number().default(100000),
-    SCHEDULE_TIMEZONE: z.string().default("UTC"),
+    SCHEDULE_TIMEZONE: z.string().min(1),
     CORS_ORIGINS: z
       .string()
       .default("http://localhost:3000")
