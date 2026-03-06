@@ -18,19 +18,19 @@ export type AdminDisplayLifecycleEvent =
   | {
       type: "display_registered";
       displayId: string;
-      displaySlug: string;
+      slug: string;
       occurredAt: string;
     }
   | {
       type: "display_unregistered";
       displayId: string;
-      displaySlug: string;
+      slug: string;
       occurredAt: string;
     }
   | {
       type: "display_status_changed";
       displayId: string;
-      displaySlug: string;
+      slug: string;
       previousStatus: DisplayStatus;
       status: DisplayStatus;
       occurredAt: string;
@@ -101,7 +101,7 @@ const parseLifecycleEvent = (
   const candidate = value as {
     type?: unknown;
     displayId?: unknown;
-    displaySlug?: unknown;
+    slug?: unknown;
     occurredAt?: unknown;
     previousStatus?: unknown;
     status?: unknown;
@@ -109,7 +109,7 @@ const parseLifecycleEvent = (
 
   if (
     !isStringField(candidate.displayId, MAX_DISPLAY_STATUS_EVENT_BYTES) ||
-    !isStringField(candidate.displaySlug, MAX_DISPLAY_STATUS_EVENT_BYTES) ||
+    !isStringField(candidate.slug, MAX_DISPLAY_STATUS_EVENT_BYTES) ||
     !isStringField(candidate.occurredAt, MAX_DISPLAY_STATUS_EVENT_BYTES)
   ) {
     return null;
@@ -119,7 +119,7 @@ const parseLifecycleEvent = (
     return {
       type: "display_registered",
       displayId: candidate.displayId,
-      displaySlug: candidate.displaySlug,
+      slug: candidate.slug,
       occurredAt: candidate.occurredAt,
     };
   }
@@ -128,7 +128,7 @@ const parseLifecycleEvent = (
     return {
       type: "display_unregistered",
       displayId: candidate.displayId,
-      displaySlug: candidate.displaySlug,
+      slug: candidate.slug,
       occurredAt: candidate.occurredAt,
     };
   }
@@ -141,7 +141,7 @@ const parseLifecycleEvent = (
     return {
       type: "display_status_changed",
       displayId: candidate.displayId,
-      displaySlug: candidate.displaySlug,
+      slug: candidate.slug,
       previousStatus: candidate.previousStatus,
       status: candidate.status,
       occurredAt: candidate.occurredAt,

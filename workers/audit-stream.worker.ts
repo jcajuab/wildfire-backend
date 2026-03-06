@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { type CreateAuditEventInput } from "#/application/ports/audit";
-import { RecordAuditEventUseCase } from "#/application/use-cases/audit";
+import { type CreateAuditLogInput } from "#/application/ports/audit";
+import { RecordAuditLogUseCase } from "#/application/use-cases/audit";
 import { env } from "#/env";
 import { closeDbConnection } from "#/infrastructure/db/client";
-import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
+import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -156,11 +156,9 @@ const readStreamEntriesWithRetry = async (): Promise<StreamEntry[]> => {
   return [];
 };
 
-const parseAuditEventPayload = (
-  payload: string,
-): CreateAuditEventInput | null => {
+const parseAuditLogPayload = (payload: string): CreateAuditLogInput | null => {
   try {
-    const parsed = JSON.parse(payload) as Partial<CreateAuditEventInput>;
+    const parsed = JSON.parse(payload) as Partial<CreateAuditLogInput>;
     if (parsed == null || typeof parsed !== "object") {
       return null;
     }
@@ -181,7 +179,7 @@ const parseAuditEventPayload = (
       return null;
     }
 
-    return parsed as CreateAuditEventInput;
+    return parsed as CreateAuditLogInput;
   } catch {
     return null;
   }
@@ -248,9 +246,9 @@ const addToDlq = async (input: {
 
 const processEntry = async (input: {
   entry: StreamEntry;
-  recordAuditEvent: RecordAuditEventUseCase;
+  recordAuditLog: RecordAuditLogUseCase;
 }): Promise<void> => {
-  const event = parseAuditEventPayload(input.entry.payload);
+  const event = parseAuditLogPayload(input.entry.payload);
   if (!event) {
     await addToDlq({
       entry: input.entry,
@@ -262,7 +260,7 @@ const processEntry = async (input: {
 
   for (let attempt = 1; attempt <= maxDeliveries; attempt += 1) {
     try {
-      await input.recordAuditEvent.execute(event);
+      await input.recordAuditLog.execute(event);
       await ackAndDeleteEntry(input.entry.id);
       return;
     } catch (error) {
@@ -320,9 +318,9 @@ const processEntry = async (input: {
 };
 
 const runWorker = async (): Promise<void> => {
-  const auditEventRepository = new AuditEventDbRepository();
-  const recordAuditEvent = new RecordAuditEventUseCase({
-    auditEventRepository,
+  const auditLogRepository = new AuditLogDbRepository();
+  const recordAuditLog = new RecordAuditLogUseCase({
+    auditLogRepository,
   });
 
   await ensureGroup();
@@ -354,7 +352,7 @@ const runWorker = async (): Promise<void> => {
         }
         await processEntry({
           entry,
-          recordAuditEvent,
+          recordAuditLog,
         });
       }
     } catch (error) {

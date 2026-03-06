@@ -7,27 +7,27 @@ export class DisplayValidationError extends Error {
 
 export interface DisplayInput {
   name: string;
-  identifier: string;
-  displayFingerprint?: string | null;
+  slug: string;
+  fingerprint?: string | null;
   location?: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
   screenWidth?: number | null;
   screenHeight?: number | null;
-  outputType?: string | null;
+  output?: string | null;
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
 }
 
 export interface DisplayProps {
   name: string;
-  identifier: string;
-  displayFingerprint: string | null;
+  slug: string;
+  fingerprint: string | null;
   location: string | null;
   ipAddress: string | null;
   macAddress: string | null;
   screenWidth: number | null;
   screenHeight: number | null;
-  outputType: string | null;
+  output: string | null;
   orientation: "LANDSCAPE" | "PORTRAIT" | null;
 }
 
@@ -35,22 +35,22 @@ const normalize = (value: string) => value.trim();
 
 export const createDisplayProps = (input: DisplayInput): DisplayProps => {
   const name = normalize(input.name);
-  const identifier = normalize(input.identifier);
+  const slug = normalize(input.slug);
 
   if (!name) {
     throw new DisplayValidationError("Display name is required");
   }
 
-  if (!identifier) {
-    throw new DisplayValidationError("Display identifier is required");
+  if (!slug) {
+    throw new DisplayValidationError("Display slug is required");
   }
 
   return {
     name,
-    identifier,
-    displayFingerprint: input.displayFingerprint
+    slug,
+    fingerprint: input.fingerprint
       ? (() => {
-          const trimmed = input.displayFingerprint.trim();
+          const trimmed = input.fingerprint.trim();
           return trimmed.length > 0 ? trimmed : null;
         })()
       : null,
@@ -59,7 +59,7 @@ export const createDisplayProps = (input: DisplayInput): DisplayProps => {
     macAddress: input.macAddress ? input.macAddress.trim() : null,
     screenWidth: input.screenWidth ?? null,
     screenHeight: input.screenHeight ?? null,
-    outputType: input.outputType ? input.outputType.trim() : null,
+    output: input.output ? input.output.trim() : null,
     orientation: input.orientation ?? null,
   };
 };

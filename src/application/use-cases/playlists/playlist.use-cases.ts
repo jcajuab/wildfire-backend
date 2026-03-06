@@ -403,7 +403,7 @@ export class DeletePlaylistUseCase {
       const displayName =
         displays.length === 0 || !firstDisplay
           ? "a display"
-          : firstDisplay.name?.trim() || firstDisplay.identifier || "a display";
+          : firstDisplay.name?.trim() || firstDisplay.slug || "a display";
       const message =
         displayIds.length > 1
           ? "Failed to delete playlist. This playlist is in use by multiple displays."

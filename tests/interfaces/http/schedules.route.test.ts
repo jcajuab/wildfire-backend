@@ -52,8 +52,7 @@ const makeApp = async (
     {
       id: displayId,
       name: "Lobby",
-      identifier: "AA:BB",
-      displaySlug: "display-1",
+      slug: "display-1",
       status: "READY" as const,
       location: null,
       screenWidth: 1366,
@@ -153,7 +152,6 @@ const makeApp = async (
           displays.filter((display) => ids.includes(display.id)),
         findById: async (id: string) =>
           displays.find((display) => display.id === id) ?? null,
-        findByIdentifier: async () => null,
         findBySlug: async () => null,
         findByFingerprint: async () => null,
         findByFingerprintAndOutput: async () => null,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ListAuditEventsUseCase } from "#/application/use-cases/audit";
+import { ListAuditLogsUseCase } from "#/application/use-cases/audit";
 
 const makeRepository = () => {
   const listCalls: unknown[] = [];
@@ -43,11 +43,11 @@ const makeRepository = () => {
   };
 };
 
-describe("ListAuditEventsUseCase", () => {
+describe("ListAuditLogsUseCase", () => {
   test("applies pagination defaults and returns paginated output", async () => {
     const { repository } = makeRepository();
-    const useCase = new ListAuditEventsUseCase({
-      auditEventRepository: repository,
+    const useCase = new ListAuditLogsUseCase({
+      auditLogRepository: repository,
     });
 
     const result = await useCase.execute({});
@@ -60,8 +60,8 @@ describe("ListAuditEventsUseCase", () => {
 
   test("passes normalized filters to repository", async () => {
     const { repository, listCalls, countCalls } = makeRepository();
-    const useCase = new ListAuditEventsUseCase({
-      auditEventRepository: repository,
+    const useCase = new ListAuditLogsUseCase({
+      auditLogRepository: repository,
     });
 
     await useCase.execute({
@@ -97,8 +97,8 @@ describe("ListAuditEventsUseCase", () => {
 
   test("throws when from is after to", async () => {
     const { repository } = makeRepository();
-    const useCase = new ListAuditEventsUseCase({
-      auditEventRepository: repository,
+    const useCase = new ListAuditLogsUseCase({
+      auditLogRepository: repository,
     });
 
     await expect(
@@ -111,8 +111,8 @@ describe("ListAuditEventsUseCase", () => {
 
   test("throws when actorType is invalid", async () => {
     const { repository } = makeRepository();
-    const useCase = new ListAuditEventsUseCase({
-      auditEventRepository: repository,
+    const useCase = new ListAuditLogsUseCase({
+      auditLogRepository: repository,
     });
 
     await expect(

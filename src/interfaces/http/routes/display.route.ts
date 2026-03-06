@@ -68,7 +68,7 @@ const isString = (value: unknown, maxBytes: number): value is string =>
   Buffer.byteLength(value) <= maxBytes;
 
 const createChallengeBodySchema = z.object({
-  displaySlug: z
+  slug: z
     .string()
     .min(3)
     .max(120)
@@ -77,7 +77,7 @@ const createChallengeBodySchema = z.object({
 });
 
 const verifyChallengeBodySchema = z.object({
-  displaySlug: z
+  slug: z
     .string()
     .min(3)
     .max(120)
@@ -86,8 +86,8 @@ const verifyChallengeBodySchema = z.object({
   signature: z.string().min(1),
 });
 
-const displaySlugParamSchema = z.object({
-  displaySlug: z
+const slugParamSchema = z.object({
+  slug: z
     .string()
     .min(3)
     .max(120)
@@ -124,17 +124,15 @@ const safeCompare = (a: string, b: string): boolean => {
 
 const buildChallengeSigningPayload = (input: {
   challengeToken: string;
-  displaySlug: string;
+  slug: string;
   keyId: string;
 }): string =>
-  ["CHALLENGE", input.challengeToken, input.displaySlug, input.keyId].join(
-    "\n",
-  );
+  ["CHALLENGE", input.challengeToken, input.slug, input.keyId].join("\n");
 
 const buildSignedRequestPayload = (input: {
   method: string;
   pathWithQuery: string;
-  displaySlug: string;
+  slug: string;
   keyId: string;
   timestamp: string;
   nonce: string;
@@ -143,7 +141,7 @@ const buildSignedRequestPayload = (input: {
   [
     input.method,
     input.pathWithQuery,
-    input.displaySlug,
+    input.slug,
     input.keyId,
     input.timestamp,
     input.nonce,
@@ -171,7 +169,7 @@ const verifyEd25519Signature = (input: {
 
 const buildChallengeToken = (input: {
   challengeId: string;
-  displaySlug: string;
+  slug: string;
   keyId: string;
   challengeNonce: string;
   expiresAt: Date;
@@ -179,7 +177,7 @@ const buildChallengeToken = (input: {
 }): string => {
   const payload = JSON.stringify({
     id: input.challengeId,
-    s: input.displaySlug,
+    s: input.slug,
     k: input.keyId,
     n: input.challengeNonce,
     e: input.expiresAt.toISOString(),
@@ -195,7 +193,7 @@ const parseChallengeToken = (input: {
   now: Date;
 }): {
   challengeId: string;
-  displaySlug: string;
+  slug: string;
   keyId: string;
   challengeNonce: string;
   expiresAt: string;
@@ -255,7 +253,7 @@ const parseChallengeToken = (input: {
 
     return {
       challengeId: payload.id,
-      displaySlug: payload.s,
+      slug: payload.s,
       keyId: payload.k,
       challengeNonce: payload.n,
       expiresAt: payload.e,
@@ -351,11 +349,11 @@ const createRuntimeRateLimitMiddleware = (
 
 const signedDisplayRequest = (deps: DisplayRouteDeps) => {
   return async (c: ResponseContext, next: () => Promise<void>) => {
-    const params = displaySlugParamSchema.safeParse(c.req.param());
+    const params = slugParamSchema.safeParse(c.req.param());
     if (!params.success) {
       return validationError(c, "Invalid display slug");
     }
-    const slug = params.data.displaySlug;
+    const slug = params.data.slug;
 
     const keyId = c.req.header("x-display-key-id") ?? "";
     const timestamp = c.req.header("x-display-timestamp") ?? "";
@@ -432,7 +430,7 @@ const signedDisplayRequest = (deps: DisplayRouteDeps) => {
     const payload = buildSignedRequestPayload({
       method: c.req.method.toUpperCase(),
       pathWithQuery: `${url.pathname}${url.search}`,
-      displaySlug: slug,
+      slug: slug,
       keyId,
       timestamp,
       nonce,
@@ -485,7 +483,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       async (c) => {
         const payload = c.req.valid("json");
         const display = await deps.repositories.displayRepository.findBySlug(
-          payload.displaySlug,
+          payload.slug,
         );
         if (!display) {
           return notFound(c, "Display not found");
@@ -504,7 +502,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         const challengeToken = buildChallengeToken({
           challengeId,
           challengeNonce,
-          displaySlug: payload.displaySlug,
+          slug: payload.slug,
           keyId: payload.keyId,
           expiresAt,
           secret: deps.jwtSecret,
@@ -551,14 +549,14 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           return unauthorized(c, "Invalid challenge token");
         }
         if (
-          challenge.displaySlug !== payload.displaySlug ||
+          challenge.slug !== payload.slug ||
           challenge.keyId !== payload.keyId
         ) {
           return unauthorized(c, "Challenge context mismatch");
         }
 
         const display = await deps.repositories.displayRepository.findBySlug(
-          payload.displaySlug,
+          payload.slug,
         );
         if (!display) {
           return notFound(c, "Display not found");
@@ -574,7 +572,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
 
         const signingPayload = buildChallengeSigningPayload({
           challengeToken: params.challengeToken,
-          displaySlug: payload.displaySlug,
+          slug: payload.slug,
           keyId: payload.keyId,
         });
         const valid = verifyEd25519Signature({
@@ -593,9 +591,9 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   );
 
   router.get(
-    "/:displaySlug/manifest",
+    "/:slug/manifest",
     setAction("display.manifest.read", {
-      route: "/display-runtime/:displaySlug/manifest",
+      route: "/display-runtime/:slug/manifest",
       actorType: "display",
       resourceType: "display",
     }),
@@ -614,9 +612,9 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   );
 
   router.get(
-    "/:displaySlug/stream",
+    "/:slug/stream",
     setAction("display.stream.read", {
-      route: "/display-runtime/:displaySlug/stream",
+      route: "/display-runtime/:slug/stream",
       actorType: "display",
       resourceType: "display",
     }),
@@ -711,9 +709,9 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
   );
 
   router.post(
-    "/:displaySlug/heartbeat",
+    "/:slug/heartbeat",
     setAction("display.heartbeat", {
-      route: "/display-runtime/:displaySlug/heartbeat",
+      route: "/display-runtime/:slug/heartbeat",
       actorType: "display",
       resourceType: "display",
     }),
@@ -755,7 +753,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           publishAdminDisplayLifecycleEvent({
             type: "display_status_changed",
             displayId: display.id,
-            displaySlug: display.displaySlug,
+            slug: display.slug,
             previousStatus: display.status,
             status: nextStatus,
             occurredAt: now.toISOString(),

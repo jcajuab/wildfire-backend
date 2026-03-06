@@ -60,11 +60,9 @@ export async function runSeedDemoSchedules(
   );
 
   for (const fixture of DEMO_SCHEDULES) {
-    const displayId = displaysBySlug.get(fixture.displaySlug);
+    const displayId = displaysBySlug.get(fixture.slug);
     if (!displayId) {
-      throw new Error(
-        `Missing display id for schedule: ${fixture.displaySlug}`,
-      );
+      throw new Error(`Missing display id for schedule: ${fixture.slug}`);
     }
     const playlistId = playlistsByName.get(fixture.playlistName);
     if (!playlistId) {

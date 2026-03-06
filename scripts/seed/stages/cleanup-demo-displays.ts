@@ -11,7 +11,7 @@ export async function runCleanupDemoDisplays(
     group.name.startsWith(DEMO_GROUP_PREFIX),
   );
   const demoDisplays = displays.filter((display) =>
-    display.displaySlug.startsWith(DEMO_DISPLAY_SLUG_PREFIX),
+    display.slug.startsWith(DEMO_DISPLAY_SLUG_PREFIX),
   );
 
   const targetCount = demoGroups.length + demoDisplays.length;

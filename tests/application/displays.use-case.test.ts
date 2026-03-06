@@ -35,36 +35,27 @@ const makeRepository = () => {
         .filter((record): record is DisplayRecord => record !== null),
     findById: async (id: string) =>
       records.find((record) => record.id === id) ?? null,
-    findByIdentifier: async (identifier: string) =>
-      records.find((record) => record.identifier === identifier) ?? null,
-    findBySlug: async (displaySlug: string) =>
-      records.find((record) => record.displaySlug === displaySlug) ?? null,
+    findBySlug: async (slug: string) =>
+      records.find((record) => record.slug === slug) ?? null,
     findByFingerprint: async (fingerprint: string) =>
-      records.find((record) => record.displayFingerprint === fingerprint) ??
-      null,
-    findByFingerprintAndOutput: async (
-      fingerprint: string,
-      displayOutput: string,
-    ) =>
+      records.find((record) => record.fingerprint === fingerprint) ?? null,
+    findByFingerprintAndOutput: async (fingerprint: string, output: string) =>
       records.find(
         (record) =>
-          record.displayFingerprint === fingerprint &&
-          (record.displayOutput ?? null) === displayOutput,
+          record.fingerprint === fingerprint &&
+          (record.output ?? null) === output,
       ) ?? null,
     create: async (input) => {
       const record: DisplayRecord = {
         id: `display-${records.length + 1}`,
-        displaySlug: input.identifier
-          .toLowerCase()
-          .replace(/[^a-z0-9-]+/g, "-"),
         name: input.name,
-        identifier: input.identifier,
-        displayFingerprint: input.displayFingerprint ?? null,
+        slug: input.slug,
+        fingerprint: input.fingerprint ?? null,
         status: "PROCESSING",
         location: input.location,
         screenWidth: null,
         screenHeight: null,
-        outputType: null,
+        output: null,
         orientation: null,
         lastSeenAt: null,
         createdAt: "2025-01-01T00:00:00.000Z",
@@ -76,16 +67,14 @@ const makeRepository = () => {
     createRegisteredDisplay: async (input) => {
       const record: DisplayRecord = {
         id: `display-${records.length + 1}`,
-        displaySlug: input.displaySlug,
+        slug: input.slug,
         name: input.name,
-        identifier: input.displaySlug,
-        displayFingerprint: input.displayFingerprint,
+        fingerprint: input.fingerprint,
         status: "PROCESSING",
         location: null,
         screenWidth: input.screenWidth,
         screenHeight: input.screenHeight,
-        outputType: input.displayOutput,
-        displayOutput: input.displayOutput,
+        output: input.output,
         orientation: input.orientation ?? null,
         lastSeenAt: null,
         createdAt: input.now.toISOString(),
@@ -98,15 +87,15 @@ const makeRepository = () => {
       const record = records.find((item) => item.id === id);
       if (!record) return null;
       if (input.name !== undefined) record.name = input.name;
-      if (input.identifier !== undefined) record.identifier = input.identifier;
-      if (input.displayFingerprint !== undefined)
-        record.displayFingerprint = input.displayFingerprint;
+      if (input.slug !== undefined) record.slug = input.slug;
+      if (input.fingerprint !== undefined)
+        record.fingerprint = input.fingerprint;
       if (input.location !== undefined) record.location = input.location;
       if (input.screenWidth !== undefined)
         record.screenWidth = input.screenWidth;
       if (input.screenHeight !== undefined)
         record.screenHeight = input.screenHeight;
-      if (input.outputType !== undefined) record.outputType = input.outputType;
+      if (input.output !== undefined) record.output = input.output;
       if (input.orientation !== undefined)
         record.orientation = input.orientation;
       record.updatedAt = "2025-01-02T00:00:00.000Z";
@@ -186,7 +175,7 @@ describe("Displays use cases", () => {
 
     await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -270,22 +259,22 @@ describe("Displays use cases", () => {
 
     await repo.create({
       name: "Never seen",
-      identifier: "AA:BB:CC:00:00:01",
+      slug: "AA:BB:CC:00:00:01",
       location: null,
     });
     await repo.create({
       name: "Recently seen",
-      identifier: "AA:BB:CC:00:00:02",
+      slug: "AA:BB:CC:00:00:02",
       location: null,
     });
     await repo.create({
       name: "Stale heartbeat",
-      identifier: "AA:BB:CC:00:00:03",
+      slug: "AA:BB:CC:00:00:03",
       location: null,
     });
     await repo.create({
       name: "Ready display",
-      identifier: "AA:BB:CC:00:00:04",
+      slug: "AA:BB:CC:00:00:04",
       location: null,
     });
 
@@ -311,23 +300,23 @@ describe("Displays use cases", () => {
 
     const result = await listDisplays.execute();
     const statusByIdentifier = new Map(
-      result.items.map((item) => [item.identifier, item.status]),
+      result.items.map((item) => [item.slug, item.status]),
     );
     const nowPlayingByIdentifier = new Map(
-      result.items.map((item) => [item.identifier, item.nowPlaying]),
+      result.items.map((item) => [item.slug, item.nowPlaying]),
     );
 
-    expect(statusByIdentifier.get(neverSeen.identifier)).toBe("PROCESSING");
-    expect(statusByIdentifier.get(recentlySeen.identifier)).toBe("LIVE");
-    expect(statusByIdentifier.get(staleHeartbeat.identifier)).toBe("DOWN");
-    expect(statusByIdentifier.get(readyDisplay.identifier)).toBe("READY");
-    expect(nowPlayingByIdentifier.get(recentlySeen.identifier)).toEqual({
+    expect(statusByIdentifier.get(neverSeen.slug)).toBe("PROCESSING");
+    expect(statusByIdentifier.get(recentlySeen.slug)).toBe("LIVE");
+    expect(statusByIdentifier.get(staleHeartbeat.slug)).toBe("DOWN");
+    expect(statusByIdentifier.get(readyDisplay.slug)).toBe("READY");
+    expect(nowPlayingByIdentifier.get(recentlySeen.slug)).toEqual({
       title: null,
       playlist: "Live Playlist",
       progress: 0,
       duration: 0,
     });
-    expect(nowPlayingByIdentifier.get(neverSeen.identifier)).toBeNull();
+    expect(nowPlayingByIdentifier.get(neverSeen.slug)).toBeNull();
   });
 
   test("GetDisplayUseCase throws when missing", async () => {
@@ -393,7 +382,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -421,7 +410,7 @@ describe("Displays use cases", () => {
       location: "Main Hall",
       screenWidth: 1920,
       screenHeight: 1080,
-      outputType: "HDMI-0",
+      output: "HDMI-0",
       orientation: "LANDSCAPE",
     });
 
@@ -429,7 +418,7 @@ describe("Displays use cases", () => {
     expect(updated.location).toBe("Main Hall");
     expect(updated.screenWidth).toBe(1920);
     expect(updated.screenHeight).toBe(1080);
-    expect(updated.outputType).toBe("HDMI-0");
+    expect(updated.output).toBe("HDMI-0");
     expect(updated.orientation).toBe("LANDSCAPE");
   });
 
@@ -437,7 +426,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -455,7 +444,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -531,7 +520,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -604,7 +593,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -731,7 +720,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
@@ -891,7 +880,7 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 

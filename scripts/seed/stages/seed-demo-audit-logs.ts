@@ -6,7 +6,7 @@ import {
 } from "../fixtures";
 import { type SeedContext, type SeedStageResult } from "../stage-types";
 
-export async function runSeedDemoAuditEvents(
+export async function runSeedDemoAuditLogs(
   ctx: SeedContext,
 ): Promise<SeedStageResult> {
   let created = 0;
@@ -49,7 +49,7 @@ export async function runSeedDemoAuditEvents(
   );
 
   for (const fixture of DEMO_AUDIT_EVENTS) {
-    const existing = await ctx.repos.auditEventRepository.list({
+    const existing = await ctx.repos.auditLogRepository.list({
       offset: 0,
       limit: 10,
       requestId: fixture.requestId,
@@ -97,7 +97,7 @@ export async function runSeedDemoAuditEvents(
     }
 
     if (!ctx.args.dryRun) {
-      await ctx.repos.auditEventRepository.create({
+      await ctx.repos.auditLogRepository.create({
         occurredAt: new Date(),
         requestId: fixture.requestId,
         action: fixture.action,
@@ -118,7 +118,7 @@ export async function runSeedDemoAuditEvents(
   }
 
   return {
-    name: "seed-demo-audit-events",
+    name: "seed-demo-audit-logs",
     created,
     updated,
     skipped,

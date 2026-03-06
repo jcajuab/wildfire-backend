@@ -31,8 +31,8 @@ export interface DemoDisplayFixture {
   slug: string;
   name: string;
   location: string | null;
-  displayFingerprint: string;
-  displayOutput: string;
+  fingerprint: string;
+  output: string;
   screenWidth: number;
   screenHeight: number;
   orientation: "LANDSCAPE" | "PORTRAIT";
@@ -42,7 +42,7 @@ export interface DemoDisplayFixture {
 export interface DemoDisplayGroupFixture {
   name: string;
   colorIndex: number;
-  displaySlugs: string[];
+  slugs: string[];
 }
 
 export interface DemoContentFixture {
@@ -86,7 +86,7 @@ export interface DemoPlaylistFixture {
 export interface DemoScheduleFixture {
   name: string;
   playlistName: string;
-  displaySlug: string;
+  slug: string;
   startDate: string;
   endDate: string;
   startTime: string;
@@ -189,8 +189,8 @@ export const DEMO_DISPLAYS: DemoDisplayFixture[] = [
     slug: `${DEMO_DISPLAY_SLUG_PREFIX}lobby-east`,
     name: "Demo Lobby East",
     location: "HQ Lobby East",
-    displayFingerprint: "demo-lobby-east-fp",
-    displayOutput: "hdmi-a",
+    fingerprint: "demo-lobby-east-fp",
+    output: "hdmi-a",
     screenWidth: 1920,
     screenHeight: 1080,
     orientation: "LANDSCAPE",
@@ -200,8 +200,8 @@ export const DEMO_DISPLAYS: DemoDisplayFixture[] = [
     slug: `${DEMO_DISPLAY_SLUG_PREFIX}lobby-west`,
     name: "Demo Lobby West",
     location: "HQ Lobby West",
-    displayFingerprint: "demo-lobby-west-fp",
-    displayOutput: "hdmi-a",
+    fingerprint: "demo-lobby-west-fp",
+    output: "hdmi-a",
     screenWidth: 1920,
     screenHeight: 1080,
     orientation: "LANDSCAPE",
@@ -211,8 +211,8 @@ export const DEMO_DISPLAYS: DemoDisplayFixture[] = [
     slug: `${DEMO_DISPLAY_SLUG_PREFIX}breakroom`,
     name: "Demo Breakroom",
     location: "HQ Breakroom",
-    displayFingerprint: "demo-breakroom-fp",
-    displayOutput: "dp-1",
+    fingerprint: "demo-breakroom-fp",
+    output: "dp-1",
     screenWidth: 1080,
     screenHeight: 1920,
     orientation: "PORTRAIT",
@@ -224,7 +224,7 @@ export const DEMO_DISPLAY_GROUPS: DemoDisplayGroupFixture[] = [
   {
     name: `${DEMO_GROUP_PREFIX}Lobby`,
     colorIndex: 1,
-    displaySlugs: [
+    slugs: [
       `${DEMO_DISPLAY_SLUG_PREFIX}lobby-east`,
       `${DEMO_DISPLAY_SLUG_PREFIX}lobby-west`,
     ],
@@ -232,7 +232,7 @@ export const DEMO_DISPLAY_GROUPS: DemoDisplayGroupFixture[] = [
   {
     name: `${DEMO_GROUP_PREFIX}Internal`,
     colorIndex: 2,
-    displaySlugs: [`${DEMO_DISPLAY_SLUG_PREFIX}breakroom`],
+    slugs: [`${DEMO_DISPLAY_SLUG_PREFIX}breakroom`],
   },
 ];
 
@@ -332,7 +332,7 @@ export const DEMO_SCHEDULES: DemoScheduleFixture[] = [
   {
     name: `${DEMO_SCHEDULE_PREFIX}Lobby Daytime`,
     playlistName: `${DEMO_PLAYLIST_PREFIX}Lobby Rotation`,
-    displaySlug: `${DEMO_DISPLAY_SLUG_PREFIX}lobby-east`,
+    slug: `${DEMO_DISPLAY_SLUG_PREFIX}lobby-east`,
     startDate: "2024-01-01",
     endDate: "2099-12-31",
     startTime: "08:00",
@@ -343,7 +343,7 @@ export const DEMO_SCHEDULES: DemoScheduleFixture[] = [
   {
     name: `${DEMO_SCHEDULE_PREFIX}Lobby Mirror`,
     playlistName: `${DEMO_PLAYLIST_PREFIX}Lobby Rotation`,
-    displaySlug: `${DEMO_DISPLAY_SLUG_PREFIX}lobby-west`,
+    slug: `${DEMO_DISPLAY_SLUG_PREFIX}lobby-west`,
     startDate: "2024-01-01",
     endDate: "2099-12-31",
     startTime: "08:00",
@@ -354,7 +354,7 @@ export const DEMO_SCHEDULES: DemoScheduleFixture[] = [
   {
     name: `${DEMO_SCHEDULE_PREFIX}Breakroom Workday`,
     playlistName: `${DEMO_PLAYLIST_PREFIX}Breakroom Rotation`,
-    displaySlug: `${DEMO_DISPLAY_SLUG_PREFIX}breakroom`,
+    slug: `${DEMO_DISPLAY_SLUG_PREFIX}breakroom`,
     startDate: "2024-01-01",
     endDate: "2099-12-31",
     startTime: "09:00",

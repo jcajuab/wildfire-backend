@@ -7,8 +7,8 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 
-export const auditEvents = mysqlTable(
-  "audit_events",
+export const auditLogs = mysqlTable(
+  "audit_logs",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     occurredAt: timestamp("occurred_at").notNull().defaultNow(),
@@ -27,24 +27,24 @@ export const auditEvents = mysqlTable(
     metadataJson: text("metadata_json"),
   },
   (table) => ({
-    occurredAtIndex: index("audit_events_occurred_at_idx").on(table.occurredAt),
-    actorOccurredAtIndex: index("audit_events_actor_occurred_idx").on(
+    occurredAtIndex: index("audit_logs_occurred_at_idx").on(table.occurredAt),
+    actorOccurredAtIndex: index("audit_logs_actor_occurred_idx").on(
       table.actorId,
       table.occurredAt,
     ),
-    actionOccurredAtIndex: index("audit_events_action_occurred_idx").on(
+    actionOccurredAtIndex: index("audit_logs_action_occurred_idx").on(
       table.action,
       table.occurredAt,
     ),
-    resourceOccurredAtIndex: index("audit_events_resource_occurred_idx").on(
+    resourceOccurredAtIndex: index("audit_logs_resource_occurred_idx").on(
       table.resourceType,
       table.resourceId,
       table.occurredAt,
     ),
-    statusOccurredAtIndex: index("audit_events_status_occurred_idx").on(
+    statusOccurredAtIndex: index("audit_logs_status_occurred_idx").on(
       table.status,
       table.occurredAt,
     ),
-    requestIdIndex: index("audit_events_request_id_idx").on(table.requestId),
+    requestIdIndex: index("audit_logs_request_id_idx").on(table.requestId),
   }),
 );

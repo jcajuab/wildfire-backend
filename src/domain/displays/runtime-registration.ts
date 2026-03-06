@@ -1,6 +1,6 @@
 export interface RuntimeRegistrationCandidate {
   id: string;
-  displayOutput: string | null | undefined;
+  output: string | null | undefined;
 }
 
 export type RuntimeRegistrationDecision =

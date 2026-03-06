@@ -2,11 +2,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import bcrypt from "bcryptjs";
 import { env } from "#/env";
 import { closeDbConnection } from "#/infrastructure/db/client";
-import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
+import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
-import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
+import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-groups.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
@@ -51,7 +51,7 @@ export const createSeedRuntimeContext = (input: {
       contentIngestionJobRepository: new ContentIngestionJobDbRepository(),
       playlistRepository: new PlaylistDbRepository(),
       scheduleRepository: new ScheduleDbRepository(),
-      auditEventRepository: new AuditEventDbRepository(),
+      auditLogRepository: new AuditLogDbRepository(),
     },
     storage: {
       contentStorage,

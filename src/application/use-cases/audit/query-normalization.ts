@@ -1,7 +1,7 @@
 import { ValidationError } from "#/application/errors/validation";
 import {
   type AuditActorType,
-  type ListAuditEventsQuery,
+  type ListAuditLogsQuery,
 } from "#/application/ports/audit";
 
 const clamp = (value: number, min: number, max: number) =>
@@ -94,13 +94,13 @@ export const buildPaginatedAuditQuery = (
 ): {
   page: number;
   pageSize: number;
-  query: ListAuditEventsQuery;
+  query: ListAuditLogsQuery;
 } => {
   const page = clamp(Math.trunc(input.page ?? 1), 1, Number.MAX_SAFE_INTEGER);
   const pageSize = clamp(Math.trunc(input.pageSize ?? 50), 1, 200);
   const offset = (page - 1) * pageSize;
 
-  const query: ListAuditEventsQuery = {
+  const query: ListAuditLogsQuery = {
     offset,
     limit: pageSize,
     from: input.from,

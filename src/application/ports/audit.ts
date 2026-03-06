@@ -1,6 +1,6 @@
 export type AuditActorType = "user" | "display";
 
-export interface AuditEventRecord {
+export interface AuditLogRecord {
   id: string;
   occurredAt: string;
   requestId: string | null;
@@ -20,7 +20,7 @@ export interface AuditEventRecord {
   actorEmail?: string | null;
 }
 
-export interface CreateAuditEventInput {
+export interface CreateAuditLogInput {
   occurredAt?: Date;
   requestId?: string;
   action: string;
@@ -37,7 +37,7 @@ export interface CreateAuditEventInput {
   metadataJson?: string;
 }
 
-export interface ListAuditEventsQuery {
+export interface ListAuditLogsQuery {
   offset: number;
   limit: number;
   from?: string;
@@ -51,9 +51,9 @@ export interface ListAuditEventsQuery {
   requestId?: string;
 }
 
-export interface AuditEventRepository {
-  create(input: CreateAuditEventInput): Promise<AuditEventRecord>;
-  list(query: ListAuditEventsQuery): Promise<AuditEventRecord[]>;
-  count(query: ListAuditEventsQuery): Promise<number>;
+export interface AuditLogRepository {
+  create(input: CreateAuditLogInput): Promise<AuditLogRecord>;
+  list(query: ListAuditLogsQuery): Promise<AuditLogRecord[]>;
+  count(query: ListAuditLogsQuery): Promise<number>;
   deleteByRequestIdPrefix(prefix: string): Promise<number>;
 }

@@ -26,8 +26,8 @@ export async function runSeedDemoDisplays(
           }
         : await ctx.repos.displayRepository.create({
             name: fixture.name,
-            identifier: fixture.slug,
-            displayFingerprint: fixture.displayFingerprint,
+            slug: fixture.slug,
+            fingerprint: fixture.fingerprint,
             location: fixture.location,
           });
       created += 1;
@@ -36,24 +36,24 @@ export async function runSeedDemoDisplays(
       displayIdsBySlug.set(fixture.slug, existing.id);
       const shouldUpdate =
         existing.name !== fixture.name ||
-        existing.displaySlug !== fixture.slug ||
-        (existing.displayFingerprint ?? null) !== fixture.displayFingerprint ||
+        existing.slug !== fixture.slug ||
+        (existing.fingerprint ?? null) !== fixture.fingerprint ||
         (existing.location ?? null) !== fixture.location ||
         (existing.screenWidth ?? null) !== fixture.screenWidth ||
         (existing.screenHeight ?? null) !== fixture.screenHeight ||
         (existing.orientation ?? null) !== fixture.orientation ||
-        (existing.outputType ?? null) !== fixture.displayOutput;
+        (existing.output ?? null) !== fixture.output;
       if (shouldUpdate) {
         if (!ctx.args.dryRun) {
           await ctx.repos.displayRepository.update(existing.id, {
             name: fixture.name,
-            identifier: fixture.slug,
-            displayFingerprint: fixture.displayFingerprint,
+            slug: fixture.slug,
+            fingerprint: fixture.fingerprint,
             location: fixture.location,
             screenWidth: fixture.screenWidth,
             screenHeight: fixture.screenHeight,
             orientation: fixture.orientation,
-            outputType: fixture.displayOutput,
+            output: fixture.output,
           });
         }
         updated += 1;
@@ -84,13 +84,13 @@ export async function runSeedDemoDisplays(
       }
       await ctx.repos.displayRepository.update(createdDisplay.id, {
         name: fixture.name,
-        identifier: fixture.slug,
-        displayFingerprint: fixture.displayFingerprint,
+        slug: fixture.slug,
+        fingerprint: fixture.fingerprint,
         location: fixture.location,
         screenWidth: fixture.screenWidth,
         screenHeight: fixture.screenHeight,
         orientation: fixture.orientation,
-        outputType: fixture.displayOutput,
+        output: fixture.output,
       });
       await ctx.repos.displayRepository.setStatus({
         id: createdDisplay.id,
@@ -157,7 +157,7 @@ export async function runSeedDemoDisplays(
       );
     }
     const nextGroupIds = DEMO_DISPLAY_GROUPS.filter((groupFixture) =>
-      groupFixture.displaySlugs.includes(displayFixture.slug),
+      groupFixture.slugs.includes(displayFixture.slug),
     )
       .map((groupFixture) => {
         const groupId = groupIdByName.get(groupFixture.name);

@@ -1,6 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { ValidationError } from "#/application/errors/validation";
-import { type AuditEventRecord } from "#/application/ports/audit";
+import { type AuditLogRecord } from "#/application/ports/audit";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type UserRepository } from "#/application/ports/rbac";
 import { ExportLimitExceededError } from "#/application/use-cases/audit";
@@ -9,7 +9,7 @@ import {
   errorResponseSchema,
   validationError,
 } from "#/interfaces/http/responses";
-import { auditEventExportQuerySchema } from "#/interfaces/http/validators/audit.schema";
+import { auditLogExportQuerySchema } from "#/interfaces/http/validators/audit.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuditRouter,
@@ -91,7 +91,7 @@ function getActorNameFallback(actorType: string | null): string {
 }
 
 async function warmActorNameCache(
-  events: AuditEventRecord[],
+  events: AuditLogRecord[],
   cache: Map<string, string>,
   userRepository: UserRepository,
   displayRepository: DisplayRepository,
@@ -130,12 +130,12 @@ async function warmActorNameCache(
     cache.set(`user:${u.id}`, u.name);
   }
   for (const d of displays) {
-    cache.set(`display:${d.id}`, d.name || d.identifier);
+    cache.set(`display:${d.id}`, d.name || d.slug);
   }
 }
 
 function getActorName(
-  event: AuditEventRecord,
+  event: AuditLogRecord,
   cache: Map<string, string>,
 ): string {
   const key =
@@ -151,7 +151,7 @@ function getActorName(
 
 const toExportFilename = (now: Date) => {
   const timestamp = now.toISOString().replaceAll(":", "-").replaceAll(".", "-");
-  return `audit-events-${timestamp}.csv`;
+  return `audit-logs-${timestamp}.csv`;
 };
 
 export const registerAuditExportRoute = (args: {
@@ -170,10 +170,10 @@ export const registerAuditExportRoute = (args: {
     "/events/export",
     setAction("audit.event.export", {
       route: "/audit/events/export",
-      resourceType: "audit-event",
+      resourceType: "audit-log",
     }),
     ...authorize("audit:read"),
-    validateQuery(auditEventExportQuerySchema),
+    validateQuery(auditLogExportQuerySchema),
     describeRoute({
       description: "Export audit events as CSV",
       tags: auditTags,
@@ -217,7 +217,7 @@ export const registerAuditExportRoute = (args: {
     }),
     async (c) => {
       const query = c.req.valid("query");
-      const iterator = useCases.exportAuditEvents
+      const iterator = useCases.exportAuditLogs
         .execute(query)
         [Symbol.asyncIterator]();
 

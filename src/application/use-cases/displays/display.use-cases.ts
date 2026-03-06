@@ -117,7 +117,7 @@ function withTelemetry(display: DisplayRecord) {
     macAddress: display.macAddress ?? null,
     screenWidth: display.screenWidth ?? null,
     screenHeight: display.screenHeight ?? null,
-    outputType: display.outputType ?? null,
+    output: display.output ?? null,
     orientation: display.orientation ?? null,
     emergencyContentId: display.emergencyContentId ?? null,
     localEmergencyActive: display.localEmergencyActive ?? false,
@@ -297,7 +297,7 @@ export class UpdateDisplayUseCase {
     macAddress?: string | null;
     screenWidth?: number | null;
     screenHeight?: number | null;
-    outputType?: string | null;
+    output?: string | null;
     orientation?: "LANDSCAPE" | "PORTRAIT" | null;
     emergencyContentId?: string | null;
   }) {
@@ -322,10 +322,7 @@ export class UpdateDisplayUseCase {
 
     const ipAddress = normalizeOptionalText(input.ipAddress, "ipAddress");
     const macAddress = normalizeOptionalText(input.macAddress, "macAddress");
-    const normalizedOutputType = normalizeOptionalText(
-      input.outputType,
-      "outputType",
-    );
+    const normalizedOutputType = normalizeOptionalText(input.output, "output");
 
     const normalizeDimension = (
       value: number | null | undefined,
@@ -359,7 +356,7 @@ export class UpdateDisplayUseCase {
       macAddress,
       screenWidth,
       screenHeight,
-      outputType: normalizedOutputType,
+      output: normalizedOutputType,
       orientation: input.orientation,
       emergencyContentId: input.emergencyContentId,
     });
@@ -463,7 +460,7 @@ export class ActivateGlobalEmergencyUseCase {
 
     if (missingDisplay) {
       throw new ValidationError(
-        `Display ${missingDisplay.displaySlug} has no valid emergency content asset`,
+        `Display ${missingDisplay.slug} has no valid emergency content asset`,
       );
     }
 
@@ -608,7 +605,7 @@ export class UnregisterDisplayUseCase {
         publish(input: {
           type: "display_unregistered";
           displayId: string;
-          displaySlug: string;
+          slug: string;
           occurredAt: string;
         }): void;
       };
@@ -627,7 +624,7 @@ export class UnregisterDisplayUseCase {
     this.deps.lifecycleEventPublisher?.publish({
       type: "display_unregistered",
       displayId: display.id,
-      displaySlug: display.displaySlug,
+      slug: display.slug,
       occurredAt: now.toISOString(),
     });
   }

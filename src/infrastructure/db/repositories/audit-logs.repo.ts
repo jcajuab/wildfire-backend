@@ -1,22 +1,22 @@
 import { and, desc, eq, gte, like, lte, type SQL, sql } from "drizzle-orm";
 import {
-  type AuditEventRecord,
-  type AuditEventRepository,
-  type CreateAuditEventInput,
-  type ListAuditEventsQuery,
+  type AuditLogRecord,
+  type AuditLogRepository,
+  type CreateAuditLogInput,
+  type ListAuditLogsQuery,
 } from "#/application/ports/audit";
 import { db } from "#/infrastructure/db/client";
-import { auditEvents } from "#/infrastructure/db/schema/audit.sql";
-import { displays } from "#/infrastructure/db/schema/display.sql";
+import { auditLogs } from "#/infrastructure/db/schema/audit-logs.sql";
+import { displays } from "#/infrastructure/db/schema/displays.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const toRecord = (
-  row: typeof auditEvents.$inferSelect & {
+  row: typeof auditLogs.$inferSelect & {
     actorName?: string | null;
     actorEmail?: string | null;
   },
-): AuditEventRecord => ({
+): AuditLogRecord => ({
   id: row.id,
   occurredAt:
     row.occurredAt instanceof Date
@@ -29,7 +29,7 @@ const toRecord = (
   path: row.path,
   status: row.status,
   actorId: row.actorId ?? null,
-  actorType: (row.actorType as AuditEventRecord["actorType"]) ?? null,
+  actorType: (row.actorType as AuditLogRecord["actorType"]) ?? null,
   resourceId: row.resourceId ?? null,
   resourceType: row.resourceType ?? null,
   ipAddress: row.ipAddress ?? null,
@@ -39,54 +39,54 @@ const toRecord = (
   actorEmail: row.actorEmail ?? null,
 });
 
-const buildWhere = (query: ListAuditEventsQuery): SQL | undefined => {
+const buildWhere = (query: ListAuditLogsQuery): SQL | undefined => {
   const predicates: SQL[] = [];
 
   if (query.from) {
-    predicates.push(gte(auditEvents.occurredAt, new Date(query.from)));
+    predicates.push(gte(auditLogs.occurredAt, new Date(query.from)));
   }
   if (query.to) {
-    predicates.push(lte(auditEvents.occurredAt, new Date(query.to)));
+    predicates.push(lte(auditLogs.occurredAt, new Date(query.to)));
   }
   if (query.actorId) {
-    predicates.push(eq(auditEvents.actorId, query.actorId));
+    predicates.push(eq(auditLogs.actorId, query.actorId));
   }
   if (query.actorType) {
-    predicates.push(eq(auditEvents.actorType, query.actorType));
+    predicates.push(eq(auditLogs.actorType, query.actorType));
   }
   if (query.action) {
     predicates.push(
-      like(auditEvents.action, buildLikeContainsPattern(query.action)),
+      like(auditLogs.action, buildLikeContainsPattern(query.action)),
     );
   }
   if (query.resourceType) {
     predicates.push(
       like(
-        auditEvents.resourceType,
+        auditLogs.resourceType,
         buildLikeContainsPattern(query.resourceType),
       ),
     );
   }
   if (query.resourceId) {
-    predicates.push(eq(auditEvents.resourceId, query.resourceId));
+    predicates.push(eq(auditLogs.resourceId, query.resourceId));
   }
   if (query.status) {
-    predicates.push(eq(auditEvents.status, query.status));
+    predicates.push(eq(auditLogs.status, query.status));
   }
   if (query.requestId) {
     predicates.push(
-      like(auditEvents.requestId, buildLikeContainsPattern(query.requestId)),
+      like(auditLogs.requestId, buildLikeContainsPattern(query.requestId)),
     );
   }
 
   return predicates.length > 0 ? and(...predicates) : undefined;
 };
 
-export class AuditEventDbRepository implements AuditEventRepository {
-  async create(input: CreateAuditEventInput): Promise<AuditEventRecord> {
+export class AuditLogDbRepository implements AuditLogRepository {
+  async create(input: CreateAuditLogInput): Promise<AuditLogRecord> {
     const id = crypto.randomUUID();
 
-    await db.insert(auditEvents).values({
+    await db.insert(auditLogs).values({
       id,
       occurredAt: input.occurredAt,
       requestId: input.requestId ?? null,
@@ -106,8 +106,8 @@ export class AuditEventDbRepository implements AuditEventRepository {
 
     const row = await db
       .select()
-      .from(auditEvents)
-      .where(eq(auditEvents.id, id))
+      .from(auditLogs)
+      .where(eq(auditLogs.id, id))
       .limit(1);
     const record = row[0];
     if (!record) {
@@ -117,35 +117,35 @@ export class AuditEventDbRepository implements AuditEventRepository {
     return toRecord(record);
   }
 
-  async list(query: ListAuditEventsQuery): Promise<AuditEventRecord[]> {
+  async list(query: ListAuditLogsQuery): Promise<AuditLogRecord[]> {
     const where = buildWhere(query);
     const rows = await db
       .select({
-        id: auditEvents.id,
-        occurredAt: auditEvents.occurredAt,
-        requestId: auditEvents.requestId,
-        action: auditEvents.action,
-        route: auditEvents.route,
-        method: auditEvents.method,
-        path: auditEvents.path,
-        status: auditEvents.status,
-        actorId: auditEvents.actorId,
-        actorType: auditEvents.actorType,
-        resourceId: auditEvents.resourceId,
-        resourceType: auditEvents.resourceType,
-        ipAddress: auditEvents.ipAddress,
-        userAgent: auditEvents.userAgent,
-        metadataJson: auditEvents.metadataJson,
+        id: auditLogs.id,
+        occurredAt: auditLogs.occurredAt,
+        requestId: auditLogs.requestId,
+        action: auditLogs.action,
+        route: auditLogs.route,
+        method: auditLogs.method,
+        path: auditLogs.path,
+        status: auditLogs.status,
+        actorId: auditLogs.actorId,
+        actorType: auditLogs.actorType,
+        resourceId: auditLogs.resourceId,
+        resourceType: auditLogs.resourceType,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
+        metadataJson: auditLogs.metadataJson,
         userName: users.name,
         userEmail: users.email,
         displayName: displays.name,
-        displayIdentifier: displays.displaySlug,
+        displayIdentifier: displays.slug,
       })
-      .from(auditEvents)
-      .leftJoin(users, eq(users.id, auditEvents.actorId))
-      .leftJoin(displays, eq(displays.id, auditEvents.actorId))
+      .from(auditLogs)
+      .leftJoin(users, eq(users.id, auditLogs.actorId))
+      .leftJoin(displays, eq(displays.id, auditLogs.actorId))
       .where(where)
-      .orderBy(desc(auditEvents.occurredAt), desc(auditEvents.id))
+      .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id))
       .limit(query.limit)
       .offset(query.offset);
 
@@ -163,11 +163,11 @@ export class AuditEventDbRepository implements AuditEventRepository {
     );
   }
 
-  async count(query: ListAuditEventsQuery): Promise<number> {
+  async count(query: ListAuditLogsQuery): Promise<number> {
     const where = buildWhere(query);
     const result = await db
       .select({ value: sql<number>`count(*)` })
-      .from(auditEvents)
+      .from(auditLogs)
       .where(where);
 
     return result[0]?.value ?? 0;
@@ -175,8 +175,8 @@ export class AuditEventDbRepository implements AuditEventRepository {
 
   async deleteByRequestIdPrefix(prefix: string): Promise<number> {
     const result = await db
-      .delete(auditEvents)
-      .where(like(auditEvents.requestId, buildLikeContainsPattern(prefix)));
+      .delete(auditLogs)
+      .where(like(auditLogs.requestId, buildLikeContainsPattern(prefix)));
     return Number(result[0]?.affectedRows ?? 0);
   }
 }

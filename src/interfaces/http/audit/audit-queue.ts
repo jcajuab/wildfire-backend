@@ -1,4 +1,4 @@
-import { type CreateAuditEventInput } from "#/application/ports/audit";
+import { type CreateAuditLogInput } from "#/application/ports/audit";
 
 export type AuditQueueDropReason = "disabled" | "overflow";
 export type AuditQueueFailureReason = "failed";
@@ -20,8 +20,8 @@ export interface AuditQueueStats {
   failed: number;
 }
 
-export interface AuditEventQueue {
-  enqueue(event: CreateAuditEventInput): Promise<AuditQueueEnqueueResult>;
+export interface AuditLogQueue {
+  enqueue(event: CreateAuditLogInput): Promise<AuditQueueEnqueueResult>;
   flushNow(): Promise<void>;
   stop(): Promise<void>;
   getStats(): AuditQueueStats;

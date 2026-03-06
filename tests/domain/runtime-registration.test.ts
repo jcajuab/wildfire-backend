@@ -18,7 +18,7 @@ describe("resolveRuntimeRegistrationDecision", () => {
     const decision = resolveRuntimeRegistrationDecision({
       existingBySlug: {
         id: "display-1",
-        displayOutput: "HDMI-0",
+        output: "HDMI-0",
       },
       existingByFingerprintAndOutput: null,
       requestedOutput: "HDMI-0",
@@ -34,7 +34,7 @@ describe("resolveRuntimeRegistrationDecision", () => {
     const decision = resolveRuntimeRegistrationDecision({
       existingBySlug: {
         id: "display-1",
-        displayOutput: "hdmi-0",
+        output: "hdmi-0",
       },
       existingByFingerprintAndOutput: null,
       requestedOutput: "HDMI-0",
@@ -51,7 +51,7 @@ describe("resolveRuntimeRegistrationDecision", () => {
       existingBySlug: null,
       existingByFingerprintAndOutput: {
         id: "display-2",
-        displayOutput: "HDMI-1",
+        output: "HDMI-1",
       },
       requestedOutput: "HDMI-1",
     });
@@ -66,11 +66,11 @@ describe("resolveRuntimeRegistrationDecision", () => {
     const decision = resolveRuntimeRegistrationDecision({
       existingBySlug: {
         id: "display-1",
-        displayOutput: "HDMI-0",
+        output: "HDMI-0",
       },
       existingByFingerprintAndOutput: {
         id: "display-2",
-        displayOutput: "HDMI-0",
+        output: "HDMI-0",
       },
       requestedOutput: "HDMI-0",
     });

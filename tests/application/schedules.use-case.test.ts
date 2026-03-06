@@ -139,8 +139,7 @@ const makeDeps = () => {
             ? {
                 id,
                 name: "Lobby",
-                identifier: "AA:BB",
-                displaySlug: "display-1",
+                slug: "display-1",
                 status: "READY" as const,
                 location: null,
                 screenWidth: 1366,
@@ -156,8 +155,7 @@ const makeDeps = () => {
         ? {
             id,
             name: "Lobby",
-            identifier: "AA:BB",
-            displaySlug: "display-1",
+            slug: "display-1",
             status: "READY" as const,
             location: null,
             screenWidth: 1366,
@@ -166,7 +164,6 @@ const makeDeps = () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           }
         : null,
-    findByIdentifier: async () => null,
     findBySlug: async () => null,
     findByFingerprint: async () => null,
     findByFingerprintAndOutput: async () => null,
@@ -295,8 +292,7 @@ describe("Schedules use cases", () => {
                 {
                   id: "display-1",
                   name: "Lobby",
-                  identifier: "AA:BB",
-                  displaySlug: "display-1",
+                  slug: "display-1",
                   status: "READY" as const,
                   location: null,
                   createdAt: "2025-01-01T00:00:00.000Z",
@@ -306,7 +302,6 @@ describe("Schedules use cases", () => {
             : [];
         },
         findById: async () => null,
-        findByIdentifier: async () => null,
         findBySlug: async () => null,
         findByFingerprint: async () => null,
         findByFingerprintAndOutput: async () => null,

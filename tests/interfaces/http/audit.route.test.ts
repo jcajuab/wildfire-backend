@@ -15,7 +15,7 @@ const authSessionRepository = {
   isOwnedByUser: async () => true,
 };
 
-const buildAuditEvent = (
+const buildAuditLog = (
   id: string,
   overrides: Partial<{
     occurredAt: string;
@@ -88,8 +88,7 @@ const mockDisplayRepository = {
       .map((id) => ({
         id,
         name: "Lobby Display",
-        identifier: "lobby-1",
-        displaySlug: "lobby-display",
+        slug: "lobby-display",
         status: "READY" as const,
         location: null,
         createdAt: "2026-01-01T00:00:00.000Z",
@@ -98,15 +97,13 @@ const mockDisplayRepository = {
   list: async () => [],
   listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
   findById: async () => null,
-  findByIdentifier: async () => null,
   findBySlug: async () => null,
   findByFingerprint: async () => null,
   findByFingerprintAndOutput: async () => null,
   create: async () => ({
     id: "",
     name: "",
-    identifier: "",
-    displaySlug: "display-slug",
+    slug: "display-slug",
     status: "READY" as const,
     location: null,
     createdAt: "",
@@ -126,11 +123,11 @@ const makeApp = async (permissions: string[]) => {
   const listCalls: unknown[] = [];
   const countCalls: unknown[] = [];
 
-  const auditEventRepository = {
-    create: async () => buildAuditEvent("event-created"),
+  const auditLogRepository = {
+    create: async () => buildAuditLog("event-created"),
     list: async (query: unknown) => {
       listCalls.push(query);
-      return [buildAuditEvent("event-1")];
+      return [buildAuditLog("event-1")];
     },
     count: async (query: unknown) => {
       countCalls.push(query);
@@ -149,7 +146,7 @@ const makeApp = async (permissions: string[]) => {
     authSessionCookieName: "wildfire_session",
     exportMaxRows: 2,
     repositories: {
-      auditEventRepository,
+      auditLogRepository,
       authorizationRepository,
       userRepository: mockUserRepository,
       displayRepository: mockDisplayRepository,
@@ -289,10 +286,10 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export resolves unknown actor to fallback name", async () => {
-    const auditEventRepository = {
-      create: async () => buildAuditEvent("event-created"),
+    const auditLogRepository = {
+      create: async () => buildAuditLog("event-created"),
       list: async () => [
-        buildAuditEvent("event-1", {
+        buildAuditLog("event-1", {
           actorId: "deleted-user",
           actorType: "user",
         }),
@@ -309,7 +306,7 @@ describe("Audit routes", () => {
       authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
-        auditEventRepository,
+        auditLogRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
         displayRepository: mockDisplayRepository,
@@ -351,9 +348,9 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns 400 when export exceeds limit", async () => {
-    const auditEventRepository = {
-      create: async () => buildAuditEvent("event-created"),
-      list: async () => [buildAuditEvent("event-1")],
+    const auditLogRepository = {
+      create: async () => buildAuditLog("event-created"),
+      list: async () => [buildAuditLog("event-1")],
       count: async () => 3,
       deleteByRequestIdPrefix: async () => 0,
     };
@@ -366,7 +363,7 @@ describe("Audit routes", () => {
       authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
-        auditEventRepository,
+        auditLogRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
         displayRepository: mockDisplayRepository,
@@ -411,9 +408,9 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export neutralizes spreadsheet formulas", async () => {
-    const auditEventRepository = {
-      create: async () => buildAuditEvent("event-created"),
-      list: async () => [buildAuditEvent("event-1", { userAgent: "=2+5" })],
+    const auditLogRepository = {
+      create: async () => buildAuditLog("event-created"),
+      list: async () => [buildAuditLog("event-1", { userAgent: "=2+5" })],
       count: async () => 1,
       deleteByRequestIdPrefix: async () => 0,
     };
@@ -426,7 +423,7 @@ describe("Audit routes", () => {
       authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
-        auditEventRepository,
+        auditLogRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
         displayRepository: mockDisplayRepository,
@@ -458,9 +455,9 @@ describe("Audit routes", () => {
   });
 
   test("GET /audit/events/export returns 500 on unexpected repository failure", async () => {
-    const auditEventRepository = {
-      create: async () => buildAuditEvent("event-created"),
-      list: async () => [buildAuditEvent("event-1")],
+    const auditLogRepository = {
+      create: async () => buildAuditLog("event-created"),
+      list: async () => [buildAuditLog("event-1")],
       count: async () => {
         throw new Error("db unavailable");
       },
@@ -475,7 +472,7 @@ describe("Audit routes", () => {
       authSessionCookieName: "wildfire_session",
       exportMaxRows: 2,
       repositories: {
-        auditEventRepository,
+        auditLogRepository,
         authorizationRepository,
         userRepository: mockUserRepository,
         displayRepository: mockDisplayRepository,

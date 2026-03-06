@@ -5,7 +5,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
-import { displays } from "./display.sql";
+import { displays } from "./displays.sql";
 
 export const displayKeys = mysqlTable(
   "display_keys",

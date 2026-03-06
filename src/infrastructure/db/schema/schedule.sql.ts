@@ -7,7 +7,7 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 import { content } from "./content.sql";
-import { displays } from "./display.sql";
+import { displays } from "./displays.sql";
 import { playlists } from "./playlist.sql";
 
 export const schedules = mysqlTable(

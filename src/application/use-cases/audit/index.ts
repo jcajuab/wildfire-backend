@@ -1,6 +1,6 @@
 export {
-  ExportAuditEventsUseCase,
+  ExportAuditLogsUseCase,
   ExportLimitExceededError,
-} from "./export-audit-events.use-case";
-export { ListAuditEventsUseCase } from "./list-audit-events.use-case";
-export { RecordAuditEventUseCase } from "./record-audit-event.use-case";
+} from "./export-audit-logs.use-case";
+export { ListAuditLogsUseCase } from "./list-audit-logs.use-case";
+export { RecordAuditLogUseCase } from "./record-audit-log.use-case";

@@ -2,18 +2,16 @@ export type DisplayStatus = "PROCESSING" | "READY" | "LIVE" | "DOWN";
 
 export interface DisplayRecord {
   id: string;
-  displaySlug: string;
+  slug: string;
   name: string;
-  identifier: string;
-  displayFingerprint?: string | null;
+  fingerprint?: string | null;
   status: DisplayStatus;
   location: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
   screenWidth?: number | null;
   screenHeight?: number | null;
-  outputType?: string | null;
-  displayOutput?: string | null;
+  output?: string | null;
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
   emergencyContentId?: string | null;
   localEmergencyActive?: boolean;
@@ -34,31 +32,30 @@ export interface DisplayRepository {
   }>;
   findByIds(ids: string[]): Promise<DisplayRecord[]>;
   findById(id: string): Promise<DisplayRecord | null>;
-  findByIdentifier(identifier: string): Promise<DisplayRecord | null>;
-  findBySlug(displaySlug: string): Promise<DisplayRecord | null>;
+  findBySlug(slug: string): Promise<DisplayRecord | null>;
   findByFingerprint(fingerprint: string): Promise<DisplayRecord | null>;
   findByFingerprintAndOutput(
     fingerprint: string,
-    displayOutput: string,
+    output: string,
   ): Promise<DisplayRecord | null>;
   create(input: {
     name: string;
-    identifier: string;
-    displayFingerprint?: string | null;
+    slug: string;
+    fingerprint?: string | null;
     location: string | null;
   }): Promise<DisplayRecord>;
   update(
     id: string,
     input: {
       name?: string;
-      identifier?: string;
-      displayFingerprint?: string | null;
+      slug?: string;
+      fingerprint?: string | null;
       location?: string | null;
       ipAddress?: string | null;
       macAddress?: string | null;
       screenWidth?: number | null;
       screenHeight?: number | null;
-      outputType?: string | null;
+      output?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
       emergencyContentId?: string | null;
       localEmergencyActive?: boolean;
@@ -66,10 +63,10 @@ export interface DisplayRepository {
     },
   ): Promise<DisplayRecord | null>;
   createRegisteredDisplay(input: {
-    displaySlug: string;
+    slug: string;
     name: string;
-    displayFingerprint: string;
-    displayOutput: string;
+    fingerprint: string;
+    output: string;
     screenWidth: number;
     screenHeight: number;
     orientation?: "LANDSCAPE" | "PORTRAIT" | null;

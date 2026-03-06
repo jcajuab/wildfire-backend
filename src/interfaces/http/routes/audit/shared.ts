@@ -1,5 +1,5 @@
 import { type Hono, type MiddlewareHandler } from "hono";
-import { type AuditEventRepository } from "#/application/ports/audit";
+import { type AuditLogRepository } from "#/application/ports/audit";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type DisplayRepository } from "#/application/ports/displays";
 import {
@@ -7,8 +7,8 @@ import {
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
-  ExportAuditEventsUseCase,
-  ListAuditEventsUseCase,
+  ExportAuditLogsUseCase,
+  ListAuditLogsUseCase,
 } from "#/application/use-cases/audit";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
@@ -18,7 +18,7 @@ export interface AuditRouterDeps {
   authSessionCookieName: string;
   exportMaxRows: number;
   repositories: {
-    auditEventRepository: AuditEventRepository;
+    auditLogRepository: AuditLogRepository;
     authorizationRepository: AuthorizationRepository;
     userRepository: UserRepository;
     displayRepository: DisplayRepository;
@@ -26,8 +26,8 @@ export interface AuditRouterDeps {
 }
 
 export interface AuditRouterUseCases {
-  listAuditEvents: ListAuditEventsUseCase;
-  exportAuditEvents: ExportAuditEventsUseCase;
+  listAuditLogs: ListAuditLogsUseCase;
+  exportAuditLogs: ExportAuditLogsUseCase;
 }
 
 export type AuditRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -44,11 +44,11 @@ export const auditTags = ["Audit"];
 export const createAuditUseCases = (
   deps: AuditRouterDeps,
 ): AuditRouterUseCases => ({
-  listAuditEvents: new ListAuditEventsUseCase({
-    auditEventRepository: deps.repositories.auditEventRepository,
+  listAuditLogs: new ListAuditLogsUseCase({
+    auditLogRepository: deps.repositories.auditLogRepository,
   }),
-  exportAuditEvents: new ExportAuditEventsUseCase({
-    auditEventRepository: deps.repositories.auditEventRepository,
+  exportAuditLogs: new ExportAuditLogsUseCase({
+    auditLogRepository: deps.repositories.auditLogRepository,
     maxRows: deps.exportMaxRows,
   }),
 });

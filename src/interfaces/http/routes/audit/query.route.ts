@@ -11,8 +11,8 @@ import {
   validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
-  auditEventListQuerySchema,
-  auditEventListResponseSchema,
+  auditLogListQuerySchema,
+  auditLogListResponseSchema,
 } from "#/interfaces/http/validators/audit.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -33,10 +33,10 @@ export const registerAuditQueryRoutes = (args: {
     "/events",
     setAction("audit.event.list", {
       route: "/audit/events",
-      resourceType: "audit-event",
+      resourceType: "audit-log",
     }),
     ...authorize("audit:read"),
-    validateQuery(auditEventListQuerySchema),
+    validateQuery(auditLogListQuerySchema),
     describeRoute({
       description: "List audit events",
       tags: auditTags,
@@ -45,7 +45,7 @@ export const registerAuditQueryRoutes = (args: {
           description: "Audit events",
           content: {
             "application/json": {
-              schema: resolver(auditEventListResponseSchema),
+              schema: resolver(auditLogListResponseSchema),
             },
           },
         },
@@ -63,7 +63,7 @@ export const registerAuditQueryRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const query = c.req.valid("query");
-        const result = await useCases.listAuditEvents.execute(query);
+        const result = await useCases.listAuditLogs.execute(query);
         return c.json(
           toApiListResponse({
             items: result.items,

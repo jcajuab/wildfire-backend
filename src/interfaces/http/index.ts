@@ -489,7 +489,7 @@ const auditRouter = createAuditRouter({
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   exportMaxRows: env.AUDIT_EXPORT_MAX_ROWS,
   repositories: {
-    auditEventRepository: container.repositories.auditEventRepository,
+    auditLogRepository: container.repositories.auditLogRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     userRepository: container.repositories.userRepository,
     displayRepository: container.repositories.displayRepository,

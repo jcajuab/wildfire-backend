@@ -1,4 +1,4 @@
-import { type CreateAuditEventInput } from "#/application/ports/audit";
+import { type CreateAuditLogInput } from "#/application/ports/audit";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
@@ -7,7 +7,7 @@ import {
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
 import {
-  type AuditEventQueue,
+  type AuditLogQueue,
   type AuditQueueEnqueueResult,
   type AuditQueueStats,
 } from "#/interfaces/http/audit/audit-queue";
@@ -27,7 +27,7 @@ const sanitizeConfig = (
   streamName: config.streamName.trim(),
 });
 
-export class RedisAuditQueue implements AuditEventQueue {
+export class RedisAuditQueue implements AuditLogQueue {
   private readonly config: RedisAuditQueueConfig;
   private readonly stats: AuditQueueStats = {
     queued: 0,
@@ -55,7 +55,7 @@ export class RedisAuditQueue implements AuditEventQueue {
     };
   }
 
-  private async pushToStream(event: CreateAuditEventInput): Promise<void> {
+  private async pushToStream(event: CreateAuditLogInput): Promise<void> {
     const maxAttempts = Math.max(
       1,
       Math.trunc(env.AUDIT_QUEUE_ENQUEUE_MAX_ATTEMPTS),
@@ -138,9 +138,7 @@ export class RedisAuditQueue implements AuditEventQueue {
     throw lastError ?? new Error("Unknown error while enqueuing audit event");
   }
 
-  async enqueue(
-    event: CreateAuditEventInput,
-  ): Promise<AuditQueueEnqueueResult> {
+  async enqueue(event: CreateAuditLogInput): Promise<AuditQueueEnqueueResult> {
     if (!this.config.enabled || this.isStopped) {
       return { accepted: false, reason: "disabled" };
     }

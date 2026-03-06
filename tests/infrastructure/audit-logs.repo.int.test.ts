@@ -14,7 +14,7 @@ const setup = async () => {
 
   const { db } = await import("#/infrastructure/db/client");
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS audit_events (
+    CREATE TABLE IF NOT EXISTS audit_logs (
       id varchar(36) PRIMARY KEY,
       occurred_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       request_id varchar(128) NULL,
@@ -32,17 +32,17 @@ const setup = async () => {
       metadata_json text NULL
     )
   `);
-  await db.execute(sql`DELETE FROM audit_events`);
+  await db.execute(sql`DELETE FROM audit_logs`);
 };
 
-describe("AuditEventDbRepository (integration)", () => {
+describe("AuditLogDbRepository (integration)", () => {
   maybeTest("creates and queries audit events", async () => {
     await setup();
-    const { AuditEventDbRepository } = await import(
-      "#/infrastructure/db/repositories/audit-event.repo"
+    const { AuditLogDbRepository } = await import(
+      "#/infrastructure/db/repositories/audit-logs.repo"
     );
 
-    const repo = new AuditEventDbRepository();
+    const repo = new AuditLogDbRepository();
     const created = await repo.create({
       action: "rbac.user.update",
       route: "/users/:id",

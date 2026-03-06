@@ -5,9 +5,9 @@ import {
 } from "#/application/ports/displays";
 import { db } from "#/infrastructure/db/client";
 import {
-  displayGroupMemberships,
+  displayGroupMembers,
   displayGroups,
-} from "#/infrastructure/db/schema/display.sql";
+} from "#/infrastructure/db/schema/displays.sql";
 
 const toIso = (value: Date | string): string =>
   value instanceof Date ? value.toISOString() : value;
@@ -50,12 +50,12 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         colorIndex: displayGroups.colorIndex,
         createdAt: displayGroups.createdAt,
         updatedAt: displayGroups.updatedAt,
-        displayId: displayGroupMemberships.displayId,
+        displayId: displayGroupMembers.displayId,
       })
       .from(displayGroups)
       .leftJoin(
-        displayGroupMemberships,
-        eq(displayGroupMemberships.groupId, displayGroups.id),
+        displayGroupMembers,
+        eq(displayGroupMembers.groupId, displayGroups.id),
       );
     return mapRowsToGroups(rows);
   }
@@ -68,12 +68,12 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         colorIndex: displayGroups.colorIndex,
         createdAt: displayGroups.createdAt,
         updatedAt: displayGroups.updatedAt,
-        displayId: displayGroupMemberships.displayId,
+        displayId: displayGroupMembers.displayId,
       })
       .from(displayGroups)
       .leftJoin(
-        displayGroupMemberships,
-        eq(displayGroupMemberships.groupId, displayGroups.id),
+        displayGroupMembers,
+        eq(displayGroupMembers.groupId, displayGroups.id),
       )
       .where(eq(displayGroups.id, id));
     const mapped = mapRowsToGroups(rows);
@@ -88,12 +88,12 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         colorIndex: displayGroups.colorIndex,
         createdAt: displayGroups.createdAt,
         updatedAt: displayGroups.updatedAt,
-        displayId: displayGroupMemberships.displayId,
+        displayId: displayGroupMembers.displayId,
       })
       .from(displayGroups)
       .leftJoin(
-        displayGroupMemberships,
-        eq(displayGroupMemberships.groupId, displayGroups.id),
+        displayGroupMembers,
+        eq(displayGroupMembers.groupId, displayGroups.id),
       )
       .where(eq(displayGroups.name, name));
     const mapped = mapRowsToGroups(rows);
@@ -153,10 +153,10 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
 
   async setDisplayGroups(displayId: string, groupIds: string[]): Promise<void> {
     await db
-      .delete(displayGroupMemberships)
-      .where(eq(displayGroupMemberships.displayId, displayId));
+      .delete(displayGroupMembers)
+      .where(eq(displayGroupMembers.displayId, displayId));
     if (groupIds.length === 0) return;
-    await db.insert(displayGroupMemberships).values(
+    await db.insert(displayGroupMembers).values(
       groupIds.map((groupId) => ({
         groupId,
         displayId,

@@ -68,7 +68,7 @@ export const startDisplayStatusReconciler = (input: {
           publishAdminDisplayLifecycleEvent({
             type: "display_status_changed",
             displayId: display.id,
-            displaySlug: display.displaySlug,
+            slug: display.slug,
             previousStatus: display.status,
             status: nextStatus,
             occurredAt: now.toISOString(),

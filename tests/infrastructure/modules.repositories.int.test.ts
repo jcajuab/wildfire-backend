@@ -18,7 +18,7 @@ const setup = async () => {
     CREATE TABLE IF NOT EXISTS displays (
       id varchar(36) PRIMARY KEY,
       name varchar(255) NOT NULL,
-      identifier varchar(255) NOT NULL,
+      slug varchar(255) NOT NULL,
       location varchar(255) NULL,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -112,11 +112,11 @@ describe("Module repositories (integration)", () => {
     const repo = new DisplayDbRepository();
     const created = await repo.create({
       name: "Lobby",
-      identifier: "AA:BB",
+      slug: "AA:BB",
       location: null,
     });
 
-    const found = await repo.findByIdentifier("AA:BB");
+    const found = await repo.findBySlug("AA:BB");
     expect(found?.id).toBe(created.id);
 
     const list = await repo.list();
@@ -176,7 +176,7 @@ describe("Module repositories (integration)", () => {
       ON DUPLICATE KEY UPDATE id = id
     `);
     await db.execute(sql`
-      INSERT INTO displays (id, display_slug, name, status, display_output)
+      INSERT INTO displays (id, slug, name, status, output)
       VALUES ('display-1', 'display-1', 'Display 1', 'READY', 'unknown')
       ON DUPLICATE KEY UPDATE id = id
     `);

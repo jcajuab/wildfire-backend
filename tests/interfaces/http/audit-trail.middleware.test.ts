@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { logger } from "#/infrastructure/observability/logger";
-import { type AuditEventQueue } from "#/interfaces/http/audit/audit-queue";
+import { type AuditLogQueue } from "#/interfaces/http/audit/audit-queue";
 import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
 import {
   type ObservabilityVariables,
@@ -12,7 +12,7 @@ import {
 const makeQueue = (opts?: { overflow?: boolean }) => {
   const calls: Array<Record<string, unknown>> = [];
 
-  const auditQueue: AuditEventQueue = {
+  const auditQueue: AuditLogQueue = {
     enqueue: async (event) => {
       if (opts?.overflow) {
         return {

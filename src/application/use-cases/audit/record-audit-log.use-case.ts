@@ -1,9 +1,9 @@
 import { ValidationError } from "#/application/errors/validation";
 import {
   type AuditActorType,
-  type AuditEventRecord,
-  type AuditEventRepository,
-  type CreateAuditEventInput,
+  type AuditLogRecord,
+  type AuditLogRepository,
+  type CreateAuditLogInput,
 } from "#/application/ports/audit";
 
 const trimToUndefined = (value: string | undefined, maxLength: number) => {
@@ -78,14 +78,14 @@ const normalizeMetadataJson = (raw: string | undefined): string | undefined => {
   return JSON.stringify(redactSensitiveValues(parsed));
 };
 
-export class RecordAuditEventUseCase {
+export class RecordAuditLogUseCase {
   constructor(
     private readonly deps: {
-      auditEventRepository: AuditEventRepository;
+      auditLogRepository: AuditLogRepository;
     },
   ) {}
 
-  async execute(input: CreateAuditEventInput): Promise<AuditEventRecord> {
+  async execute(input: CreateAuditLogInput): Promise<AuditLogRecord> {
     const action = trimToUndefined(input.action, 160);
     if (!action) {
       throw new ValidationError("action is required");
@@ -101,7 +101,7 @@ export class RecordAuditEventUseCase {
       throw new ValidationError("path is required");
     }
 
-    const sanitized: CreateAuditEventInput = {
+    const sanitized: CreateAuditLogInput = {
       occurredAt: input.occurredAt,
       requestId: trimToUndefined(input.requestId, 128),
       action,
@@ -118,6 +118,6 @@ export class RecordAuditEventUseCase {
       metadataJson: normalizeMetadataJson(input.metadataJson),
     };
 
-    return this.deps.auditEventRepository.create(sanitized);
+    return this.deps.auditLogRepository.create(sanitized);
   }
 }

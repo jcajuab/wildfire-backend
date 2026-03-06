@@ -1,4 +1,4 @@
-import { type AuditEventRepository } from "#/application/ports/audit";
+import { type AuditLogRepository } from "#/application/ports/audit";
 import {
   type ContentRepository,
   type ContentStorage,
@@ -35,7 +35,7 @@ export interface SeedContext {
     contentIngestionJobRepository: ContentIngestionJobRepository;
     playlistRepository: PlaylistRepository;
     scheduleRepository: ScheduleRepository;
-    auditEventRepository: AuditEventRepository;
+    auditLogRepository: AuditLogRepository;
   };
   storage: {
     contentStorage: ContentStorage;

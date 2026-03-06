@@ -1,7 +1,7 @@
 import { type MiddlewareHandler } from "hono";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
-import { type AuditEventQueue } from "#/interfaces/http/audit/audit-queue";
+import { type AuditLogQueue } from "#/interfaces/http/audit/audit-queue";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { type ObservabilityVariables } from "#/interfaces/http/middleware/observability";
 
@@ -95,7 +95,7 @@ const buildSafeAuditMetadata = (input: {
 };
 
 export const createAuditTrailMiddleware = (deps: {
-  auditQueue: AuditEventQueue;
+  auditQueue: AuditLogQueue;
 }): MiddlewareHandler<{ Variables: ObservabilityVariables }> => {
   return async (c, next) => {
     await next();

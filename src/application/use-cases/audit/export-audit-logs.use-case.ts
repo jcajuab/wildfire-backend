@@ -1,4 +1,4 @@
-import { type AuditEventRepository } from "#/application/ports/audit";
+import { type AuditLogRepository } from "#/application/ports/audit";
 import { normalizeAuditFilters } from "./query-normalization";
 
 export class ExportLimitExceededError extends Error {
@@ -8,13 +8,13 @@ export class ExportLimitExceededError extends Error {
   }
 }
 
-export class ExportAuditEventsUseCase {
+export class ExportAuditLogsUseCase {
   private readonly maxRows: number;
   private readonly chunkSize: number;
 
   constructor(
     private readonly deps: {
-      auditEventRepository: AuditEventRepository;
+      auditLogRepository: AuditLogRepository;
       maxRows: number;
       chunkSize?: number;
     },
@@ -44,14 +44,14 @@ export class ExportAuditEventsUseCase {
       limit: this.chunkSize,
     };
 
-    const total = await this.deps.auditEventRepository.count(baseQuery);
+    const total = await this.deps.auditLogRepository.count(baseQuery);
     if (total > this.maxRows) {
       throw new ExportLimitExceededError(this.maxRows);
     }
 
     let offset = 0;
     while (offset < total) {
-      const rows = await this.deps.auditEventRepository.list({
+      const rows = await this.deps.auditLogRepository.list({
         ...baseQuery,
         offset,
       });

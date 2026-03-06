@@ -2,14 +2,14 @@ import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hash
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { AuditEventDbRepository } from "#/infrastructure/db/repositories/audit-event.repo";
+import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
 import { AuthSessionRedisRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
 import { DisplayAuthNonceRedisRepository } from "#/infrastructure/db/repositories/display-auth-nonce.repo";
-import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-group.repo";
+import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/display-groups.repo";
 import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
@@ -57,7 +57,7 @@ export interface HttpContainer {
     rolePermissionRepository: RolePermissionDbRepository;
     authorizationRepository: AuthorizationDbRepository;
     authSessionRepository: AuthSessionRedisRepository;
-    auditEventRepository: AuditEventDbRepository;
+    auditLogRepository: AuditLogDbRepository;
     contentIngestionJobRepository: ContentIngestionJobDbRepository;
     contentRepository: ContentDbRepository;
     playlistRepository: PlaylistDbRepository;
@@ -103,7 +103,7 @@ export const createHttpContainer = (
   const rolePermissionRepository = new RolePermissionDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
   const authSessionRepository = new AuthSessionRedisRepository();
-  const auditEventRepository = new AuditEventDbRepository();
+  const auditLogRepository = new AuditLogDbRepository();
   const contentIngestionJobRepository = new ContentIngestionJobDbRepository();
   const contentRepository = new ContentDbRepository();
   const playlistRepository = new PlaylistDbRepository();
@@ -155,7 +155,7 @@ export const createHttpContainer = (
       rolePermissionRepository,
       authorizationRepository,
       authSessionRepository,
-      auditEventRepository,
+      auditLogRepository,
       contentIngestionJobRepository,
       contentRepository,
       playlistRepository,

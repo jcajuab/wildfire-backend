@@ -2,9 +2,9 @@ import { sql } from "drizzle-orm";
 import { db } from "#/infrastructure/db/client";
 
 const TABLES = [
-  "audit_events",
+  "audit_logs",
   "content",
-  "display_group_memberships",
+  "display_group_members",
   "display_groups",
   "displays",
   "display_keys",

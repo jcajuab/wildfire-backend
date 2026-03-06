@@ -163,7 +163,7 @@ export const createDisplaysUseCases = (
           publishAdminDisplayLifecycleEvent({
             type: input.type,
             displayId: input.displayId,
-            displaySlug: input.displaySlug,
+            slug: input.slug,
             occurredAt: input.occurredAt,
           });
         },

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  ExportAuditEventsUseCase,
+  ExportAuditLogsUseCase,
   ExportLimitExceededError,
 } from "#/application/use-cases/audit";
 
@@ -46,11 +46,11 @@ const makeRepository = () => {
   };
 };
 
-describe("ExportAuditEventsUseCase", () => {
+describe("ExportAuditLogsUseCase", () => {
   test("streams filtered rows in chunks when below limit", async () => {
     const { repository, listCalls, countCalls } = makeRepository();
-    const useCase = new ExportAuditEventsUseCase({
-      auditEventRepository: repository,
+    const useCase = new ExportAuditLogsUseCase({
+      auditLogRepository: repository,
       maxRows: 100,
       chunkSize: 25,
     });
@@ -85,8 +85,8 @@ describe("ExportAuditEventsUseCase", () => {
 
   test("throws ExportLimitExceededError when count exceeds max rows", async () => {
     const { repository } = makeRepository();
-    const useCase = new ExportAuditEventsUseCase({
-      auditEventRepository: {
+    const useCase = new ExportAuditLogsUseCase({
+      auditLogRepository: {
         ...repository,
         count: async () => 101,
         deleteByRequestIdPrefix: async () => 0,
@@ -107,8 +107,8 @@ describe("ExportAuditEventsUseCase", () => {
 
   test("streams multiple pages when export spans more than one chunk", async () => {
     const listCalls: unknown[] = [];
-    const useCase = new ExportAuditEventsUseCase({
-      auditEventRepository: {
+    const useCase = new ExportAuditLogsUseCase({
+      auditLogRepository: {
         create: async () => {
           throw new Error("unused");
         },

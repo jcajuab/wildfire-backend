@@ -5,13 +5,13 @@ import {
   type SeedStage,
   type SeedStageResult,
 } from "./stage-types";
-import { runCleanupDemoAuditEvents } from "./stages/cleanup-demo-audit-events";
+import { runCleanupDemoAuditLogs } from "./stages/cleanup-demo-audit-logs";
 import { runCleanupDemoContent } from "./stages/cleanup-demo-content";
 import { runCleanupDemoDisplays } from "./stages/cleanup-demo-displays";
 import { runCleanupDemoPlaylists } from "./stages/cleanup-demo-playlists";
 import { runCleanupDemoRbac } from "./stages/cleanup-demo-rbac";
 import { runCleanupDemoSchedules } from "./stages/cleanup-demo-schedules";
-import { runSeedDemoAuditEvents } from "./stages/seed-demo-audit-events";
+import { runSeedDemoAuditLogs } from "./stages/seed-demo-audit-logs";
 import { runSeedDemoContent } from "./stages/seed-demo-content";
 import { runSeedDemoContentJobs } from "./stages/seed-demo-content-jobs";
 import { runSeedDemoDisplays } from "./stages/seed-demo-displays";
@@ -27,13 +27,13 @@ export const buildSeedStages = (): SeedStage[] => {
     { name: "seed-demo-content-jobs", execute: runSeedDemoContentJobs },
     { name: "seed-demo-playlists", execute: runSeedDemoPlaylists },
     { name: "seed-demo-schedules", execute: runSeedDemoSchedules },
-    { name: "seed-demo-audit-events", execute: runSeedDemoAuditEvents },
+    { name: "seed-demo-audit-logs", execute: runSeedDemoAuditLogs },
   ];
 };
 
 export const buildSeedCleanupStages = (): SeedStage[] => {
   return [
-    { name: "cleanup-demo-audit-events", execute: runCleanupDemoAuditEvents },
+    { name: "cleanup-demo-audit-logs", execute: runCleanupDemoAuditLogs },
     { name: "cleanup-demo-schedules", execute: runCleanupDemoSchedules },
     { name: "cleanup-demo-playlists", execute: runCleanupDemoPlaylists },
     { name: "cleanup-demo-content", execute: runCleanupDemoContent },

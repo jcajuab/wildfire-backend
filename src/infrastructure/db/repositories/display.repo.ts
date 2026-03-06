@@ -5,7 +5,7 @@ import {
   type DisplayStatus,
 } from "#/application/ports/displays";
 import { db } from "#/infrastructure/db/client";
-import { displays } from "#/infrastructure/db/schema/display.sql";
+import { displays } from "#/infrastructure/db/schema/displays.sql";
 
 const parseDisplayStatus = (value: string): DisplayStatus => {
   if (
@@ -21,18 +21,16 @@ const parseDisplayStatus = (value: string): DisplayStatus => {
 
 const toRecord = (row: typeof displays.$inferSelect): DisplayRecord => ({
   id: row.id,
-  displaySlug: row.displaySlug,
+  slug: row.slug,
   name: row.name,
-  identifier: row.displaySlug,
-  displayFingerprint: row.displayFingerprint ?? null,
+  fingerprint: row.fingerprint ?? null,
   status: parseDisplayStatus(row.status),
   location: row.location ?? null,
   ipAddress: row.ipAddress ?? null,
   macAddress: row.macAddress ?? null,
   screenWidth: row.screenWidth ?? null,
   screenHeight: row.screenHeight ?? null,
-  outputType: row.displayOutput ?? null,
-  displayOutput: row.displayOutput ?? null,
+  output: row.output ?? null,
   orientation:
     row.orientation === "LANDSCAPE" || row.orientation === "PORTRAIT"
       ? row.orientation
@@ -113,15 +111,11 @@ export class DisplayDbRepository implements DisplayRepository {
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
-  async findByIdentifier(identifier: string): Promise<DisplayRecord | null> {
-    return this.findBySlug(identifier);
-  }
-
-  async findBySlug(displaySlug: string): Promise<DisplayRecord | null> {
+  async findBySlug(slug: string): Promise<DisplayRecord | null> {
     const rows = await db
       .select()
       .from(displays)
-      .where(eq(displays.displaySlug, displaySlug))
+      .where(eq(displays.slug, slug))
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
@@ -130,23 +124,20 @@ export class DisplayDbRepository implements DisplayRepository {
     const rows = await db
       .select()
       .from(displays)
-      .where(eq(displays.displayFingerprint, fingerprint))
+      .where(eq(displays.fingerprint, fingerprint))
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
   async findByFingerprintAndOutput(
     fingerprint: string,
-    displayOutput: string,
+    output: string,
   ): Promise<DisplayRecord | null> {
     const rows = await db
       .select()
       .from(displays)
       .where(
-        and(
-          eq(displays.displayFingerprint, fingerprint),
-          eq(displays.displayOutput, displayOutput),
-        ),
+        and(eq(displays.fingerprint, fingerprint), eq(displays.output, output)),
       )
       .limit(1);
     return rows[0] ? toRecord(rows[0]) : null;
@@ -154,38 +145,36 @@ export class DisplayDbRepository implements DisplayRepository {
 
   async create(input: {
     name: string;
-    identifier: string;
-    displayFingerprint?: string | null;
+    slug: string;
+    fingerprint?: string | null;
     location: string | null;
   }): Promise<DisplayRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
     await db.insert(displays).values({
       id,
-      displaySlug: input.identifier,
+      slug: input.slug,
       name: input.name,
-      displayFingerprint: input.displayFingerprint ?? null,
+      fingerprint: input.fingerprint ?? null,
       status: "PROCESSING",
       location: input.location,
-      displayOutput: "unknown",
+      output: "unknown",
       createdAt: now,
       updatedAt: now,
     });
 
     return {
       id,
-      displaySlug: input.identifier,
-      identifier: input.identifier,
+      slug: input.slug,
       name: input.name,
-      displayFingerprint: input.displayFingerprint ?? null,
+      fingerprint: input.fingerprint ?? null,
       status: "PROCESSING",
       location: input.location,
       ipAddress: null,
       macAddress: null,
       screenWidth: null,
       screenHeight: null,
-      outputType: "unknown",
-      displayOutput: "unknown",
+      output: "unknown",
       orientation: null,
       emergencyContentId: null,
       localEmergencyActive: false,
@@ -198,10 +187,10 @@ export class DisplayDbRepository implements DisplayRepository {
   }
 
   async createRegisteredDisplay(input: {
-    displaySlug: string;
+    slug: string;
     name: string;
-    displayFingerprint: string;
-    displayOutput: string;
+    fingerprint: string;
+    output: string;
     screenWidth: number;
     screenHeight: number;
     orientation?: "LANDSCAPE" | "PORTRAIT" | null;
@@ -213,16 +202,16 @@ export class DisplayDbRepository implements DisplayRepository {
     const id = crypto.randomUUID();
     await db.insert(displays).values({
       id,
-      displaySlug: input.displaySlug,
+      slug: input.slug,
       name: input.name,
-      displayFingerprint: input.displayFingerprint,
+      fingerprint: input.fingerprint,
       status: "PROCESSING",
       location: input.location ?? null,
       ipAddress: input.ipAddress ?? null,
       macAddress: input.macAddress ?? null,
       screenWidth: input.screenWidth,
       screenHeight: input.screenHeight,
-      displayOutput: input.displayOutput,
+      output: input.output,
       orientation: input.orientation ?? null,
       emergencyContentId: null,
       localEmergencyActive: false,
@@ -242,14 +231,14 @@ export class DisplayDbRepository implements DisplayRepository {
     id: string,
     input: {
       name?: string;
-      identifier?: string;
-      displayFingerprint?: string | null;
+      slug?: string;
+      fingerprint?: string | null;
       location?: string | null;
       ipAddress?: string | null;
       macAddress?: string | null;
       screenWidth?: number | null;
       screenHeight?: number | null;
-      outputType?: string | null;
+      output?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
       emergencyContentId?: string | null;
       localEmergencyActive?: boolean;
@@ -261,11 +250,11 @@ export class DisplayDbRepository implements DisplayRepository {
 
     const next = {
       name: input.name ?? existing.name,
-      displaySlug: input.identifier ?? existing.displaySlug,
-      displayFingerprint:
-        input.displayFingerprint !== undefined
-          ? input.displayFingerprint
-          : (existing.displayFingerprint ?? null),
+      slug: input.slug ?? existing.slug,
+      fingerprint:
+        input.fingerprint !== undefined
+          ? input.fingerprint
+          : (existing.fingerprint ?? null),
       location:
         input.location !== undefined ? input.location : existing.location,
       ipAddress:
@@ -280,10 +269,10 @@ export class DisplayDbRepository implements DisplayRepository {
         input.screenHeight !== undefined
           ? input.screenHeight
           : existing.screenHeight,
-      displayOutput:
-        input.outputType !== undefined
-          ? (input.outputType ?? "unknown")
-          : (existing.displayOutput ?? "unknown"),
+      output:
+        input.output !== undefined
+          ? (input.output ?? "unknown")
+          : (existing.output ?? "unknown"),
       orientation:
         input.orientation !== undefined
           ? input.orientation
@@ -307,14 +296,14 @@ export class DisplayDbRepository implements DisplayRepository {
       .update(displays)
       .set({
         name: next.name,
-        displaySlug: next.displaySlug,
-        displayFingerprint: next.displayFingerprint,
+        slug: next.slug,
+        fingerprint: next.fingerprint,
         location: next.location,
         ipAddress: next.ipAddress,
         macAddress: next.macAddress,
         screenWidth: next.screenWidth,
         screenHeight: next.screenHeight,
-        displayOutput: next.displayOutput,
+        output: next.output,
         orientation: next.orientation,
         emergencyContentId: next.emergencyContentId,
         localEmergencyActive: next.localEmergencyActive,
@@ -329,8 +318,6 @@ export class DisplayDbRepository implements DisplayRepository {
     return {
       ...existing,
       ...next,
-      identifier: next.displaySlug,
-      outputType: next.displayOutput,
       updatedAt: now.toISOString(),
     };
   }

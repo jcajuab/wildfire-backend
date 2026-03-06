@@ -12,7 +12,7 @@ export interface RegistrationSucceededEvent {
   type: "registration_succeeded";
   attemptId: string;
   displayId: string;
-  displaySlug: string;
+  slug: string;
   occurredAt: string;
 }
 
@@ -81,7 +81,7 @@ const parseRegistrationAttemptEvent = (
     type?: unknown;
     attemptId?: unknown;
     displayId?: unknown;
-    displaySlug?: unknown;
+    slug?: unknown;
     occurredAt?: unknown;
   };
 
@@ -89,7 +89,7 @@ const parseRegistrationAttemptEvent = (
     candidate.type !== "registration_succeeded" ||
     !isStringField(candidate.attemptId, MAX_REG_ATTEMPT_FIELD_BYTES) ||
     !isStringField(candidate.displayId, MAX_REG_ATTEMPT_FIELD_BYTES) ||
-    !isStringField(candidate.displaySlug, MAX_REG_ATTEMPT_FIELD_BYTES) ||
+    !isStringField(candidate.slug, MAX_REG_ATTEMPT_FIELD_BYTES) ||
     !isStringField(candidate.occurredAt, MAX_REG_ATTEMPT_FIELD_BYTES)
   ) {
     return null;
@@ -99,7 +99,7 @@ const parseRegistrationAttemptEvent = (
     type: "registration_succeeded",
     attemptId: candidate.attemptId,
     displayId: candidate.displayId,
-    displaySlug: candidate.displaySlug,
+    slug: candidate.slug,
     occurredAt: candidate.occurredAt,
   };
 };

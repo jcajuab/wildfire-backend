@@ -4,16 +4,15 @@ import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const displaySchema = z.object({
   id: z.string(),
-  displaySlug: z.string(),
-  identifier: z.string(),
-  displayFingerprint: z.string().nullable().optional(),
+  slug: z.string(),
+  fingerprint: z.string().nullable().optional(),
   name: z.string(),
   location: z.string().nullable(),
   ipAddress: z.string().nullable(),
   macAddress: z.string().nullable(),
   screenWidth: z.number().int().nullable(),
   screenHeight: z.number().int().nullable(),
-  outputType: z.string().nullable(),
+  output: z.string().nullable(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
   emergencyContentId: z.string().uuid().nullable().optional(),
   localEmergencyActive: z.boolean().optional(),
@@ -49,15 +48,15 @@ export const displayGroupIdParamSchema = z.object({
 
 export const registerDisplaySchema = z.object({
   pairingCode: z.string().regex(/^\d{6}$/),
-  identifier: z.string().min(1),
-  displayFingerprint: z.string().min(1).max(255).nullable().optional(),
+  slug: z.string().min(1),
+  fingerprint: z.string().min(1).max(255).nullable().optional(),
   name: z.string().min(1),
   location: z.string().nullable().optional(),
   ipAddress: z.string().min(1).max(128).nullable().optional(),
   macAddress: z.string().min(1).max(64).nullable().optional(),
   screenWidth: z.number().int().positive(),
   screenHeight: z.number().int().positive(),
-  outputType: z.string().min(1).max(64).nullable().optional(),
+  output: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
   emergencyContentId: z.string().uuid().nullable().optional(),
 });
@@ -69,7 +68,7 @@ export const patchDisplaySchema = z.object({
   macAddress: z.string().min(1).max(64).nullable().optional(),
   screenWidth: z.number().int().positive().nullable().optional(),
   screenHeight: z.number().int().positive().nullable().optional(),
-  outputType: z.string().min(1).max(64).nullable().optional(),
+  output: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
   emergencyContentId: z.string().uuid().nullable().optional(),
 });
@@ -137,7 +136,7 @@ export const patchDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
     macAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
     screenWidth: { type: "integer", minimum: 1 },
     screenHeight: { type: "integer", minimum: 1 },
-    outputType: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+    output: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
     orientation: {
       oneOf: [
         { type: "string", enum: ["LANDSCAPE", "PORTRAIT"] },
@@ -174,8 +173,8 @@ export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     pairingCode: { type: "string", pattern: "^\\d{6}$" },
-    identifier: { type: "string" },
-    displayFingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
+    slug: { type: "string" },
+    fingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
     name: { type: "string" },
     location: { oneOf: [{ type: "string" }, { type: "null" }] },
     ipAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
@@ -184,7 +183,7 @@ export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
     screenHeight: {
       oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }],
     },
-    outputType: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+    output: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
     orientation: {
       oneOf: [
         { type: "string", enum: ["LANDSCAPE", "PORTRAIT"] },
@@ -192,13 +191,7 @@ export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
       ],
     },
   },
-  required: [
-    "pairingCode",
-    "identifier",
-    "name",
-    "screenWidth",
-    "screenHeight",
-  ],
+  required: ["pairingCode", "slug", "name", "screenWidth", "screenHeight"],
 };
 
 export const registrationCodeResponseSchema = z.object({

@@ -32,9 +32,8 @@ const makeDisplayRepository = (
     displays.filter((display) => ids.includes(display.id)),
   findById: async (id: string) =>
     displays.find((display) => display.id === id) ?? null,
-  findByIdentifier: async () => null,
-  findBySlug: async (displaySlug: string) =>
-    displays.find((display) => display.displaySlug === displaySlug) ?? null,
+  findBySlug: async (slug: string) =>
+    displays.find((display) => display.slug === slug) ?? null,
   findByFingerprint: async () => null,
   findByFingerprintAndOutput: async () => null,
   create: async () => {
@@ -209,8 +208,7 @@ describe("Display group use cases", () => {
       {
         id: "display-1",
         name: "Lobby Display",
-        identifier: "AA:BB",
-        displaySlug: "display-1",
+        slug: "display-1",
         status: "READY",
         location: null,
         createdAt: "2025-01-01T00:00:00.000Z",

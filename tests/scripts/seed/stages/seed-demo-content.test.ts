@@ -93,8 +93,7 @@ describe("runSeedDemoContent", () => {
           {} as SeedContext["repos"]["displayGroupRepository"],
         playlistRepository: {} as SeedContext["repos"]["playlistRepository"],
         scheduleRepository: {} as SeedContext["repos"]["scheduleRepository"],
-        auditEventRepository:
-          {} as SeedContext["repos"]["auditEventRepository"],
+        auditLogRepository: {} as SeedContext["repos"]["auditLogRepository"],
       },
       storage: {
         contentStorage: {

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { type CreateAuditEventInput } from "#/application/ports/audit";
-import { RecordAuditEventUseCase } from "#/application/use-cases/audit";
+import { type CreateAuditLogInput } from "#/application/ports/audit";
+import { RecordAuditLogUseCase } from "#/application/use-cases/audit";
 
 const makeRepository = () => {
-  const calls: CreateAuditEventInput[] = [];
+  const calls: CreateAuditLogInput[] = [];
 
   return {
     calls,
     repository: {
-      create: async (input: CreateAuditEventInput) => {
+      create: async (input: CreateAuditLogInput) => {
         calls.push(input);
         return {
           id: "event-1",
@@ -35,11 +35,11 @@ const makeRepository = () => {
   };
 };
 
-describe("RecordAuditEventUseCase", () => {
+describe("RecordAuditLogUseCase", () => {
   test("normalizes and writes audit metadata-only event", async () => {
     const { calls, repository } = makeRepository();
-    const useCase = new RecordAuditEventUseCase({
-      auditEventRepository: repository,
+    const useCase = new RecordAuditLogUseCase({
+      auditLogRepository: repository,
     });
 
     const result = await useCase.execute({
@@ -80,8 +80,8 @@ describe("RecordAuditEventUseCase", () => {
 
   test("throws when metadataJson is not valid JSON", async () => {
     const { repository } = makeRepository();
-    const useCase = new RecordAuditEventUseCase({
-      auditEventRepository: repository,
+    const useCase = new RecordAuditLogUseCase({
+      auditLogRepository: repository,
     });
 
     await expect(
@@ -97,8 +97,8 @@ describe("RecordAuditEventUseCase", () => {
 
   test("throws when action is empty", async () => {
     const { repository } = makeRepository();
-    const useCase = new RecordAuditEventUseCase({
-      auditEventRepository: repository,
+    const useCase = new RecordAuditLogUseCase({
+      auditLogRepository: repository,
     });
 
     await expect(
@@ -113,8 +113,8 @@ describe("RecordAuditEventUseCase", () => {
 
   test("throws when status is outside HTTP range", async () => {
     const { repository } = makeRepository();
-    const useCase = new RecordAuditEventUseCase({
-      auditEventRepository: repository,
+    const useCase = new RecordAuditLogUseCase({
+      auditLogRepository: repository,
     });
 
     await expect(

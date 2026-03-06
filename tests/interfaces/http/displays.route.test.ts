@@ -16,18 +16,16 @@ const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
 
 const makeDisplay = (overrides?: Partial<DisplayRecord>): DisplayRecord => ({
   id: displayId,
-  displaySlug: "lobby-display",
+  slug: "lobby-display",
   name: "Lobby",
-  identifier: "AA:BB",
-  displayFingerprint: null,
+  fingerprint: null,
   status: "READY",
   location: null,
   ipAddress: null,
   macAddress: null,
   screenWidth: null,
   screenHeight: null,
-  outputType: null,
-  displayOutput: null,
+  output: null,
   orientation: null,
   lastSeenAt: null,
   refreshNonce: 0,
@@ -172,75 +170,58 @@ const makeApp = async (
         const found = displays.find((display) => display.id === id);
         return found ? { ...found } : null;
       })(),
-    findByIdentifier: async (identifier: string) =>
+    findBySlug: async (slug: string) =>
       (() => {
-        const found = displays.find(
-          (display) => display.identifier === identifier,
-        );
-        return found ? { ...found } : null;
-      })(),
-    findBySlug: async (displaySlug: string) =>
-      (() => {
-        const found = displays.find(
-          (display) => display.displaySlug === displaySlug,
-        );
+        const found = displays.find((display) => display.slug === slug);
         return found ? { ...found } : null;
       })(),
     findByFingerprint: async (fingerprint: string) =>
       (() => {
         const found = displays.find(
-          (display) => display.displayFingerprint === fingerprint,
+          (display) => display.fingerprint === fingerprint,
         );
         return found ? { ...found } : null;
       })(),
-    findByFingerprintAndOutput: async (
-      fingerprint: string,
-      displayOutput: string,
-    ) =>
+    findByFingerprintAndOutput: async (fingerprint: string, output: string) =>
       (() => {
         const found = displays.find(
           (display) =>
-            display.displayFingerprint === fingerprint &&
-            (display.displayOutput ?? null) === displayOutput,
+            display.fingerprint === fingerprint &&
+            (display.output ?? null) === output,
         );
         return found ? { ...found } : null;
       })(),
     create: async (input: {
       name: string;
-      identifier: string;
-      displayFingerprint?: string | null;
+      slug: string;
+      fingerprint?: string | null;
       location: string | null;
     }) => {
       const created = makeDisplay({
         id: crypto.randomUUID(),
-        displaySlug: input.identifier
-          .toLowerCase()
-          .replace(/[^a-z0-9-]+/g, "-"),
         name: input.name,
-        identifier: input.identifier,
-        displayFingerprint: input.displayFingerprint ?? null,
+        slug: input.slug,
+        fingerprint: input.fingerprint ?? null,
         location: input.location,
       });
       displays.push(created);
       return created;
     },
     createRegisteredDisplay: async (input: {
-      displaySlug: string;
+      slug: string;
       name: string;
-      displayFingerprint: string;
-      displayOutput: string;
+      fingerprint: string;
+      output: string;
       screenWidth: number;
       screenHeight: number;
       now: Date;
     }) => {
       const created = makeDisplay({
         id: crypto.randomUUID(),
-        displaySlug: input.displaySlug,
-        identifier: input.displaySlug,
+        slug: input.slug,
         name: input.name,
-        displayFingerprint: input.displayFingerprint,
-        displayOutput: input.displayOutput,
-        outputType: input.displayOutput,
+        fingerprint: input.fingerprint,
+        output: input.output,
         screenWidth: input.screenWidth,
         screenHeight: input.screenHeight,
         createdAt: input.now.toISOString(),
@@ -253,23 +234,23 @@ const makeApp = async (
       id: string,
       input: {
         name?: string;
-        identifier?: string;
-        displayFingerprint?: string | null;
+        slug?: string;
+        fingerprint?: string | null;
         location?: string | null;
         ipAddress?: string | null;
         macAddress?: string | null;
         screenWidth?: number | null;
         screenHeight?: number | null;
-        outputType?: string | null;
+        output?: string | null;
         orientation?: "LANDSCAPE" | "PORTRAIT" | null;
       },
     ) => {
       const record = displays.find((display) => display.id === id);
       if (!record) return null;
       if (input.name !== undefined) record.name = input.name;
-      if (input.identifier !== undefined) record.identifier = input.identifier;
-      if (input.displayFingerprint !== undefined) {
-        record.displayFingerprint = input.displayFingerprint;
+      if (input.slug !== undefined) record.slug = input.slug;
+      if (input.fingerprint !== undefined) {
+        record.fingerprint = input.fingerprint;
       }
       if (input.location !== undefined) record.location = input.location;
       if (input.ipAddress !== undefined) record.ipAddress = input.ipAddress;
@@ -279,7 +260,7 @@ const makeApp = async (
       if (input.screenHeight !== undefined) {
         record.screenHeight = input.screenHeight;
       }
-      if (input.outputType !== undefined) record.outputType = input.outputType;
+      if (input.output !== undefined) record.output = input.output;
       if (input.orientation !== undefined)
         record.orientation = input.orientation;
       record.updatedAt = "2025-01-02T00:00:00.000Z";
@@ -779,7 +760,7 @@ describe("Displays routes", () => {
     const json = await parseJson<{
       data: Array<{
         id: string;
-        displaySlug: string;
+        slug: string;
         status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
         nowPlaying?: {
           playlist: string | null;
@@ -798,7 +779,7 @@ describe("Displays routes", () => {
 
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe(displayId);
-    expect(json.data[0]?.displaySlug).toBe("lobby-display");
+    expect(json.data[0]?.slug).toBe("lobby-display");
     expect(json.data[0]?.nowPlaying?.playlist).toBe("Morning");
     expect(json.meta.total).toBe(1);
     expect(json.meta.page).toBe(1);
@@ -817,10 +798,10 @@ describe("Displays routes", () => {
 
     expect(response.status).toBe(200);
     const json = await parseJson<{
-      data: { id: string; displaySlug: string };
+      data: { id: string; slug: string };
     }>(response);
     expect(json.data.id).toBe(displayId);
-    expect(json.data.displaySlug).toBe("lobby-display");
+    expect(json.data.slug).toBe("lobby-display");
   });
 
   test("PATCH /displays/:id updates display with displays:update permission", async () => {

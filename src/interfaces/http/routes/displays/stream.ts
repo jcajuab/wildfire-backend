@@ -190,7 +190,7 @@ const emitDisplayStreamEventLocally = (event: DisplayStreamEvent): void => {
     {
       component: "displays",
       event: "display-stream.event_emitted",
-      route: "/display-runtime/:displaySlug/stream",
+      route: "/display-runtime/:slug/stream",
       displayId: event.displayId,
       eventType: event.type,
       subscriberCount: subscribers.size,
@@ -362,7 +362,7 @@ export const subscribeToDisplayStream = (
     {
       component: "displays",
       event: "display-stream.subscriber.connected",
-      route: "/display-runtime/:displaySlug/stream",
+      route: "/display-runtime/:slug/stream",
       displayId,
       subscriberCount: subscribers.size,
     },
@@ -379,7 +379,7 @@ export const subscribeToDisplayStream = (
         {
           component: "displays",
           event: "display-stream.subscriber.disconnected",
-          route: "/display-runtime/:displaySlug/stream",
+          route: "/display-runtime/:slug/stream",
           displayId,
           subscriberCount: 0,
         },
@@ -391,7 +391,7 @@ export const subscribeToDisplayStream = (
       {
         component: "displays",
         event: "display-stream.subscriber.disconnected",
-        route: "/display-runtime/:displaySlug/stream",
+        route: "/display-runtime/:slug/stream",
         displayId,
         subscriberCount: current.size,
       },

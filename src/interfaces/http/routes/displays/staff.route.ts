@@ -93,7 +93,7 @@ const registrationSessionBodySchema = z.object({
 
 const displayRegistrationBodySchema = z.object({
   registrationSessionId: z.string().uuid(),
-  displaySlug: z
+  slug: z
     .string()
     .min(3)
     .max(120)
@@ -101,8 +101,8 @@ const displayRegistrationBodySchema = z.object({
   displayName: z.string().min(1).max(255),
   resolutionWidth: z.number().int().positive(),
   resolutionHeight: z.number().int().positive(),
-  displayOutput: z.string().min(1).max(64),
-  displayFingerprint: z.string().min(16).max(255),
+  output: z.string().min(1).max(64),
+  fingerprint: z.string().min(16).max(255),
   publicKey: z.string().min(1).max(4096),
   keyAlgorithm: z.literal("ed25519"),
   registrationSignature: z.string().min(1),
@@ -147,18 +147,18 @@ const verifyEd25519Signature = (input: {
 const buildRegistrationPayload = (input: {
   registrationSessionId: string;
   challengeNonce: string;
-  displaySlug: string;
-  displayOutput: string;
-  displayFingerprint: string;
+  slug: string;
+  output: string;
+  fingerprint: string;
   publicKey: string;
 }): string =>
   [
     "REGISTRATION",
     input.registrationSessionId,
     input.challengeNonce,
-    input.displaySlug,
-    input.displayOutput,
-    input.displayFingerprint,
+    input.slug,
+    input.output,
+    input.fingerprint,
     input.publicKey,
   ].join("\n");
 
@@ -599,7 +599,7 @@ export const registerDisplayStaffRoutes = (args: {
             expiresAt: session.challengeExpiresAt,
             challengeNonce: session.challengeNonce,
             constraints: {
-              displaySlugPattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              slugPattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
               minSlugLength: 3,
               maxSlugLength: 120,
             },
@@ -637,9 +637,9 @@ export const registerDisplayStaffRoutes = (args: {
         const registrationPayload = buildRegistrationPayload({
           registrationSessionId: session.id,
           challengeNonce: session.challengeNonce,
-          displaySlug: payload.displaySlug,
-          displayOutput: payload.displayOutput,
-          displayFingerprint: payload.displayFingerprint,
+          slug: payload.slug,
+          output: payload.output,
+          fingerprint: payload.fingerprint,
           publicKey: payload.publicKey,
         });
 
@@ -652,15 +652,15 @@ export const registerDisplayStaffRoutes = (args: {
           throw new ValidationError("Registration signature is invalid");
         }
 
-        const normalizedOutput = payload.displayOutput.trim().toLowerCase();
+        const normalizedOutput = payload.output.trim().toLowerCase();
         if (normalizedOutput.length === 0) {
           throw new ValidationError("Display output is required");
         }
 
         const [existingSlug, existingFingerprintOutput] = await Promise.all([
-          deps.repositories.displayRepository.findBySlug(payload.displaySlug),
+          deps.repositories.displayRepository.findBySlug(payload.slug),
           deps.repositories.displayRepository.findByFingerprintAndOutput(
-            payload.displayFingerprint,
+            payload.fingerprint,
             normalizedOutput,
           ),
         ]);
@@ -668,7 +668,7 @@ export const registerDisplayStaffRoutes = (args: {
         if (
           existingSlug ||
           existingFingerprintOutput ||
-          payload.displaySlug.trim().length === 0
+          payload.slug.trim().length === 0
         ) {
           throw new DisplayConflictError(
             "Display slug or fingerprint/output already exists",
@@ -688,17 +688,17 @@ export const registerDisplayStaffRoutes = (args: {
 
         let registered: {
           displayId: string;
-          displaySlug: string;
+          slug: string;
           keyId: string;
           state: "registered";
         } | null = null;
         try {
           const createdDisplay =
             await deps.repositories.displayRepository.createRegisteredDisplay({
-              displaySlug: payload.displaySlug,
+              slug: payload.slug,
               name: payload.displayName,
-              displayFingerprint: payload.displayFingerprint,
-              displayOutput: normalizedOutput,
+              fingerprint: payload.fingerprint,
+              output: normalizedOutput,
               screenWidth: payload.resolutionWidth,
               screenHeight: payload.resolutionHeight,
               now,
@@ -720,13 +720,13 @@ export const registerDisplayStaffRoutes = (args: {
 
           registered = {
             displayId: createdDisplay.id,
-            displaySlug: createdDisplay.displaySlug,
+            slug: createdDisplay.slug,
             keyId: createdKey.id,
             state: "registered",
           };
         } catch (error) {
           if (
-            isDuplicateIndexError(error, "displays_display_slug_unique") ||
+            isDuplicateIndexError(error, "displays_slug_unique") ||
             isDuplicateIndexError(
               error,
               "displays_fingerprint_output_unique",
@@ -753,14 +753,14 @@ export const registerDisplayStaffRoutes = (args: {
             type: "registration_succeeded",
             attemptId,
             displayId: registered.displayId,
-            displaySlug: registered.displaySlug,
+            slug: registered.slug,
             occurredAt: new Date().toISOString(),
           });
         }
         publishAdminDisplayLifecycleEvent({
           type: "display_registered",
           displayId: registered.displayId,
-          displaySlug: registered.displaySlug,
+          slug: registered.slug,
           occurredAt: new Date().toISOString(),
         });
 
@@ -1140,7 +1140,7 @@ export const registerDisplayStaffRoutes = (args: {
           macAddress: payload.macAddress,
           screenWidth: payload.screenWidth,
           screenHeight: payload.screenHeight,
-          outputType: payload.outputType,
+          output: payload.output,
           orientation: payload.orientation,
           emergencyContentId: payload.emergencyContentId,
         });

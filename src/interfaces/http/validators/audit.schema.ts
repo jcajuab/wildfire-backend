@@ -3,7 +3,7 @@ import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const auditActorTypeSchema = z.enum(["user", "display"]);
 
-export const auditEventSchema = z.object({
+export const auditLogSchema = z.object({
   id: z.string(),
   occurredAt: z.string(),
   requestId: z.string().nullable(),
@@ -23,7 +23,7 @@ export const auditEventSchema = z.object({
   actorEmail: z.string().nullable().optional(),
 });
 
-export const auditEventListQuerySchema = z.object({
+export const auditLogListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   from: z.string().datetime().optional(),
@@ -37,10 +37,9 @@ export const auditEventListQuerySchema = z.object({
   requestId: z.string().min(1).optional(),
 });
 
-export const auditEventExportQuerySchema = auditEventListQuerySchema.omit({
+export const auditLogExportQuerySchema = auditLogListQuerySchema.omit({
   page: true,
   pageSize: true,
 });
 
-export const auditEventListResponseSchema =
-  apiListResponseSchema(auditEventSchema);
+export const auditLogListResponseSchema = apiListResponseSchema(auditLogSchema);

@@ -53,7 +53,7 @@ describe("buildSeedStages", () => {
       "seed-demo-content-jobs",
       "seed-demo-playlists",
       "seed-demo-schedules",
-      "seed-demo-audit-events",
+      "seed-demo-audit-logs",
     ]);
   });
 });
@@ -62,7 +62,7 @@ describe("buildSeedCleanupStages", () => {
   test("builds cleanup stages in dependency-safe order", () => {
     const stages = buildSeedCleanupStages();
     expect(stages.map((stage) => stage.name)).toEqual([
-      "cleanup-demo-audit-events",
+      "cleanup-demo-audit-logs",
       "cleanup-demo-schedules",
       "cleanup-demo-playlists",
       "cleanup-demo-content",

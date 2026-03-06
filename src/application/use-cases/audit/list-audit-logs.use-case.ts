@@ -1,13 +1,13 @@
-import { type AuditEventRepository } from "#/application/ports/audit";
+import { type AuditLogRepository } from "#/application/ports/audit";
 import {
   buildPaginatedAuditQuery,
   normalizeAuditFilters,
 } from "./query-normalization";
 
-export class ListAuditEventsUseCase {
+export class ListAuditLogsUseCase {
   constructor(
     private readonly deps: {
-      auditEventRepository: AuditEventRepository;
+      auditLogRepository: AuditLogRepository;
     },
   ) {}
 
@@ -32,8 +32,8 @@ export class ListAuditEventsUseCase {
     });
 
     const [items, total] = await Promise.all([
-      this.deps.auditEventRepository.list(query),
-      this.deps.auditEventRepository.count(query),
+      this.deps.auditLogRepository.list(query),
+      this.deps.auditLogRepository.count(query),
     ]);
 
     return {
