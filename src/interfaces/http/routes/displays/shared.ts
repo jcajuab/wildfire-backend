@@ -18,10 +18,8 @@ import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
-  ActivateDisplayEmergencyUseCase,
   ActivateGlobalEmergencyUseCase,
   CreateDisplayGroupUseCase,
-  DeactivateDisplayEmergencyUseCase,
   DeactivateGlobalEmergencyUseCase,
   DeleteDisplayGroupUseCase,
   GetDisplayUseCase,
@@ -75,8 +73,6 @@ export interface DisplaysRouterUseCases {
   unregisterDisplay: UnregisterDisplayUseCase;
   activateGlobalEmergency: ActivateGlobalEmergencyUseCase;
   deactivateGlobalEmergency: DeactivateGlobalEmergencyUseCase;
-  activateDisplayEmergency: ActivateDisplayEmergencyUseCase;
-  deactivateDisplayEmergency: DeactivateDisplayEmergencyUseCase;
   getRuntimeOverrides: GetRuntimeOverridesUseCase;
 }
 
@@ -136,16 +132,6 @@ export const createDisplaysUseCases = (
     deactivateGlobalEmergency: new DeactivateGlobalEmergencyUseCase({
       displayRepository: deps.repositories.displayRepository,
       runtimeControlRepository: deps.repositories.runtimeControlRepository,
-      displayEventPublisher,
-    }),
-    activateDisplayEmergency: new ActivateDisplayEmergencyUseCase({
-      displayRepository: deps.repositories.displayRepository,
-      contentRepository: deps.repositories.contentRepository,
-      displayEventPublisher,
-      defaultEmergencyContentId: deps.defaultEmergencyContentId,
-    }),
-    deactivateDisplayEmergency: new DeactivateDisplayEmergencyUseCase({
-      displayRepository: deps.repositories.displayRepository,
       displayEventPublisher,
     }),
     getRuntimeOverrides: new GetRuntimeOverridesUseCase({

@@ -1,7 +1,5 @@
 export {
-  ActivateDisplayEmergencyUseCase,
   ActivateGlobalEmergencyUseCase,
-  DeactivateDisplayEmergencyUseCase,
   DeactivateGlobalEmergencyUseCase,
   DISPLAY_DOWN_TIMEOUT_MS,
   deriveDisplayStatus,

@@ -6,7 +6,6 @@ import {
 } from "#/application/ports/displays";
 import { db } from "#/infrastructure/db/client";
 import {
-  displayEmergencyStates,
   displayRuntimeStates,
   displays,
 } from "#/infrastructure/db/schema/displays.sql";
@@ -43,8 +42,6 @@ type DisplayRow = {
   runtimeLastSeenAt: Date | string | null;
   runtimeRefreshNonce: number | null;
   emergencyContentId: string | null;
-  localEmergencyActive: boolean | null;
-  localEmergencyStartedAt: Date | string | null;
 };
 
 const toIso = (value: Date | string): string =>
@@ -71,8 +68,6 @@ const toRecord = (row: DisplayRow): DisplayRecord => ({
   output: row.output,
   orientation: row.runtimeOrientation,
   emergencyContentId: row.emergencyContentId,
-  localEmergencyActive: row.localEmergencyActive ?? false,
-  localEmergencyStartedAt: toNullableIso(row.localEmergencyStartedAt),
   lastSeenAt: toNullableIso(row.runtimeLastSeenAt),
   refreshNonce: row.runtimeRefreshNonce ?? 0,
   createdAt: toIso(row.createdAt),
@@ -98,18 +93,12 @@ const withJoins = () =>
       runtimeOrientation: displayRuntimeStates.orientation,
       runtimeLastSeenAt: displayRuntimeStates.lastSeenAt,
       runtimeRefreshNonce: displayRuntimeStates.refreshNonce,
-      emergencyContentId: displayEmergencyStates.emergencyContentId,
-      localEmergencyActive: displayEmergencyStates.localEmergencyActive,
-      localEmergencyStartedAt: displayEmergencyStates.localEmergencyStartedAt,
+      emergencyContentId: displays.emergencyContentId,
     })
     .from(displays)
     .leftJoin(
       displayRuntimeStates,
       eq(displayRuntimeStates.displayId, displays.id),
-    )
-    .leftJoin(
-      displayEmergencyStates,
-      eq(displayEmergencyStates.displayId, displays.id),
     );
 
 const ensureRuntimeState = async (displayId: string, at: Date) => {
@@ -228,13 +217,6 @@ export class DisplayDbRepository implements DisplayRepository {
         createdAt: now,
         updatedAt: now,
       });
-
-      await tx.insert(displayEmergencyStates).values({
-        displayId: id,
-        localEmergencyActive: false,
-        createdAt: now,
-        updatedAt: now,
-      });
     });
 
     const created = await this.findById(id);
@@ -284,13 +266,6 @@ export class DisplayDbRepository implements DisplayRepository {
         createdAt: input.now,
         updatedAt: input.now,
       });
-
-      await tx.insert(displayEmergencyStates).values({
-        displayId: id,
-        localEmergencyActive: false,
-        createdAt: input.now,
-        updatedAt: input.now,
-      });
     });
 
     const created = await this.findById(id);
@@ -314,8 +289,6 @@ export class DisplayDbRepository implements DisplayRepository {
       output?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
       emergencyContentId?: string | null;
-      localEmergencyActive?: boolean;
-      localEmergencyStartedAt?: string | null;
     },
   ): Promise<DisplayRecord | null> {
     const existing = await this.findById(id);
@@ -390,39 +363,16 @@ export class DisplayDbRepository implements DisplayRepository {
           set: runtimePatch,
         });
 
-      const emergencyPatch = {
-        emergencyContentId:
-          input.emergencyContentId !== undefined
-            ? input.emergencyContentId
-            : (existing.emergencyContentId ?? null),
-        localEmergencyActive:
-          input.localEmergencyActive !== undefined
-            ? input.localEmergencyActive
-            : (existing.localEmergencyActive ?? false),
-        localEmergencyStartedAt:
-          input.localEmergencyStartedAt !== undefined
-            ? input.localEmergencyStartedAt != null
-              ? new Date(input.localEmergencyStartedAt)
-              : null
-            : existing.localEmergencyStartedAt
-              ? new Date(existing.localEmergencyStartedAt)
-              : null,
-        updatedAt: now,
-      };
-
       await tx
-        .insert(displayEmergencyStates)
-        .values({
-          displayId: id,
-          emergencyContentId: emergencyPatch.emergencyContentId,
-          localEmergencyActive: emergencyPatch.localEmergencyActive,
-          localEmergencyStartedAt: emergencyPatch.localEmergencyStartedAt,
-          createdAt: now,
+        .update(displays)
+        .set({
+          emergencyContentId:
+            input.emergencyContentId !== undefined
+              ? input.emergencyContentId
+              : (existing.emergencyContentId ?? null),
           updatedAt: now,
         })
-        .onDuplicateKeyUpdate({
-          set: emergencyPatch,
-        });
+        .where(eq(displays.id, id));
     });
 
     return this.findById(id);

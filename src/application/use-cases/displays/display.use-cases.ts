@@ -120,8 +120,6 @@ function withTelemetry(display: DisplayRecord) {
     output: display.output ?? null,
     orientation: display.orientation ?? null,
     emergencyContentId: display.emergencyContentId ?? null,
-    localEmergencyActive: display.localEmergencyActive ?? false,
-    localEmergencyStartedAt: display.localEmergencyStartedAt ?? null,
     lastSeenAt,
     status: display.status,
   } as const;
@@ -506,74 +504,6 @@ export class DeactivateGlobalEmergencyUseCase {
         timestamp: now.toISOString(),
       });
     }
-  }
-}
-
-export class ActivateDisplayEmergencyUseCase {
-  constructor(
-    private readonly deps: {
-      displayRepository: DisplayRepository;
-      contentRepository: ContentRepository;
-      displayEventPublisher?: DisplayStreamEventPublisher;
-      defaultEmergencyContentId?: string;
-    },
-  ) {}
-
-  async execute(input: { displayId: string; reason?: string }): Promise<void> {
-    const now = new Date();
-    const display = await this.deps.displayRepository.findById(input.displayId);
-    if (!display) {
-      throw new NotFoundError("Display not found");
-    }
-
-    const assetId = pickDisplayEmergencyAssetId({
-      display,
-      defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
-    });
-    if (!assetId) {
-      throw new ValidationError("No emergency asset is configured for display");
-    }
-    const asset = await this.deps.contentRepository.findById(assetId);
-    if (!asset || !isRenderableEmergencyAsset(asset)) {
-      throw new ValidationError("Configured emergency asset is invalid");
-    }
-
-    await this.deps.displayRepository.update(input.displayId, {
-      localEmergencyActive: true,
-      localEmergencyStartedAt: now.toISOString(),
-    });
-    this.deps.displayEventPublisher?.publish({
-      type: "manifest_updated",
-      displayId: input.displayId,
-      reason: input.reason ?? "display_emergency_activated",
-      timestamp: now.toISOString(),
-    });
-  }
-}
-
-export class DeactivateDisplayEmergencyUseCase {
-  constructor(
-    private readonly deps: {
-      displayRepository: DisplayRepository;
-      displayEventPublisher?: DisplayStreamEventPublisher;
-    },
-  ) {}
-
-  async execute(input: { displayId: string; reason?: string }): Promise<void> {
-    const now = new Date();
-    const updated = await this.deps.displayRepository.update(input.displayId, {
-      localEmergencyActive: false,
-      localEmergencyStartedAt: null,
-    });
-    if (!updated) {
-      throw new NotFoundError("Display not found");
-    }
-    this.deps.displayEventPublisher?.publish({
-      type: "manifest_updated",
-      displayId: input.displayId,
-      reason: input.reason ?? "display_emergency_deactivated",
-      timestamp: now.toISOString(),
-    });
   }
 }
 
@@ -980,8 +910,7 @@ export class GetDisplayManifestUseCase {
     globalEmergencyActive: boolean;
     globalEmergencyStartedAt: string | null;
   }): Promise<ManifestPlaybackState["emergency"]> {
-    const localEmergencyActive = input.display.localEmergencyActive ?? false;
-    if (!input.globalEmergencyActive && !localEmergencyActive) {
+    if (!input.globalEmergencyActive) {
       return null;
     }
 
@@ -1003,14 +932,10 @@ export class GetDisplayManifestUseCase {
       expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
     });
 
-    const startedAt = input.globalEmergencyActive
-      ? input.globalEmergencyStartedAt
-      : (input.display.localEmergencyStartedAt ?? null);
-
     return {
       source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
-      startedAt,
-      isGlobal: input.globalEmergencyActive,
+      startedAt: input.globalEmergencyStartedAt,
+      isGlobal: true,
       content: {
         id: emergencyAsset.id,
         type: emergencyAsset.type,

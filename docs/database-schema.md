@@ -28,7 +28,6 @@ Every table follows this order:
 
 - `displays`: identity + registration uniqueness
 - `display_runtime_states`: mutable runtime telemetry/state
-- `display_emergency_states`: emergency override state
 
 ### Display Keys
 

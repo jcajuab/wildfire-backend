@@ -1,5 +1,4 @@
 import {
-  boolean,
   index,
   int,
   mysqlEnum,
@@ -20,12 +19,18 @@ export const displays = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     fingerprint: varchar("fingerprint", { length: 255 }),
     output: varchar("output", { length: 64 }).notNull().default("unknown"),
+    emergencyContentId: varchar("emergency_content_id", {
+      length: 36,
+    }).references(() => content.id, { onDelete: "set null" }),
     location: varchar("location", { length: 255 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
     slugUnique: uniqueIndex("displays_slug_unique").on(table.slug),
+    emergencyContentIdIndex: index("displays_emergency_content_id_idx").on(
+      table.emergencyContentId,
+    ),
     fingerprintOutputUnique: uniqueIndex(
       "displays_fingerprint_output_unique",
     ).on(table.fingerprint, table.output),
@@ -60,29 +65,6 @@ export const displayRuntimeStates = mysqlTable(
     updatedAtIndex: index("display_runtime_states_updated_at_idx").on(
       table.updatedAt,
     ),
-  }),
-);
-
-export const displayEmergencyStates = mysqlTable(
-  "display_emergency_states",
-  {
-    displayId: varchar("display_id", { length: 36 })
-      .primaryKey()
-      .references(() => displays.id, { onDelete: "cascade" }),
-    emergencyContentId: varchar("emergency_content_id", {
-      length: 36,
-    }).references(() => content.id, { onDelete: "set null" }),
-    localEmergencyActive: boolean("local_emergency_active")
-      .notNull()
-      .default(false),
-    localEmergencyStartedAt: timestamp("local_emergency_started_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (table) => ({
-    emergencyContentIdIndex: index(
-      "display_emergency_states_emergency_content_id_idx",
-    ).on(table.emergencyContentId),
   }),
 );
 

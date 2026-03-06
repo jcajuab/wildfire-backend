@@ -15,8 +15,6 @@ export const displaySchema = z.object({
   output: z.string().nullable(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
   emergencyContentId: z.string().uuid().nullable().optional(),
-  localEmergencyActive: z.boolean().optional(),
-  localEmergencyStartedAt: z.string().nullable().optional(),
   lastSeenAt: z.string().nullable(),
   status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]),
   nowPlaying: z
