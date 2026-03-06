@@ -7,6 +7,7 @@ import {
   executeRedisCommand,
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
+import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 
 const pairingSessionPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-session`;
 
@@ -161,10 +162,12 @@ export class DisplayPairingSessionRedisRepository
   }): Promise<DisplayPairingSessionRecord | null> {
     const redis = await getRedisCommandClient();
     const stored = parseStoredPairingSession(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        pairingSessionKey(input.id),
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, [
+          "HGETALL",
+          pairingSessionKey(input.id),
+        ]),
+      ),
     );
 
     if (!stored) {
@@ -185,10 +188,9 @@ export class DisplayPairingSessionRedisRepository
     const redis = await getRedisCommandClient();
     const key = pairingSessionKey(id);
     const stored = parseStoredPairingSession(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        key,
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, ["HGETALL", key]),
+      ),
     );
 
     if (!stored) {

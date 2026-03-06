@@ -7,6 +7,7 @@ import {
   executeRedisCommand,
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
+import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 
 const pairingCodePrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code`;
 const pairingCodeLookupPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code-lookup`;
@@ -166,10 +167,9 @@ export class DisplayPairingCodeRedisRepository
 
     const key = pairingCodeKey(consumedId);
     const stored = parseStoredPairingCode(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        key,
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, ["HGETALL", key]),
+      ),
     );
     if (!stored) {
       return null;
@@ -200,10 +200,9 @@ export class DisplayPairingCodeRedisRepository
     const redis = await getRedisCommandClient();
     const key = pairingCodeKey(input.id);
     const stored = parseStoredPairingCode(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        key,
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, ["HGETALL", key]),
+      ),
     );
 
     if (!stored) {

@@ -4,6 +4,7 @@ import {
   executeRedisCommand,
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
+import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 
 const invitationPrefix = `${env.REDIS_KEY_PREFIX}:invitation`;
 const invitationCreatedIndexKey = `${invitationPrefix}:index:created`;
@@ -158,10 +159,12 @@ export class InvitationRedisRepository implements InvitationRepository {
     }
 
     const stored = parseStoredInvitation(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        invitationHashKey(invitationId),
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, [
+          "HGETALL",
+          invitationHashKey(invitationId),
+        ]),
+      ),
     );
     if (!stored) {
       await executeRedisCommand<number>(redis, [
@@ -191,10 +194,12 @@ export class InvitationRedisRepository implements InvitationRepository {
   }): Promise<{ id: string; email: string; name: string | null } | null> {
     const redis = await getRedisCommandClient();
     const stored = parseStoredInvitation(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        invitationHashKey(input.id),
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, [
+          "HGETALL",
+          invitationHashKey(input.id),
+        ]),
+      ),
     );
     if (!stored) {
       return null;
@@ -242,10 +247,12 @@ export class InvitationRedisRepository implements InvitationRepository {
 
     for (const invitationId of invitationIds) {
       const stored = parseStoredInvitation(
-        await executeRedisCommand<Record<string, string>>(redis, [
-          "HGETALL",
-          invitationHashKey(invitationId),
-        ]),
+        normalizeRedisHash(
+          await executeRedisCommand<unknown>(redis, [
+            "HGETALL",
+            invitationHashKey(invitationId),
+          ]),
+        ),
       );
       if (!stored) {
         continue;
@@ -278,10 +285,9 @@ export class InvitationRedisRepository implements InvitationRepository {
     for (const invitationId of invitationIds) {
       const hashKey = invitationHashKey(invitationId);
       const stored = parseStoredInvitation(
-        await executeRedisCommand<Record<string, string>>(redis, [
-          "HGETALL",
-          hashKey,
-        ]),
+        normalizeRedisHash(
+          await executeRedisCommand<unknown>(redis, ["HGETALL", hashKey]),
+        ),
       );
       if (!stored || !isActiveInvitation(stored, nowMs)) {
         continue;
@@ -307,10 +313,9 @@ export class InvitationRedisRepository implements InvitationRepository {
     const acceptedAtMs = acceptedAt.getTime();
     const hashKey = invitationHashKey(id);
     const stored = parseStoredInvitation(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        hashKey,
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, ["HGETALL", hashKey]),
+      ),
     );
 
     if (!stored) {
@@ -350,10 +355,9 @@ export class InvitationRedisRepository implements InvitationRepository {
     for (const invitationId of expiredIds) {
       const hashKey = invitationHashKey(invitationId);
       const stored = parseStoredInvitation(
-        await executeRedisCommand<Record<string, string>>(redis, [
-          "HGETALL",
-          hashKey,
-        ]),
+        normalizeRedisHash(
+          await executeRedisCommand<unknown>(redis, ["HGETALL", hashKey]),
+        ),
       );
 
       await executeRedisCommand<number>(redis, ["DEL", hashKey]);

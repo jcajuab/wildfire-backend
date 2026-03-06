@@ -5,6 +5,7 @@ import {
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
 import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
+import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 
 export interface RegistrationAttemptCode {
   code: string;
@@ -483,10 +484,12 @@ export class RedisDisplayRegistrationAttemptStore
   }): Promise<boolean> {
     const redis = await getRedisCommandClient();
     const attempt = parseRegistrationAttempt(
-      await executeRedisCommand<Record<string, string>>(redis, [
-        "HGETALL",
-        attemptKey(input.attemptId),
-      ]),
+      normalizeRedisHash(
+        await executeRedisCommand<unknown>(redis, [
+          "HGETALL",
+          attemptKey(input.attemptId),
+        ]),
+      ),
     );
     return attempt?.createdById === input.createdById;
   }
