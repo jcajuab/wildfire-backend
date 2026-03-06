@@ -64,6 +64,7 @@ interface ManifestRenderableContent {
   type: ManifestRenderableType;
   checksum: string;
   downloadUrl: string;
+  thumbnailUrl: string | null;
   mimeType: string;
   width: number | null;
   height: number | null;
@@ -865,6 +866,18 @@ export class GetDisplayManifestUseCase {
             key: item.content.fileKey,
             expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
           });
+        const parentContent =
+          item.content.kind === "PAGE" && item.content.parentContentId
+            ? contentsById.get(item.content.parentContentId)
+            : null;
+        const thumbnailKey =
+          item.content.thumbnailKey ?? parentContent?.thumbnailKey ?? null;
+        const thumbnailUrl = thumbnailKey
+          ? await this.deps.contentStorage.getPresignedDownloadUrl({
+              key: thumbnailKey,
+              expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+            })
+          : null;
 
         return {
           id: item.id,
@@ -875,6 +888,7 @@ export class GetDisplayManifestUseCase {
             type: item.content.type,
             checksum: item.content.checksum,
             downloadUrl,
+            thumbnailUrl,
             mimeType: item.content.mimeType,
             width: item.content.width,
             height: item.content.height,
@@ -957,6 +971,12 @@ export class GetDisplayManifestUseCase {
       key: emergencyAsset.fileKey,
       expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
     });
+    const thumbnailUrl = emergencyAsset.thumbnailKey
+      ? await this.deps.contentStorage.getPresignedDownloadUrl({
+          key: emergencyAsset.thumbnailKey,
+          expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+        })
+      : null;
 
     return {
       source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
@@ -967,6 +987,7 @@ export class GetDisplayManifestUseCase {
         type: emergencyAsset.type,
         checksum: emergencyAsset.checksum,
         downloadUrl,
+        thumbnailUrl,
         mimeType: emergencyAsset.mimeType,
         width: emergencyAsset.width,
         height: emergencyAsset.height,

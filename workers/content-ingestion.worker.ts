@@ -36,6 +36,10 @@ const THUMBNAIL_RETRY_DELAY_MS = 500;
 
 let isShuttingDown = false;
 
+const isReadTimeoutError = (error: unknown): boolean =>
+  error instanceof Error &&
+  error.message.startsWith("content ingestion stream read timed out after");
+
 const parseStreamEntries = (reply: unknown): StreamEntry[] => {
   if (!Array.isArray(reply)) {
     return [];
@@ -118,6 +122,9 @@ const readStreamEntriesWithRetry = async (): Promise<StreamEntry[]> => {
       );
       return parseStreamEntries(reply);
     } catch (error) {
+      if (isReadTimeoutError(error)) {
+        return [];
+      }
       lastError = error;
       if (isShuttingDown || attempt >= maxAttempts) {
         break;
