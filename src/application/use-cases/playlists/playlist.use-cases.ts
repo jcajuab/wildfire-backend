@@ -8,7 +8,10 @@ import {
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { splitPdfDocumentDurationAcrossPages } from "#/application/use-cases/shared/pdf-duration";
+import {
+  computePlaylistEffectiveDuration,
+  DEFAULT_SCROLL_PX_PER_SECOND,
+} from "#/application/use-cases/shared/playlist-effective-duration";
 import {
   isValidDuration,
   isValidSequence,
@@ -45,8 +48,6 @@ const publishPlaylistUpdateEvents = async (
   }
 };
 
-const DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
-
 const parseTimeToSeconds = (value: string): number => {
   const [hourRaw, minuteRaw] = value.split(":");
   const hour = Number.parseInt(hourRaw ?? "", 10);
@@ -74,81 +75,17 @@ const computeRequiredMinDurationSeconds = async (input: {
   scrollPxPerSecond: number;
 }) => {
   const items = await input.playlistRepository.listItems(input.playlistId);
-  if (items.length === 0) return 0;
-  const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
-  const contents = await input.contentRepository.findByIds(contentIds);
-  const contentById = new Map(contents.map((content) => [content.id, content]));
-  const parentPdfIds = contents
-    .filter((content) => content.kind === "ROOT" && content.type === "PDF")
-    .map((content) => content.id);
-  const childPagesByParentId = new Map<string, typeof contents>();
-  if (
-    parentPdfIds.length > 0 &&
-    input.contentRepository.findChildrenByParentIds
-  ) {
-    const childPages = await input.contentRepository.findChildrenByParentIds(
-      parentPdfIds,
-      {
-        includeExcluded: false,
-        onlyReady: true,
-      },
-    );
-    for (const childPage of childPages) {
-      if (!childPage.parentContentId) {
-        continue;
-      }
-      const current = childPagesByParentId.get(childPage.parentContentId) ?? [];
-      childPagesByParentId.set(childPage.parentContentId, [
-        ...current,
-        childPage,
-      ]);
-    }
-  }
-  let baseDuration = 0;
-  let overflowExtra = 0;
-  for (const item of items) {
-    const content = contentById.get(item.contentId);
-    if (!content) continue;
-    if (content.kind === "ROOT" && content.type === "PDF") {
-      const childPages = childPagesByParentId.get(content.id) ?? [];
-      const pages = childPages.length > 0 ? childPages : [content];
-      const pageDurations = splitPdfDocumentDurationAcrossPages({
-        totalDurationSeconds: item.duration,
-        pageCount: pages.length,
-      });
-      baseDuration += pageDurations.reduce(
-        (sum, duration) => sum + duration,
-        0,
-      );
-      for (const page of pages) {
-        if (
-          page.width !== null &&
-          page.height !== null &&
-          page.width > 0 &&
-          page.height > 0
-        ) {
-          const scaledHeight = (input.displayWidth / page.width) * page.height;
-          const overflow = Math.max(0, scaledHeight - input.displayHeight);
-          overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
-        }
-      }
-      continue;
-    }
-    baseDuration += item.duration;
-    if (
-      (content.type === "IMAGE" || content.type === "PDF") &&
-      content.width !== null &&
-      content.height !== null &&
-      content.width > 0 &&
-      content.height > 0
-    ) {
-      const scaledHeight =
-        (input.displayWidth / content.width) * content.height;
-      const overflow = Math.max(0, scaledHeight - input.displayHeight);
-      overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
-    }
-  }
-  return baseDuration + overflowExtra;
+  const result = await computePlaylistEffectiveDuration({
+    items: items.map((item) => ({
+      contentId: item.contentId,
+      duration: item.duration,
+    })),
+    contentRepository: input.contentRepository,
+    displayWidth: input.displayWidth,
+    displayHeight: input.displayHeight,
+    defaultScrollPxPerSecond: input.scrollPxPerSecond,
+  });
+  return result.effectiveDurationSeconds;
 };
 
 const invalidateImpactedSchedules = async (
@@ -164,7 +101,7 @@ const invalidateImpactedSchedules = async (
   if (!deps.scheduleRepository || !deps.displayRepository) {
     return;
   }
-  const scrollPxPerSecond = DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
+  const scrollPxPerSecond = DEFAULT_SCROLL_PX_PER_SECOND;
   const schedules = await deps.scheduleRepository.list();
   const impacted = schedules.filter(
     (schedule) => schedule.playlistId === playlistId && schedule.isActive,
@@ -221,6 +158,59 @@ const runPlaylistPostMutationEffects = async (
     invalidateImpactedSchedules(deps, playlistId),
   ]);
 };
+
+export class EstimatePlaylistDurationUseCase {
+  constructor(
+    private readonly deps: {
+      contentRepository: ContentRepository;
+      displayRepository: DisplayRepository;
+    },
+  ) {}
+
+  async execute(input: {
+    displayId: string;
+    items: readonly {
+      contentId: string;
+      duration: number;
+      sequence: number;
+    }[];
+  }) {
+    const display = await this.deps.displayRepository.findById(input.displayId);
+    if (!display) {
+      throw new NotFoundError("Display not found");
+    }
+    if (
+      typeof display.screenWidth !== "number" ||
+      typeof display.screenHeight !== "number"
+    ) {
+      throw new ValidationError("Display resolution is required");
+    }
+
+    for (const item of input.items) {
+      if (!isValidSequence(item.sequence)) {
+        throw new ValidationError("Invalid sequence");
+      }
+      if (!isValidDuration(item.duration)) {
+        throw new ValidationError("Invalid duration");
+      }
+    }
+
+    const result = await computePlaylistEffectiveDuration({
+      items: [...input.items]
+        .sort((left, right) => left.sequence - right.sequence)
+        .map((item) => ({
+          contentId: item.contentId,
+          duration: item.duration,
+        })),
+      contentRepository: this.deps.contentRepository,
+      displayWidth: display.screenWidth,
+      displayHeight: display.screenHeight,
+      defaultScrollPxPerSecond: DEFAULT_SCROLL_PX_PER_SECOND,
+    });
+
+    return result;
+  }
+}
 
 export class ListPlaylistsUseCase {
   constructor(

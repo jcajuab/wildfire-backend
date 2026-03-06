@@ -13,6 +13,7 @@ import {
   CreatePlaylistUseCase,
   DeletePlaylistItemUseCase,
   DeletePlaylistUseCase,
+  EstimatePlaylistDurationUseCase,
   GetPlaylistUseCase,
   ListPlaylistsUseCase,
   ReorderPlaylistItemsUseCase,
@@ -42,6 +43,7 @@ export interface PlaylistsRouterUseCases {
   getPlaylist: GetPlaylistUseCase;
   updatePlaylist: UpdatePlaylistUseCase;
   deletePlaylist: DeletePlaylistUseCase;
+  estimatePlaylistDuration: EstimatePlaylistDurationUseCase;
   addPlaylistItem: AddPlaylistItemUseCase;
   updatePlaylistItem: UpdatePlaylistItemUseCase;
   reorderPlaylistItems: ReorderPlaylistItemsUseCase;
@@ -104,6 +106,10 @@ export const createPlaylistsUseCases = (
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,
+      displayRepository: deps.repositories.displayRepository,
+    }),
+    estimatePlaylistDuration: new EstimatePlaylistDurationUseCase({
+      contentRepository: deps.repositories.contentRepository,
       displayRepository: deps.repositories.displayRepository,
     }),
     addPlaylistItem: new AddPlaylistItemUseCase({

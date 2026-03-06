@@ -65,6 +65,7 @@ export const contentAssets = mysqlTable(
     width: int("width"),
     height: int("height"),
     duration: int("duration"),
+    scrollPxPerSecond: int("scroll_px_per_second"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

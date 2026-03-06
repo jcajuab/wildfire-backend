@@ -79,6 +79,7 @@ export class CreateFlashContentUseCase {
       width: null,
       height: null,
       duration: null,
+      scrollPxPerSecond: null,
       flashMessage: message,
       flashTone: input.tone,
       createdById: input.createdById,

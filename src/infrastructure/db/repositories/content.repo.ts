@@ -48,6 +48,7 @@ type ContentRow = {
   width: number | null;
   height: number | null;
   duration: number | null;
+  scrollPxPerSecond: number | null;
   flashMessage: string | null;
   flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
 };
@@ -74,6 +75,7 @@ const baseQuery = () =>
       width: contentAssets.width,
       height: contentAssets.height,
       duration: contentAssets.duration,
+      scrollPxPerSecond: contentAssets.scrollPxPerSecond,
       flashMessage: contentFlashMessages.message,
       flashTone: contentFlashMessages.tone,
     })
@@ -125,6 +127,7 @@ const toRecord = (row: ContentRow): ContentRecord => {
     width: row.width,
     height: row.height,
     duration: row.duration,
+    scrollPxPerSecond: row.scrollPxPerSecond,
     flashMessage: row.flashMessage,
     flashTone: row.flashTone,
     createdById: row.createdById,
@@ -167,6 +170,7 @@ export class ContentDbRepository implements ContentRepository {
         width: input.width,
         height: input.height,
         duration: input.duration,
+        scrollPxPerSecond: input.scrollPxPerSecond,
         createdAt: now,
         updatedAt: now,
       });
@@ -319,6 +323,7 @@ export class ContentDbRepository implements ContentRepository {
         | "width"
         | "height"
         | "duration"
+        | "scrollPxPerSecond"
         | "flashMessage"
         | "flashTone"
         | "checksum"
@@ -348,6 +353,10 @@ export class ContentDbRepository implements ContentRepository {
       height: input.height !== undefined ? input.height : existing.height,
       duration:
         input.duration !== undefined ? input.duration : existing.duration,
+      scrollPxPerSecond:
+        input.scrollPxPerSecond !== undefined
+          ? input.scrollPxPerSecond
+          : existing.scrollPxPerSecond,
       flashMessage:
         input.flashMessage !== undefined
           ? input.flashMessage
@@ -386,6 +395,7 @@ export class ContentDbRepository implements ContentRepository {
           width: next.width,
           height: next.height,
           duration: next.duration,
+          scrollPxPerSecond: next.scrollPxPerSecond,
           createdAt: now,
           updatedAt: now,
         })
@@ -399,6 +409,7 @@ export class ContentDbRepository implements ContentRepository {
             width: next.width,
             height: next.height,
             duration: next.duration,
+            scrollPxPerSecond: next.scrollPxPerSecond,
             updatedAt: now,
           },
         });

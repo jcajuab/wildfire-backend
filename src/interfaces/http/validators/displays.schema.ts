@@ -219,6 +219,7 @@ export const displayManifestItemSchema = z.object({
     width: z.number().int().nullable(),
     height: z.number().int().nullable(),
     duration: z.number().int().nullable(),
+    scrollPxPerSecond: z.number().int().positive().nullable(),
   }),
 });
 
@@ -245,6 +246,7 @@ export const displayManifestSchema = z.object({
           width: z.number().int().nullable(),
           height: z.number().int().nullable(),
           duration: z.number().int().nullable(),
+          scrollPxPerSecond: z.number().int().positive().nullable(),
         }),
       })
       .nullable(),

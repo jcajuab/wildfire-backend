@@ -28,12 +28,14 @@ export class UpdateContentUseCase {
     status?: ContentStatus;
     flashMessage?: string;
     flashTone?: "INFO" | "WARNING" | "CRITICAL";
+    scrollPxPerSecond?: number | null;
   }) {
     if (
       input.title === undefined &&
       input.status === undefined &&
       input.flashMessage === undefined &&
-      input.flashTone === undefined
+      input.flashTone === undefined &&
+      input.scrollPxPerSecond === undefined
     ) {
       throw new ValidationError("At least one field must be provided");
     }
@@ -48,6 +50,20 @@ export class UpdateContentUseCase {
         throw new ValidationError(
           "Flash fields can only be updated on FLASH content",
         );
+      }
+    }
+    if (input.scrollPxPerSecond !== undefined) {
+      if (existing.type !== "IMAGE" && existing.type !== "PDF") {
+        throw new ValidationError(
+          "Scroll speed can only be updated on IMAGE or PDF content",
+        );
+      }
+      if (
+        input.scrollPxPerSecond !== null &&
+        (!Number.isInteger(input.scrollPxPerSecond) ||
+          input.scrollPxPerSecond <= 0)
+      ) {
+        throw new ValidationError("Scroll speed must be a positive integer");
       }
     }
 
@@ -87,6 +103,9 @@ export class UpdateContentUseCase {
       status: input.status,
       flashMessage,
       flashTone,
+      ...(input.scrollPxPerSecond !== undefined
+        ? { scrollPxPerSecond: input.scrollPxPerSecond }
+        : {}),
       checksum,
       fileSize,
     });

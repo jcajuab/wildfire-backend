@@ -15,6 +15,8 @@ import {
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
   createPlaylistSchema,
+  estimatePlaylistDurationSchema,
+  playlistDurationEstimateResponseSchema,
   playlistIdParamSchema,
   playlistListQuerySchema,
   playlistListResponseSchema,
@@ -80,6 +82,40 @@ export const registerPlaylistCrudRoutes = (args: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/duration-estimate",
+    setAction("playlists.playlist.estimate-duration", {
+      route: "/playlists/duration-estimate",
+      resourceType: "playlist",
+    }),
+    ...authorize("playlists:read"),
+    validateJson(estimatePlaylistDurationSchema),
+    describeRoute({
+      description: "Estimate playlist effective duration for a display",
+      tags: playlistTags,
+      responses: {
+        200: {
+          description: "Playlist duration estimate",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(playlistDurationEstimateResponseSchema),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const result = await useCases.estimatePlaylistDuration.execute(payload);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

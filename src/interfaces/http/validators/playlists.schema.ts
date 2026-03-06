@@ -79,3 +79,28 @@ export const updatePlaylistItemSchema = z.object({
 export const reorderPlaylistItemsSchema = z.object({
   orderedItemIds: z.array(z.string().uuid()).min(1),
 });
+
+export const estimatePlaylistDurationItemSchema = z.object({
+  contentId: z.string().uuid(),
+  duration: z.number().int().positive(),
+  sequence: z.number().int().positive(),
+});
+
+export const estimatePlaylistDurationSchema = z.object({
+  displayId: z.string().uuid(),
+  items: z.array(estimatePlaylistDurationItemSchema),
+});
+
+export const playlistDurationEstimateResponseSchema = z.object({
+  baseDurationSeconds: z.number().int().nonnegative(),
+  scrollExtraSeconds: z.number().int().nonnegative(),
+  effectiveDurationSeconds: z.number().int().nonnegative(),
+  items: z.array(
+    z.object({
+      contentId: z.string().uuid(),
+      baseDurationSeconds: z.number().int().nonnegative(),
+      scrollExtraSeconds: z.number().int().nonnegative(),
+      effectiveDurationSeconds: z.number().int().nonnegative(),
+    }),
+  ),
+});

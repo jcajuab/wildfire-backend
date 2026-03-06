@@ -68,6 +68,7 @@ interface ManifestRenderableContent {
   width: number | null;
   height: number | null;
   duration: number | null;
+  scrollPxPerSecond: number | null;
 }
 
 interface ManifestFlashState {
@@ -749,6 +750,22 @@ export class GetDisplayManifestUseCase {
     const contentsById = new Map(
       contents.map((content) => [content.id, content]),
     );
+    const missingParentIds = Array.from(
+      new Set(
+        contents
+          .filter(
+            (content) => content.kind === "PAGE" && content.parentContentId,
+          )
+          .map((content) => content.parentContentId as string),
+      ),
+    ).filter((id) => !contentsById.has(id));
+    if (missingParentIds.length > 0) {
+      const parentContents =
+        await this.deps.contentRepository.findByIds(missingParentIds);
+      for (const parentContent of parentContents) {
+        contentsById.set(parentContent.id, parentContent);
+      }
+    }
     const parentPdfContentIds = contents
       .filter((content) => content.kind === "ROOT" && content.type === "PDF")
       .map((content) => content.id);
@@ -862,6 +879,12 @@ export class GetDisplayManifestUseCase {
             width: item.content.width,
             height: item.content.height,
             duration: item.content.duration,
+            scrollPxPerSecond:
+              item.content.scrollPxPerSecond ??
+              (item.content.kind === "PAGE" && item.content.parentContentId
+                ? (contentsById.get(item.content.parentContentId)
+                    ?.scrollPxPerSecond ?? null)
+                : null),
           },
         };
       },
@@ -948,6 +971,7 @@ export class GetDisplayManifestUseCase {
         width: emergencyAsset.width,
         height: emergencyAsset.height,
         duration: emergencyAsset.duration,
+        scrollPxPerSecond: emergencyAsset.scrollPxPerSecond ?? null,
       },
     };
   }
@@ -964,6 +988,7 @@ export class GetDisplayManifestUseCase {
       content: {
         id: string;
         checksum: string;
+        scrollPxPerSecond?: number | null;
       };
     }>;
   }): Promise<string> {
@@ -998,6 +1023,7 @@ export class GetDisplayManifestUseCase {
         duration: item.duration,
         contentId: item.content.id,
         checksum: item.content.checksum,
+        scrollPxPerSecond: item.content.scrollPxPerSecond ?? null,
       })),
     });
     return sha256Hex(new TextEncoder().encode(versionPayload).buffer);

@@ -119,6 +119,7 @@ export const registerContentWriteRoutes = (args: {
           title: payload.title,
           file: payload.file,
           createdById: c.get("userId"),
+          scrollPxPerSecond: payload.scrollPxPerSecond,
         });
         c.set("resourceId", result.content.id);
         c.set("fileId", result.content.id);
@@ -256,6 +257,7 @@ export const registerContentWriteRoutes = (args: {
           title: body.title,
           flashMessage: body.flashMessage,
           flashTone: body.flashTone,
+          scrollPxPerSecond: body.scrollPxPerSecond,
         });
         return c.json(toApiResponse(result), 200);
       },

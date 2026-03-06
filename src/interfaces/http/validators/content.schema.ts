@@ -25,6 +25,7 @@ export const contentSchema = z.object({
   width: z.number().int().nullable(),
   height: z.number().int().nullable(),
   duration: z.number().int().nullable(),
+  scrollPxPerSecond: z.number().int().positive().nullable(),
   flashMessage: z.string().nullable(),
   flashTone: flashToneSchema.nullable(),
   createdAt: z.string(),
@@ -76,6 +77,7 @@ export const createFlashContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
 export const createUploadContentSchema = (maxBytes: number) =>
   z.object({
     title: z.string().min(1),
+    scrollPxPerSecond: z.coerce.number().int().positive().optional(),
     file: z
       .instanceof(File)
       .refine((file) => file.size > 0, "File is required")
@@ -108,12 +110,14 @@ export const updateContentSchema = z
     title: z.string().min(1).optional(),
     flashMessage: z.string().trim().min(1).max(240).optional(),
     flashTone: flashToneSchema.optional(),
+    scrollPxPerSecond: z.number().int().positive().nullable().optional(),
   })
   .refine(
     (value) =>
       value.title !== undefined ||
       value.flashMessage !== undefined ||
-      value.flashTone !== undefined,
+      value.flashTone !== undefined ||
+      value.scrollPxPerSecond !== undefined,
     "At least one field must be provided",
   );
 
@@ -126,6 +130,9 @@ export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
       type: "string",
       enum: ["INFO", "WARNING", "CRITICAL"],
     },
+    scrollPxPerSecond: {
+      oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }],
+    },
   },
   additionalProperties: false,
 };
@@ -134,6 +141,7 @@ export const contentUploadRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     title: { type: "string" },
+    scrollPxPerSecond: { type: "integer", minimum: 1 },
     file: { type: "string", format: "binary" },
   },
   required: ["title", "file"],

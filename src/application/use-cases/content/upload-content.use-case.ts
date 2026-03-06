@@ -32,7 +32,12 @@ export class UploadContentUseCase {
     },
   ) {}
 
-  async execute(input: { title: string; file: File; createdById: string }) {
+  async execute(input: {
+    title: string;
+    file: File;
+    createdById: string;
+    scrollPxPerSecond?: number;
+  }) {
     const contentIngestionJobRepository = this.deps
       .contentIngestionJobRepository ?? {
       create: async (jobInput: {
@@ -76,6 +81,7 @@ export class UploadContentUseCase {
     }
 
     const id = crypto.randomUUID();
+    const supportsScrollOverride = type === "IMAGE" || type === "PDF";
     const fileKey = buildContentFileKey({ id, type, mimeType });
     const buffer = await input.file.arrayBuffer();
     const checksum = await sha256Hex(buffer);
@@ -98,6 +104,9 @@ export class UploadContentUseCase {
       width: null,
       height: null,
       duration: null,
+      scrollPxPerSecond: supportsScrollOverride
+        ? (input.scrollPxPerSecond ?? null)
+        : null,
       createdById: user.id,
     });
 
