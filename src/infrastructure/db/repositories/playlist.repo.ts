@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { ValidationError } from "#/application/errors/validation";
 import {
+  type PlaylistItemAtomicWriteInput,
   type PlaylistItemRecord,
   type PlaylistRecord,
   type PlaylistRepository,
@@ -359,6 +360,84 @@ export class PlaylistDbRepository implements PlaylistRepository {
     });
 
     return true;
+  }
+
+  async replaceItemsAtomic(input: {
+    playlistId: string;
+    items: readonly PlaylistItemAtomicWriteInput[];
+  }): Promise<PlaylistItemRecord[]> {
+    const existing = await this.listItems(input.playlistId);
+    const existingById = new Map(existing.map((item) => [item.id, item]));
+    const existingIdsToKeep = new Set(
+      input.items
+        .filter(
+          (
+            item,
+          ): item is Extract<
+            PlaylistItemAtomicWriteInput,
+            { kind: "existing" }
+          > => item.kind === "existing",
+        )
+        .map((item) => item.itemId),
+    );
+
+    try {
+      await db.transaction(async (tx) => {
+        const idsToDelete = existing
+          .filter((item) => !existingIdsToKeep.has(item.id))
+          .map((item) => item.id);
+        if (idsToDelete.length > 0) {
+          await tx
+            .delete(playlistItems)
+            .where(inArray(playlistItems.id, idsToDelete));
+        }
+
+        const maxSequence = existing.reduce(
+          (current, item) => Math.max(current, item.sequence),
+          0,
+        );
+        const temporarySequenceBase =
+          maxSequence + input.items.length + existing.length + 1_000;
+        for (const [index, item] of input.items.entries()) {
+          if (item.kind !== "existing") {
+            continue;
+          }
+          if (!existingById.has(item.itemId)) {
+            continue;
+          }
+          await tx
+            .update(playlistItems)
+            .set({ sequence: temporarySequenceBase + index })
+            .where(eq(playlistItems.id, item.itemId));
+        }
+
+        for (const [index, item] of input.items.entries()) {
+          const sequence = index + 1;
+          if (item.kind === "existing") {
+            await tx
+              .update(playlistItems)
+              .set({
+                sequence,
+                duration: item.duration,
+              })
+              .where(eq(playlistItems.id, item.itemId));
+            continue;
+          }
+
+          await tx.insert(playlistItems).values({
+            id: crypto.randomUUID(),
+            playlistId: input.playlistId,
+            contentId: item.contentId,
+            sequence,
+            duration: item.duration,
+          });
+        }
+      });
+    } catch (error) {
+      throw mapPlaylistItemInsertError(error);
+    }
+
+    return this.listItems(input.playlistId);
   }
 
   async deleteItem(id: string): Promise<boolean> {

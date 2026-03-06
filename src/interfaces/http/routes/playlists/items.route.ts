@@ -16,6 +16,8 @@ import {
   playlistItemParamSchema,
   playlistItemSchema,
   reorderPlaylistItemsSchema,
+  replacePlaylistItemsAtomicResponseSchema,
+  replacePlaylistItemsAtomicSchema,
   updatePlaylistItemSchema,
 } from "#/interfaces/http/validators/playlists.schema";
 import {
@@ -117,6 +119,49 @@ export const registerPlaylistItemRoutes = (args: {
           duration: payload.duration,
         });
         return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.put(
+    "/:id/items",
+    setAction("playlists.item.replace", {
+      route: "/playlists/:id/items",
+      resourceType: "playlist-item",
+    }),
+    ...authorize("playlists:update"),
+    validateParams(playlistIdParamSchema),
+    validateJson(replacePlaylistItemsAtomicSchema),
+    describeRoute({
+      description: "Replace playlist items atomically",
+      tags: playlistTags,
+      responses: {
+        200: {
+          description: "Playlist items replaced",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(replacePlaylistItemsAtomicResponseSchema),
+              ),
+            },
+          },
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const payload = c.req.valid("json");
+        c.set("resourceId", params.id);
+        const result = await useCases.replacePlaylistItemsAtomic.execute({
+          playlistId: params.id,
+          items: payload.items,
+        });
+        return c.json(toApiResponse(result), 200);
       },
       ...applicationErrorMappers,
     ),

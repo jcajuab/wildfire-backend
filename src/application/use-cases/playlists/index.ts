@@ -8,6 +8,7 @@ export {
   GetPlaylistUseCase,
   ListPlaylistsUseCase,
   ReorderPlaylistItemsUseCase,
+  ReplacePlaylistItemsAtomicUseCase,
   UpdatePlaylistItemUseCase,
   UpdatePlaylistUseCase,
 } from "./playlist.use-cases";

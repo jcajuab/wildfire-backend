@@ -17,6 +17,7 @@ import {
   GetPlaylistUseCase,
   ListPlaylistsUseCase,
   ReorderPlaylistItemsUseCase,
+  ReplacePlaylistItemsAtomicUseCase,
   UpdatePlaylistItemUseCase,
   UpdatePlaylistUseCase,
 } from "#/application/use-cases/playlists";
@@ -46,6 +47,7 @@ export interface PlaylistsRouterUseCases {
   estimatePlaylistDuration: EstimatePlaylistDurationUseCase;
   addPlaylistItem: AddPlaylistItemUseCase;
   updatePlaylistItem: UpdatePlaylistItemUseCase;
+  replacePlaylistItemsAtomic: ReplacePlaylistItemsAtomicUseCase;
   reorderPlaylistItems: ReorderPlaylistItemsUseCase;
   deletePlaylistItem: DeletePlaylistItemUseCase;
 }
@@ -120,6 +122,13 @@ export const createPlaylistsUseCases = (
       displayEventPublisher,
     }),
     updatePlaylistItem: new UpdatePlaylistItemUseCase({
+      playlistRepository: deps.repositories.playlistRepository,
+      contentRepository: deps.repositories.contentRepository,
+      scheduleRepository: deps.repositories.scheduleRepository,
+      displayRepository: deps.repositories.displayRepository,
+      displayEventPublisher,
+    }),
+    replacePlaylistItemsAtomic: new ReplacePlaylistItemsAtomicUseCase({
       playlistRepository: deps.repositories.playlistRepository,
       contentRepository: deps.repositories.contentRepository,
       scheduleRepository: deps.repositories.scheduleRepository,

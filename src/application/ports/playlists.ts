@@ -18,6 +18,18 @@ export interface PlaylistItemRecord {
   duration: number;
 }
 
+export type PlaylistItemAtomicWriteInput =
+  | {
+      kind: "existing";
+      itemId: string;
+      duration: number;
+    }
+  | {
+      kind: "new";
+      contentId: string;
+      duration: number;
+    };
+
 export interface PlaylistRepository {
   list(): Promise<PlaylistRecord[]>;
   listPage(input: {
@@ -61,5 +73,9 @@ export interface PlaylistRepository {
     playlistId: string;
     orderedItemIds: readonly string[];
   }): Promise<boolean>;
+  replaceItemsAtomic?(input: {
+    playlistId: string;
+    items: readonly PlaylistItemAtomicWriteInput[];
+  }): Promise<PlaylistItemRecord[]>;
   deleteItem(id: string): Promise<boolean>;
 }

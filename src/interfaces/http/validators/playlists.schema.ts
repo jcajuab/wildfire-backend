@@ -80,6 +80,26 @@ export const reorderPlaylistItemsSchema = z.object({
   orderedItemIds: z.array(z.string().uuid()).min(1),
 });
 
+export const replacePlaylistItemsAtomicSchema = z.object({
+  items: z.array(
+    z.discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("existing"),
+        itemId: z.string().uuid(),
+        duration: z.number().int().positive(),
+      }),
+      z.object({
+        kind: z.literal("new"),
+        contentId: z.string().uuid(),
+        duration: z.number().int().positive(),
+      }),
+    ]),
+  ),
+});
+
+export const replacePlaylistItemsAtomicResponseSchema =
+  z.array(playlistItemSchema);
+
 export const estimatePlaylistDurationItemSchema = z.object({
   contentId: z.string().uuid(),
   duration: z.number().int().positive(),
