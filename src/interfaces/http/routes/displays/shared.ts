@@ -13,7 +13,6 @@ import {
   type DisplayGroupRepository,
   type DisplayRepository,
 } from "#/application/ports/displays";
-import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
@@ -52,7 +51,6 @@ export interface DisplaysRouterDeps {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     runtimeControlRepository: RuntimeControlRepository;
-    flashActivationRepository: FlashActivationRepository;
     authorizationRepository: AuthorizationRepository;
     displayGroupRepository: DisplayGroupRepository;
     displayPairingCodeRepository: DisplayPairingCodeRepository;
@@ -152,7 +150,6 @@ export const createDisplaysUseCases = (
     }),
     getRuntimeOverrides: new GetRuntimeOverridesUseCase({
       runtimeControlRepository: deps.repositories.runtimeControlRepository,
-      flashActivationRepository: deps.repositories.flashActivationRepository,
     }),
     requestDisplayRefresh: new RequestDisplayRefreshUseCase({
       displayRepository: deps.repositories.displayRepository,

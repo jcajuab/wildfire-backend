@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
 import { type DisplayRecord } from "#/application/ports/displays";
-import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
@@ -666,18 +665,6 @@ const makeApp = async (
           updatedAt: new Date().toISOString(),
         }),
       } as RuntimeControlRepository,
-      flashActivationRepository: {
-        findActive: async () => null,
-        findById: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        stopById: async () => null,
-        stopActive: async () => null,
-        createReplacingActive: async () => {
-          throw new Error("not used");
-        },
-      } as FlashActivationRepository,
       authorizationRepository,
       displayGroupRepository,
       displayPairingCodeRepository,

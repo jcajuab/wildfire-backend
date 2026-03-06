@@ -169,7 +169,9 @@ const makeApp = async (
                 {
                   id: "schedule-1",
                   name: "Morning",
+                  kind: "PLAYLIST",
                   playlistId: id,
+                  contentId: null,
                   displayId: "display-1",
                   startTime: "08:00",
                   endTime: "18:00",

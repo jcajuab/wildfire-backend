@@ -1,7 +1,7 @@
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { deriveDisplayStatus } from "#/application/use-cases/displays";
-import { selectActiveSchedule } from "#/domain/schedules/schedule";
+import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { publishAdminDisplayLifecycleEvent } from "./admin-lifecycle-events";
@@ -39,14 +39,22 @@ export const startDisplayStatusReconciler = (input: {
         }
 
         for (const display of allDisplays) {
-          const activeSchedule = selectActiveSchedule(
+          const activePlaylistSchedule = selectActiveScheduleByKind(
             schedulesByDisplayId.get(display.id) ?? [],
+            "PLAYLIST",
+            now,
+            input.scheduleTimeZone ?? "UTC",
+          );
+          const activeFlashSchedule = selectActiveScheduleByKind(
+            schedulesByDisplayId.get(display.id) ?? [],
+            "FLASH",
             now,
             input.scheduleTimeZone ?? "UTC",
           );
           const nextStatus = deriveDisplayStatus({
             lastSeenAt: display.lastSeenAt ?? null,
-            hasActiveSchedule: activeSchedule !== null,
+            hasActivePlayback:
+              activePlaylistSchedule !== null || activeFlashSchedule !== null,
             now,
           });
           if (nextStatus === display.status) {

@@ -7,7 +7,9 @@ import {
 export const scheduleSchema = z.object({
   id: z.string(),
   name: z.string(),
-  playlistId: z.string(),
+  kind: z.enum(["PLAYLIST", "FLASH"]),
+  playlistId: z.string().nullable(),
+  contentId: z.string().nullable(),
   displayId: z.string(),
   startDate: z.string(),
   endDate: z.string(),
@@ -17,10 +19,21 @@ export const scheduleSchema = z.object({
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  playlist: z.object({
-    id: z.string(),
-    name: z.string().nullable(),
-  }),
+  playlist: z
+    .object({
+      id: z.string(),
+      name: z.string().nullable(),
+    })
+    .nullable(),
+  content: z
+    .object({
+      id: z.string(),
+      title: z.string().nullable(),
+      type: z.enum(["FLASH"]),
+      flashMessage: z.string().nullable(),
+      flashTone: z.enum(["INFO", "WARNING", "CRITICAL"]).nullable(),
+    })
+    .nullable(),
   display: z.object({
     id: z.string(),
     name: z.string().nullable(),
@@ -41,7 +54,9 @@ export const scheduleIdParamSchema = z.object({
 
 export const createScheduleSchema = z.object({
   name: z.string().min(1),
-  playlistId: z.string().uuid(),
+  kind: z.enum(["PLAYLIST", "FLASH"]),
+  playlistId: z.string().uuid().nullable(),
+  contentId: z.string().uuid().nullable(),
   displayId: z.string().uuid(),
   startDate: z.string().date(),
   endDate: z.string().date(),
@@ -53,7 +68,9 @@ export const createScheduleSchema = z.object({
 
 export const updateScheduleSchema = z.object({
   name: z.string().min(1).optional(),
-  playlistId: z.string().uuid().optional(),
+  kind: z.enum(["PLAYLIST", "FLASH"]).optional(),
+  playlistId: z.string().uuid().nullable().optional(),
+  contentId: z.string().uuid().nullable().optional(),
   displayId: z.string().uuid().optional(),
   startDate: z.string().date().optional(),
   endDate: z.string().date().optional(),

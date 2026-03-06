@@ -1,7 +1,11 @@
+export type ScheduleKind = "PLAYLIST" | "FLASH";
+
 export interface ScheduleRecord {
   id: string;
   name: string;
-  playlistId: string;
+  kind?: ScheduleKind;
+  playlistId: string | null;
+  contentId?: string | null;
   displayId: string;
   startDate?: string;
   endDate?: string;
@@ -17,10 +21,13 @@ export interface ScheduleRepository {
   list(): Promise<ScheduleRecord[]>;
   listByDisplay(displayId: string): Promise<ScheduleRecord[]>;
   listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]>;
+  listByContentId?(contentId: string): Promise<ScheduleRecord[]>;
   findById(id: string): Promise<ScheduleRecord | null>;
   create(input: {
     name: string;
-    playlistId: string;
+    kind?: ScheduleKind;
+    playlistId: string | null;
+    contentId?: string | null;
     displayId: string;
     startDate?: string;
     endDate?: string;
@@ -33,7 +40,9 @@ export interface ScheduleRepository {
     id: string,
     input: {
       name?: string;
-      playlistId?: string;
+      kind?: ScheduleKind;
+      playlistId?: string | null;
+      contentId?: string | null;
       displayId?: string;
       startDate?: string;
       endDate?: string;
@@ -45,4 +54,5 @@ export interface ScheduleRepository {
   ): Promise<ScheduleRecord | null>;
   delete(id: string): Promise<boolean>;
   countByPlaylistId(playlistId: string): Promise<number>;
+  countByContentId?(contentId: string): Promise<number>;
 }

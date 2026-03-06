@@ -14,7 +14,6 @@ import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
 import { EmailChangeTokenRedisRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
-import { FlashActivationDbRepository } from "#/infrastructure/db/repositories/flash-activation.repo";
 import { InvitationRedisRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenRedisRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -70,7 +69,6 @@ export interface HttpContainer {
     displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
     runtimeControlRepository: RuntimeControlDbRepository;
-    flashActivationRepository: FlashActivationDbRepository;
     passwordResetTokenRepository: PasswordResetTokenRedisRepository;
     emailChangeTokenRepository: EmailChangeTokenRedisRepository;
     invitationRepository: InvitationRedisRepository;
@@ -118,7 +116,6 @@ export const createHttpContainer = (
     new DisplayPairingSessionRedisRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const runtimeControlRepository = new RuntimeControlDbRepository();
-  const flashActivationRepository = new FlashActivationDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenRedisRepository();
   const emailChangeTokenRepository = new EmailChangeTokenRedisRepository();
   const invitationRepository = new InvitationRedisRepository();
@@ -170,7 +167,6 @@ export const createHttpContainer = (
       displayPairingSessionRepository,
       displayAuthNonceRepository,
       runtimeControlRepository,
-      flashActivationRepository,
       passwordResetTokenRepository,
       emailChangeTokenRepository,
       invitationRepository,

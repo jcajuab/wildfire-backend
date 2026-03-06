@@ -53,84 +53,23 @@ export const contentListQuerySchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
 
-export const flashActivationStatusSchema = z.enum([
-  "ACTIVE",
-  "STOPPED",
-  "EXPIRED",
-]);
-
-export const flashActivationSchema = z.object({
-  id: z.string().uuid(),
-  contentId: z.string().uuid(),
-  targetDisplayId: z.string().uuid(),
-  message: z.string(),
-  tone: flashToneSchema,
-  status: flashActivationStatusSchema,
-  startedAt: z.string(),
-  endsAt: z.string(),
-  stoppedAt: z.string().nullable(),
-  stoppedReason: z.string().nullable(),
-  createdById: z.string().uuid(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  replacementCount: z.number().int().nonnegative(),
-});
-
-export const createFlashActivationSchema = z.object({
+export const createFlashContentSchema = z.object({
+  title: z.string().trim().min(1).max(255),
   message: z.string().trim().min(1).max(240),
-  targetDisplayId: z.string().uuid(),
-  durationSeconds: z.number().int().min(5).max(600).default(60),
   tone: flashToneSchema.default("INFO"),
-  conflictDecision: z.enum(["prompt", "replace", "keep"]).optional(),
-  expectedActiveActivationId: z.string().uuid().optional(),
 });
 
-export const createFlashActivationRequestBodySchema: OpenAPIV3_1.SchemaObject =
-  {
-    type: "object",
-    properties: {
-      message: { type: "string", minLength: 1, maxLength: 240 },
-      targetDisplayId: { type: "string", format: "uuid" },
-      durationSeconds: { type: "integer", minimum: 5, maximum: 600 },
-      tone: {
-        type: "string",
-        enum: ["INFO", "WARNING", "CRITICAL"],
-      },
-      conflictDecision: {
-        type: "string",
-        enum: ["prompt", "replace", "keep"],
-      },
-      expectedActiveActivationId: { type: "string", format: "uuid" },
-    },
-    required: ["message", "targetDisplayId"],
-    additionalProperties: false,
-  };
-
-export const flashActivationCreateResponseSchema = z.object({
-  content: contentSchema,
-  activation: flashActivationSchema,
-  replacedActivation: flashActivationSchema.nullable().optional(),
-});
-
-export const flashActivationConflictSchema = z.object({
-  active: flashActivationSchema,
-  pending: z.object({
-    message: z.string(),
-    targetDisplayId: z.string().uuid(),
-    durationSeconds: z.number().int(),
-    tone: flashToneSchema,
-  }),
-});
-
-export const stopFlashActivationSchema = z.object({
-  reason: z.string().trim().min(1).max(64).optional(),
-});
-
-export const stopFlashActivationRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+export const createFlashContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
-    reason: { type: "string", minLength: 1, maxLength: 64 },
+    title: { type: "string", minLength: 1, maxLength: 255 },
+    message: { type: "string", minLength: 1, maxLength: 240 },
+    tone: {
+      type: "string",
+      enum: ["INFO", "WARNING", "CRITICAL"],
+    },
   },
+  required: ["title", "message"],
   additionalProperties: false,
 };
 
@@ -164,16 +103,30 @@ export const downloadUrlResponseSchema = z.object({
   downloadUrl: z.string().url(),
 });
 
-export const updateContentSchema = z.object({
-  title: z.string().min(1),
-});
+export const updateContentSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    flashMessage: z.string().trim().min(1).max(240).optional(),
+    flashTone: flashToneSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      value.title !== undefined ||
+      value.flashMessage !== undefined ||
+      value.flashTone !== undefined,
+    "At least one field must be provided",
+  );
 
 export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     title: { type: "string", minLength: 1 },
+    flashMessage: { type: "string", minLength: 1, maxLength: 240 },
+    flashTone: {
+      type: "string",
+      enum: ["INFO", "WARNING", "CRITICAL"],
+    },
   },
-  required: ["title"],
   additionalProperties: false,
 };
 

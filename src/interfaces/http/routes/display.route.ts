@@ -17,7 +17,6 @@ import {
   type DisplayKeyRepository,
 } from "#/application/ports/display-auth";
 import { type DisplayRepository } from "#/application/ports/displays";
-import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -25,7 +24,7 @@ import {
   deriveDisplayStatus,
   GetDisplayManifestUseCase,
 } from "#/application/use-cases/displays";
-import { selectActiveSchedule } from "#/domain/schedules/schedule";
+import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
@@ -285,7 +284,6 @@ type DisplayRouteDeps = {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     runtimeControlRepository: RuntimeControlRepository;
-    flashActivationRepository: FlashActivationRepository;
     displayKeyRepository: DisplayKeyRepository;
     displayAuthNonceRepository: DisplayAuthNonceRepository;
   };
@@ -465,7 +463,6 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     contentStorage: deps.storage,
     displayRepository: deps.repositories.displayRepository,
     runtimeControlRepository: deps.repositories.runtimeControlRepository,
-    flashActivationRepository: deps.repositories.flashActivationRepository,
     downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
     scheduleTimeZone: deps.scheduleTimeZone,
     defaultEmergencyContentId: deps.defaultEmergencyContentId,
@@ -731,14 +728,22 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         deps.repositories.scheduleRepository.listByDisplay(displayId),
       ]);
       if (display) {
-        const activeSchedule = selectActiveSchedule(
+        const activePlaylistSchedule = selectActiveScheduleByKind(
           schedules,
+          "PLAYLIST",
+          now,
+          deps.scheduleTimeZone ?? "UTC",
+        );
+        const activeFlashSchedule = selectActiveScheduleByKind(
+          schedules,
+          "FLASH",
           now,
           deps.scheduleTimeZone ?? "UTC",
         );
         const nextStatus = deriveDisplayStatus({
           lastSeenAt: now.toISOString(),
-          hasActiveSchedule: activeSchedule !== null,
+          hasActivePlayback:
+            activePlaylistSchedule !== null || activeFlashSchedule !== null,
           now,
         });
         if (display.status !== nextStatus) {

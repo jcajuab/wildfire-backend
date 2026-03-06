@@ -78,7 +78,9 @@ export async function runSeedDemoSchedules(
       if (!ctx.args.dryRun) {
         const createdSchedule = await ctx.repos.scheduleRepository.create({
           name: fixture.name,
+          kind: "PLAYLIST",
           playlistId,
+          contentId: null,
           displayId,
           startDate: fixture.startDate,
           endDate: fixture.endDate,
@@ -108,7 +110,9 @@ export async function runSeedDemoSchedules(
         const updatedSchedule = await ctx.repos.scheduleRepository.update(
           existing.id,
           {
+            kind: "PLAYLIST",
             playlistId,
+            contentId: null,
             displayId,
             startDate: fixture.startDate,
             endDate: fixture.endDate,

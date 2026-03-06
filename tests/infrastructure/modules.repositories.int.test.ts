@@ -189,7 +189,9 @@ describe("Module repositories (integration)", () => {
     const scheduleRepo = new ScheduleDbRepository();
     const created = await scheduleRepo.create({
       name: "Morning",
+      kind: "PLAYLIST",
       playlistId: "playlist-1",
+      contentId: null,
       displayId: "display-1",
       startTime: "08:00",
       endTime: "17:00",

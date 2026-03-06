@@ -1,6 +1,12 @@
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
+export type SchedulableKind = "PLAYLIST" | "FLASH";
+
+const normalizeScheduleKind = (
+  kind: SchedulableKind | undefined,
+): SchedulableKind => kind ?? "PLAYLIST";
+
 export const isValidTime = (value: string) => timeRegex.test(value);
 
 export const isValidDate = (value: string) => isoDateRegex.test(value);
@@ -85,6 +91,7 @@ export const isWithinDateWindow = (
 
 export const selectActiveSchedule = <
   T extends {
+    kind?: SchedulableKind;
     isActive: boolean;
     startDate?: string;
     endDate?: string;
@@ -113,5 +120,30 @@ export const selectActiveSchedule = <
         isWithinTimeWindow(time, schedule.startTime, schedule.endTime),
       )
       .sort((a, b) => b.priority - a.priority)[0] ?? null
+  );
+};
+
+export const selectActiveScheduleByKind = <
+  T extends {
+    kind?: SchedulableKind;
+    isActive: boolean;
+    startDate?: string;
+    endDate?: string;
+    startTime: string;
+    endTime: string;
+    priority: number;
+  },
+>(
+  schedules: T[],
+  kind: SchedulableKind,
+  now: Date,
+  timeZone = "UTC",
+) => {
+  return selectActiveSchedule(
+    schedules.filter(
+      (schedule) => normalizeScheduleKind(schedule.kind) === kind,
+    ),
+    now,
+    timeZone,
   );
 };

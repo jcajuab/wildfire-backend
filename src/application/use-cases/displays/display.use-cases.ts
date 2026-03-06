@@ -10,12 +10,11 @@ import {
   type DisplayRepository,
   type DisplayStatus,
 } from "#/application/ports/displays";
-import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { sha256Hex } from "#/domain/content/checksum";
-import { selectActiveSchedule } from "#/domain/schedules/schedule";
+import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 
 const mapWithConcurrency = async <T, R>(
@@ -71,12 +70,13 @@ interface ManifestRenderableContent {
 }
 
 interface ManifestFlashState {
-  activationId: string;
-  targetDisplayId: string;
+  scheduleId: string;
+  contentId: string;
   message: string;
   tone: "INFO" | "WARNING" | "CRITICAL";
-  startedAt: string;
-  endsAt: string;
+  region: "TOP_TICKER";
+  heightPx: number;
+  speedPxPerSecond: number;
 }
 
 interface ManifestPlaybackState {
@@ -100,13 +100,13 @@ const isRecentlySeen = (lastSeenAt: string | null, now: Date): boolean => {
 
 export const deriveDisplayStatus = (input: {
   lastSeenAt: string | null;
-  hasActiveSchedule: boolean;
+  hasActivePlayback: boolean;
   now: Date;
 }): DisplayStatus => {
   if (!isRecentlySeen(input.lastSeenAt, input.now)) {
     return input.lastSeenAt ? "DOWN" : "PROCESSING";
   }
-  return input.hasActiveSchedule ? "LIVE" : "READY";
+  return input.hasActivePlayback ? "LIVE" : "READY";
 };
 
 function withTelemetry(display: DisplayRecord) {
@@ -138,7 +138,8 @@ const buildNowPlayingMap = async (input: {
   displays: readonly DisplayRecord[];
   schedules: {
     readonly displayId: string;
-    readonly playlistId: string;
+    readonly kind?: "PLAYLIST" | "FLASH";
+    readonly playlistId: string | null;
     readonly isActive: boolean;
     readonly startDate?: string;
     readonly endDate?: string;
@@ -160,12 +161,13 @@ const buildNowPlayingMap = async (input: {
   const activeByDisplayId = new Map<string, string>();
   for (const display of input.displays) {
     const displaySchedules = schedulesByDisplayId.get(display.id) ?? [];
-    const active = selectActiveSchedule(
+    const active = selectActiveScheduleByKind(
       displaySchedules,
+      "PLAYLIST",
       input.now,
       input.timeZone,
     );
-    if (!active) continue;
+    if (!active?.playlistId) continue;
     activePlaylistIds.add(active.playlistId);
     activeByDisplayId.set(display.id, active.playlistId);
   }
@@ -254,13 +256,14 @@ export class GetDisplayUseCase {
     const schedules = await this.deps.scheduleRepository.listByDisplay(
       display.id,
     );
-    const active = selectActiveSchedule(
+    const active = selectActiveScheduleByKind(
       schedules,
+      "PLAYLIST",
       now,
       this.deps.scheduleTimeZone ?? "UTC",
     );
     const playlist = active
-      ? await this.deps.playlistRepository.findById(active.playlistId)
+      ? await this.deps.playlistRepository.findById(active.playlistId ?? "")
       : null;
     return {
       ...withTelemetry(display),
@@ -581,32 +584,17 @@ export class GetRuntimeOverridesUseCase {
   constructor(
     private readonly deps: {
       runtimeControlRepository: RuntimeControlRepository;
-      flashActivationRepository: FlashActivationRepository;
     },
   ) {}
 
-  async execute(input: { now: Date }) {
-    const [global, flash] = await Promise.all([
-      this.deps.runtimeControlRepository.getGlobal(),
-      this.deps.flashActivationRepository.findActive(input.now),
-    ]);
+  async execute(_input: { now: Date }) {
+    const global = await this.deps.runtimeControlRepository.getGlobal();
 
     return {
       globalEmergency: {
         active: global.globalEmergencyActive,
         startedAt: global.globalEmergencyStartedAt,
       },
-      flash: flash
-        ? {
-            active: true,
-            activationId: flash.id,
-            targetDisplayId: flash.targetDisplayId,
-            message: flash.message,
-            tone: flash.tone,
-            startedAt: flash.startedAt,
-            endsAt: flash.endsAt,
-          }
-        : null,
     };
   }
 }
@@ -662,8 +650,9 @@ export class GetDisplayActiveScheduleUseCase {
       this.deps.scheduleRepository.listByDisplay(input.displayId),
     ]);
     if (!display) throw new NotFoundError("Display not found");
-    const active = selectActiveSchedule(
+    const active = selectActiveScheduleByKind(
       schedules,
+      "PLAYLIST",
       input.now,
       this.deps.scheduleTimeZone ?? "UTC",
     );
@@ -684,9 +673,9 @@ export class GetDisplayActiveScheduleUseCase {
       createdAt: active.createdAt,
       updatedAt: active.updatedAt,
       playlist: {
-        id: active.playlistId,
+        id: active.playlistId ?? "",
         name:
-          (await this.deps.playlistRepository.findById(active.playlistId))
+          (await this.deps.playlistRepository.findById(active.playlistId ?? ""))
             ?.name ?? null,
       },
       display: { id: display.id, name: display.name },
@@ -703,7 +692,6 @@ export class GetDisplayManifestUseCase {
       contentStorage: ContentStorage;
       displayRepository: DisplayRepository;
       runtimeControlRepository?: RuntimeControlRepository;
-      flashActivationRepository?: FlashActivationRepository;
       downloadUrlExpiresInSeconds: number;
       scheduleTimeZone?: string;
       defaultEmergencyContentId?: string;
@@ -718,17 +706,33 @@ export class GetDisplayManifestUseCase {
       this.getRuntimeOverrides(input.now),
     ]);
     if (!display) throw new NotFoundError("Display not found");
-
+    const activeFlashSchedule = selectActiveScheduleByKind(
+      schedules,
+      "FLASH",
+      input.now,
+      this.deps.scheduleTimeZone ?? "UTC",
+    );
+    const flashContent =
+      activeFlashSchedule?.contentId != null
+        ? await this.deps.contentRepository.findById(
+            activeFlashSchedule.contentId,
+          )
+        : null;
     const flash =
-      runtimeOverrides.flash &&
-      runtimeOverrides.flash.targetDisplayId === display.id
+      activeFlashSchedule &&
+      flashContent &&
+      flashContent.type === "FLASH" &&
+      flashContent.kind === "ROOT" &&
+      flashContent.status === "READY" &&
+      flashContent.flashMessage
         ? {
-            activationId: runtimeOverrides.flash.id,
-            targetDisplayId: runtimeOverrides.flash.targetDisplayId,
-            message: runtimeOverrides.flash.message,
-            tone: runtimeOverrides.flash.tone,
-            startedAt: runtimeOverrides.flash.startedAt,
-            endsAt: runtimeOverrides.flash.endsAt,
+            scheduleId: activeFlashSchedule.id,
+            contentId: flashContent.id,
+            message: flashContent.flashMessage,
+            tone: flashContent.flashTone ?? "INFO",
+            region: "TOP_TICKER" as const,
+            heightPx: 48,
+            speedPxPerSecond: 96,
           }
         : null;
 
@@ -756,7 +760,7 @@ export class GetDisplayManifestUseCase {
       const playback: ManifestPlaybackState = {
         mode: "EMERGENCY",
         emergency,
-        flash,
+        flash: null,
       };
 
       return {
@@ -775,8 +779,9 @@ export class GetDisplayManifestUseCase {
       };
     }
 
-    const active = selectActiveSchedule(
+    const active = selectActiveScheduleByKind(
       schedules,
+      "PLAYLIST",
       input.now,
       this.deps.scheduleTimeZone ?? "UTC",
     );
@@ -805,9 +810,11 @@ export class GetDisplayManifestUseCase {
       };
     }
 
-    const playlist = await this.deps.playlistRepository.findById(
-      active.playlistId,
-    );
+    const playlistId = active.playlistId;
+    if (!playlistId) {
+      throw new ValidationError("Playlist schedule is missing playlistId");
+    }
+    const playlist = await this.deps.playlistRepository.findById(playlistId);
     if (!playlist) throw new NotFoundError("Playlist not found");
 
     const items = await this.deps.playlistRepository.listItems(playlist.id);
@@ -951,45 +958,22 @@ export class GetDisplayManifestUseCase {
       globalEmergencyActive: boolean;
       globalEmergencyStartedAt: string | null;
     };
-    flash: {
-      id: string;
-      targetDisplayId: string;
-      message: string;
-      tone: "INFO" | "WARNING" | "CRITICAL";
-      startedAt: string;
-      endsAt: string;
-    } | null;
   }> {
-    const [global, flash] = await Promise.all([
-      this.deps.runtimeControlRepository
-        ? this.deps.runtimeControlRepository.getGlobal()
-        : Promise.resolve({
-            id: "global" as const,
-            globalEmergencyActive: false,
-            globalEmergencyStartedAt: null,
-            createdAt: now.toISOString(),
-            updatedAt: now.toISOString(),
-          }),
-      this.deps.flashActivationRepository
-        ? this.deps.flashActivationRepository.findActive(now)
-        : Promise.resolve(null),
-    ]);
+    const global = await (this.deps.runtimeControlRepository
+      ? this.deps.runtimeControlRepository.getGlobal()
+      : Promise.resolve({
+          id: "global" as const,
+          globalEmergencyActive: false,
+          globalEmergencyStartedAt: null,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        }));
 
     return {
       global: {
         globalEmergencyActive: global.globalEmergencyActive,
         globalEmergencyStartedAt: global.globalEmergencyStartedAt,
       },
-      flash: flash
-        ? {
-            id: flash.id,
-            targetDisplayId: flash.targetDisplayId,
-            message: flash.message,
-            tone: flash.tone,
-            startedAt: flash.startedAt,
-            endsAt: flash.endsAt,
-          }
-        : null,
     };
   }
 
@@ -1074,11 +1058,12 @@ export class GetDisplayManifestUseCase {
           : null,
         flash: input.playback.flash
           ? {
-              activationId: input.playback.flash.activationId,
-              targetDisplayId: input.playback.flash.targetDisplayId,
-              startedAt: input.playback.flash.startedAt,
-              endsAt: input.playback.flash.endsAt,
+              scheduleId: input.playback.flash.scheduleId,
+              contentId: input.playback.flash.contentId,
               tone: input.playback.flash.tone,
+              region: input.playback.flash.region,
+              heightPx: input.playback.flash.heightPx,
+              speedPxPerSecond: input.playback.flash.speedPxPerSecond,
             }
           : null,
       },

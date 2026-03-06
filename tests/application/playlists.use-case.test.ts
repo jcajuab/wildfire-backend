@@ -395,12 +395,14 @@ describe("Playlists use cases", () => {
       createdById: "user-1",
     });
     const updates: Array<{ id: string; isActive?: boolean }> = [];
-    const scheduleRepository = {
+    const scheduleRepository: ScheduleRepository = {
       list: async () => [
         {
           id: "schedule-1",
           name: "Morning",
+          kind: "PLAYLIST" as const,
           playlistId: playlist.id,
+          contentId: null,
           displayId: "display-1",
           startTime: "08:00",
           endTime: "08:01",
@@ -421,6 +423,8 @@ describe("Playlists use cases", () => {
       },
       delete: async () => false,
       countByPlaylistId: async () => 0,
+      countByContentId: async () => 0,
+      listByContentId: async () => [],
       listByPlaylistId: async () => [],
     };
     const useCase = new AddPlaylistItemUseCase({
@@ -519,7 +523,9 @@ describe("Playlists use cases", () => {
         {
           id: "s1",
           name: "Morning",
+          kind: "PLAYLIST" as const,
           playlistId: playlist.id,
+          contentId: null,
           displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
@@ -600,7 +606,9 @@ describe("Playlists use cases", () => {
         {
           id: "s1",
           name: "Morning",
+          kind: "PLAYLIST" as const,
           playlistId: playlist.id,
+          contentId: null,
           displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",

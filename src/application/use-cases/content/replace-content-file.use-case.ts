@@ -80,6 +80,9 @@ export class ReplaceContentFileUseCase {
     if (!existing) {
       throw new NotFoundError("Content not found");
     }
+    if (existing.type === "FLASH") {
+      throw new InvalidContentTypeError("Flash content cannot replace files");
+    }
     if (existing.status === "PROCESSING") {
       throw new ContentInUseError(
         "Cannot replace file while content is being processed.",

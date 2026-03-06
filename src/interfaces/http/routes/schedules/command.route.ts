@@ -82,7 +82,9 @@ export const registerScheduleCommandRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.createSchedule.execute({
           name: payload.name,
+          kind: payload.kind,
           playlistId: payload.playlistId,
+          contentId: payload.contentId,
           displayId: payload.displayId,
           startDate: payload.startDate,
           endDate: payload.endDate,
@@ -134,7 +136,9 @@ export const registerScheduleCommandRoutes = (args: {
         const result = await useCases.updateSchedule.execute({
           id: params.id,
           name: payload.name,
+          kind: payload.kind,
           playlistId: payload.playlistId,
+          contentId: payload.contentId,
           displayId: payload.displayId,
           startDate: payload.startDate,
           endDate: payload.endDate,

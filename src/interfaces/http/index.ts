@@ -390,7 +390,6 @@ const displaysRouter = createDisplaysRouter({
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
     runtimeControlRepository: container.repositories.runtimeControlRepository,
-    flashActivationRepository: container.repositories.flashActivationRepository,
     authorizationRepository: container.repositories.authorizationRepository,
     displayGroupRepository: container.repositories.displayGroupRepository,
     displayPairingCodeRepository:
@@ -418,7 +417,6 @@ const displayRouter = createDisplayRouter({
     playlistRepository: container.repositories.playlistRepository,
     contentRepository: container.repositories.contentRepository,
     runtimeControlRepository: container.repositories.runtimeControlRepository,
-    flashActivationRepository: container.repositories.flashActivationRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
     displayAuthNonceRepository:
       container.repositories.displayAuthNonceRepository,
@@ -438,8 +436,7 @@ const contentRouter = createContentRouter({
     contentRepository: container.repositories.contentRepository,
     contentIngestionJobRepository:
       container.repositories.contentIngestionJobRepository,
-    displayRepository: container.repositories.displayRepository,
-    flashActivationRepository: container.repositories.flashActivationRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
@@ -460,8 +457,7 @@ const contentJobsRouter = createContentJobsRouter({
     contentRepository: container.repositories.contentRepository,
     contentIngestionJobRepository:
       container.repositories.contentIngestionJobRepository,
-    displayRepository: container.repositories.displayRepository,
-    flashActivationRepository: container.repositories.flashActivationRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
     userRepository: container.repositories.userRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },

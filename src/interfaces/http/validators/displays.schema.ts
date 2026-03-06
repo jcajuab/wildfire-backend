@@ -155,17 +155,6 @@ export const displayRuntimeOverridesSchema = z.object({
     active: z.boolean(),
     startedAt: z.string().nullable(),
   }),
-  flash: z
-    .object({
-      active: z.boolean(),
-      activationId: z.string().uuid(),
-      targetDisplayId: z.string().uuid(),
-      message: z.string(),
-      tone: z.enum(["INFO", "WARNING", "CRITICAL"]),
-      startedAt: z.string(),
-      endsAt: z.string(),
-    })
-    .nullable(),
 });
 
 export const runtimeOverrideEmergencyActionSchema = z.object({
@@ -270,12 +259,13 @@ export const displayManifestSchema = z.object({
       .nullable(),
     flash: z
       .object({
-        activationId: z.string().uuid(),
-        targetDisplayId: z.string().uuid(),
+        scheduleId: z.string().uuid(),
+        contentId: z.string().uuid(),
         message: z.string(),
         tone: z.enum(["INFO", "WARNING", "CRITICAL"]),
-        startedAt: z.string(),
-        endsAt: z.string(),
+        region: z.literal("TOP_TICKER"),
+        heightPx: z.number().int().positive(),
+        speedPxPerSecond: z.number().int().positive(),
       })
       .nullable(),
   }),

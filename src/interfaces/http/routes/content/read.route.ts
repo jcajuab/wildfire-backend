@@ -20,7 +20,6 @@ import {
   contentListQuerySchema,
   contentListResponseSchema,
   contentSchema,
-  flashActivationCreateResponseSchema,
 } from "#/interfaces/http/validators/content.schema";
 import {
   validateParams,
@@ -124,56 +123,6 @@ export const registerContentReadRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.getContent.execute({ id: params.id });
         return c.json(toApiResponse(result));
-      },
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.get(
-    "/flash/active",
-    setAction("content.flash.active.get", {
-      route: "/content/flash/active",
-      resourceType: "content",
-    }),
-    requirePermission("content:read"),
-    describeRoute({
-      description: "Get active flash activation, if any",
-      tags: contentTags,
-      responses: {
-        200: {
-          description: "Active flash activation",
-          content: {
-            "application/json": {
-              schema: resolver(
-                apiResponseSchema(
-                  flashActivationCreateResponseSchema.nullable(),
-                ),
-              ),
-            },
-          },
-        },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const active = await useCases.getActiveFlashActivation.execute({
-          now: new Date(),
-        });
-        if (!active) {
-          return c.json(toApiResponse(null));
-        }
-        return c.json(
-          toApiResponse({
-            content: active.content,
-            activation: active.activation,
-          }),
-        );
       },
       ...applicationErrorMappers,
     ),

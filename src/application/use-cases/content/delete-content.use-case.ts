@@ -3,6 +3,7 @@ import {
   type ContentStorage,
 } from "#/application/ports/content";
 import { type CleanupFailureLogger } from "#/application/ports/observability";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   ContentInUseError,
   ContentStorageCleanupError,
@@ -14,6 +15,7 @@ export class DeleteContentUseCase {
     private readonly deps: {
       contentRepository: ContentRepository;
       contentStorage: ContentStorage;
+      scheduleRepository?: ScheduleRepository;
       cleanupFailureLogger?: CleanupFailureLogger;
     },
   ) {}
@@ -36,6 +38,15 @@ export class DeleteContentUseCase {
           ? "Failed to delete content. This content is in use by multiple playlists."
           : `Failed to delete content. This content is in use by ${playlistName}.`;
       throw new ContentInUseError(message);
+    }
+    if (record.type === "FLASH" && this.deps.scheduleRepository) {
+      const scheduledFlashCount =
+        (await this.deps.scheduleRepository.countByContentId?.(record.id)) ?? 0;
+      if (scheduledFlashCount > 0) {
+        throw new ContentInUseError(
+          "Failed to delete content. This flash content is in use by a schedule.",
+        );
+      }
     }
 
     const children =

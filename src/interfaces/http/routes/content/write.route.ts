@@ -2,7 +2,6 @@ import { bodyLimit } from "hono/body-limit";
 import { describeRoute, resolver } from "hono-openapi";
 import {
   ContentInUseError,
-  FlashActivationConflictError,
   InvalidContentTypeError,
 } from "#/application/use-cases/content";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -10,8 +9,6 @@ import {
   apiResponseSchema,
   conflict,
   errorResponseSchema,
-  notFound,
-  type ResponseContext,
   toApiResponse,
   validationError,
 } from "#/interfaces/http/responses";
@@ -27,16 +24,11 @@ import {
   contentIngestionAcceptedSchema,
   contentSchema,
   contentUploadRequestBodySchema,
-  createFlashActivationRequestBodySchema,
-  createFlashActivationSchema,
+  createFlashContentRequestBodySchema,
+  createFlashContentSchema,
   createReplaceContentFileSchema,
   createUploadContentSchema,
-  flashActivationConflictSchema,
-  flashActivationCreateResponseSchema,
-  flashActivationSchema,
   replaceContentFileRequestBodySchema,
-  stopFlashActivationRequestBodySchema,
-  stopFlashActivationSchema,
   updateContentRequestBodySchema,
   updateContentSchema,
 } from "#/interfaces/http/validators/content.schema";
@@ -62,15 +54,6 @@ export const registerContentWriteRoutes = (args: {
   const uploadSchema = createUploadContentSchema(maxUploadBytes);
   const replaceContentFileSchema =
     createReplaceContentFileSchema(maxUploadBytes);
-  const mapFlashConflictToResponse = (
-    c: ResponseContext,
-    error: unknown,
-  ): Response | null => {
-    if (!(error instanceof FlashActivationConflictError)) {
-      return null;
-    }
-    return c.json(toApiResponse(error.details), 409);
-  };
 
   router.post(
     "/",
@@ -152,42 +135,30 @@ export const registerContentWriteRoutes = (args: {
   );
 
   router.post(
-    "/flash/activate",
-    setAction("content.flash.activate", {
-      route: "/content/flash/activate",
+    "/flash",
+    setAction("content.flash.create", {
+      route: "/content/flash",
       resourceType: "content",
     }),
-    requirePermission("content:update"),
-    validateJson(createFlashActivationSchema),
+    requirePermission("content:create"),
+    validateJson(createFlashContentSchema),
     describeRoute({
-      description: "Activate flash marquee overlay for a target display",
+      description: "Create flash content",
       tags: contentTags,
       requestBody: {
         content: {
           "application/json": {
-            schema: createFlashActivationRequestBodySchema,
+            schema: createFlashContentRequestBodySchema,
           },
         },
         required: true,
       },
       responses: {
-        200: {
-          description: "Flash content activated",
+        201: {
+          description: "Flash content created",
           content: {
             "application/json": {
-              schema: resolver(
-                apiResponseSchema(flashActivationCreateResponseSchema),
-              ),
-            },
-          },
-        },
-        409: {
-          description: "A flash activation is already active",
-          content: {
-            "application/json": {
-              schema: resolver(
-                apiResponseSchema(flashActivationConflictSchema),
-              ),
+              schema: resolver(apiResponseSchema(contentSchema)),
             },
           },
         },
@@ -204,70 +175,16 @@ export const registerContentWriteRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const activated = await useCases.createFlashActivation.execute({
+        const created = await useCases.createFlashContent.execute({
+          title: payload.title,
           message: payload.message,
-          targetDisplayId: payload.targetDisplayId,
-          durationSeconds: payload.durationSeconds,
           tone: payload.tone,
-          conflictDecision: payload.conflictDecision,
-          expectedActiveActivationId: payload.expectedActiveActivationId,
           createdById: c.get("userId"),
         });
-        return c.json(toApiResponse(activated));
-      },
-      mapFlashConflictToResponse,
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.post(
-    "/flash/active/stop",
-    setAction("content.flash.stop", {
-      route: "/content/flash/active/stop",
-      resourceType: "content",
-    }),
-    requirePermission("content:update"),
-    validateJson(stopFlashActivationSchema),
-    describeRoute({
-      description: "Stop the active flash marquee overlay",
-      tags: contentTags,
-      requestBody: {
-        content: {
-          "application/json": {
-            schema: stopFlashActivationRequestBodySchema,
-          },
-        },
-        required: true,
-      },
-      responses: {
-        200: {
-          description: "Flash content stopped",
-          content: {
-            "application/json": {
-              schema: resolver(apiResponseSchema(flashActivationSchema)),
-            },
-          },
-        },
-        404: {
-          description: "No active flash content",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const payload = c.req.valid("json");
-        const stopped = await useCases.stopFlashActivation.execute({
-          reason: payload.reason,
-        });
-        if (!stopped || stopped.status !== "STOPPED") {
-          return notFound(c, "No active flash content");
-        }
-        return c.json(toApiResponse(stopped));
+        c.set("resourceId", created.id);
+        c.set("fileId", created.id);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(created.id)}`);
+        return c.json(toApiResponse(created), 201);
       },
       ...applicationErrorMappers,
     ),
@@ -337,6 +254,8 @@ export const registerContentWriteRoutes = (args: {
         const result = await useCases.updateContent.execute({
           id: params.id,
           title: body.title,
+          flashMessage: body.flashMessage,
+          flashTone: body.flashTone,
         });
         return c.json(toApiResponse(result), 200);
       },

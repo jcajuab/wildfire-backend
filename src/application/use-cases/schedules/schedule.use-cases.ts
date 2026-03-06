@@ -3,12 +3,16 @@ import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
-import { type ScheduleRepository } from "#/application/ports/schedules";
+import {
+  type ScheduleKind,
+  type ScheduleRecord,
+  type ScheduleRepository,
+} from "#/application/ports/schedules";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import {
   isValidDate,
   isValidTime,
-  selectActiveSchedule,
+  selectActiveScheduleByKind,
 } from "#/domain/schedules/schedule";
 import { NotFoundError, ScheduleConflictError } from "./errors";
 import { toScheduleView } from "./schedule-view";
@@ -20,6 +24,10 @@ const SCHEDULE_OVERLAP_MESSAGE =
 
 type ScheduleWindow = {
   id?: string;
+  name: string;
+  kind: ScheduleKind;
+  playlistId: string | null;
+  contentId: string | null;
   displayId: string;
   startDate: string;
   endDate: string;
@@ -84,29 +92,18 @@ const windowsConflict = (left: ScheduleWindow, right: ScheduleWindow) => {
   if (left.displayId !== right.displayId) {
     return false;
   }
-
-  return hasDateRangeOverlap(left, right) && hasTimeRangeOverlap(left, right);
-};
-
-const ensureNoScheduleConflicts = (input: {
-  candidates: readonly ScheduleWindow[];
-  existing: readonly ScheduleWindow[];
-  excludeScheduleIds?: ReadonlySet<string>;
-}) => {
-  for (const candidate of input.candidates) {
-    for (const current of input.existing) {
-      if (current.id && input.excludeScheduleIds?.has(current.id)) {
-        continue;
-      }
-      if (windowsConflict(candidate, current)) {
-        throw new ScheduleConflictError(SCHEDULE_OVERLAP_MESSAGE);
-      }
-    }
+  if (left.kind !== right.kind) {
+    return false;
   }
+  return hasDateRangeOverlap(left, right) && hasTimeRangeOverlap(left, right);
 };
 
 const toScheduleWindow = (schedule: {
   id?: string;
+  name: string;
+  kind?: ScheduleKind;
+  playlistId: string | null;
+  contentId?: string | null;
   displayId: string;
   startDate?: string;
   endDate?: string;
@@ -114,12 +111,41 @@ const toScheduleWindow = (schedule: {
   endTime: string;
 }): ScheduleWindow => ({
   id: schedule.id,
+  name: schedule.name,
+  kind: schedule.kind ?? "PLAYLIST",
+  playlistId: schedule.playlistId,
+  contentId: schedule.contentId ?? null,
   displayId: schedule.displayId,
   startDate: schedule.startDate ?? "1970-01-01",
   endDate: schedule.endDate ?? "2099-12-31",
   startTime: schedule.startTime,
   endTime: schedule.endTime,
 });
+
+const ensureNoScheduleConflicts = (input: {
+  candidate: ScheduleWindow;
+  existing: readonly ScheduleWindow[];
+  excludeScheduleIds?: ReadonlySet<string>;
+}) => {
+  const conflicts = input.existing.filter((current) => {
+    if (current.id && input.excludeScheduleIds?.has(current.id)) {
+      return false;
+    }
+    return windowsConflict(input.candidate, current);
+  });
+
+  if (conflicts.length === 0) {
+    return;
+  }
+
+  throw new ScheduleConflictError(SCHEDULE_OVERLAP_MESSAGE, {
+    requested: input.candidate,
+    conflicts: conflicts.map((conflict) => ({
+      ...conflict,
+      id: conflict.id ?? "unknown",
+    })),
+  });
+};
 
 const computeRequiredMinDurationSeconds = async (input: {
   playlistRepository: PlaylistRepository;
@@ -138,9 +164,9 @@ const computeRequiredMinDurationSeconds = async (input: {
   let baseDuration = 0;
   let overflowExtra = 0;
   for (const item of items) {
-    baseDuration += item.duration;
     const content = contentById.get(item.contentId);
     if (!content) continue;
+    baseDuration += item.duration;
     if (
       (content.type === "IMAGE" || content.type === "PDF") &&
       content.width !== null &&
@@ -157,35 +183,103 @@ const computeRequiredMinDurationSeconds = async (input: {
   return baseDuration + overflowExtra;
 };
 
+const getValidatedWindow = (input: {
+  startDate?: string;
+  endDate?: string;
+  startTime: string;
+  endTime: string;
+}) => {
+  if (!isValidTime(input.startTime) || !isValidTime(input.endTime)) {
+    throw new ValidationError("Invalid time range");
+  }
+  const startDate = input.startDate ?? "1970-01-01";
+  const endDate = input.endDate ?? "2099-12-31";
+  if (!isValidDate(startDate) || !isValidDate(endDate) || startDate > endDate) {
+    throw new ValidationError("Invalid date range");
+  }
+  return { startDate, endDate };
+};
+
+const ensureFlashContentIsSchedulable = (content: {
+  type: string;
+  kind?: string;
+  status: string;
+}) => {
+  if (content.type !== "FLASH" || content.kind !== "ROOT") {
+    throw new ValidationError(
+      "Flash schedules require a root FLASH content item",
+    );
+  }
+  if (content.status !== "READY") {
+    throw new ValidationError("Only ready flash content can be scheduled");
+  }
+};
+
+const buildScheduleViewMaps = async (input: {
+  schedules: readonly ScheduleRecord[];
+  playlistRepository: PlaylistRepository;
+  contentRepository: ContentRepository;
+  displayRepository: DisplayRepository;
+}) => {
+  const playlistIds = Array.from(
+    new Set(
+      input.schedules
+        .map((schedule) => schedule.playlistId)
+        .filter((value): value is string => value !== null),
+    ),
+  );
+  const contentIds = Array.from(
+    new Set(
+      input.schedules
+        .map((schedule) => schedule.contentId)
+        .filter((value): value is string => value !== null),
+    ),
+  );
+  const displayIds = Array.from(
+    new Set(input.schedules.map((schedule) => schedule.displayId)),
+  );
+
+  const [playlists, contents, displays] = await Promise.all([
+    input.playlistRepository.findByIds(playlistIds),
+    input.contentRepository.findByIds(contentIds),
+    input.displayRepository.findByIds(displayIds),
+  ]);
+
+  return {
+    playlistMap: new Map(playlists.map((item) => [item.id, item])),
+    contentMap: new Map(contents.map((item) => [item.id, item])),
+    displayMap: new Map(displays.map((item) => [item.id, item])),
+  };
+};
+
 export class ListSchedulesUseCase {
   constructor(
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
+      contentRepository: ContentRepository;
       displayRepository: DisplayRepository;
     },
   ) {}
 
   async execute(input?: { page?: number; pageSize?: number }) {
     const schedules = await this.deps.scheduleRepository.list();
-    const playlistIds = [
-      ...new Set(schedules.map((schedule) => schedule.playlistId)),
-    ];
-    const displayIds = [
-      ...new Set(schedules.map((schedule) => schedule.displayId)),
-    ];
-    const [playlists, displays] = await Promise.all([
-      this.deps.playlistRepository.findByIds(playlistIds),
-      this.deps.displayRepository.findByIds(displayIds),
-    ]);
-    const playlistMap = new Map(playlists.map((item) => [item.id, item]));
-    const displayMap = new Map(displays.map((item) => [item.id, item]));
-
+    const maps = await buildScheduleViewMaps({
+      schedules,
+      playlistRepository: this.deps.playlistRepository,
+      contentRepository: this.deps.contentRepository,
+      displayRepository: this.deps.displayRepository,
+    });
     const views = schedules.map((schedule) =>
       toScheduleView(
         schedule,
-        playlistMap.get(schedule.playlistId) ?? null,
-        displayMap.get(schedule.displayId) ?? null,
+        schedule.playlistId
+          ? (maps.playlistMap.get(schedule.playlistId) ?? null)
+          : null,
+        schedule.contentId
+          ? (maps.contentMap.get(schedule.contentId) ?? null)
+          : null,
+        maps.displayMap.get(schedule.displayId) ?? null,
       ),
     );
     return paginate(views, input);
@@ -205,7 +299,9 @@ export class CreateScheduleUseCase {
 
   async execute(input: {
     name: string;
-    playlistId: string;
+    kind: ScheduleKind;
+    playlistId: string | null;
+    contentId: string | null;
     displayId: string;
     startDate?: string;
     endDate?: string;
@@ -214,92 +310,101 @@ export class CreateScheduleUseCase {
     priority: number;
     isActive: boolean;
   }) {
-    if (!isValidTime(input.startTime) || !isValidTime(input.endTime)) {
-      throw new ValidationError("Invalid time range");
-    }
-    const startDate = input.startDate ?? "1970-01-01";
-    const endDate = input.endDate ?? "2099-12-31";
-    if (!isValidDate(startDate) || !isValidDate(endDate)) {
-      throw new ValidationError("Invalid date range");
-    }
-    if (startDate > endDate) {
-      throw new ValidationError("Invalid date range");
+    const { startDate, endDate } = getValidatedWindow(input);
+    const display = await this.deps.displayRepository.findById(input.displayId);
+    if (!display) {
+      throw new NotFoundError("Display not found");
     }
 
-    const [playlist, display] = await Promise.all([
-      this.deps.playlistRepository.findById(input.playlistId),
-      this.deps.displayRepository.findById(input.displayId),
-    ]);
-    if (!playlist) throw new NotFoundError("Playlist not found");
-    if (!display) throw new NotFoundError("Display not found");
-    if (
-      typeof display.screenWidth !== "number" ||
-      typeof display.screenHeight !== "number"
-    ) {
-      throw new ValidationError(
-        "Display resolution is required before scheduling",
+    let playlist = null;
+    let content = null;
+    if (input.kind === "PLAYLIST") {
+      if (!input.playlistId || input.contentId) {
+        throw new ValidationError("Playlist schedules require playlistId only");
+      }
+      playlist = await this.deps.playlistRepository.findById(input.playlistId);
+      if (!playlist) {
+        throw new NotFoundError("Playlist not found");
+      }
+      if (
+        typeof display.screenWidth !== "number" ||
+        typeof display.screenHeight !== "number"
+      ) {
+        throw new ValidationError(
+          "Display resolution is required before scheduling",
+        );
+      }
+      const requiredMinDurationSeconds =
+        await computeRequiredMinDurationSeconds({
+          playlistRepository: this.deps.playlistRepository,
+          contentRepository: this.deps.contentRepository,
+          playlistId: input.playlistId,
+          displayWidth: display.screenWidth,
+          displayHeight: display.screenHeight,
+          scrollPxPerSecond: DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND,
+        });
+      const windowDurationSeconds = computeWindowDurationSeconds(
+        input.startTime,
+        input.endTime,
       );
-    }
-    const displayWidth = display.screenWidth;
-    const displayHeight = display.screenHeight;
-    const scrollPxPerSecond = await this.getScrollPxPerSecond();
-    const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
-      playlistRepository: this.deps.playlistRepository,
-      contentRepository: this.deps.contentRepository,
-      playlistId: input.playlistId,
-      displayWidth,
-      displayHeight,
-      scrollPxPerSecond,
-    });
-    const windowDurationSeconds = computeWindowDurationSeconds(
-      input.startTime,
-      input.endTime,
-    );
-    if (windowDurationSeconds < requiredMinDurationSeconds) {
-      throw new ValidationError(
-        `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
-      );
+      if (windowDurationSeconds < requiredMinDurationSeconds) {
+        throw new ValidationError(
+          `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
+        );
+      }
+    } else {
+      if (!input.contentId || input.playlistId) {
+        throw new ValidationError("Flash schedules require contentId only");
+      }
+      content = await this.deps.contentRepository.findById(input.contentId);
+      if (!content) {
+        throw new NotFoundError("Content not found");
+      }
+      ensureFlashContentIsSchedulable(content);
     }
 
-    const existingForDisplay = await this.deps.scheduleRepository.listByDisplay(
-      input.displayId,
-    );
-    ensureNoScheduleConflicts({
-      candidates: [
-        toScheduleWindow({
-          displayId: input.displayId,
-          startDate,
-          endDate,
-          startTime: input.startTime,
-          endTime: input.endTime,
-        }),
-      ],
-      existing: existingForDisplay.map(toScheduleWindow),
-    });
-
-    const schedule = await this.deps.scheduleRepository.create({
-      name: input.name,
-      playlistId: input.playlistId,
+    const candidate = toScheduleWindow({
+      name: input.name.trim(),
+      kind: input.kind,
+      playlistId: input.kind === "PLAYLIST" ? input.playlistId : null,
+      contentId: input.kind === "FLASH" ? input.contentId : null,
       displayId: input.displayId,
       startDate,
       endDate,
       startTime: input.startTime,
       endTime: input.endTime,
+    });
+    ensureNoScheduleConflicts({
+      candidate,
+      existing: (
+        await this.deps.scheduleRepository.listByDisplay(input.displayId)
+      ).map(toScheduleWindow),
+    });
+
+    const schedule = await this.deps.scheduleRepository.create({
+      name: candidate.name,
+      kind: candidate.kind,
+      playlistId: candidate.playlistId,
+      contentId: candidate.contentId,
+      displayId: candidate.displayId,
+      startDate: candidate.startDate,
+      endDate: candidate.endDate,
+      startTime: candidate.startTime,
+      endTime: candidate.endTime,
       priority: input.priority,
       isActive: input.isActive,
     });
-    await this.deps.playlistRepository.updateStatus(input.playlistId, "IN_USE");
+
+    if (playlist) {
+      await this.deps.playlistRepository.updateStatus(playlist.id, "IN_USE");
+    }
     this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",
       displayId: input.displayId,
       reason: "schedule_created",
     });
 
-    return toScheduleView(schedule, playlist, display);
-  }
-
-  private async getScrollPxPerSecond(): Promise<number> {
-    return DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
+    return toScheduleView(schedule, playlist, content, display);
   }
 }
 
@@ -308,6 +413,7 @@ export class GetScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
+      contentRepository: ContentRepository;
       displayRepository: DisplayRepository;
     },
   ) {}
@@ -316,12 +422,17 @@ export class GetScheduleUseCase {
     const schedule = await this.deps.scheduleRepository.findById(input.id);
     if (!schedule) throw new NotFoundError("Schedule not found");
 
-    const [playlist, display] = await Promise.all([
-      this.deps.playlistRepository.findById(schedule.playlistId),
+    const [playlist, content, display] = await Promise.all([
+      schedule.playlistId
+        ? this.deps.playlistRepository.findById(schedule.playlistId)
+        : Promise.resolve(null),
+      schedule.contentId
+        ? this.deps.contentRepository.findById(schedule.contentId)
+        : Promise.resolve(null),
       this.deps.displayRepository.findById(schedule.displayId),
     ]);
 
-    return toScheduleView(schedule, playlist, display);
+    return toScheduleView(schedule, playlist, content, display);
   }
 }
 
@@ -339,7 +450,9 @@ export class UpdateScheduleUseCase {
   async execute(input: {
     id: string;
     name?: string;
-    playlistId?: string;
+    kind?: ScheduleKind;
+    playlistId?: string | null;
+    contentId?: string | null;
     displayId?: string;
     startDate?: string;
     endDate?: string;
@@ -348,163 +461,136 @@ export class UpdateScheduleUseCase {
     priority?: number;
     isActive?: boolean;
   }) {
-    if (
-      (input.startTime && !isValidTime(input.startTime)) ||
-      (input.endTime && !isValidTime(input.endTime))
-    ) {
-      throw new ValidationError("Invalid time range");
-    }
-    if (
-      (input.startDate && !isValidDate(input.startDate)) ||
-      (input.endDate && !isValidDate(input.endDate))
-    ) {
-      throw new ValidationError("Invalid date range");
-    }
-
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
 
-    const nextStartDate = input.startDate ?? existing.startDate ?? "";
-    const nextEndDate = input.endDate ?? existing.endDate ?? "";
-    if (
-      nextStartDate.length > 0 &&
-      nextEndDate.length > 0 &&
-      nextStartDate > nextEndDate
-    ) {
-      throw new ValidationError("Invalid date range");
-    }
-
-    const [
-      playlistForUpdate,
-      displayForUpdate,
-      existingDisplay,
-      existingPlaylist,
-    ] = await Promise.all([
-      input.playlistId
-        ? this.deps.playlistRepository.findById(input.playlistId)
-        : Promise.resolve(undefined),
-      input.displayId
-        ? this.deps.displayRepository.findById(input.displayId)
-        : Promise.resolve(undefined),
-      this.deps.displayRepository.findById(existing.displayId),
-      this.deps.playlistRepository.findById(existing.playlistId),
-    ]);
-    if (input.playlistId && !playlistForUpdate) {
-      throw new NotFoundError("Playlist not found");
-    }
-    if (input.displayId && !displayForUpdate) {
-      throw new NotFoundError("Display not found");
-    }
-
-    const resolvedDisplay = input.displayId
-      ? displayForUpdate
-      : existingDisplay;
-    if (!resolvedDisplay) {
-      throw new NotFoundError("Display not found");
-    }
-    if (
-      typeof resolvedDisplay.screenWidth !== "number" ||
-      typeof resolvedDisplay.screenHeight !== "number"
-    ) {
-      throw new ValidationError(
-        "Display resolution is required before scheduling",
-      );
-    }
-    const resolvedPlaylist = input.playlistId
-      ? playlistForUpdate
-      : existingPlaylist;
-    if (!resolvedPlaylist) {
-      throw new NotFoundError("Playlist not found");
-    }
-
-    const nextStartTime = input.startTime ?? existing.startTime;
-    const nextEndTime = input.endTime ?? existing.endTime;
-    const displayWidth = resolvedDisplay.screenWidth;
-    const displayHeight = resolvedDisplay.screenHeight;
-    const scrollPxPerSecond = await this.getScrollPxPerSecond();
-    const requiredMinDurationSeconds = await computeRequiredMinDurationSeconds({
-      playlistRepository: this.deps.playlistRepository,
-      contentRepository: this.deps.contentRepository,
-      playlistId: resolvedPlaylist.id,
-      displayWidth,
-      displayHeight,
-      scrollPxPerSecond,
+    const nextKind = input.kind ?? existing.kind;
+    const nextWindow = getValidatedWindow({
+      startDate: input.startDate ?? existing.startDate,
+      endDate: input.endDate ?? existing.endDate,
+      startTime: input.startTime ?? existing.startTime,
+      endTime: input.endTime ?? existing.endTime,
     });
-    const windowDurationSeconds = computeWindowDurationSeconds(
-      nextStartTime,
-      nextEndTime,
-    );
-    if (windowDurationSeconds < requiredMinDurationSeconds) {
-      throw new ValidationError(
-        `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
-      );
+    const nextDisplayId = input.displayId ?? existing.displayId;
+    const nextPlaylistId =
+      input.playlistId === undefined ? existing.playlistId : input.playlistId;
+    const nextContentId =
+      input.contentId === undefined ? existing.contentId : input.contentId;
+    const nextName = input.name?.trim() ?? existing.name;
+
+    const display = await this.deps.displayRepository.findById(nextDisplayId);
+    if (!display) {
+      throw new NotFoundError("Display not found");
     }
 
-    const targetDisplayId = input.displayId ?? existing.displayId;
-    const existingForDisplay =
-      await this.deps.scheduleRepository.listByDisplay(targetDisplayId);
+    let playlist = null;
+    let content = null;
+    if (nextKind === "PLAYLIST") {
+      if (!nextPlaylistId || nextContentId) {
+        throw new ValidationError("Playlist schedules require playlistId only");
+      }
+      playlist = await this.deps.playlistRepository.findById(nextPlaylistId);
+      if (!playlist) {
+        throw new NotFoundError("Playlist not found");
+      }
+      if (
+        typeof display.screenWidth !== "number" ||
+        typeof display.screenHeight !== "number"
+      ) {
+        throw new ValidationError(
+          "Display resolution is required before scheduling",
+        );
+      }
+      const requiredMinDurationSeconds =
+        await computeRequiredMinDurationSeconds({
+          playlistRepository: this.deps.playlistRepository,
+          contentRepository: this.deps.contentRepository,
+          playlistId: nextPlaylistId,
+          displayWidth: display.screenWidth,
+          displayHeight: display.screenHeight,
+          scrollPxPerSecond: DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND,
+        });
+      const windowDurationSeconds = computeWindowDurationSeconds(
+        input.startTime ?? existing.startTime,
+        input.endTime ?? existing.endTime,
+      );
+      if (windowDurationSeconds < requiredMinDurationSeconds) {
+        throw new ValidationError(
+          `Schedule window is too short. Required minimum is ${requiredMinDurationSeconds} seconds.`,
+        );
+      }
+    } else {
+      if (!nextContentId || nextPlaylistId) {
+        throw new ValidationError("Flash schedules require contentId only");
+      }
+      content = await this.deps.contentRepository.findById(nextContentId);
+      if (!content) {
+        throw new NotFoundError("Content not found");
+      }
+      ensureFlashContentIsSchedulable(content);
+    }
+
+    const candidate = toScheduleWindow({
+      id: existing.id,
+      name: nextName,
+      kind: nextKind,
+      playlistId: nextKind === "PLAYLIST" ? nextPlaylistId : null,
+      contentId: nextKind === "FLASH" ? nextContentId : null,
+      displayId: nextDisplayId,
+      startDate: nextWindow.startDate,
+      endDate: nextWindow.endDate,
+      startTime: input.startTime ?? existing.startTime,
+      endTime: input.endTime ?? existing.endTime,
+    });
     ensureNoScheduleConflicts({
-      candidates: [
-        toScheduleWindow({
-          id: existing.id,
-          displayId: targetDisplayId,
-          startDate: nextStartDate,
-          endDate: nextEndDate,
-          startTime: nextStartTime,
-          endTime: nextEndTime,
-        }),
-      ],
-      existing: existingForDisplay.map(toScheduleWindow),
+      candidate,
+      existing: (
+        await this.deps.scheduleRepository.listByDisplay(nextDisplayId)
+      ).map(toScheduleWindow),
       excludeScheduleIds: new Set([existing.id]),
     });
 
     const schedule = await this.deps.scheduleRepository.update(input.id, {
-      name: input.name,
-      playlistId: input.playlistId,
-      displayId: input.displayId,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      startTime: input.startTime,
-      endTime: input.endTime,
+      name: nextName,
+      kind: nextKind,
+      playlistId: candidate.playlistId,
+      contentId: candidate.contentId,
+      displayId: nextDisplayId,
+      startDate: candidate.startDate,
+      endDate: candidate.endDate,
+      startTime: candidate.startTime,
+      endTime: candidate.endTime,
       priority: input.priority,
       isActive: input.isActive,
     });
+    if (!schedule) {
+      throw new NotFoundError("Schedule not found");
+    }
 
-    if (!schedule) throw new NotFoundError("Schedule not found");
-
-    const previousPlaylistId = existing.playlistId;
-    if (previousPlaylistId !== schedule.playlistId) {
-      const remaining =
-        await this.deps.scheduleRepository.countByPlaylistId(
-          previousPlaylistId,
-        );
+    if (existing.playlistId && existing.playlistId !== schedule.playlistId) {
+      const remaining = await this.deps.scheduleRepository.countByPlaylistId(
+        existing.playlistId,
+      );
       if (remaining === 0) {
         await this.deps.playlistRepository.updateStatus(
-          previousPlaylistId,
+          existing.playlistId,
           "DRAFT",
         );
       }
     }
-    await this.deps.playlistRepository.updateStatus(
-      schedule.playlistId,
-      "IN_USE",
-    );
+    if (schedule.playlistId) {
+      await this.deps.playlistRepository.updateStatus(
+        schedule.playlistId,
+        "IN_USE",
+      );
+    }
     this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",
       displayId: schedule.displayId,
       reason: "schedule_updated",
     });
 
-    const [playlist, display] = await Promise.all([
-      this.deps.playlistRepository.findById(schedule.playlistId),
-      this.deps.displayRepository.findById(schedule.displayId),
-    ]);
-
-    return toScheduleView(schedule, playlist, display);
-  }
-
-  private async getScrollPxPerSecond(): Promise<number> {
-    return DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND;
+    return toScheduleView(schedule, playlist, content, display);
   }
 }
 
@@ -524,14 +610,16 @@ export class DeleteScheduleUseCase {
     const deleted = await this.deps.scheduleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Schedule not found");
 
-    const remaining = await this.deps.scheduleRepository.countByPlaylistId(
-      existing.playlistId,
-    );
-    if (remaining === 0) {
-      await this.deps.playlistRepository.updateStatus(
+    if (existing.playlistId) {
+      const remaining = await this.deps.scheduleRepository.countByPlaylistId(
         existing.playlistId,
-        "DRAFT",
       );
+      if (remaining === 0) {
+        await this.deps.playlistRepository.updateStatus(
+          existing.playlistId,
+          "DRAFT",
+        );
+      }
     }
     this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",
@@ -553,8 +641,9 @@ export class GetActiveScheduleForDisplayUseCase {
     const schedules = await this.deps.scheduleRepository.listByDisplay(
       input.displayId,
     );
-    return selectActiveSchedule(
+    return selectActiveScheduleByKind(
       schedules,
+      "PLAYLIST",
       input.now,
       this.deps.scheduleTimeZone ?? "UTC",
     );

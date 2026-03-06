@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { ValidationError } from "#/application/errors/validation";
+import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
-import { type ScheduleRepository } from "#/application/ports/schedules";
+import {
+  type ScheduleKind,
+  type ScheduleRepository,
+} from "#/application/ports/schedules";
 import {
   CreateScheduleUseCase,
   GetActiveScheduleForDisplayUseCase,
@@ -16,7 +20,9 @@ const makeDeps = () => {
   const schedules = [] as Array<{
     id: string;
     name: string;
-    playlistId: string;
+    kind: ScheduleKind;
+    playlistId: string | null;
+    contentId: string | null;
     displayId: string;
     startDate?: string;
     endDate?: string;
@@ -32,6 +38,8 @@ const makeDeps = () => {
     list: async () => [...schedules],
     listByDisplay: async (displayId: string) =>
       schedules.filter((schedule) => schedule.displayId === displayId),
+    listByContentId: async (contentId: string) =>
+      schedules.filter((schedule) => schedule.contentId === contentId),
     findById: async (id: string) =>
       schedules.find((schedule) => schedule.id === id) ?? null,
     create: async (input) => {
@@ -40,6 +48,8 @@ const makeDeps = () => {
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
         ...input,
+        kind: input.kind ?? "PLAYLIST",
+        contentId: input.contentId ?? null,
       };
       schedules.push(record);
       return record;
@@ -52,6 +62,8 @@ const makeDeps = () => {
       const next = {
         ...current,
         ...input,
+        kind: input.kind ?? current.kind,
+        contentId: input.contentId ?? current.contentId,
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
       schedules[index] = next;
@@ -65,6 +77,8 @@ const makeDeps = () => {
     },
     countByPlaylistId: async (playlistId: string) =>
       schedules.filter((schedule) => schedule.playlistId === playlistId).length,
+    countByContentId: async (contentId: string) =>
+      schedules.filter((schedule) => schedule.contentId === contentId).length,
     listByPlaylistId: async (playlistId: string) =>
       schedules.filter((schedule) => schedule.playlistId === playlistId),
   };
@@ -169,10 +183,26 @@ const makeDeps = () => {
     delete: async (_id: string) => false,
   };
 
+  const contentRepository: ContentRepository = {
+    create: async () => {
+      throw new Error("not used");
+    },
+    findById: async () => null,
+    findByIds: async () => [],
+    list: async () => ({ items: [], total: 0 }),
+    findChildrenByParentIds: async () => [],
+    update: async () => null,
+    countPlaylistReferences: async () => 0,
+    listPlaylistsReferencingContent: async () => [],
+    deleteByParentId: async () => [],
+    delete: async () => false,
+  };
+
   return {
     scheduleRepository,
     playlistRepository,
     displayRepository,
+    contentRepository,
     schedules,
   };
 };
@@ -190,7 +220,9 @@ describe("Schedules use cases", () => {
           {
             id: "schedule-1",
             name: "Morning",
+            kind: "PLAYLIST",
             playlistId: "playlist-1",
+            contentId: null,
             displayId: "display-1",
             startTime: "08:00",
             endTime: "17:00",
@@ -201,6 +233,7 @@ describe("Schedules use cases", () => {
           },
         ],
         listByDisplay: async () => [],
+        listByContentId: async () => [],
         findById: async () => null,
         create: async () => {
           throw new Error("not used");
@@ -208,6 +241,7 @@ describe("Schedules use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
         listByPlaylistId: async () => [],
       },
       playlistRepository: {
@@ -288,6 +322,9 @@ describe("Schedules use cases", () => {
         bumpRefreshNonce: async () => false,
         delete: async (_id: string) => false,
       },
+      contentRepository: {
+        ...makeDeps().contentRepository,
+      },
     });
 
     const result = await useCase.execute();
@@ -306,24 +343,15 @@ describe("Schedules use cases", () => {
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
       displayRepository: deps.displayRepository,
-      contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-      },
+      contentRepository: deps.contentRepository,
     });
 
     await expect(
       useCase.execute({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId: "missing",
+        contentId: null,
         displayId: "display-1",
         startTime: "08:00",
         endTime: "17:00",
@@ -351,10 +379,7 @@ describe("Schedules use cases", () => {
       },
       displayRepository: deps.displayRepository,
       contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
+        ...deps.contentRepository,
         findByIds: async () => [
           {
             id: "content-1",
@@ -372,18 +397,15 @@ describe("Schedules use cases", () => {
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
       },
     });
 
     await expect(
       useCase.execute({
         name: "Short Window",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startTime: "08:00",
         endTime: "08:01",
@@ -398,7 +420,9 @@ describe("Schedules use cases", () => {
     deps.schedules.push({
       id: "schedule-existing",
       name: "Morning Block",
+      kind: "PLAYLIST",
       playlistId: "playlist-1",
+      contentId: null,
       displayId: "display-1",
       startDate: "2025-01-01",
       endDate: "2025-12-31",
@@ -413,24 +437,15 @@ describe("Schedules use cases", () => {
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
       displayRepository: deps.displayRepository,
-      contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-      },
+      contentRepository: deps.contentRepository,
     });
 
     await expect(
       useCase.execute({
         name: "Conflict",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startDate: "2025-02-01",
         endDate: "2025-11-30",
@@ -447,7 +462,9 @@ describe("Schedules use cases", () => {
     deps.schedules.push({
       id: "schedule-existing",
       name: "Morning Block",
+      kind: "PLAYLIST",
       playlistId: "playlist-1",
+      contentId: null,
       displayId: "display-1",
       startDate: "2025-01-01",
       endDate: "2025-12-31",
@@ -462,24 +479,15 @@ describe("Schedules use cases", () => {
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
       displayRepository: deps.displayRepository,
-      contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-      },
+      contentRepository: deps.contentRepository,
     });
 
     await expect(
       useCase.execute({
         name: "Back to back",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startDate: "2025-02-01",
         endDate: "2025-11-30",
@@ -497,7 +505,9 @@ describe("Schedules use cases", () => {
       {
         id: "schedule-a",
         name: "A",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startDate: "2025-01-01",
         endDate: "2025-12-31",
@@ -511,7 +521,9 @@ describe("Schedules use cases", () => {
       {
         id: "schedule-b",
         name: "B",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startDate: "2025-01-01",
         endDate: "2025-12-31",
@@ -527,18 +539,7 @@ describe("Schedules use cases", () => {
       scheduleRepository: deps.scheduleRepository,
       playlistRepository: deps.playlistRepository,
       displayRepository: deps.displayRepository,
-      contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-      },
+      contentRepository: deps.contentRepository,
     });
 
     await expect(
@@ -556,7 +557,9 @@ describe("Schedules use cases", () => {
       {
         id: "schedule-1",
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
@@ -568,7 +571,9 @@ describe("Schedules use cases", () => {
       {
         id: "schedule-2",
         name: "Emergency",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
@@ -594,7 +599,9 @@ describe("Schedules use cases", () => {
       {
         id: "schedule-manila",
         name: "Manila Evening",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startTime: "17:00",
         endTime: "18:00",
@@ -606,7 +613,9 @@ describe("Schedules use cases", () => {
       {
         id: "schedule-utc",
         name: "UTC Morning",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startTime: "09:00",
         endTime: "10:00",
@@ -633,7 +642,9 @@ describe("Schedules use cases", () => {
       {
         id: "local-date",
         name: "Local Date Window",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startDate: "2025-01-01",
         endDate: "2025-01-01",
@@ -647,7 +658,9 @@ describe("Schedules use cases", () => {
       {
         id: "utc-date",
         name: "UTC Date Window",
+        kind: "PLAYLIST",
         playlistId: "playlist-1",
+        contentId: null,
         displayId: "display-1",
         startDate: "2024-12-31",
         endDate: "2024-12-31",

@@ -74,6 +74,7 @@ export const createSchedulesUseCases = (
     listSchedules: new ListSchedulesUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
+      contentRepository: deps.repositories.contentRepository,
       displayRepository: deps.repositories.displayRepository,
     }),
     createSchedule: new CreateScheduleUseCase({
@@ -86,6 +87,7 @@ export const createSchedulesUseCases = (
     getSchedule: new GetScheduleUseCase({
       scheduleRepository: deps.repositories.scheduleRepository,
       playlistRepository: deps.repositories.playlistRepository,
+      contentRepository: deps.repositories.contentRepository,
       displayRepository: deps.repositories.displayRepository,
     }),
     updateSchedule: new UpdateScheduleUseCase({

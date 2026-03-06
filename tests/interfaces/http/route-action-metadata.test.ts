@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
-import { type DisplayRepository } from "#/application/ports/displays";
-import { type FlashActivationRepository } from "#/application/ports/flash-activations";
 import { type PermissionRecord } from "#/application/ports/rbac";
 import {
   ChangeCurrentUserPasswordUseCase,
@@ -220,21 +218,20 @@ const buildContentActionApp = async () => {
         findById: async () => null,
         update: async () => null,
       },
-      displayRepository: {
-        findById: async () => null,
-      } as unknown as DisplayRepository,
-      flashActivationRepository: {
-        findActive: async () => null,
+      scheduleRepository: {
+        list: async () => [],
+        listByDisplay: async () => [],
+        listByPlaylistId: async () => [],
+        listByContentId: async () => [],
         findById: async () => null,
         create: async () => {
           throw new Error("not implemented");
         },
-        stopById: async () => null,
-        stopActive: async () => null,
-        createReplacingActive: async () => {
-          throw new Error("not implemented");
-        },
-      } as FlashActivationRepository,
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+      },
       userRepository: {
         list: async () => [],
         findById: async () => null,

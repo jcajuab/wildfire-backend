@@ -203,7 +203,9 @@ describe("Displays use cases", () => {
           {
             id: "schedule-live",
             name: "Always on",
+            kind: "PLAYLIST",
             playlistId: "playlist-live",
+            contentId: null,
             displayId: "display-2",
             startTime: "00:00",
             endTime: "23:59",
@@ -468,6 +470,8 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
         listByPlaylistId: async () => [],
       },
       playlistRepository: {
@@ -542,6 +546,8 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
         listByPlaylistId: async () => [],
       },
       playlistRepository: {
@@ -626,6 +632,8 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
         listByPlaylistId: async () => [],
       },
       playlistRepository: {
@@ -800,6 +808,8 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
         listByPlaylistId: async () => [],
       },
       playlistRepository: {
@@ -918,6 +928,8 @@ describe("Displays use cases", () => {
         update: async () => null,
         delete: async () => false,
         countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
         listByPlaylistId: async () => [],
       },
       playlistRepository: {

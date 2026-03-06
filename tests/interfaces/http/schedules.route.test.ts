@@ -25,7 +25,9 @@ const makeApp = async (
   const schedules: Array<{
     id: string;
     name: string;
-    playlistId: string;
+    kind: "PLAYLIST" | "FLASH";
+    playlistId: string | null;
+    contentId: string | null;
     displayId: string;
     startDate?: string;
     endDate?: string;
@@ -82,6 +84,8 @@ const makeApp = async (
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
             ...input,
+            kind: input.kind ?? "PLAYLIST",
+            contentId: input.contentId ?? null,
           };
           schedules.push(record);
           return record;
@@ -91,7 +95,12 @@ const makeApp = async (
           if (index === -1) return null;
           const current = schedules[index];
           if (!current) return null;
-          const next = { ...current, ...input };
+          const next = {
+            ...current,
+            ...input,
+            kind: input.kind ?? current.kind,
+            contentId: input.contentId ?? current.contentId,
+          };
           schedules[index] = next;
           return next;
         },
@@ -233,7 +242,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -265,7 +276,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId: "0e2c9b1e-7c1a-4b4d-8c2e-7b0a2f5f6d8c",
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -291,7 +304,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -319,7 +334,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -345,7 +362,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -365,7 +384,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Conflict",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -405,7 +426,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Morning",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
@@ -425,7 +448,9 @@ describe("Schedules routes", () => {
       },
       body: JSON.stringify({
         name: "Midday",
+        kind: "PLAYLIST",
         playlistId,
+        contentId: null,
         displayId,
         startDate: "2026-01-01",
         endDate: "2026-12-31",
