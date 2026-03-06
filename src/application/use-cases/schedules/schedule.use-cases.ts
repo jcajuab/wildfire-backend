@@ -9,6 +9,7 @@ import {
   type ScheduleRepository,
 } from "#/application/ports/schedules";
 import { paginate } from "#/application/use-cases/shared/pagination";
+import { splitPdfDocumentDurationAcrossPages } from "#/application/use-cases/shared/pdf-duration";
 import {
   isValidDate,
   isValidTime,
@@ -161,12 +162,63 @@ const computeRequiredMinDurationSeconds = async (input: {
   const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
   const contents = await input.contentRepository.findByIds(contentIds);
   const contentById = new Map(contents.map((content) => [content.id, content]));
+  const parentPdfIds = contents
+    .filter((content) => content.kind === "ROOT" && content.type === "PDF")
+    .map((content) => content.id);
+  const childPagesByParentId = new Map<string, typeof contents>();
+  if (
+    parentPdfIds.length > 0 &&
+    input.contentRepository.findChildrenByParentIds
+  ) {
+    const childPages = await input.contentRepository.findChildrenByParentIds(
+      parentPdfIds,
+      {
+        includeExcluded: false,
+        onlyReady: true,
+      },
+    );
+    for (const childPage of childPages) {
+      if (!childPage.parentContentId) {
+        continue;
+      }
+      const current = childPagesByParentId.get(childPage.parentContentId) ?? [];
+      childPagesByParentId.set(childPage.parentContentId, [
+        ...current,
+        childPage,
+      ]);
+    }
+  }
 
   let baseDuration = 0;
   let overflowExtra = 0;
   for (const item of items) {
     const content = contentById.get(item.contentId);
     if (!content) continue;
+    if (content.kind === "ROOT" && content.type === "PDF") {
+      const childPages = childPagesByParentId.get(content.id) ?? [];
+      const pages = childPages.length > 0 ? childPages : [content];
+      const pageDurations = splitPdfDocumentDurationAcrossPages({
+        totalDurationSeconds: item.duration,
+        pageCount: pages.length,
+      });
+      baseDuration += pageDurations.reduce(
+        (sum, duration) => sum + duration,
+        0,
+      );
+      for (const page of pages) {
+        if (
+          page.width !== null &&
+          page.height !== null &&
+          page.width > 0 &&
+          page.height > 0
+        ) {
+          const scaledHeight = (input.displayWidth / page.width) * page.height;
+          const overflow = Math.max(0, scaledHeight - input.displayHeight);
+          overflowExtra += Math.ceil(overflow / input.scrollPxPerSecond);
+        }
+      }
+      continue;
+    }
     baseDuration += item.duration;
     if (
       (content.type === "IMAGE" || content.type === "PDF") &&

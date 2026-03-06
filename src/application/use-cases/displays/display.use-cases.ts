@@ -13,6 +13,7 @@ import {
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { splitPdfDocumentDurationAcrossPages } from "#/application/use-cases/shared/pdf-duration";
 import { sha256Hex } from "#/domain/content/checksum";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
@@ -804,11 +805,15 @@ export class GetDisplayManifestUseCase {
       if (content.kind === "ROOT" && content.type === "PDF") {
         const childPages = childPagesByParentId.get(content.id) ?? [];
         const pages = childPages.length > 0 ? childPages : [content];
-        for (const page of pages) {
+        const pageDurations = splitPdfDocumentDurationAcrossPages({
+          totalDurationSeconds: item.duration,
+          pageCount: pages.length,
+        });
+        for (const [index, page] of pages.entries()) {
           expandedItems.push({
             id: `${item.id}:${page.id}`,
             sequence: expandedSequence,
-            duration: item.duration,
+            duration: pageDurations[index] ?? 1,
             content: page,
           });
           expandedSequence += 1;

@@ -408,6 +408,98 @@ describe("Schedules use cases", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  test("CreateScheduleUseCase treats root PDF duration as document-level across pages", async () => {
+    const deps = makeDeps();
+    const useCase = new CreateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: {
+        ...deps.playlistRepository,
+        listItems: async () => [
+          {
+            id: "item-1",
+            playlistId: "playlist-1",
+            contentId: "content-pdf-root",
+            sequence: 10,
+            duration: 40,
+          },
+        ],
+      },
+      displayRepository: deps.displayRepository,
+      contentRepository: {
+        ...deps.contentRepository,
+        findByIds: async () => [
+          {
+            id: "content-pdf-root",
+            title: "Manual",
+            type: "PDF",
+            kind: "ROOT",
+            status: "READY",
+            fileKey: "content/documents/manual.pdf",
+            checksum: "root-checksum",
+            mimeType: "application/pdf",
+            fileSize: 100,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        findChildrenByParentIds: async () => [
+          {
+            id: "content-pdf-page-1",
+            title: "Manual Page 1",
+            type: "PDF",
+            kind: "PAGE",
+            parentContentId: "content-pdf-root",
+            pageNumber: 1,
+            status: "READY",
+            fileKey: "content/documents/manual-page-1.pdf",
+            checksum: "page-1-checksum",
+            mimeType: "application/pdf",
+            fileSize: 50,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "content-pdf-page-2",
+            title: "Manual Page 2",
+            type: "PDF",
+            kind: "PAGE",
+            parentContentId: "content-pdf-root",
+            pageNumber: 2,
+            status: "READY",
+            fileKey: "content/documents/manual-page-2.pdf",
+            checksum: "page-2-checksum",
+            mimeType: "application/pdf",
+            fileSize: 50,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    const result = await useCase.execute({
+      name: "PDF Window",
+      kind: "PLAYLIST",
+      playlistId: "playlist-1",
+      contentId: null,
+      displayId: "display-1",
+      startTime: "08:00",
+      endTime: "08:01",
+      isActive: true,
+    });
+
+    expect(result.playlist?.id).toBe("playlist-1");
+  });
+
   test("CreateScheduleUseCase rejects overlapping schedules for the same display", async () => {
     const deps = makeDeps();
     deps.schedules.push({

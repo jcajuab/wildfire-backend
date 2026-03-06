@@ -8,6 +8,7 @@ import {
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { splitPdfDocumentDurationAcrossPages } from "#/application/use-cases/shared/pdf-duration";
 import {
   isValidDuration,
   isValidSequence,
@@ -111,7 +112,14 @@ const computeRequiredMinDurationSeconds = async (input: {
     if (content.kind === "ROOT" && content.type === "PDF") {
       const childPages = childPagesByParentId.get(content.id) ?? [];
       const pages = childPages.length > 0 ? childPages : [content];
-      baseDuration += item.duration * pages.length;
+      const pageDurations = splitPdfDocumentDurationAcrossPages({
+        totalDurationSeconds: item.duration,
+        pageCount: pages.length,
+      });
+      baseDuration += pageDurations.reduce(
+        (sum, duration) => sum + duration,
+        0,
+      );
       for (const page of pages) {
         if (
           page.width !== null &&

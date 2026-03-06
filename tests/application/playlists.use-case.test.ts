@@ -506,6 +506,166 @@ describe("Playlists use cases", () => {
     expect(updates.some((entry) => entry.id === "schedule-1")).toBe(true);
   });
 
+  test("AddPlaylistItemUseCase does not disable schedules when root PDF fits by document duration", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      createdById: "user-1",
+    });
+    const updates: Array<{ id: string; isActive?: boolean }> = [];
+    const scheduleRepository: ScheduleRepository = {
+      list: async () => [
+        {
+          id: "schedule-1",
+          name: "Morning",
+          kind: "PLAYLIST" as const,
+          playlistId: playlist.id,
+          contentId: null,
+          displayId: "display-1",
+          startTime: "08:00",
+          endTime: "08:01",
+          priority: 10,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+      listByDisplay: async () => [],
+      findById: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      update: async (id: string, input: { isActive?: boolean }) => {
+        updates.push({ id, isActive: input.isActive });
+        return null;
+      },
+      delete: async () => false,
+      countByPlaylistId: async () => 0,
+      countByContentId: async () => 0,
+      listByContentId: async () => [],
+      listByPlaylistId: async () => [],
+    };
+    const useCase = new AddPlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: {
+        ...deps.contentRepository,
+        findById: async () => ({
+          id: "content-pdf-root",
+          title: "Manual",
+          type: "PDF",
+          kind: "ROOT",
+          status: "READY",
+          fileKey: "content/documents/manual.pdf",
+          checksum: "root-checksum",
+          mimeType: "application/pdf",
+          fileSize: 100,
+          width: null,
+          height: null,
+          duration: null,
+          createdById: "user-1",
+          createdAt: "2025-01-01T00:00:00.000Z",
+        }),
+        findByIds: async () => [
+          {
+            id: "content-pdf-root",
+            title: "Manual",
+            type: "PDF",
+            kind: "ROOT",
+            status: "READY",
+            fileKey: "content/documents/manual.pdf",
+            checksum: "root-checksum",
+            mimeType: "application/pdf",
+            fileSize: 100,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        findChildrenByParentIds: async () => [
+          {
+            id: "content-pdf-page-1",
+            title: "Manual Page 1",
+            type: "PDF",
+            kind: "PAGE",
+            parentContentId: "content-pdf-root",
+            pageNumber: 1,
+            status: "READY",
+            fileKey: "content/documents/manual-page-1.pdf",
+            checksum: "page-1-checksum",
+            mimeType: "application/pdf",
+            fileSize: 50,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "content-pdf-page-2",
+            title: "Manual Page 2",
+            type: "PDF",
+            kind: "PAGE",
+            parentContentId: "content-pdf-root",
+            pageNumber: 2,
+            status: "READY",
+            fileKey: "content/documents/manual-page-2.pdf",
+            checksum: "page-2-checksum",
+            mimeType: "application/pdf",
+            fileSize: 50,
+            width: null,
+            height: null,
+            duration: null,
+            createdById: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+      scheduleRepository,
+      displayRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
+        findByIds: async () => [],
+        findById: async () => ({
+          id: "display-1",
+          name: "Lobby",
+          slug: "display-1",
+          status: "READY",
+          location: null,
+          screenWidth: 1366,
+          screenHeight: 768,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        findBySlug: async () => null,
+        findByFingerprint: async () => null,
+        findByFingerprintAndOutput: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        createRegisteredDisplay: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        setStatus: async () => {},
+        touchSeen: async () => {},
+        bumpRefreshNonce: async () => false,
+        delete: async (_id: string) => false,
+      },
+    });
+
+    await useCase.execute({
+      playlistId: playlist.id,
+      contentId: "content-pdf-root",
+      sequence: 10,
+      duration: 40,
+    });
+
+    expect(updates).toHaveLength(0);
+  });
+
   test("DeletePlaylistUseCase throws PlaylistInUseError when playlist is in use by one display", async () => {
     const deps = makeDeps();
     const playlist = await deps.playlistRepository.create({
