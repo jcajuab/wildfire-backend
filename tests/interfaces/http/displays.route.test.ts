@@ -651,6 +651,10 @@ const makeApp = async (
       displayPairingCodeRepository,
       displayPairingSessionRepository,
       displayKeyRepository,
+      displayPreviewRepository: {
+        upsertLatest: async () => {},
+        findLatestByDisplayId: async () => null,
+      },
     },
     storage: {
       ensureBucketExists: async () => {},

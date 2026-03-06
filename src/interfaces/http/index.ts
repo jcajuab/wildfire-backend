@@ -397,6 +397,7 @@ const displaysRouter = createDisplaysRouter({
     displayPairingSessionRepository:
       container.repositories.displayPairingSessionRepository,
     displayKeyRepository: container.repositories.displayKeyRepository,
+    displayPreviewRepository: container.repositories.displayPreviewRepository,
   },
   storage: container.storage.contentStorage,
 });
@@ -420,6 +421,7 @@ const displayRouter = createDisplayRouter({
     displayKeyRepository: container.repositories.displayKeyRepository,
     displayAuthNonceRepository:
       container.repositories.displayAuthNonceRepository,
+    displayPreviewRepository: container.repositories.displayPreviewRepository,
   },
   storage: container.storage.contentStorage,
   defaultEmergencyContentId: env.DEFAULT_EMERGENCY_CONTENT_ID,

@@ -13,6 +13,7 @@ import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/displ
 import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
+import { DisplayPreviewRedisRepository } from "#/infrastructure/db/repositories/display-preview.repo";
 import { EmailChangeTokenDbRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
@@ -68,6 +69,7 @@ export interface HttpContainer {
     displayKeyRepository: DisplayKeyDbRepository;
     displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
+    displayPreviewRepository: DisplayPreviewRedisRepository;
     runtimeControlRepository: RuntimeControlDbRepository;
     passwordResetTokenRepository: PasswordResetTokenDbRepository;
     emailChangeTokenRepository: EmailChangeTokenDbRepository;
@@ -115,6 +117,7 @@ export const createHttpContainer = (
   const displayPairingSessionRepository =
     new DisplayPairingSessionRedisRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
+  const displayPreviewRepository = new DisplayPreviewRedisRepository();
   const runtimeControlRepository = new RuntimeControlDbRepository();
   const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
   const emailChangeTokenRepository = new EmailChangeTokenDbRepository();
@@ -166,6 +169,7 @@ export const createHttpContainer = (
       displayKeyRepository,
       displayPairingSessionRepository,
       displayAuthNonceRepository,
+      displayPreviewRepository,
       runtimeControlRepository,
       passwordResetTokenRepository,
       emailChangeTokenRepository,

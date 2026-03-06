@@ -17,7 +17,10 @@ import {
   type DisplayAuthNonceRepository,
   type DisplayKeyRepository,
 } from "#/application/ports/display-auth";
-import { type DisplayRepository } from "#/application/ports/displays";
+import {
+  type DisplayPreviewRepository,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -67,6 +70,7 @@ const MAX_DISPLAY_TOKEN_FIELD_BYTES = 256;
 const MAX_KEY_ID_BYTES = 64;
 const MAX_SIGNED_SIGNATURE_BYTES = 2_048;
 const MAX_BODY_HASH_BYTES = 128;
+const MAX_SNAPSHOT_IMAGE_BYTES = 400 * 1024;
 
 const isString = (value: unknown, maxBytes: number): value is string =>
   typeof value === "string" &&
@@ -102,6 +106,11 @@ const slugParamSchema = z.object({
 
 const challengeTokenParamSchema = z.object({
   challengeToken: z.string().min(1),
+});
+
+const snapshotBodySchema = z.object({
+  imageDataUrl: z.string().min(1),
+  capturedAt: z.string().datetime().optional(),
 });
 
 const challengeResponseSchema = apiResponseSchema(
@@ -279,6 +288,33 @@ const parseChallengeToken = (input: {
 const toBodyHash = (body: string): string =>
   createHash("sha256").update(body).digest("base64url");
 
+const parseImageDataUrl = (
+  imageDataUrl: string,
+): {
+  readonly mimeType: string;
+  readonly bytes: Uint8Array;
+} | null => {
+  const match =
+    /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/u.exec(
+      imageDataUrl,
+    );
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+  try {
+    const bytes = Buffer.from(match[2], "base64");
+    if (bytes.length === 0 || bytes.length > MAX_SNAPSHOT_IMAGE_BYTES) {
+      return null;
+    }
+    return {
+      mimeType: match[1],
+      bytes,
+    };
+  } catch {
+    return null;
+  }
+};
+
 type DisplayRouteDeps = {
   jwtSecret: string;
   downloadUrlExpiresInSeconds: number;
@@ -297,6 +333,7 @@ type DisplayRouteDeps = {
     runtimeControlRepository: RuntimeControlRepository;
     displayKeyRepository: DisplayKeyRepository;
     displayAuthNonceRepository: DisplayAuthNonceRepository;
+    displayPreviewRepository: DisplayPreviewRepository;
   };
   storage: ContentStorage;
   defaultEmergencyContentId?: string;
@@ -868,6 +905,66 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
       });
+    },
+  );
+
+  router.post(
+    "/:slug/snapshot",
+    setAction("display.snapshot.write", {
+      route: "/display-runtime/:slug/snapshot",
+      actorType: "display",
+      resourceType: "display",
+    }),
+    signedDisplayRequest(deps),
+    validateJson(snapshotBodySchema),
+    describeRoute({
+      description: "Upload latest display preview snapshot",
+      tags: displayRuntimeTags,
+      responses: {
+        204: {
+          description: "Snapshot accepted",
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Display not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        422: {
+          description: "Invalid snapshot payload",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const displayId = String(c.get("displayId"));
+      const payload = c.req.valid("json");
+      const parsed = parseImageDataUrl(payload.imageDataUrl);
+      if (!parsed) {
+        return validationError(c, "Snapshot image must be a valid data URL.");
+      }
+
+      await deps.repositories.displayPreviewRepository.upsertLatest({
+        displayId,
+        imageDataUrl: payload.imageDataUrl,
+        capturedAt: payload.capturedAt ?? new Date().toISOString(),
+      });
+
+      return c.body(null, 204);
     },
   );
 

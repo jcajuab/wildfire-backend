@@ -91,6 +91,7 @@ const DISPLAY_REGISTRATION_CONSTRAINTS = {
 const DISPLAY_REGISTRATION_SLUG_REGEX = new RegExp(
   DISPLAY_REGISTRATION_CONSTRAINTS.slugPattern,
 );
+const PREVIEW_STALE_AFTER_MS = 30_000;
 
 const registrationAttemptParamSchema = z.object({
   attemptId: z.string().uuid(),
@@ -151,6 +152,33 @@ const displayRegistrationResponseSchema = z.object({
   keyId: z.string().uuid(),
   state: z.literal("registered"),
 });
+
+const parseImageDataUrl = (
+  imageDataUrl: string,
+): {
+  readonly mimeType: string;
+  readonly bytes: Uint8Array;
+} | null => {
+  const match =
+    /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/u.exec(
+      imageDataUrl,
+    );
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+  try {
+    const bytes = Buffer.from(match[2], "base64");
+    if (bytes.length === 0) {
+      return null;
+    }
+    return {
+      mimeType: match[1],
+      bytes,
+    };
+  } catch {
+    return null;
+  }
+};
 
 class DisplayConflictError extends Error {
   constructor(message: string) {
@@ -1199,6 +1227,88 @@ export const registerDisplayStaffRoutes = (args: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/:id{[0-9a-fA-F-]{36}}/preview",
+    setAction("displays.display.preview", {
+      route: "/displays/:id/preview",
+      resourceType: "display",
+    }),
+    ...authorize("displays:read"),
+    validateParams(displayIdParamSchema),
+    describeRoute({
+      description: "Get latest display preview image",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Display preview image",
+          content: {
+            "image/jpeg": {
+              schema: { type: "string", format: "binary" },
+            },
+            "image/png": {
+              schema: { type: "string", format: "binary" },
+            },
+            "image/webp": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        },
+        204: {
+          description: "No preview available",
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        c.set("resourceId", params.id);
+        const display = await deps.repositories.displayRepository.findById(
+          params.id,
+        );
+        if (!display) {
+          return notFound(c, "Display not found");
+        }
+
+        const preview =
+          await deps.repositories.displayPreviewRepository.findLatestByDisplayId(
+            display.id,
+          );
+        if (!preview) {
+          return c.body(null, 204);
+        }
+
+        const capturedAtMs = Date.parse(preview.capturedAt);
+        if (
+          !Number.isFinite(capturedAtMs) ||
+          Date.now() - capturedAtMs > PREVIEW_STALE_AFTER_MS
+        ) {
+          return c.body(null, 204);
+        }
+
+        const parsed = parseImageDataUrl(preview.imageDataUrl);
+        if (!parsed) {
+          return c.body(null, 204);
+        }
+
+        return c.body(new Uint8Array(parsed.bytes), 200, {
+          "Content-Type": parsed.mimeType,
+          "Cache-Control": "no-store",
+          "Last-Modified": new Date(capturedAtMs).toUTCString(),
+        });
       },
       ...applicationErrorMappers,
     ),

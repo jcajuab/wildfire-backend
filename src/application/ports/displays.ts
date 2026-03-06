@@ -105,3 +105,16 @@ export interface DisplayGroupRepository {
   delete(id: string): Promise<boolean>;
   setDisplayGroups(displayId: string, groupIds: string[]): Promise<void>;
 }
+
+export interface DisplayPreviewRecord {
+  readonly displayId: string;
+  readonly imageDataUrl: string;
+  readonly capturedAt: string;
+}
+
+export interface DisplayPreviewRepository {
+  upsertLatest(input: DisplayPreviewRecord): Promise<void>;
+  findLatestByDisplayId(
+    displayId: string,
+  ): Promise<DisplayPreviewRecord | null>;
+}

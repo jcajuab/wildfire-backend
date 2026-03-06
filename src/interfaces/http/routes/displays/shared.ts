@@ -11,6 +11,7 @@ import {
 import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
 import {
   type DisplayGroupRepository,
+  type DisplayPreviewRepository,
   type DisplayRepository,
 } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
@@ -54,6 +55,7 @@ export interface DisplaysRouterDeps {
     displayPairingCodeRepository: DisplayPairingCodeRepository;
     displayPairingSessionRepository: DisplayPairingSessionRepository;
     displayKeyRepository: DisplayKeyRepository;
+    displayPreviewRepository: DisplayPreviewRepository;
   };
   storage: ContentStorage;
   defaultEmergencyContentId?: string;
