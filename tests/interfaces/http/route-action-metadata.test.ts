@@ -396,8 +396,10 @@ describe("Route action metadata", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await parseJson<{ user: { id: string } }>(response);
-      expect(body.user.id).toBe("user-1");
+      const body = await parseJson<{ data: { user: { id: string } } }>(
+        response,
+      );
+      expect(body.data.user.id).toBe("user-1");
     });
 
     const entry = logs.find((log) => log.action === "auth.session.login");

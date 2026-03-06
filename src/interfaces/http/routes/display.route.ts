@@ -707,7 +707,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           description: "Display manifest",
           content: {
             "application/json": {
-              schema: resolver(displayManifestSchema),
+              schema: resolver(apiResponseSchema(displayManifestSchema)),
             },
           },
         },
@@ -736,7 +736,7 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
           displayId,
           now: new Date(),
         });
-        return c.json(result);
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

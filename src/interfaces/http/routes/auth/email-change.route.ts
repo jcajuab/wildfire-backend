@@ -10,6 +10,7 @@ import {
   apiResponseSchema,
   conflict,
   errorResponseSchema,
+  toApiResponse,
   tooManyRequests,
   unauthorized,
 } from "#/interfaces/http/responses";
@@ -107,7 +108,7 @@ export const registerAuthEmailChangeRoutes = (args: {
           path: "/",
           expires: new Date(body.expiresAt),
         });
-        return c.json(body);
+        return c.json(toApiResponse(body));
       },
       mapErrorToResponse(DuplicateEmailError, conflict),
       ...applicationErrorMappers,

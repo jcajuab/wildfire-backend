@@ -6,6 +6,7 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
+  toApiResponse,
   unauthorized,
 } from "#/interfaces/http/responses";
 import {
@@ -99,7 +100,7 @@ export const registerAuthProfileRoute = (args: {
           path: "/",
           expires: new Date(body.expiresAt),
         });
-        return c.json(body);
+        return c.json(toApiResponse(body));
       },
       ...applicationErrorMappers,
       mapErrorToResponse(InvalidCredentialsError, unauthorized),

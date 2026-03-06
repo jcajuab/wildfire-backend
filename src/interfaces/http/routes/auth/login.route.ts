@@ -7,6 +7,7 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
+  toApiResponse,
   tooManyRequests,
   unauthorized,
 } from "#/interfaces/http/responses";
@@ -150,7 +151,7 @@ export const registerAuthLoginRoute = (args: {
         c.set("resourceId", body.user.id);
         c.set("actorId", body.user.id);
         c.set("actorType", "user");
-        return c.json(body);
+        return c.json(toApiResponse(body));
       },
       mapErrorToResponse(InvalidCredentialsError, unauthorized),
     ),
