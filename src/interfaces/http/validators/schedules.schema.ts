@@ -15,7 +15,6 @@ export const scheduleSchema = z.object({
   endDate: z.string(),
   startTime: z.string(),
   endTime: z.string(),
-  priority: z.number().int(),
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -62,7 +61,6 @@ export const createScheduleSchema = z.object({
   endDate: z.string().date(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
-  priority: z.number().int(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -76,6 +74,5 @@ export const updateScheduleSchema = z.object({
   endDate: z.string().date().optional(),
   startTime: z.string().min(1).optional(),
   endTime: z.string().min(1).optional(),
-  priority: z.number().int().optional(),
   isActive: z.boolean().optional(),
 });

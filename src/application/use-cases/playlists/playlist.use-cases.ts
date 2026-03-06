@@ -195,6 +195,25 @@ const invalidateImpactedSchedules = async (
   }
 };
 
+const runPlaylistPostMutationEffects = async (
+  deps: {
+    playlistRepository: PlaylistRepository;
+    contentRepository: ContentRepository;
+    scheduleRepository?: ScheduleRepository;
+    displayRepository?: DisplayRepository;
+    displayEventPublisher?: DisplayStreamEventPublisher;
+  },
+  playlistId: string,
+  reason: string,
+): Promise<void> => {
+  // Item mutations are the primary operation; downstream notifications and
+  // schedule invalidation should not fail an already-committed write.
+  await Promise.allSettled([
+    publishPlaylistUpdateEvents(deps, playlistId, reason),
+    invalidateImpactedSchedules(deps, playlistId),
+  ]);
+};
+
 export class ListPlaylistsUseCase {
   constructor(
     private readonly deps: {
@@ -498,12 +517,11 @@ export class AddPlaylistItemUseCase {
       sequence: input.sequence,
       duration: input.duration,
     });
-    await publishPlaylistUpdateEvents(
+    await runPlaylistPostMutationEffects(
       this.deps,
       input.playlistId,
       "playlist_item_added",
     );
-    await invalidateImpactedSchedules(this.deps, input.playlistId);
 
     return toPlaylistItemView(item, content);
   }
@@ -536,12 +554,11 @@ export class UpdatePlaylistItemUseCase {
 
     const content = await this.deps.contentRepository.findById(item.contentId);
     if (!content) throw new NotFoundError("Content not found");
-    await publishPlaylistUpdateEvents(
+    await runPlaylistPostMutationEffects(
       this.deps,
       item.playlistId,
       "playlist_item_updated",
     );
-    await invalidateImpactedSchedules(this.deps, item.playlistId);
 
     return toPlaylistItemView(item, content);
   }
@@ -576,12 +593,11 @@ export class ReorderPlaylistItemsUseCase {
       throw new ValidationError("Invalid playlist reorder payload");
     }
 
-    await publishPlaylistUpdateEvents(
+    await runPlaylistPostMutationEffects(
       this.deps,
       input.playlistId,
       "playlist_items_reordered",
     );
-    await invalidateImpactedSchedules(this.deps, input.playlistId);
   }
 }
 
@@ -607,11 +623,10 @@ export class DeletePlaylistItemUseCase {
       existing.contentId,
     );
     void references;
-    await publishPlaylistUpdateEvents(
+    await runPlaylistPostMutationEffects(
       this.deps,
       existing.playlistId,
       "playlist_item_deleted",
     );
-    await invalidateImpactedSchedules(this.deps, existing.playlistId);
   }
 }

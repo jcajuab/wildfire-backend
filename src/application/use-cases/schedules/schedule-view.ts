@@ -19,7 +19,6 @@ export const toScheduleView = (
   endDate: schedule.endDate ?? "",
   startTime: schedule.startTime,
   endTime: schedule.endTime,
-  priority: schedule.priority,
   isActive: schedule.isActive,
   createdAt: schedule.createdAt,
   updatedAt: schedule.updatedAt,

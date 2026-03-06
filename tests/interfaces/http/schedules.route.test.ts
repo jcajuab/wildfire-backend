@@ -248,7 +248,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -282,7 +281,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -310,7 +308,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "99:00",
         endTime: "17:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -340,7 +337,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -368,7 +364,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "10:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -390,7 +385,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "09:00",
         endTime: "11:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -432,7 +426,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "08:00",
         endTime: "10:00",
-        priority: 10,
         isActive: true,
       }),
     });
@@ -454,7 +447,6 @@ describe("Schedules routes", () => {
         endDate: "2026-12-31",
         startTime: "11:00",
         endTime: "12:00",
-        priority: 10,
         isActive: true,
       }),
     });

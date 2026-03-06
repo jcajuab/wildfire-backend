@@ -143,7 +143,6 @@ const buildNowPlayingMap = async (input: {
     readonly endDate?: string;
     readonly startTime: string;
     readonly endTime: string;
-    readonly priority: number;
   }[];
   now: Date;
   timeZone: string;
@@ -595,7 +594,6 @@ export class GetDisplayActiveScheduleUseCase {
       endDate: active.endDate,
       startTime: active.startTime,
       endTime: active.endTime,
-      priority: active.priority,
       isActive: active.isActive,
       createdAt: active.createdAt,
       updatedAt: active.updatedAt,

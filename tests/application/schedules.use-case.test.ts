@@ -350,7 +350,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "17:00",
-        priority: 10,
         isActive: true,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -404,7 +403,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "08:01",
-        priority: 1,
         isActive: true,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
@@ -446,7 +444,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-11-30",
         startTime: "10:30",
         endTime: "11:30",
-        priority: 1,
         isActive: true,
       }),
     ).rejects.toBeInstanceOf(ScheduleConflictError);
@@ -488,7 +485,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-11-30",
         startTime: "11:00",
         endTime: "12:00",
-        priority: 1,
         isActive: true,
       }),
     ).resolves.toBeDefined();
@@ -546,7 +542,7 @@ describe("Schedules use cases", () => {
     ).rejects.toBeInstanceOf(ScheduleConflictError);
   });
 
-  test("GetActiveScheduleForDisplayUseCase returns highest priority", async () => {
+  test("GetActiveScheduleForDisplayUseCase returns the first matching schedule", async () => {
     const deps = makeDeps();
     deps.schedules.push(
       {
@@ -585,7 +581,7 @@ describe("Schedules use cases", () => {
 
     const now = new Date("2025-01-06T09:00:00.000Z");
     const result = await useCase.execute({ displayId: "display-1", now });
-    expect(result?.id).toBe("schedule-2");
+    expect(result?.id).toBe("schedule-1");
   });
 
   test("GetActiveScheduleForDisplayUseCase uses configured timezone", async () => {

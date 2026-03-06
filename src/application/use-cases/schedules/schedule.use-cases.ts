@@ -18,6 +18,7 @@ import { NotFoundError, ScheduleConflictError } from "./errors";
 import { toScheduleView } from "./schedule-view";
 
 const DEFAULT_OVERFLOW_SCROLL_PIXELS_PER_SECOND = 24;
+const DEFAULT_SCHEDULE_PRIORITY = 1;
 const DAY_SECONDS = 24 * 60 * 60;
 const SCHEDULE_OVERLAP_MESSAGE =
   "This schedule overlaps with an existing schedule on the selected display.";
@@ -307,7 +308,6 @@ export class CreateScheduleUseCase {
     endDate?: string;
     startTime: string;
     endTime: string;
-    priority: number;
     isActive: boolean;
   }) {
     const { startDate, endDate } = getValidatedWindow(input);
@@ -391,7 +391,7 @@ export class CreateScheduleUseCase {
       endDate: candidate.endDate,
       startTime: candidate.startTime,
       endTime: candidate.endTime,
-      priority: input.priority,
+      priority: DEFAULT_SCHEDULE_PRIORITY,
       isActive: input.isActive,
     });
 
@@ -458,7 +458,6 @@ export class UpdateScheduleUseCase {
     endDate?: string;
     startTime?: string;
     endTime?: string;
-    priority?: number;
     isActive?: boolean;
   }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
@@ -560,7 +559,6 @@ export class UpdateScheduleUseCase {
       endDate: candidate.endDate,
       startTime: candidate.startTime,
       endTime: candidate.endTime,
-      priority: input.priority,
       isActive: input.isActive,
     });
     if (!schedule) {

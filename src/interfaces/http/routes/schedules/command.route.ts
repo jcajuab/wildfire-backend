@@ -90,7 +90,6 @@ export const registerScheduleCommandRoutes = (args: {
           endDate: payload.endDate,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          priority: payload.priority,
           isActive: payload.isActive ?? true,
         });
         c.set("resourceId", result.id);
@@ -144,7 +143,6 @@ export const registerScheduleCommandRoutes = (args: {
           endDate: payload.endDate,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          priority: payload.priority,
           isActive: payload.isActive,
         });
         return c.json(toApiResponse(result));

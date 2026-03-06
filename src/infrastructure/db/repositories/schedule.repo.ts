@@ -112,7 +112,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
   async listByDisplay(displayId: string): Promise<ScheduleRecord[]> {
     const rows = await withTargets()
       .where(eq(schedules.displayId, displayId))
-      .orderBy(desc(schedules.priority));
+      .orderBy(desc(schedules.createdAt));
     return rows.map(toRecord);
   }
 

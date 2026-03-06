@@ -97,7 +97,6 @@ export const selectActiveSchedule = <
     endDate?: string;
     startTime: string;
     endTime: string;
-    priority: number;
   },
 >(
   schedules: T[],
@@ -118,8 +117,7 @@ export const selectActiveSchedule = <
       })
       .filter((schedule) =>
         isWithinTimeWindow(time, schedule.startTime, schedule.endTime),
-      )
-      .sort((a, b) => b.priority - a.priority)[0] ?? null
+      )[0] ?? null
   );
 };
 
@@ -131,7 +129,6 @@ export const selectActiveScheduleByKind = <
     endDate?: string;
     startTime: string;
     endTime: string;
-    priority: number;
   },
 >(
   schedules: T[],
