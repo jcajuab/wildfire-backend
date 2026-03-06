@@ -1,4 +1,10 @@
-import { index, mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  index,
+  mysqlEnum,
+  mysqlTable,
+  timestamp,
+  varchar,
+} from "drizzle-orm/mysql-core";
 import { content } from "./content.sql";
 import { users } from "./rbac.sql";
 
@@ -9,8 +15,10 @@ export const contentIngestionJobs = mysqlTable(
     contentId: varchar("content_id", { length: 36 })
       .notNull()
       .references(() => content.id, { onDelete: "cascade" }),
-    operation: varchar("operation", { length: 16 }).notNull(),
-    status: varchar("status", { length: 16 }).notNull().default("QUEUED"),
+    operation: mysqlEnum("operation", ["UPLOAD", "REPLACE"]).notNull(),
+    status: mysqlEnum("status", ["QUEUED", "PROCESSING", "SUCCEEDED", "FAILED"])
+      .notNull()
+      .default("QUEUED"),
     errorMessage: varchar("error_message", { length: 1024 }),
     createdById: varchar("created_by_id", { length: 36 })
       .notNull()

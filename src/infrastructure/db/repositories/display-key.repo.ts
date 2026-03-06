@@ -4,42 +4,59 @@ import {
   type DisplayKeyRepository,
 } from "#/application/ports/display-auth";
 import { db } from "#/infrastructure/db/client";
-import { displayKeys } from "#/infrastructure/db/schema/display-key.sql";
+import {
+  displayActiveKeys,
+  displayKeyPairs,
+} from "#/infrastructure/db/schema/display-key.sql";
 
-const toRecord = (row: typeof displayKeys.$inferSelect): DisplayKeyRecord => ({
+const toIso = (value: Date | string): string =>
+  value instanceof Date ? value.toISOString() : value;
+
+type DisplayKeyRow = {
+  id: string;
+  displayId: string;
+  algorithm: "ed25519";
+  publicKey: string;
+  revokedAt: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  activeDisplayId: string | null;
+};
+
+const toRecord = (row: DisplayKeyRow): DisplayKeyRecord => ({
   id: row.id,
   displayId: row.displayId,
-  algorithm: row.algorithm === "ed25519" ? "ed25519" : "ed25519",
+  algorithm: row.algorithm,
   publicKey: row.publicKey,
-  status: row.status === "revoked" ? "revoked" : "active",
+  status:
+    row.activeDisplayId != null && row.revokedAt == null ? "active" : "revoked",
   revokedAt:
-    row.revokedAt instanceof Date
-      ? row.revokedAt.toISOString()
-      : (row.revokedAt ?? null),
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+    row.revokedAt == null
+      ? null
+      : row.revokedAt instanceof Date
+        ? row.revokedAt.toISOString()
+        : row.revokedAt,
+  createdAt: toIso(row.createdAt),
+  updatedAt: toIso(row.updatedAt),
 });
 
-const isDuplicateDisplayKeyError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  const dbError = error as {
-    code?: string;
-    message?: string;
-    sqlMessage?: string;
-  };
-  if (dbError.code !== "ER_DUP_ENTRY") {
-    return false;
-  }
-  const details = [dbError.message, dbError.sqlMessage]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .toLowerCase();
-  return details.includes("display_keys_display_id_unique");
-};
+const baseQuery = () =>
+  db
+    .select({
+      id: displayKeyPairs.id,
+      displayId: displayKeyPairs.displayId,
+      algorithm: displayKeyPairs.algorithm,
+      publicKey: displayKeyPairs.publicKey,
+      revokedAt: displayKeyPairs.revokedAt,
+      createdAt: displayKeyPairs.createdAt,
+      updatedAt: displayKeyPairs.updatedAt,
+      activeDisplayId: displayActiveKeys.displayId,
+    })
+    .from(displayKeyPairs)
+    .leftJoin(
+      displayActiveKeys,
+      eq(displayActiveKeys.keyPairId, displayKeyPairs.id),
+    );
 
 export class DisplayKeyDbRepository implements DisplayKeyRepository {
   async create(input: {
@@ -48,90 +65,110 @@ export class DisplayKeyDbRepository implements DisplayKeyRepository {
     publicKey: string;
   }): Promise<DisplayKeyRecord> {
     const now = new Date();
-    const activateExisting = async (): Promise<DisplayKeyRecord> => {
-      const nextId = crypto.randomUUID();
-      await db
-        .update(displayKeys)
-        .set({
-          id: nextId,
-          algorithm: input.algorithm,
-          publicKey: input.publicKey,
-          status: "active",
-          revokedAt: null,
-          updatedAt: now,
-        })
-        .where(eq(displayKeys.displayId, input.displayId));
+    const newId = crypto.randomUUID();
 
-      const rows = await db
-        .select()
-        .from(displayKeys)
-        .where(eq(displayKeys.id, nextId))
+    await db.transaction(async (tx) => {
+      const currentActiveRows = await tx
+        .select({ keyPairId: displayActiveKeys.keyPairId })
+        .from(displayActiveKeys)
+        .where(eq(displayActiveKeys.displayId, input.displayId))
         .limit(1);
-      const activated = rows[0];
-      if (!activated) {
-        throw new Error("Failed to load activated display key");
-      }
-      return toRecord(activated);
-    };
+      const currentActiveKeyPairId = currentActiveRows[0]?.keyPairId ?? null;
 
-    try {
-      const id = crypto.randomUUID();
-      await db.insert(displayKeys).values({
-        id,
+      await tx.insert(displayKeyPairs).values({
+        id: newId,
         displayId: input.displayId,
         algorithm: input.algorithm,
         publicKey: input.publicKey,
-        status: "active",
+        revokedAt: null,
         createdAt: now,
         updatedAt: now,
       });
-      const row = await db
-        .select()
-        .from(displayKeys)
-        .where(eq(displayKeys.id, id))
-        .limit(1);
-      const created = row[0];
-      if (!created) {
-        throw new Error("Failed to load created display key");
+
+      await tx
+        .insert(displayActiveKeys)
+        .values({
+          displayId: input.displayId,
+          keyPairId: newId,
+          activatedAt: now,
+          updatedAt: now,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            keyPairId: newId,
+            activatedAt: now,
+            updatedAt: now,
+          },
+        });
+
+      if (currentActiveKeyPairId && currentActiveKeyPairId !== newId) {
+        await tx
+          .update(displayKeyPairs)
+          .set({
+            revokedAt: now,
+            updatedAt: now,
+          })
+          .where(eq(displayKeyPairs.id, currentActiveKeyPairId));
       }
-      return toRecord(created);
-    } catch (error) {
-      if (!isDuplicateDisplayKeyError(error)) {
-        throw error;
-      }
-      return activateExisting();
+    });
+
+    const created = await this.findActiveByKeyId(newId);
+    if (!created) {
+      throw new Error("Failed to load created display key");
     }
+
+    return created;
   }
 
   async findActiveByKeyId(keyId: string): Promise<DisplayKeyRecord | null> {
-    const rows = await db
-      .select()
-      .from(displayKeys)
-      .where(and(eq(displayKeys.id, keyId), eq(displayKeys.status, "active")))
+    const rows = await baseQuery()
+      .where(
+        and(
+          eq(displayKeyPairs.id, keyId),
+          eq(displayActiveKeys.keyPairId, keyId),
+        ),
+      )
       .limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+
+    const row = rows[0];
+    return row ? toRecord(row) : null;
   }
 
   async findActiveByDisplayId(
     displayId: string,
   ): Promise<DisplayKeyRecord | null> {
-    const rows = await db
-      .select()
-      .from(displayKeys)
-      .where(
-        and(
-          eq(displayKeys.displayId, displayId),
-          eq(displayKeys.status, "active"),
-        ),
-      )
+    const rows = await baseQuery()
+      .where(eq(displayActiveKeys.displayId, displayId))
       .limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+
+    const row = rows[0];
+    return row ? toRecord(row) : null;
   }
 
   async revokeByDisplayId(displayId: string, at: Date): Promise<void> {
-    await db
-      .update(displayKeys)
-      .set({ status: "revoked", revokedAt: at, updatedAt: at })
-      .where(eq(displayKeys.displayId, displayId));
+    const activeRows = await db
+      .select({ keyPairId: displayActiveKeys.keyPairId })
+      .from(displayActiveKeys)
+      .where(eq(displayActiveKeys.displayId, displayId))
+      .limit(1);
+
+    const activeKeyPairId = activeRows[0]?.keyPairId;
+    if (!activeKeyPairId) {
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(displayKeyPairs)
+        .set({
+          revokedAt: at,
+          updatedAt: at,
+        })
+        .where(eq(displayKeyPairs.id, activeKeyPairId));
+
+      await tx
+        .delete(displayActiveKeys)
+        .where(eq(displayActiveKeys.displayId, displayId));
+    });
   }
 }

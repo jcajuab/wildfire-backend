@@ -685,6 +685,40 @@ const makeApp = async (
 };
 
 describe("Displays routes", () => {
+  test("GET /displays/registration-constraints returns backend constraints with displays:create permission", async () => {
+    const { app, issueToken } = await makeApp(["displays:create"]);
+    const token = await issueToken();
+
+    const response = await app.request("/displays/registration-constraints", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{
+      data: {
+        slugPattern: string;
+        minSlugLength: number;
+        maxSlugLength: number;
+      };
+    }>(response);
+    expect(json.data).toEqual({
+      slugPattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      minSlugLength: 3,
+      maxSlugLength: 120,
+    });
+  });
+
+  test("GET /displays/registration-constraints returns 403 without displays:create", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/displays/registration-constraints", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(403);
+  });
+
   test("POST /displays/registration-attempts issues code with displays:create permission", async () => {
     const { app, issueToken } = await makeApp(["displays:create"]);
     const token = await issueToken();

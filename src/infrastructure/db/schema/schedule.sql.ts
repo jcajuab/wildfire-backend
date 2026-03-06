@@ -15,15 +15,6 @@ export const schedules = mysqlTable(
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
-    kind: varchar("kind", { length: 16 }).notNull().default("PLAYLIST"),
-    playlistId: varchar("playlist_id", { length: 36 }).references(
-      () => playlists.id,
-      { onDelete: "restrict" },
-    ),
-    contentId: varchar("content_id", { length: 36 }).references(
-      () => content.id,
-      { onDelete: "restrict" },
-    ),
     displayId: varchar("display_id", { length: 36 })
       .notNull()
       .references(() => displays.id, { onDelete: "cascade" }),
@@ -38,11 +29,53 @@ export const schedules = mysqlTable(
   },
   (table) => ({
     displayIdIdx: index("schedules_display_id_idx").on(table.displayId),
-    playlistIdIdx: index("schedules_playlist_id_idx").on(table.playlistId),
-    contentIdIdx: index("schedules_content_id_idx").on(table.contentId),
-    displayKindIdx: index("schedules_display_kind_idx").on(
+    displayPriorityIdx: index("schedules_display_priority_idx").on(
       table.displayId,
-      table.kind,
+      table.priority,
+    ),
+    displayActiveWindowIdx: index("schedules_display_active_window_idx").on(
+      table.displayId,
+      table.isActive,
+      table.startDate,
+      table.endDate,
+    ),
+  }),
+);
+
+export const schedulePlaylistTargets = mysqlTable(
+  "schedule_playlist_targets",
+  {
+    scheduleId: varchar("schedule_id", { length: 36 })
+      .primaryKey()
+      .references(() => schedules.id, { onDelete: "cascade" }),
+    playlistId: varchar("playlist_id", { length: 36 })
+      .notNull()
+      .references(() => playlists.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    playlistIdIdx: index("schedule_playlist_targets_playlist_id_idx").on(
+      table.playlistId,
+    ),
+  }),
+);
+
+export const scheduleContentTargets = mysqlTable(
+  "schedule_content_targets",
+  {
+    scheduleId: varchar("schedule_id", { length: 36 })
+      .primaryKey()
+      .references(() => schedules.id, { onDelete: "cascade" }),
+    contentId: varchar("content_id", { length: 36 })
+      .notNull()
+      .references(() => content.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    contentIdIdx: index("schedule_content_targets_content_id_idx").on(
+      table.contentId,
     ),
   }),
 );

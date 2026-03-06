@@ -1,9 +1,0 @@
-export const DEMO_ROLE_PREFIX = "[DEMO] ";
-export const DEMO_PLAYLIST_PREFIX = "[DEMO] ";
-export const DEMO_SCHEDULE_PREFIX = "[DEMO] ";
-export const DEMO_DISPLAY_SLUG_PREFIX = "demo-";
-export const DEMO_USER_PREFIX = "demo.";
-export const DEMO_GROUP_PREFIX = "[DEMO] ";
-export const DEMO_AUDIT_REQUEST_ID_PREFIX = "demo-seed-audit-";
-export const DEMO_CONTENT_KEY_PREFIX = "demo/seed/content";
-export const DEMO_DEFAULT_USER_PASSWORD = "demo1234";

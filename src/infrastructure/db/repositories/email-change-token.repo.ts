@@ -1,48 +1,9 @@
+import { and, eq, gt, lte } from "drizzle-orm";
 import { type EmailChangeTokenRepository } from "#/application/ports/auth";
-import { env } from "#/env";
-import {
-  executeRedisCommand,
-  getRedisCommandClient,
-} from "#/infrastructure/redis/client";
+import { db } from "#/infrastructure/db/client";
+import { emailChangeTokens } from "#/infrastructure/db/schema/auth-state.sql";
 
-const prefix = `${env.REDIS_KEY_PREFIX}:email-change-token`;
-const tokenKey = (hashedToken: string): string =>
-  `${prefix}:token:${hashedToken}`;
-const userKey = (userId: string): string => `${prefix}:user:${userId}`;
-const toUnixSeconds = (value: Date): string =>
-  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
-
-interface StoredEmailChangeToken {
-  userId: string;
-  email: string;
-  expiresAtMs: number;
-}
-
-const parseStoredToken = (value: string): StoredEmailChangeToken | null => {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (parsed == null || typeof parsed !== "object") {
-      return null;
-    }
-    const data = parsed as Record<string, unknown>;
-    const userId = data.userId;
-    const email = data.email;
-    const expiresAtMs = data.expiresAtMs;
-    if (
-      typeof userId !== "string" ||
-      typeof email !== "string" ||
-      typeof expiresAtMs !== "number" ||
-      !Number.isFinite(expiresAtMs)
-    ) {
-      return null;
-    }
-    return { userId, email, expiresAtMs };
-  } catch {
-    return null;
-  }
-};
-
-export class EmailChangeTokenRedisRepository
+export class EmailChangeTokenDbRepository
   implements EmailChangeTokenRepository
 {
   async store(input: {
@@ -51,73 +12,52 @@ export class EmailChangeTokenRedisRepository
     hashedToken: string;
     expiresAt: Date;
   }): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const existingHashedToken = await executeRedisCommand<string | null>(
-      redis,
-      ["GET", userKey(input.userId)],
-    );
+    const now = new Date();
 
-    if (existingHashedToken) {
-      await executeRedisCommand<number>(redis, [
-        "DEL",
-        tokenKey(existingHashedToken),
-      ]);
-    }
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(emailChangeTokens)
+        .where(eq(emailChangeTokens.userId, input.userId));
 
-    const payload: StoredEmailChangeToken = {
-      userId: input.userId,
-      email: input.email,
-      expiresAtMs: input.expiresAt.getTime(),
-    };
-
-    await executeRedisCommand<void>(redis, [
-      "SET",
-      tokenKey(input.hashedToken),
-      JSON.stringify(payload),
-      "EXAT",
-      toUnixSeconds(input.expiresAt),
-    ]);
-    await executeRedisCommand<void>(redis, [
-      "SET",
-      userKey(input.userId),
-      input.hashedToken,
-      "EXAT",
-      toUnixSeconds(input.expiresAt),
-    ]);
+      await tx.insert(emailChangeTokens).values({
+        hashedToken: input.hashedToken,
+        userId: input.userId,
+        email: input.email,
+        expiresAt: input.expiresAt,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
   }
 
   async findByHashedToken(
     hashedToken: string,
     now: Date,
   ): Promise<{ userId: string; email: string; expiresAt: Date } | null> {
-    const redis = await getRedisCommandClient();
-    const raw = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      tokenKey(hashedToken),
-    ]);
-    if (!raw) {
-      return null;
-    }
+    const rows = await db
+      .select({
+        userId: emailChangeTokens.userId,
+        email: emailChangeTokens.email,
+        expiresAt: emailChangeTokens.expiresAt,
+      })
+      .from(emailChangeTokens)
+      .where(
+        and(
+          eq(emailChangeTokens.hashedToken, hashedToken),
+          gt(emailChangeTokens.expiresAt, now),
+        ),
+      )
+      .limit(1);
 
-    const token = parseStoredToken(raw);
-    if (!token) {
-      await executeRedisCommand<number>(redis, ["DEL", tokenKey(hashedToken)]);
-      return null;
-    }
-
-    if (token.expiresAtMs <= now.getTime()) {
-      await executeRedisCommand<number>(redis, [
-        "DEL",
-        tokenKey(hashedToken),
-        userKey(token.userId),
-      ]);
+    const row = rows[0];
+    if (!row) {
       return null;
     }
 
     return {
-      userId: token.userId,
-      email: token.email,
-      expiresAt: new Date(token.expiresAtMs),
+      userId: row.userId,
+      email: row.email,
+      expiresAt: row.expiresAt,
     };
   }
 
@@ -125,57 +65,44 @@ export class EmailChangeTokenRedisRepository
     userId: string,
     now: Date,
   ): Promise<{ email: string; expiresAt: Date } | null> {
-    const redis = await getRedisCommandClient();
-    const hashedToken = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      userKey(userId),
-    ]);
-    if (!hashedToken) {
-      return null;
-    }
+    const rows = await db
+      .select({
+        email: emailChangeTokens.email,
+        expiresAt: emailChangeTokens.expiresAt,
+      })
+      .from(emailChangeTokens)
+      .where(
+        and(
+          eq(emailChangeTokens.userId, userId),
+          gt(emailChangeTokens.expiresAt, now),
+        ),
+      )
+      .limit(1);
 
-    const token = await this.findByHashedToken(hashedToken, now);
-    if (!token) {
-      await executeRedisCommand<number>(redis, ["DEL", userKey(userId)]);
-      return null;
-    }
-
-    return {
-      email: token.email,
-      expiresAt: token.expiresAt,
-    };
+    const row = rows[0];
+    return row
+      ? {
+          email: row.email,
+          expiresAt: row.expiresAt,
+        }
+      : null;
   }
 
   async consumeByHashedToken(hashedToken: string): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const token = await this.findByHashedToken(hashedToken, new Date());
-    await executeRedisCommand<number>(redis, ["DEL", tokenKey(hashedToken)]);
-    if (!token) {
-      return;
-    }
-
-    const linkedHashedToken = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      userKey(token.userId),
-    ]);
-    if (linkedHashedToken === hashedToken) {
-      await executeRedisCommand<number>(redis, ["DEL", userKey(token.userId)]);
-    }
+    await db
+      .delete(emailChangeTokens)
+      .where(eq(emailChangeTokens.hashedToken, hashedToken));
   }
 
   async deleteByUserId(userId: string): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const hashedToken = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      userKey(userId),
-    ]);
-    await executeRedisCommand<number>(redis, ["DEL", userKey(userId)]);
-    if (hashedToken) {
-      await executeRedisCommand<number>(redis, ["DEL", tokenKey(hashedToken)]);
-    }
+    await db
+      .delete(emailChangeTokens)
+      .where(eq(emailChangeTokens.userId, userId));
   }
 
-  async deleteExpired(_now: Date): Promise<void> {
-    return;
+  async deleteExpired(now: Date): Promise<void> {
+    await db
+      .delete(emailChangeTokens)
+      .where(lte(emailChangeTokens.expiresAt, now));
   }
 }

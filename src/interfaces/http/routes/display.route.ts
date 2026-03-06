@@ -7,6 +7,7 @@ import {
   verify,
 } from "node:crypto";
 import { Hono } from "hono";
+import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import {
   type ContentRepository,
@@ -30,6 +31,7 @@ import { logger } from "#/infrastructure/observability/logger";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
+  errorResponseSchema,
   notFound,
   type ResponseContext,
   tooManyRequests,
@@ -46,6 +48,7 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
+import { displayManifestSchema } from "#/interfaces/http/validators/displays.schema";
 import {
   validateJson,
   validateParams,
@@ -55,6 +58,7 @@ const CHALLENGE_TTL_MS = 2 * 60 * 1000;
 const SIGNED_REQUEST_SKEW_MS = 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
 const STREAM_HEARTBEAT_INTERVAL_MS = 20 * 1000;
+const displayRuntimeTags = ["Display Runtime"];
 const MAX_TOKEN_SEGMENTS = 2;
 const MAX_TOKEN_SEGMENT_BYTES = 2_048;
 const MAX_DISPLAY_TOKEN_FIELD_BYTES = 256;
@@ -96,6 +100,11 @@ const slugParamSchema = z.object({
 
 const challengeTokenParamSchema = z.object({
   challengeToken: z.string().min(1),
+});
+
+const challengeResponseSchema = z.object({
+  challengeToken: z.string().min(1),
+  expiresAt: z.string(),
 });
 
 const toBase64Url = (value: string | Uint8Array): string =>
@@ -479,6 +488,52 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       message: "Too many authentication challenge requests. Try again later.",
     }),
     validateJson(createChallengeBodySchema),
+    describeRoute({
+      description: "Create a display runtime authentication challenge",
+      tags: displayRuntimeTags,
+      responses: {
+        201: {
+          description: "Challenge token issued",
+          content: {
+            "application/json": {
+              schema: resolver(challengeResponseSchema),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Display not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        422: {
+          description: "Invalid challenge request payload",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        429: {
+          description: "Too many challenge requests",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
@@ -535,6 +590,48 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
     }),
     validateParams(challengeTokenParamSchema),
     validateJson(verifyChallengeBodySchema),
+    describeRoute({
+      description:
+        "Verify a display runtime authentication challenge signature",
+      tags: displayRuntimeTags,
+      responses: {
+        204: {
+          description: "Challenge verified",
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Display not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        422: {
+          description: "Invalid verification request payload",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        429: {
+          description: "Too many verification requests",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
@@ -598,6 +695,36 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       resourceType: "display",
     }),
     signedDisplayRequest(deps),
+    describeRoute({
+      description: "Get signed display manifest payload",
+      tags: displayRuntimeTags,
+      responses: {
+        200: {
+          description: "Display manifest",
+          content: {
+            "application/json": {
+              schema: resolver(displayManifestSchema),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Display not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const displayId = String(c.get("displayId"));
@@ -619,6 +746,38 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       resourceType: "display",
     }),
     signedDisplayRequest(deps),
+    describeRoute({
+      description: "Stream display runtime updates via SSE",
+      tags: displayRuntimeTags,
+      responses: {
+        200: {
+          description: "Server-sent events stream for display runtime updates",
+          content: {
+            "text/event-stream": {
+              schema: {
+                type: "string",
+              },
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Display not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
     async (c) => {
       const displayId = String(c.get("displayId"));
       const encoder = new TextEncoder();
@@ -716,6 +875,31 @@ export const createDisplayRouter = (deps: DisplayRouteDeps) => {
       resourceType: "display",
     }),
     signedDisplayRequest(deps),
+    describeRoute({
+      description: "Post display heartbeat to update runtime status",
+      tags: displayRuntimeTags,
+      responses: {
+        204: {
+          description: "Heartbeat accepted",
+        },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        404: {
+          description: "Display not found",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
     async (c) => {
       const displayId = String(c.get("displayId"));
       const now = new Date();

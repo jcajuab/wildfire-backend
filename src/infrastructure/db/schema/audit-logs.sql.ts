@@ -1,6 +1,7 @@
 import {
   index,
   int,
+  mysqlEnum,
   mysqlTable,
   text,
   timestamp,
@@ -19,7 +20,7 @@ export const auditLogs = mysqlTable(
     path: varchar("path", { length: 255 }).notNull(),
     status: int("status").notNull(),
     actorId: varchar("actor_id", { length: 36 }),
-    actorType: varchar("actor_type", { length: 16 }),
+    actorType: mysqlEnum("actor_type", ["user", "display"]),
     resourceId: varchar("resource_id", { length: 36 }),
     resourceType: varchar("resource_type", { length: 120 }),
     ipAddress: varchar("ip_address", { length: 64 }),

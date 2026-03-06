@@ -6,6 +6,12 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  forbiddenResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
   contentJobIdParamSchema,
   contentJobSchema,
 } from "#/interfaces/http/validators/content.schema";
@@ -81,6 +87,34 @@ export const registerContentJobRoutes = (args: {
     }),
     requirePermission("content:read"),
     validateParams(contentJobIdParamSchema),
+    describeRoute({
+      description: "Stream content ingestion job events via SSE",
+      tags: contentTags,
+      responses: {
+        200: {
+          description: "Server-sent events stream for a content job",
+          content: {
+            "text/event-stream": {
+              schema: {
+                type: "string",
+              },
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");

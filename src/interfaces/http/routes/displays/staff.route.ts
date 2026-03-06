@@ -16,6 +16,7 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   conflict,
+  errorResponseSchema,
   notFound,
   toApiListResponse,
   toApiResponse,
@@ -82,6 +83,14 @@ type AuthorizePermission = (
 const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
 const REGISTRATION_ATTEMPT_HEARTBEAT_INTERVAL_MS = 20 * 1000;
 const DISPLAY_EVENTS_HEARTBEAT_INTERVAL_MS = 20 * 1000;
+const DISPLAY_REGISTRATION_CONSTRAINTS = {
+  slugPattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+  minSlugLength: 3,
+  maxSlugLength: 120,
+} as const;
+const DISPLAY_REGISTRATION_SLUG_REGEX = new RegExp(
+  DISPLAY_REGISTRATION_CONSTRAINTS.slugPattern,
+);
 
 const registrationAttemptParamSchema = z.object({
   attemptId: z.string().uuid(),
@@ -95,9 +104,9 @@ const displayRegistrationBodySchema = z.object({
   registrationSessionId: z.string().uuid(),
   slug: z
     .string()
-    .min(3)
-    .max(120)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    .min(DISPLAY_REGISTRATION_CONSTRAINTS.minSlugLength)
+    .max(DISPLAY_REGISTRATION_CONSTRAINTS.maxSlugLength)
+    .regex(DISPLAY_REGISTRATION_SLUG_REGEX),
   displayName: z.string().min(1).max(255),
   resolutionWidth: z.number().int().positive(),
   resolutionHeight: z.number().int().positive(),
@@ -106,6 +115,41 @@ const displayRegistrationBodySchema = z.object({
   publicKey: z.string().min(1).max(4096),
   keyAlgorithm: z.literal("ed25519"),
   registrationSignature: z.string().min(1),
+});
+
+const registrationAttemptResponseSchema = z.object({
+  attemptId: z.string().uuid(),
+  code: z.string().regex(/^\d{6}$/),
+  expiresAt: z.string(),
+});
+
+const registrationAttemptRotateResponseSchema = z.object({
+  code: z.string().regex(/^\d{6}$/),
+  expiresAt: z.string(),
+});
+
+const registrationSessionResponseSchema = z.object({
+  registrationSessionId: z.string().uuid(),
+  expiresAt: z.string(),
+  challengeNonce: z.string().uuid(),
+  constraints: z.object({
+    slugPattern: z.string(),
+    minSlugLength: z.number().int().positive(),
+    maxSlugLength: z.number().int().positive(),
+  }),
+});
+
+const displayRegistrationConstraintsResponseSchema = z.object({
+  slugPattern: z.string(),
+  minSlugLength: z.number().int().positive(),
+  maxSlugLength: z.number().int().positive(),
+});
+
+const displayRegistrationResponseSchema = z.object({
+  displayId: z.string().uuid(),
+  slug: z.string(),
+  keyId: z.string().uuid(),
+  state: z.literal("registered"),
 });
 
 class DisplayConflictError extends Error {
@@ -254,6 +298,29 @@ export const registerDisplayStaffRoutes = (args: {
       resourceType: "display",
     }),
     ...authorize("displays:read"),
+    describeRoute({
+      description: "Stream display lifecycle events for admin dashboards",
+      tags: displayTags,
+      responses: {
+        200: {
+          description:
+            "Server-sent events stream for display lifecycle updates",
+          content: {
+            "text/event-stream": {
+              schema: {
+                type: "string",
+              },
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+      },
+    }),
     async () => {
       const encoder = new TextEncoder();
       let unsubscribe: (() => void) | null = null;
@@ -332,6 +399,34 @@ export const registerDisplayStaffRoutes = (args: {
     }),
     ...authorize("displays:create"),
     validateParams(registrationAttemptParamSchema),
+    describeRoute({
+      description: "Stream registration attempt events via SSE",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Server-sent events stream for a registration attempt",
+          content: {
+            "text/event-stream": {
+              schema: {
+                type: "string",
+              },
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
     async (c) => {
       const params = c.req.valid("param");
       const userId = c.get("userId");
@@ -423,6 +518,28 @@ export const registerDisplayStaffRoutes = (args: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    describeRoute({
+      description: "Create or replace an active display registration attempt",
+      tags: displayTags,
+      responses: {
+        201: {
+          description: "Registration attempt issued",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(registrationAttemptResponseSchema),
+              ),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const createdById = c.get("userId");
@@ -473,6 +590,35 @@ export const registerDisplayStaffRoutes = (args: {
     }),
     ...authorize("displays:create"),
     validateParams(registrationAttemptParamSchema),
+    describeRoute({
+      description:
+        "Rotate the one-time code for an active registration attempt",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Registration code rotated",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(registrationAttemptRotateResponseSchema),
+              ),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
@@ -521,6 +667,27 @@ export const registerDisplayStaffRoutes = (args: {
     }),
     ...authorize("displays:create"),
     validateParams(registrationAttemptParamSchema),
+    describeRoute({
+      description: "Close an active registration attempt",
+      tags: displayTags,
+      responses: {
+        204: {
+          description: "Registration attempt closed",
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        404: {
+          ...notFoundResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
@@ -543,6 +710,40 @@ export const registerDisplayStaffRoutes = (args: {
     ),
   );
 
+  router.get(
+    "/registration-constraints",
+    setAction("displays.registration-constraints.read", {
+      route: "/displays/registration-constraints",
+      resourceType: "display",
+    }),
+    ...authorize("displays:create"),
+    describeRoute({
+      description: "Get backend registration constraints for display slugs",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Registration constraints",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(displayRegistrationConstraintsResponseSchema),
+              ),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+      },
+    }),
+    withRouteErrorHandling(async (c) => {
+      return c.json(toApiResponse(DISPLAY_REGISTRATION_CONSTRAINTS));
+    }),
+  );
+
   router.post(
     "/registration-sessions",
     setAction("displays.registration-session.create", {
@@ -551,6 +752,31 @@ export const registerDisplayStaffRoutes = (args: {
     }),
     ...authorize("displays:create"),
     validateJson(registrationSessionBodySchema),
+    describeRoute({
+      description: "Create a display registration session from a pairing code",
+      tags: displayTags,
+      responses: {
+        201: {
+          description: "Registration session created",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(registrationSessionResponseSchema),
+              ),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
@@ -598,11 +824,7 @@ export const registerDisplayStaffRoutes = (args: {
             registrationSessionId: session.id,
             expiresAt: session.challengeExpiresAt,
             challengeNonce: session.challengeNonce,
-            constraints: {
-              slugPattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-              minSlugLength: 3,
-              maxSlugLength: 120,
-            },
+            constraints: DISPLAY_REGISTRATION_CONSTRAINTS,
           }),
           201,
         );
@@ -619,6 +841,39 @@ export const registerDisplayStaffRoutes = (args: {
     }),
     ...authorize("displays:create"),
     validateJson(displayRegistrationBodySchema),
+    describeRoute({
+      description: "Register a display using a valid registration session",
+      tags: displayTags,
+      responses: {
+        201: {
+          description: "Display registered",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(displayRegistrationResponseSchema),
+              ),
+            },
+          },
+        },
+        401: {
+          ...unauthorizedResponse,
+        },
+        403: {
+          ...forbiddenResponse,
+        },
+        409: {
+          description: "Display registration conflict",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        422: {
+          ...validationErrorResponse,
+        },
+      },
+    }),
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");

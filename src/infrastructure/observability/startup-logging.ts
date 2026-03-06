@@ -92,5 +92,3 @@ export const logStartupPhaseDegraded = (
 
   logger.warn(addErrorContext(payload, error), message);
 };
-
-export const asSeedRunId = (): string => createStartupRunId("seed");

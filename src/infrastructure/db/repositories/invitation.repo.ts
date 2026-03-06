@@ -1,87 +1,9 @@
+import { and, desc, eq, gt, isNull, lte } from "drizzle-orm";
 import { type InvitationRepository } from "#/application/ports/auth";
-import { env } from "#/env";
-import {
-  executeRedisCommand,
-  getRedisCommandClient,
-} from "#/infrastructure/redis/client";
-import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
+import { db } from "#/infrastructure/db/client";
+import { invitations } from "#/infrastructure/db/schema/auth-state.sql";
 
-const invitationPrefix = `${env.REDIS_KEY_PREFIX}:invitation`;
-const invitationCreatedIndexKey = `${invitationPrefix}:index:created`;
-const invitationExpiryIndexKey = `${invitationPrefix}:index:expires`;
-
-const invitationHashKey = (id: string): string => `${invitationPrefix}:${id}`;
-const invitationTokenKey = (hashedToken: string): string =>
-  `${invitationPrefix}:token:${hashedToken}`;
-const invitationEmailKey = (email: string): string =>
-  `${invitationPrefix}:email:${email}`;
-
-const toUnixSeconds = (value: Date): string =>
-  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
-
-interface StoredInvitation {
-  id: string;
-  hashedToken: string;
-  email: string;
-  name: string | null;
-  expiresAtMs: number;
-  acceptedAtMs: number | null;
-  revokedAtMs: number | null;
-  createdAtMs: number;
-}
-
-const parseMilliseconds = (value: string | undefined): number | null => {
-  if (typeof value !== "string" || value.length === 0) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const parseStoredInvitation = (
-  value: Record<string, string>,
-): StoredInvitation | null => {
-  const id = value.id;
-  const hashedToken = value.hashedToken;
-  const email = value.email;
-  const expiresAtMs = parseMilliseconds(value.expiresAtMs);
-  const createdAtMs = parseMilliseconds(value.createdAtMs);
-
-  if (
-    typeof id !== "string" ||
-    id.length === 0 ||
-    typeof hashedToken !== "string" ||
-    hashedToken.length === 0 ||
-    typeof email !== "string" ||
-    email.length === 0 ||
-    expiresAtMs == null ||
-    createdAtMs == null
-  ) {
-    return null;
-  }
-
-  return {
-    id,
-    hashedToken,
-    email,
-    name: value.name && value.name.length > 0 ? value.name : null,
-    expiresAtMs,
-    acceptedAtMs: parseMilliseconds(value.acceptedAtMs),
-    revokedAtMs: parseMilliseconds(value.revokedAtMs),
-    createdAtMs,
-  };
-};
-
-const isActiveInvitation = (
-  invitation: StoredInvitation,
-  nowMs: number,
-): boolean =>
-  invitation.acceptedAtMs == null &&
-  invitation.revokedAtMs == null &&
-  invitation.expiresAtMs > nowMs;
-
-export class InvitationRedisRepository implements InvitationRepository {
+export class InvitationDbRepository implements InvitationRepository {
   async create(input: {
     id: string;
     hashedToken: string;
@@ -90,125 +12,76 @@ export class InvitationRedisRepository implements InvitationRepository {
     invitedByUserId: string;
     expiresAt: Date;
   }): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const nowMs = Date.now();
-    const expiresAtMs = input.expiresAt.getTime();
-
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      invitationHashKey(input.id),
-      "id",
-      input.id,
-      "hashedToken",
-      input.hashedToken,
-      "email",
-      input.email,
-      "name",
-      input.name ?? "",
-      "invitedByUserId",
-      input.invitedByUserId,
-      "expiresAtMs",
-      String(expiresAtMs),
-      "acceptedAtMs",
-      "",
-      "revokedAtMs",
-      "",
-      "createdAtMs",
-      String(nowMs),
-      "updatedAtMs",
-      String(nowMs),
-    ]);
-    await executeRedisCommand<string>(redis, [
-      "SET",
-      invitationTokenKey(input.hashedToken),
-      input.id,
-      "EXAT",
-      toUnixSeconds(input.expiresAt),
-    ]);
-    await executeRedisCommand<number>(redis, [
-      "SADD",
-      invitationEmailKey(input.email),
-      input.id,
-    ]);
-    await executeRedisCommand<number>(redis, [
-      "ZADD",
-      invitationCreatedIndexKey,
-      String(nowMs),
-      input.id,
-    ]);
-    await executeRedisCommand<number>(redis, [
-      "ZADD",
-      invitationExpiryIndexKey,
-      String(expiresAtMs),
-      input.id,
-    ]);
+    const now = new Date();
+    await db.insert(invitations).values({
+      id: input.id,
+      hashedToken: input.hashedToken,
+      email: input.email,
+      name: input.name,
+      invitedByUserId: input.invitedByUserId,
+      expiresAt: input.expiresAt,
+      acceptedAt: null,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   async findActiveByHashedToken(
     hashedToken: string,
     now: Date,
   ): Promise<{ id: string; email: string; name: string | null } | null> {
-    const redis = await getRedisCommandClient();
-    const invitationId = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      invitationTokenKey(hashedToken),
-    ]);
+    const rows = await db
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        name: invitations.name,
+      })
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.hashedToken, hashedToken),
+          isNull(invitations.acceptedAt),
+          isNull(invitations.revokedAt),
+          gt(invitations.expiresAt, now),
+        ),
+      )
+      .limit(1);
 
-    if (!invitationId) {
-      return null;
-    }
-
-    const stored = parseStoredInvitation(
-      normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, [
-          "HGETALL",
-          invitationHashKey(invitationId),
-        ]),
-      ),
-    );
-    if (!stored) {
-      await executeRedisCommand<number>(redis, [
-        "DEL",
-        invitationTokenKey(hashedToken),
-      ]);
-      return null;
-    }
-
-    if (!isActiveInvitation(stored, now.getTime())) {
-      await executeRedisCommand<number>(redis, [
-        "DEL",
-        invitationTokenKey(hashedToken),
-      ]);
+    const row = rows[0];
+    if (!row) {
       return null;
     }
 
     return {
-      id: stored.id,
-      email: stored.email,
-      name: stored.name,
+      id: row.id,
+      email: row.email,
+      name: row.name,
     };
   }
 
   async findById(input: {
     id: string;
   }): Promise<{ id: string; email: string; name: string | null } | null> {
-    const redis = await getRedisCommandClient();
-    const stored = parseStoredInvitation(
-      normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, [
-          "HGETALL",
-          invitationHashKey(input.id),
-        ]),
-      ),
-    );
-    if (!stored) {
+    const rows = await db
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        name: invitations.name,
+      })
+      .from(invitations)
+      .where(eq(invitations.id, input.id))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) {
       return null;
     }
 
     return {
-      id: stored.id,
-      email: stored.email,
-      name: stored.name,
+      id: row.id,
+      email: row.email,
+      name: row.name,
     };
   }
 
@@ -223,166 +96,59 @@ export class InvitationRedisRepository implements InvitationRepository {
       createdAt: Date;
     }[]
   > {
-    const redis = await getRedisCommandClient();
-    const idsReply = await executeRedisCommand<unknown[]>(redis, [
-      "ZREVRANGE",
-      invitationCreatedIndexKey,
-      "0",
-      String(Math.max(0, input.limit - 1)),
-    ]);
+    const rows = await db
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        name: invitations.name,
+        expiresAt: invitations.expiresAt,
+        acceptedAt: invitations.acceptedAt,
+        revokedAt: invitations.revokedAt,
+        createdAt: invitations.createdAt,
+      })
+      .from(invitations)
+      .orderBy(desc(invitations.createdAt))
+      .limit(input.limit);
 
-    const invitationIds = Array.isArray(idsReply)
-      ? idsReply.filter((value): value is string => typeof value === "string")
-      : [];
-
-    const invitations: {
-      id: string;
-      email: string;
-      name: string | null;
-      expiresAt: Date;
-      acceptedAt: Date | null;
-      revokedAt: Date | null;
-      createdAt: Date;
-    }[] = [];
-
-    for (const invitationId of invitationIds) {
-      const stored = parseStoredInvitation(
-        normalizeRedisHash(
-          await executeRedisCommand<unknown>(redis, [
-            "HGETALL",
-            invitationHashKey(invitationId),
-          ]),
-        ),
-      );
-      if (!stored) {
-        continue;
-      }
-
-      invitations.push({
-        id: stored.id,
-        email: stored.email,
-        name: stored.name,
-        expiresAt: new Date(stored.expiresAtMs),
-        acceptedAt:
-          stored.acceptedAtMs == null ? null : new Date(stored.acceptedAtMs),
-        revokedAt:
-          stored.revokedAtMs == null ? null : new Date(stored.revokedAtMs),
-        createdAt: new Date(stored.createdAtMs),
-      });
-    }
-
-    return invitations;
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      expiresAt: row.expiresAt,
+      acceptedAt: row.acceptedAt,
+      revokedAt: row.revokedAt,
+      createdAt: row.createdAt,
+    }));
   }
 
   async revokeActiveByEmail(email: string, now: Date): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const nowMs = now.getTime();
-    const invitationIds = await executeRedisCommand<string[]>(redis, [
-      "SMEMBERS",
-      invitationEmailKey(email),
-    ]);
-
-    for (const invitationId of invitationIds) {
-      const hashKey = invitationHashKey(invitationId);
-      const stored = parseStoredInvitation(
-        normalizeRedisHash(
-          await executeRedisCommand<unknown>(redis, ["HGETALL", hashKey]),
+    await db
+      .update(invitations)
+      .set({
+        revokedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(invitations.email, email),
+          isNull(invitations.acceptedAt),
+          isNull(invitations.revokedAt),
+          gt(invitations.expiresAt, now),
         ),
       );
-      if (!stored || !isActiveInvitation(stored, nowMs)) {
-        continue;
-      }
-
-      await executeRedisCommand<number>(redis, [
-        "HSET",
-        hashKey,
-        "revokedAtMs",
-        String(nowMs),
-        "updatedAtMs",
-        String(nowMs),
-      ]);
-      await executeRedisCommand<number>(redis, [
-        "DEL",
-        invitationTokenKey(stored.hashedToken),
-      ]);
-    }
   }
 
   async markAccepted(id: string, acceptedAt: Date): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const acceptedAtMs = acceptedAt.getTime();
-    const hashKey = invitationHashKey(id);
-    const stored = parseStoredInvitation(
-      normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, ["HGETALL", hashKey]),
-      ),
-    );
-
-    if (!stored) {
-      return;
-    }
-
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      hashKey,
-      "acceptedAtMs",
-      String(acceptedAtMs),
-      "updatedAtMs",
-      String(acceptedAtMs),
-    ]);
-    await executeRedisCommand<number>(redis, [
-      "DEL",
-      invitationTokenKey(stored.hashedToken),
-    ]);
+    await db
+      .update(invitations)
+      .set({
+        acceptedAt,
+        updatedAt: acceptedAt,
+      })
+      .where(eq(invitations.id, id));
   }
 
   async deleteExpired(now: Date): Promise<void> {
-    const redis = await getRedisCommandClient();
-    const nowMs = now.getTime();
-    const expiredReply = await executeRedisCommand<unknown[]>(redis, [
-      "ZRANGEBYSCORE",
-      invitationExpiryIndexKey,
-      "-inf",
-      String(nowMs),
-    ]);
-
-    const expiredIds = Array.isArray(expiredReply)
-      ? expiredReply.filter(
-          (value): value is string => typeof value === "string",
-        )
-      : [];
-
-    for (const invitationId of expiredIds) {
-      const hashKey = invitationHashKey(invitationId);
-      const stored = parseStoredInvitation(
-        normalizeRedisHash(
-          await executeRedisCommand<unknown>(redis, ["HGETALL", hashKey]),
-        ),
-      );
-
-      await executeRedisCommand<number>(redis, ["DEL", hashKey]);
-      await executeRedisCommand<number>(redis, [
-        "ZREM",
-        invitationCreatedIndexKey,
-        invitationId,
-      ]);
-      await executeRedisCommand<number>(redis, [
-        "ZREM",
-        invitationExpiryIndexKey,
-        invitationId,
-      ]);
-
-      if (stored) {
-        await executeRedisCommand<number>(redis, [
-          "DEL",
-          invitationTokenKey(stored.hashedToken),
-        ]);
-        await executeRedisCommand<number>(redis, [
-          "SREM",
-          invitationEmailKey(stored.email),
-          invitationId,
-        ]);
-      }
-    }
+    await db.delete(invitations).where(lte(invitations.expiresAt, now));
   }
 }

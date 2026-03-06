@@ -1,5 +1,6 @@
 import {
   index,
+  mysqlEnum,
   mysqlTable,
   text,
   timestamp,
@@ -13,7 +14,7 @@ export const playlists = mysqlTable(
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
-    status: varchar("status", { length: 16 }).notNull().default("DRAFT"),
+    status: mysqlEnum("status", ["DRAFT", "IN_USE"]).notNull().default("DRAFT"),
     createdById: varchar("created_by_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

@@ -1,18 +1,9 @@
+import { and, eq, gt, lte } from "drizzle-orm";
 import { type PasswordResetTokenRepository } from "#/application/ports/auth";
-import { env } from "#/env";
-import {
-  executeRedisCommand,
-  getRedisCommandClient,
-} from "#/infrastructure/redis/client";
+import { db } from "#/infrastructure/db/client";
+import { passwordResetTokens } from "#/infrastructure/db/schema/auth-state.sql";
 
-const tokenPrefix = `${env.REDIS_KEY_PREFIX}:password-reset-token`;
-
-const tokenKey = (hashedToken: string): string =>
-  `${tokenPrefix}:${hashedToken}`;
-const toUnixSeconds = (value: Date): string =>
-  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
-
-export class PasswordResetTokenRedisRepository
+export class PasswordResetTokenDbRepository
   implements PasswordResetTokenRepository
 {
   async store(input: {
@@ -20,38 +11,51 @@ export class PasswordResetTokenRedisRepository
     email: string;
     expiresAt: Date;
   }): Promise<void> {
-    const redis = await getRedisCommandClient();
-    await executeRedisCommand<void>(redis, [
-      "SET",
-      tokenKey(input.hashedToken),
-      input.email,
-      "EXAT",
-      toUnixSeconds(input.expiresAt),
-    ]);
+    await db
+      .insert(passwordResetTokens)
+      .values({
+        hashedToken: input.hashedToken,
+        email: input.email,
+        expiresAt: input.expiresAt,
+        createdAt: new Date(),
+      })
+      .onDuplicateKeyUpdate({
+        set: {
+          email: input.email,
+          expiresAt: input.expiresAt,
+          createdAt: new Date(),
+        },
+      });
   }
 
   async findByHashedToken(
     hashedToken: string,
-    _now: Date,
+    now: Date,
   ): Promise<{ email: string } | null> {
-    const redis = await getRedisCommandClient();
-    const email = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      tokenKey(hashedToken),
-    ]);
-    if (!email) {
-      return null;
-    }
+    const rows = await db
+      .select({ email: passwordResetTokens.email })
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.hashedToken, hashedToken),
+          gt(passwordResetTokens.expiresAt, now),
+        ),
+      )
+      .limit(1);
 
-    return { email };
+    const row = rows[0];
+    return row ? { email: row.email } : null;
   }
 
   async consumeByHashedToken(hashedToken: string): Promise<void> {
-    const redis = await getRedisCommandClient();
-    await executeRedisCommand<number>(redis, ["DEL", tokenKey(hashedToken)]);
+    await db
+      .delete(passwordResetTokens)
+      .where(eq(passwordResetTokens.hashedToken, hashedToken));
   }
 
-  async deleteExpired(_now: Date): Promise<void> {
-    return;
+  async deleteExpired(now: Date): Promise<void> {
+    await db
+      .delete(passwordResetTokens)
+      .where(lte(passwordResetTokens.expiresAt, now));
   }
 }

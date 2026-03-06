@@ -290,7 +290,7 @@ describe("Displays use cases", () => {
     );
 
     if (!neverSeen || !recentlySeen || !staleHeartbeat || !readyDisplay) {
-      throw new Error("Expected seeded display records to exist");
+      throw new Error("Expected display records to exist");
     }
 
     neverSeen.status = "PROCESSING";

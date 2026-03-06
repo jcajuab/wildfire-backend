@@ -3,7 +3,7 @@ import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.ve
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
-import { AuthSessionRedisRepository } from "#/infrastructure/db/repositories/auth-session.repo";
+import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
@@ -13,9 +13,9 @@ import { DisplayGroupDbRepository } from "#/infrastructure/db/repositories/displ
 import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display-key.repo";
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
-import { EmailChangeTokenRedisRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
-import { InvitationRedisRepository } from "#/infrastructure/db/repositories/invitation.repo";
-import { PasswordResetTokenRedisRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
+import { EmailChangeTokenDbRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
+import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
+import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
@@ -56,7 +56,7 @@ export interface HttpContainer {
     userRoleRepository: UserRoleDbRepository;
     rolePermissionRepository: RolePermissionDbRepository;
     authorizationRepository: AuthorizationDbRepository;
-    authSessionRepository: AuthSessionRedisRepository;
+    authSessionRepository: AuthSessionDbRepository;
     auditLogRepository: AuditLogDbRepository;
     contentIngestionJobRepository: ContentIngestionJobDbRepository;
     contentRepository: ContentDbRepository;
@@ -69,9 +69,9 @@ export interface HttpContainer {
     displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
     runtimeControlRepository: RuntimeControlDbRepository;
-    passwordResetTokenRepository: PasswordResetTokenRedisRepository;
-    emailChangeTokenRepository: EmailChangeTokenRedisRepository;
-    invitationRepository: InvitationRedisRepository;
+    passwordResetTokenRepository: PasswordResetTokenDbRepository;
+    emailChangeTokenRepository: EmailChangeTokenDbRepository;
+    invitationRepository: InvitationDbRepository;
   };
   auth: {
     credentialsRepository: HtshadowCredentialsRepository;
@@ -102,7 +102,7 @@ export const createHttpContainer = (
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
-  const authSessionRepository = new AuthSessionRedisRepository();
+  const authSessionRepository = new AuthSessionDbRepository();
   const auditLogRepository = new AuditLogDbRepository();
   const contentIngestionJobRepository = new ContentIngestionJobDbRepository();
   const contentRepository = new ContentDbRepository();
@@ -116,9 +116,9 @@ export const createHttpContainer = (
     new DisplayPairingSessionRedisRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const runtimeControlRepository = new RuntimeControlDbRepository();
-  const passwordResetTokenRepository = new PasswordResetTokenRedisRepository();
-  const emailChangeTokenRepository = new EmailChangeTokenRedisRepository();
-  const invitationRepository = new InvitationRedisRepository();
+  const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
+  const emailChangeTokenRepository = new EmailChangeTokenDbRepository();
+  const invitationRepository = new InvitationDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
