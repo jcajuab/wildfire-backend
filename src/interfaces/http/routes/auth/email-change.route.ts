@@ -2,7 +2,6 @@ import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { DuplicateEmailError } from "#/application/use-cases/rbac/errors";
-import { env } from "#/env";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -110,8 +109,8 @@ export const registerAuthEmailChangeRoutes = (args: {
         });
         return c.json(toApiResponse(body));
       },
-      mapErrorToResponse(DuplicateEmailError, conflict),
       ...applicationErrorMappers,
+      mapErrorToResponse(DuplicateEmailError, conflict),
       mapErrorToResponse(InvalidCredentialsError, unauthorized),
     ),
   );
@@ -164,7 +163,7 @@ export const registerAuthEmailChangeRoutes = (args: {
             xClientIp: c.req.header("x-client-ip"),
             forwarded: c.req.header("forwarded"),
           },
-          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+          trustProxyHeaders: deps.trustProxyHeaders,
         });
         const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `verify-email-change|${ip}`,
@@ -183,8 +182,8 @@ export const registerAuthEmailChangeRoutes = (args: {
         await useCases.verifyEmailChange.execute({ token: payload.token });
         return c.body(null, 204);
       },
-      mapErrorToResponse(DuplicateEmailError, conflict),
       ...applicationErrorMappers,
+      mapErrorToResponse(DuplicateEmailError, conflict),
     ),
   );
 };

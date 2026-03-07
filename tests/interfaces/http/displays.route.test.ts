@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
+import { type DisplayRegistrationAttemptStore } from "#/application/ports/display-registration-attempt";
 import { type DisplayRecord } from "#/application/ports/displays";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
+import { createDisplaysHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { type DisplayRegistrationAttemptStore } from "#/interfaces/http/routes/displays/registration-attempt.store";
 import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
@@ -561,109 +562,126 @@ const makeApp = async (
     },
   };
 
-  const router = createDisplaysRouter({
-    jwtSecret: "test-secret",
-    authSessionRepository: {
-      create: async () => {},
-      extendExpiry: async () => {},
-      revokeById: async () => {},
-      revokeAllForUser: async () => {},
-      isActive: async () => true,
-      isOwnedByUser: async () => true,
-    },
-    authSessionCookieName: "wildfire_session_token",
-    downloadUrlExpiresInSeconds: 3600,
-    repositories: {
-      displayRepository,
-      scheduleRepository: {
-        list: async () => schedules,
-        listByDisplay: async (targetDisplayId: string) =>
-          schedules.filter(
-            (schedule) => schedule.displayId === targetDisplayId,
-          ),
-        listByPlaylistId: async () => [],
-        findById: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        delete: async () => false,
-        countByPlaylistId: async () => 0,
+  const router = createDisplaysRouter(
+    createDisplaysHttpModule({
+      jwtSecret: "test-secret",
+      authSessionRepository: {
+        create: async () => {},
+        extendExpiry: async () => {},
+        revokeById: async () => {},
+        revokeAllForUser: async () => {},
+        isActive: async () => true,
+        isOwnedByUser: async () => true,
       },
-      playlistRepository: {
-        list: async () => playlists,
-        listPage: async ({ offset, limit }) => ({
-          items: playlists.slice(offset, offset + limit),
-          total: playlists.length,
-        }),
-        findByIds: async (ids: string[]) =>
-          playlists.filter((playlist) => ids.includes(playlist.id)),
-        findById: async (id: string) =>
-          playlists.find((playlist) => playlist.id === id) ?? null,
-        create: async () => {
-          throw new Error("not used");
+      authSessionCookieName: "wildfire_session_token",
+      downloadUrlExpiresInSeconds: 3600,
+      repositories: {
+        displayRepository,
+        scheduleRepository: {
+          list: async () => schedules,
+          listByDisplay: async (targetDisplayId: string) =>
+            schedules.filter(
+              (schedule) => schedule.displayId === targetDisplayId,
+            ),
+          listByPlaylistId: async () => [],
+          findById: async () => null,
+          create: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          delete: async () => false,
+          countByPlaylistId: async () => 0,
         },
-        update: async () => null,
-        updateStatus: async () => undefined,
-        delete: async () => false,
-        listItems: async () => [],
-        findItemById: async () => null,
-        countItemsByContentId: async () => 0,
-        addItem: async () => {
-          throw new Error("not used");
+        playlistRepository: {
+          list: async () => playlists,
+          listPage: async ({ offset, limit }) => ({
+            items: playlists.slice(offset, offset + limit),
+            total: playlists.length,
+          }),
+          findByIds: async (ids: string[]) =>
+            playlists.filter((playlist) => ids.includes(playlist.id)),
+          findById: async (id: string) =>
+            playlists.find((playlist) => playlist.id === id) ?? null,
+          create: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          updateStatus: async () => undefined,
+          delete: async () => false,
+          listItems: async () => [],
+          findItemById: async () => null,
+          countItemsByContentId: async () => 0,
+          addItem: async () => {
+            throw new Error("not used");
+          },
+          updateItem: async () => null,
+          reorderItems: async () => true,
+          deleteItem: async () => false,
         },
-        updateItem: async () => null,
-        reorderItems: async () => true,
-        deleteItem: async () => false,
-      },
-      contentRepository: {
-        findById: async (id: string) =>
-          contents.find((content) => content.id === id) ?? null,
-        findByIds: async (ids: string[]) =>
-          contents.filter((content) => ids.includes(content.id)),
-        create: async () => {
-          throw new Error("not used");
+        contentRepository: {
+          findById: async (id: string) =>
+            contents.find((content) => content.id === id) ?? null,
+          findByIds: async (ids: string[]) =>
+            contents.filter((content) => ids.includes(content.id)),
+          create: async () => {
+            throw new Error("not used");
+          },
+          list: async () => ({ items: [], total: 0 }),
+          countPlaylistReferences: async () => 0,
+          listPlaylistsReferencingContent: async () => [],
+          delete: async () => false,
+          update: async () => null,
         },
-        list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-        update: async () => null,
+        runtimeControlRepository: {
+          getGlobal: async () => ({
+            id: "global",
+            globalEmergencyActive: false,
+            globalEmergencyStartedAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }),
+          setGlobalEmergencyState: async () => ({
+            id: "global",
+            globalEmergencyActive: false,
+            globalEmergencyStartedAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }),
+        } as RuntimeControlRepository,
+        authorizationRepository,
+        displayGroupRepository,
+        displayPairingCodeRepository,
+        displayPairingSessionRepository,
+        displayKeyRepository,
+        displayPreviewRepository: {
+          upsertLatest: async () => {},
+          findLatestByDisplayId: async () => null,
+        },
       },
-      runtimeControlRepository: {
-        getGlobal: async () => ({
-          id: "global",
-          globalEmergencyActive: false,
-          globalEmergencyStartedAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-        setGlobalEmergencyState: async () => ({
-          id: "global",
-          globalEmergencyActive: false,
-          globalEmergencyStartedAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-      } as RuntimeControlRepository,
-      authorizationRepository,
-      displayGroupRepository,
-      displayPairingCodeRepository,
-      displayPairingSessionRepository,
-      displayKeyRepository,
-      displayPreviewRepository: {
-        upsertLatest: async () => {},
-        findLatestByDisplayId: async () => null,
+      storage: {
+        ensureBucketExists: async () => {},
+        upload: async () => {},
+        delete: async () => {},
+        getPresignedDownloadUrl: async () => "https://example.com/file",
       },
-    },
-    storage: {
-      ensureBucketExists: async () => {},
-      upload: async () => {},
-      delete: async () => {},
-      getPresignedDownloadUrl: async () => "https://example.com/file",
-    },
-    registrationAttemptStore,
-  });
+      displayEventPublisher: {
+        publish: () => {},
+      },
+      lifecycleEventPublisher: {
+        publish: () => {},
+      },
+      registrationAttemptStore,
+      lifecycleEventSubscription: {
+        subscribe: () => () => {},
+      },
+      registrationAttemptEventPublisher: {
+        publish: () => {},
+      },
+      registrationAttemptEventSubscription: {
+        subscribe: () => () => {},
+      },
+    }),
+  );
 
   app.route("/displays", router);
 
@@ -810,8 +828,8 @@ describe("Displays routes", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
 
@@ -821,7 +839,7 @@ describe("Displays routes", () => {
     expect(json.data[0]?.nowPlaying?.playlist).toBe("Morning");
     expect(json.meta.total).toBe(1);
     expect(json.meta.page).toBe(1);
-    expect(json.meta.per_page).toBe(20);
+    expect(json.meta.pageSize).toBe(20);
   });
 
   test("GET /displays/:id returns display", async () => {

@@ -3,19 +3,29 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerScheduleCommandRoutes } from "./command.route";
 import { registerScheduleQueryRoutes } from "./query.route";
-import { createSchedulesUseCases, type SchedulesRouterDeps } from "./shared";
+import {
+  type SchedulesRouterDeps,
+  type SchedulesRouterUseCases,
+} from "./shared";
 
 export type { SchedulesRouterDeps } from "./shared";
 
-export const createSchedulesRouter = (deps: SchedulesRouterDeps) => {
+export interface SchedulesRouterModule {
+  deps: SchedulesRouterDeps;
+  useCases: SchedulesRouterUseCases;
+}
+
+export const createSchedulesRouter = ({
+  deps,
+  useCases,
+}: SchedulesRouterModule) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
-    authorizationRepository: deps.repositories.authorizationRepository,
+    checkPermissionUseCase: deps.checkPermissionUseCase,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
-  const useCases = createSchedulesUseCases(deps);
 
   registerScheduleQueryRoutes({ router, useCases, authorize });
   registerScheduleCommandRoutes({ router, useCases, authorize });

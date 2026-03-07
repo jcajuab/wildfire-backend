@@ -5,6 +5,7 @@ import {
   type RoleRecord,
   type UserRecord,
 } from "#/application/ports/rbac";
+import { createRbacHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import {
@@ -245,12 +246,14 @@ const buildApp = (grantedPermissions: string[]) => {
   const app = new Hono();
   app.route(
     "/",
-    createRbacRouter({
-      jwtSecret: "test-secret",
-      authSessionRepository,
-      authSessionCookieName: "wildfire_session_token",
-      repositories,
-    }),
+    createRbacRouter(
+      createRbacHttpModule({
+        jwtSecret: "test-secret",
+        authSessionRepository,
+        authSessionCookieName: "wildfire_session_token",
+        repositories,
+      }),
+    ),
   );
 
   const nowSeconds = Math.floor(Date.now() / 1000);

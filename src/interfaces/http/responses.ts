@@ -54,7 +54,8 @@ export const errorResponseSchema = z.object({
   error: z.object({
     code: z.string(),
     message: z.string(),
-    details: z.array(apiFieldErrorSchema).optional(),
+    details: z.unknown().optional(),
+    requestId: z.string(),
   }),
 });
 
@@ -69,8 +70,8 @@ export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export interface ApiMeta {
   total: number;
   page: number;
-  per_page: number;
-  total_pages: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface ApiLinks {
@@ -106,8 +107,8 @@ export const apiListResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
     meta: z.object({
       total: z.number().int().nonnegative(),
       page: z.number().int().positive(),
-      per_page: z.number().int().positive(),
-      total_pages: z.number().int().nonnegative(),
+      pageSize: z.number().int().positive(),
+      totalPages: z.number().int().nonnegative(),
     }),
     links: z
       .object({
@@ -165,6 +166,11 @@ const parseNonNegativeInt = (value: unknown): number | undefined => {
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
   }
   return undefined;
+};
+
+const parseHeaderInt = (value: unknown): number | undefined => {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
 };
 
 const hasDataEnvelope = (payload: unknown): payload is UnknownPayload => {
@@ -235,8 +241,8 @@ export const toApiListResponse = <T>(input: {
     meta: {
       total,
       page,
-      per_page: perPage,
-      total_pages: totalPages,
+      pageSize: perPage,
+      totalPages,
     },
     links: buildListLinks(new URL(input.requestUrl), page, perPage, totalPages),
   };
@@ -269,14 +275,16 @@ export const normalizeApiPayload = (
 };
 
 const buildErrorPayload = (
+  c: ResponseContext,
   code: string,
   message: string,
-  details: ApiFieldError[] = [],
+  details?: unknown,
 ): ErrorResponse => ({
   error: {
     code,
     message,
-    ...(details.length > 0 ? { details } : {}),
+    requestId: c.get("requestId"),
+    ...(details !== undefined ? { details } : {}),
   },
 });
 
@@ -308,7 +316,7 @@ export const parseValidationDetails = (
 };
 
 export const badRequest = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("INVALID_REQUEST", message), 400);
+  c.json<ErrorResponse>(buildErrorPayload(c, "invalid_request", message), 400);
 
 export const validationError = (
   c: ResponseContext,
@@ -316,29 +324,46 @@ export const validationError = (
   details: ApiFieldError[] = [],
 ) =>
   c.json<ErrorResponse>(
-    buildErrorPayload("VALIDATION_ERROR", message, details),
+    buildErrorPayload(c, "validation_error", message, details),
     422,
   );
 
 export const unprocessable = validationError;
 
 export const notImplemented = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("NOT_IMPLEMENTED", message), 501);
+  c.json<ErrorResponse>(buildErrorPayload(c, "not_implemented", message), 501);
 
 export const unauthorized = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("UNAUTHORIZED", message), 401);
+  c.json<ErrorResponse>(buildErrorPayload(c, "unauthorized", message), 401);
 
 export const forbidden = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("FORBIDDEN", message), 403);
+  c.json<ErrorResponse>(buildErrorPayload(c, "forbidden", message), 403);
 
 export const notFound = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("NOT_FOUND", message), 404);
+  c.json<ErrorResponse>(buildErrorPayload(c, "not_found", message), 404);
 
 export const conflict = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("CONFLICT", message), 409);
+  c.json<ErrorResponse>(buildErrorPayload(c, "conflict", message), 409);
 
 export const tooManyRequests = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("TOO_MANY_REQUESTS", message), 429);
+  (() => {
+    const limit = parseHeaderInt(c.get("rateLimitLimit")) ?? 100;
+    const remaining = parseHeaderInt(c.get("rateLimitRemaining")) ?? 0;
+    const reset = parseHeaderInt(c.get("rateLimitReset"));
+    const retryAfter = parseHeaderInt(c.get("rateLimitRetryAfter")) ?? 60;
+
+    c.header("X-RateLimit-Limit", String(limit));
+    c.header("X-RateLimit-Remaining", String(Math.max(0, remaining)));
+    if (reset != null) {
+      c.header("X-RateLimit-Reset", String(reset));
+    }
+    c.header("Retry-After", String(retryAfter));
+
+    return c.json<ErrorResponse>(
+      buildErrorPayload(c, "rate_limit_exceeded", message),
+      429,
+    );
+  })();
 
 export const internalServerError = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload("INTERNAL_ERROR", message), 500);
+  c.json<ErrorResponse>(buildErrorPayload(c, "internal_error", message), 500);

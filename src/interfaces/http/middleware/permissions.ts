@@ -1,7 +1,6 @@
 import { type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
-import { type AuthorizationRepository } from "#/application/ports/rbac";
-import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
+import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   CANONICAL_STANDARD_RESOURCE_ACTIONS,
   canonicalPermissionKey,
@@ -17,7 +16,7 @@ import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 
 export const createPermissionMiddleware = (deps: {
   jwtSecret: string;
-  authorizationRepository: AuthorizationRepository;
+  checkPermissionUseCase: CheckPermissionUseCase;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
 }) => {
@@ -26,10 +25,6 @@ export const createPermissionMiddleware = (deps: {
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
-  const checkPermission = new CheckPermissionUseCase({
-    authorizationRepository: deps.authorizationRepository,
-  });
-
   const canonicalPermissions = new Set(
     CANONICAL_STANDARD_RESOURCE_ACTIONS.map((permission) =>
       canonicalPermissionKey(permission),
@@ -70,7 +65,7 @@ export const createPermissionMiddleware = (deps: {
         c.set("sessionId", `${parsed.data.sub}:${parsed.data.iat}`);
       }
 
-      const allowed = await checkPermission.execute({
+      const allowed = await deps.checkPermissionUseCase.execute({
         userId: parsed.data.sub,
         required: requiredPermission,
       });

@@ -12,12 +12,7 @@ import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
-import {
-  ChangeCurrentUserPasswordUseCase,
-  SetCurrentUserAvatarUseCase,
-  UpdateCurrentUserProfileUseCase,
-} from "#/application/use-cases/auth";
-import { DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
+import { createAuthHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hasher";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
@@ -297,52 +292,42 @@ const buildApp = (opts?: {
     },
   };
 
-  const authRouter = createAuthRouter({
-    credentialsRepository,
-    passwordVerifier,
-    passwordHasher: new BcryptPasswordHasher(),
-    tokenIssuer,
-    clock,
-    tokenTtlSeconds,
-    userRepository,
-    authorizationRepository,
-    jwtSecret: "test-secret",
-    authSessionRepository,
-    authSessionCookieName: "wildfire_session_token",
-    authSecurityStore: new InMemoryAuthSecurityStore(),
-    authLoginRateLimitMaxAttempts: 20,
-    authLoginRateLimitWindowSeconds: 60,
-    authLoginLockoutThreshold: 10,
-    authLoginLockoutSeconds: 60,
-    passwordResetTokenRepository: {
-      store: async () => {},
-      findByHashedToken: async () => null,
-      consumeByHashedToken: async () => {},
-      deleteExpired: async () => {},
-    },
-    invitationRepository,
-    invitationEmailSender: opts?.invitationEmailSender ?? {
-      sendInvite: async () => {},
-    },
-    inviteTokenTtlSeconds: 3600,
-    inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
-    deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({ userRepository }),
-    updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
-      userRepository,
-    }),
-    changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
-      userRepository,
+  const authRouter = createAuthRouter(
+    createAuthHttpModule({
       credentialsRepository,
       passwordVerifier,
       passwordHasher: new BcryptPasswordHasher(),
-    }),
-    setCurrentUserAvatarUseCase: new SetCurrentUserAvatarUseCase({
+      tokenIssuer,
+      clock,
+      tokenTtlSeconds,
       userRepository,
-      storage: avatarStorage,
+      authorizationRepository,
+      jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session_token",
+      authSecurityStore: new InMemoryAuthSecurityStore(),
+      authLoginRateLimitMaxAttempts: 20,
+      authLoginRateLimitWindowSeconds: 60,
+      authLoginLockoutThreshold: 10,
+      authLoginLockoutSeconds: 60,
+      trustProxyHeaders: true,
+      passwordResetTokenRepository: {
+        store: async () => {},
+        findByHashedToken: async () => null,
+        consumeByHashedToken: async () => {},
+        deleteExpired: async () => {},
+      },
+      invitationRepository,
+      invitationEmailSender: opts?.invitationEmailSender ?? {
+        sendInvite: async () => {},
+      },
+      includeDevelopmentInviteUrls: true,
+      inviteTokenTtlSeconds: 3600,
+      inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
+      avatarStorage,
+      avatarUrlExpiresInSeconds: 3600,
     }),
-    avatarStorage,
-    avatarUrlExpiresInSeconds: 3600,
-  });
+  );
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -447,16 +432,18 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await parseJson<{ error: { code: string; message: string } }>(
-      response,
-    );
+    const body = await parseJson<{
+      error: { code: string; message: string; requestId: string };
+    }>(response);
 
-    expect(body).toEqual({
-      error: {
-        code: "UNAUTHORIZED",
-        message: "Invalid credentials",
-      },
-    });
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: "invalid_credentials",
+          message: "Invalid credentials",
+        }),
+      }),
+    );
   });
 
   test("POST /auth/login returns 401 with deactivated message when user is inactive", async () => {
@@ -472,16 +459,18 @@ describe("Auth routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await parseJson<{ error: { code: string; message: string } }>(
-      response,
-    );
+    const body = await parseJson<{
+      error: { code: string; message: string; requestId: string };
+    }>(response);
 
-    expect(body).toEqual({
-      error: {
-        code: "UNAUTHORIZED",
-        message: DEACTIVATED_MESSAGE,
-      },
-    });
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: "invalid_credentials",
+          message: DEACTIVATED_MESSAGE,
+        }),
+      }),
+    );
   });
 
   test("POST /auth/session/refresh returns refreshed token when authorized", async () => {
@@ -776,8 +765,8 @@ describe("Auth routes", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
     expect(

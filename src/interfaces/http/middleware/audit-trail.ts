@@ -1,5 +1,4 @@
 import { type MiddlewareHandler } from "hono";
-import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { type AuditLogQueue } from "#/interfaces/http/audit/audit-queue";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
@@ -52,13 +51,14 @@ const shouldCaptureEvent = (input: { method: string; action?: string }) => {
 const resolveIpAddress = (headers: {
   forwardedFor?: string;
   realIp?: string;
+  trustProxyHeaders: boolean;
 }): string | undefined => {
   return resolveClientIp({
     headers: {
       forwardedFor: headers.forwardedFor,
       realIp: headers.realIp,
     },
-    trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+    trustProxyHeaders: headers.trustProxyHeaders,
   });
 };
 
@@ -96,6 +96,7 @@ const buildSafeAuditMetadata = (input: {
 
 export const createAuditTrailMiddleware = (deps: {
   auditQueue: AuditLogQueue;
+  trustProxyHeaders: boolean;
 }): MiddlewareHandler<{ Variables: ObservabilityVariables }> => {
   return async (c, next) => {
     await next();
@@ -121,6 +122,7 @@ export const createAuditTrailMiddleware = (deps: {
     const ipAddress = resolveIpAddress({
       forwardedFor: c.req.header("x-forwarded-for"),
       realIp: c.req.header("x-real-ip"),
+      trustProxyHeaders: deps.trustProxyHeaders,
     });
     const userAgent = c.req.header("user-agent");
 

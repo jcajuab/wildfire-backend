@@ -9,13 +9,17 @@ import { registerAuthPasswordRoute } from "./password.route";
 import { registerAuthPasswordResetRoutes } from "./password-reset.route";
 import { registerAuthProfileRoute } from "./profile.route";
 import { registerAuthSessionRoutes } from "./session.route";
-import { type AuthRouterDeps, createAuthUseCases } from "./shared";
+import { type AuthRouterDeps, type AuthRouterUseCases } from "./shared";
 
 export type { AuthRouterDeps } from "./shared";
 
-export const createAuthRouter = (deps: AuthRouterDeps) => {
+export interface AuthRouterModule {
+  deps: AuthRouterDeps;
+  useCases: AuthRouterUseCases;
+}
+
+export const createAuthRouter = ({ deps, useCases }: AuthRouterModule) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
-  const useCases = createAuthUseCases(deps);
   const jwtMiddleware = createJwtMiddleware({
     secret: deps.jwtSecret,
     authSessionRepository: deps.authSessionRepository,

@@ -1,4 +1,5 @@
 import {
+  DisplayPairingCodeCollisionError,
   type DisplayPairingCodeRecord,
   type DisplayPairingCodeRepository,
 } from "#/application/ports/display-pairing";
@@ -85,13 +86,6 @@ const toRecord = (value: StoredPairingCode): DisplayPairingCodeRecord => ({
   createdAt: new Date(value.createdAtMs).toISOString(),
   updatedAt: new Date(value.updatedAtMs).toISOString(),
 });
-
-export class DisplayPairingCodeCollisionError extends Error {
-  constructor() {
-    super("Display pairing code collision detected");
-    this.name = "DisplayPairingCodeCollisionError";
-  }
-}
 
 export class DisplayPairingCodeRedisRepository
   implements DisplayPairingCodeRepository

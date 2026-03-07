@@ -10,29 +10,28 @@ import {
   type ContentIngestionJobRepository,
   type ContentIngestionQueue,
   type ContentJobEventPublisher,
+  type ContentJobEventSubscription,
 } from "#/application/ports/content-jobs";
+import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
-  CreateFlashContentUseCase,
-  DeleteContentUseCase,
-  GetContentDownloadUrlUseCase,
-  GetContentJobUseCase,
-  GetContentUseCase,
-  ListContentUseCase,
-  ReplaceContentFileUseCase,
-  SetContentExclusionUseCase,
-  UpdateContentUseCase,
-  UploadContentUseCase,
+  type CreateFlashContentUseCase,
+  type DeleteContentUseCase,
+  type GetContentDownloadUrlUseCase,
+  type GetContentJobUseCase,
+  type GetContentUseCase,
+  type ListContentUseCase,
+  type ReplaceContentFileUseCase,
+  type SetContentExclusionUseCase,
+  type UpdateContentUseCase,
+  type UploadContentUseCase,
 } from "#/application/use-cases/content";
-import { logger } from "#/infrastructure/observability/logger";
-import { addErrorContext } from "#/infrastructure/observability/logging";
+import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
-import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
-import { publishContentJobEvent } from "./jobs-stream";
 
 export interface ContentRouterDeps {
   jwtSecret: string;
@@ -52,6 +51,10 @@ export interface ContentRouterDeps {
   contentIngestionQueue: ContentIngestionQueue;
   contentMetadataExtractor: ContentMetadataExtractor;
   contentThumbnailGenerator: ContentThumbnailGenerator;
+  contentJobEventPublisher: ContentJobEventPublisher;
+  contentJobEventSubscription: ContentJobEventSubscription;
+  displayEventPublisher: DisplayStreamEventPublisher;
+  checkPermissionUseCase: CheckPermissionUseCase;
 }
 
 export interface ContentRouterUseCases {
@@ -74,115 +77,3 @@ export type RequirePermission = (
 ) => MiddlewareHandler<{ Variables: JwtUserVariables }>;
 
 export const contentTags = ["Content"];
-
-export const createContentUseCases = (
-  deps: ContentRouterDeps,
-): ContentRouterUseCases => {
-  const contentJobEventPublisher: ContentJobEventPublisher = {
-    publish(event) {
-      publishContentJobEvent(event);
-    },
-  };
-
-  const cleanupFailureLogger = {
-    logContentCleanupFailure(input: {
-      route: string;
-      contentId: string;
-      fileKey: string;
-      failurePhase:
-        | "upload_rollback_delete"
-        | "delete_after_metadata_remove"
-        | "replace_cleanup_delete";
-      error: unknown;
-    }) {
-      logger.error(
-        addErrorContext(
-          {
-            component: "content",
-            event: "content.cleanup.failed",
-            route: input.route,
-            contentId: input.contentId,
-            fileKey: input.fileKey,
-            failurePhase: input.failurePhase,
-          },
-          input.error,
-        ),
-        "content storage cleanup failed",
-      );
-    },
-  };
-
-  return {
-    uploadContent: new UploadContentUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      contentIngestionJobRepository:
-        deps.repositories.contentIngestionJobRepository,
-      contentIngestionQueue: deps.contentIngestionQueue,
-      contentJobEventPublisher,
-      userRepository: deps.repositories.userRepository,
-    }),
-    replaceContentFile: new ReplaceContentFileUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      contentIngestionJobRepository:
-        deps.repositories.contentIngestionJobRepository,
-      contentIngestionQueue: deps.contentIngestionQueue,
-      contentJobEventPublisher,
-      userRepository: deps.repositories.userRepository,
-      cleanupFailureLogger,
-    }),
-    listContent: new ListContentUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      userRepository: deps.repositories.userRepository,
-      contentStorage: deps.storage,
-      thumbnailUrlExpiresInSeconds: deps.thumbnailUrlExpiresInSeconds,
-    }),
-    getContent: new GetContentUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      userRepository: deps.repositories.userRepository,
-      contentStorage: deps.storage,
-      thumbnailUrlExpiresInSeconds: deps.thumbnailUrlExpiresInSeconds,
-    }),
-    getContentJob: new GetContentJobUseCase({
-      contentIngestionJobRepository:
-        deps.repositories.contentIngestionJobRepository,
-    }),
-    createFlashContent: new CreateFlashContentUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      userRepository: deps.repositories.userRepository,
-    }),
-    updateContent: new UpdateContentUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayEventPublisher: {
-        publish(input) {
-          publishDisplayStreamEvent({
-            type: input.type,
-            displayId: input.displayId,
-            reason: input.reason,
-            timestamp: input.timestamp ?? new Date().toISOString(),
-          });
-        },
-      },
-      userRepository: deps.repositories.userRepository,
-    }),
-    setContentExclusion: new SetContentExclusionUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      userRepository: deps.repositories.userRepository,
-    }),
-    deleteContent: new DeleteContentUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      cleanupFailureLogger,
-    }),
-    getDownloadUrl: new GetContentDownloadUrlUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      contentStorage: deps.storage,
-      expiresInSeconds: deps.downloadUrlExpiresInSeconds,
-    }),
-  };
-};

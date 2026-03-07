@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
+import { createPlaylistsHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
@@ -61,168 +62,178 @@ const makeApp = async (
     },
   ];
 
-  const router = createPlaylistsRouter({
-    jwtSecret: "test-secret",
-    authSessionRepository,
-    authSessionCookieName: "wildfire_session",
-    repositories: {
-      playlistRepository: {
-        list: async () => [...playlists],
-        listPage: async ({ offset, limit }) => ({
-          items: playlists.slice(offset, offset + limit),
-          total: playlists.length,
-        }),
-        findByIds: async (ids: string[]) =>
-          playlists.filter((item) => ids.includes(item.id)),
-        findById: async (id: string) =>
-          playlists.find((item) => item.id === id) ?? null,
-        create: async (input) => {
-          const record = {
-            id: playlistId,
-            name: input.name,
-            description: input.description,
-            status: "DRAFT" as const,
-            createdById: input.createdById,
+  const router = createPlaylistsRouter(
+    createPlaylistsHttpModule({
+      jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
+      repositories: {
+        playlistRepository: {
+          list: async () => [...playlists],
+          listPage: async ({ offset, limit }) => ({
+            items: playlists.slice(offset, offset + limit),
+            total: playlists.length,
+          }),
+          findByIds: async (ids: string[]) =>
+            playlists.filter((item) => ids.includes(item.id)),
+          findById: async (id: string) =>
+            playlists.find((item) => item.id === id) ?? null,
+          create: async (input) => {
+            const record = {
+              id: playlistId,
+              name: input.name,
+              description: input.description,
+              status: "DRAFT" as const,
+              createdById: input.createdById,
+              createdAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            };
+            playlists.push(record);
+            return record;
+          },
+          update: async () => null,
+          updateStatus: async () => undefined,
+          delete: async () => false,
+          listItems: async (playlistId: string) =>
+            items.filter((item) => item.playlistId === playlistId),
+          findItemById: async (id: string) =>
+            items.find((item) => item.id === id) ?? null,
+          countItemsByContentId: async (contentId: string) =>
+            items.filter((item) => item.contentId === contentId).length,
+          addItem: async (input) => {
+            if (options?.addPlaylistItemError) {
+              throw options.addPlaylistItemError;
+            }
+            const record = {
+              id: `item-${items.length + 1}`,
+              ...input,
+            };
+            items.push(record);
+            return record;
+          },
+          updateItem: async () => null,
+          reorderItems: async () => true,
+          deleteItem: async () => false,
+        },
+        contentRepository: {
+          findById: async (id: string) =>
+            contents.find((content) => content.id === id) ?? null,
+          findByIds: async (ids: string[]) =>
+            contents.filter((content) => ids.includes(content.id)),
+          create: async () => {
+            throw new Error("not used");
+          },
+          list: async () => ({ items: [], total: 0 }),
+          countPlaylistReferences: async () => 0,
+          listPlaylistsReferencingContent: async () => [],
+          delete: async () => false,
+          update: async () => null,
+        },
+        userRepository: {
+          list: async () => [],
+          findById: async () =>
+            options?.missingUser
+              ? null
+              : {
+                  id: "user-1",
+                  username: "user",
+                  email: "user@example.com",
+                  name: "User",
+                  isActive: true,
+                },
+          findByIds: async () => [
+            {
+              id: "user-1",
+              username: "user",
+              email: "user@example.com",
+              name: "User",
+              isActive: true,
+            },
+          ],
+          findByUsername: async () => null,
+          findByEmail: async () => null,
+          create: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          delete: async () => false,
+        },
+        authorizationRepository: {
+          findPermissionsForUser: async () =>
+            permissions.map((permission) => Permission.parse(permission)),
+        },
+        scheduleRepository: {
+          list: async () => [],
+          listByDisplay: async () => [],
+          listByPlaylistId: async (id: string) =>
+            options?.inUsePlaylistId === id
+              ? [
+                  {
+                    id: "schedule-1",
+                    name: "Morning",
+                    kind: "PLAYLIST",
+                    playlistId: id,
+                    contentId: null,
+                    displayId: "display-1",
+                    startTime: "08:00",
+                    endTime: "18:00",
+                    priority: 10,
+                    isActive: true,
+                    createdAt: "2025-01-01T00:00:00.000Z",
+                    updatedAt: "2025-01-01T00:00:00.000Z",
+                  },
+                ]
+              : [],
+          findById: async () => null,
+          create: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          delete: async () => false,
+          countByPlaylistId: async (id: string) =>
+            options?.inUsePlaylistId === id ? 1 : 0,
+        },
+        displayRepository: {
+          list: async () => [],
+          listPage: async () => ({
+            items: [],
+            total: 0,
+            page: 1,
+            pageSize: 20,
+          }),
+          findByIds: async () => [],
+          findById: async () => ({
+            id: "display-1",
+            name: "Lobby",
+            slug: "display-1",
+            status: "READY" as const,
+            location: null,
+            screenWidth: 1366,
+            screenHeight: 768,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
-          };
-          playlists.push(record);
-          return record;
-        },
-        update: async () => null,
-        updateStatus: async () => undefined,
-        delete: async () => false,
-        listItems: async (playlistId: string) =>
-          items.filter((item) => item.playlistId === playlistId),
-        findItemById: async (id: string) =>
-          items.find((item) => item.id === id) ?? null,
-        countItemsByContentId: async (contentId: string) =>
-          items.filter((item) => item.contentId === contentId).length,
-        addItem: async (input) => {
-          if (options?.addPlaylistItemError) {
-            throw options.addPlaylistItemError;
-          }
-          const record = {
-            id: `item-${items.length + 1}`,
-            ...input,
-          };
-          items.push(record);
-          return record;
-        },
-        updateItem: async () => null,
-        reorderItems: async () => true,
-        deleteItem: async () => false,
-      },
-      contentRepository: {
-        findById: async (id: string) =>
-          contents.find((content) => content.id === id) ?? null,
-        findByIds: async (ids: string[]) =>
-          contents.filter((content) => ids.includes(content.id)),
-        create: async () => {
-          throw new Error("not used");
-        },
-        list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-        update: async () => null,
-      },
-      userRepository: {
-        list: async () => [],
-        findById: async () =>
-          options?.missingUser
-            ? null
-            : {
-                id: "user-1",
-                username: "user",
-                email: "user@example.com",
-                name: "User",
-                isActive: true,
-              },
-        findByIds: async () => [
-          {
-            id: "user-1",
-            username: "user",
-            email: "user@example.com",
-            name: "User",
-            isActive: true,
+          }),
+          findBySlug: async () => null,
+          findByFingerprint: async () => null,
+          findByFingerprintAndOutput: async () => null,
+          create: async () => {
+            throw new Error("not used");
           },
-        ],
-        findByUsername: async () => null,
-        findByEmail: async () => null,
-        create: async () => {
-          throw new Error("not used");
+          createRegisteredDisplay: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          setStatus: async () => {},
+          touchSeen: async () => {},
+          bumpRefreshNonce: async () => false,
+          delete: async (_id: string) => false,
         },
-        update: async () => null,
-        delete: async () => false,
       },
-      authorizationRepository: {
-        findPermissionsForUser: async () =>
-          permissions.map((permission) => Permission.parse(permission)),
+      displayEventPublisher: {
+        publish: () => {},
       },
-      scheduleRepository: {
-        list: async () => [],
-        listByDisplay: async () => [],
-        listByPlaylistId: async (id: string) =>
-          options?.inUsePlaylistId === id
-            ? [
-                {
-                  id: "schedule-1",
-                  name: "Morning",
-                  kind: "PLAYLIST",
-                  playlistId: id,
-                  contentId: null,
-                  displayId: "display-1",
-                  startTime: "08:00",
-                  endTime: "18:00",
-                  priority: 10,
-                  isActive: true,
-                  createdAt: "2025-01-01T00:00:00.000Z",
-                  updatedAt: "2025-01-01T00:00:00.000Z",
-                },
-              ]
-            : [],
-        findById: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        delete: async () => false,
-        countByPlaylistId: async (id: string) =>
-          options?.inUsePlaylistId === id ? 1 : 0,
-      },
-      displayRepository: {
-        list: async () => [],
-        listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
-        findByIds: async () => [],
-        findById: async () => ({
-          id: "display-1",
-          name: "Lobby",
-          slug: "display-1",
-          status: "READY" as const,
-          location: null,
-          screenWidth: 1366,
-          screenHeight: 768,
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        }),
-        findBySlug: async () => null,
-        findByFingerprint: async () => null,
-        findByFingerprintAndOutput: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        createRegisteredDisplay: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        setStatus: async () => {},
-        touchSeen: async () => {},
-        bumpRefreshNonce: async () => false,
-        delete: async (_id: string) => false,
-      },
-    },
-  });
+    }),
+  );
 
   app.route("/playlists", router);
 
@@ -256,14 +267,14 @@ describe("Playlists routes", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
     expect(Array.isArray(body.data)).toBe(true);
     expect(typeof body.meta.total).toBe("number");
     expect(body.meta.page).toBe(1);
-    expect(body.meta.per_page).toBe(20);
+    expect(body.meta.pageSize).toBe(20);
   });
 
   test("POST /playlists creates playlist", async () => {
@@ -363,7 +374,7 @@ describe("Playlists routes", () => {
     const body = await parseJson<{ error: { code: string; message: string } }>(
       response,
     );
-    expect(body.error.code).toBe("CONFLICT");
+    expect(body.error.code).toBe("playlist_in_use");
     expect(body.error.message).toContain("in use");
   });
 

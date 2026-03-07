@@ -1,7 +1,6 @@
 import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { env } from "#/env";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -12,6 +11,7 @@ import {
   unauthorized,
 } from "#/interfaces/http/responses";
 import {
+  applicationErrorMappers,
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
@@ -83,7 +83,7 @@ export const registerAuthLoginRoute = (args: {
             xClientIp: c.req.header("x-client-ip"),
             forwarded: c.req.header("forwarded"),
           },
-          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+          trustProxyHeaders: deps.trustProxyHeaders,
         });
         const loginKey = `${username}|${ip}`;
         const allowed = await deps.authSecurityStore.checkLoginAllowed(
@@ -153,6 +153,7 @@ export const registerAuthLoginRoute = (args: {
         c.set("actorType", "user");
         return c.json(toApiResponse(body));
       },
+      ...applicationErrorMappers,
       mapErrorToResponse(InvalidCredentialsError, unauthorized),
     ),
   );

@@ -1,14 +1,11 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ScheduleConflictError } from "#/application/use-cases/schedules";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
-  conflict,
   errorResponseSchema,
   toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
-  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
@@ -96,7 +93,6 @@ export const registerScheduleCommandRoutes = (args: {
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
         return c.json(toApiResponse(result), 201);
       },
-      mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
     ),
   );
@@ -147,7 +143,6 @@ export const registerScheduleCommandRoutes = (args: {
         });
         return c.json(toApiResponse(result));
       },
-      mapErrorToResponse(ScheduleConflictError, conflict),
       ...applicationErrorMappers,
     ),
   );

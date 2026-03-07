@@ -4,22 +4,30 @@ import { createPermissionMiddleware } from "#/interfaces/http/middleware/permiss
 import { registerContentJobRoutes } from "#/interfaces/http/routes/content/jobs.route";
 import {
   type ContentRouterDeps,
-  createContentUseCases,
+  type ContentRouterUseCases,
 } from "#/interfaces/http/routes/content/shared";
 
-export const createContentJobsRouter = (deps: ContentRouterDeps) => {
+export interface ContentJobsRouterModule {
+  deps: ContentRouterDeps;
+  useCases: ContentRouterUseCases;
+}
+
+export const createContentJobsRouter = ({
+  deps,
+  useCases,
+}: ContentJobsRouterModule) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { jwtMiddleware, requirePermission } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
-    authorizationRepository: deps.repositories.authorizationRepository,
+    checkPermissionUseCase: deps.checkPermissionUseCase,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
-  const useCases = createContentUseCases(deps);
 
   router.use("/*", jwtMiddleware);
   registerContentJobRoutes({
     router,
+    deps,
     useCases,
     requirePermission,
   });

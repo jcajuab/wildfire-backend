@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  type DisplayRegistrationAttemptStore,
+  type RegistrationAttemptCode,
+} from "#/application/ports/display-registration-attempt";
 import { env } from "#/env";
 import {
   executeRedisCommand,
@@ -6,42 +10,6 @@ import {
 } from "#/infrastructure/redis/client";
 import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
 import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
-
-export interface RegistrationAttemptCode {
-  code: string;
-  codeHash: string;
-  pairingCodeId: string;
-  expiresAt: Date;
-}
-
-export interface DisplayRegistrationAttemptStore {
-  createOrReplaceOpenAttempt(input: {
-    createdById: string;
-    activeCode: RegistrationAttemptCode;
-  }): Promise<{ attemptId: string; invalidatedPairingCodeId: string | null }>;
-  rotateCode(input: {
-    attemptId: string;
-    createdById: string;
-    nextCode: RegistrationAttemptCode;
-  }): Promise<{ invalidatedPairingCodeId: string | null } | null>;
-  closeAttempt(input: {
-    attemptId: string;
-    createdById: string;
-  }): Promise<{ invalidatedPairingCodeId: string | null } | null>;
-  isAttemptOwnedBy(input: {
-    attemptId: string;
-    createdById: string;
-  }): Promise<boolean>;
-  consumeCodeHash(input: {
-    codeHash: string;
-    now: Date;
-  }): Promise<{ attemptId: string; pairingCodeId: string } | null>;
-  bindSessionAttempt(input: {
-    sessionId: string;
-    attemptId: string;
-  }): Promise<void>;
-  consumeSessionAttemptId(sessionId: string): Promise<string | null>;
-}
 
 interface RegistrationAttemptRecord {
   id: string;

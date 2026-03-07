@@ -42,7 +42,10 @@ describe("audit trail middleware", () => {
     const { calls, auditQueue } = makeQueue();
     const app = new Hono<{ Variables: ObservabilityVariables }>();
     app.use("*", requestId());
-    app.use("*", createAuditTrailMiddleware({ auditQueue }));
+    app.use(
+      "*",
+      createAuditTrailMiddleware({ auditQueue, trustProxyHeaders: true }),
+    );
 
     app.post(
       "/users/:id",
@@ -88,7 +91,10 @@ describe("audit trail middleware", () => {
     const { calls, auditQueue } = makeQueue();
     const app = new Hono<{ Variables: ObservabilityVariables }>();
     app.use("*", requestId());
-    app.use("*", createAuditTrailMiddleware({ auditQueue }));
+    app.use(
+      "*",
+      createAuditTrailMiddleware({ auditQueue, trustProxyHeaders: true }),
+    );
 
     app.get(
       "/content",
@@ -108,7 +114,10 @@ describe("audit trail middleware", () => {
     const { calls, auditQueue } = makeQueue();
     const app = new Hono<{ Variables: ObservabilityVariables }>();
     app.use("*", requestId());
-    app.use("*", createAuditTrailMiddleware({ auditQueue }));
+    app.use(
+      "*",
+      createAuditTrailMiddleware({ auditQueue, trustProxyHeaders: true }),
+    );
 
     app.post(
       "/protected/no-token",
@@ -146,7 +155,10 @@ describe("audit trail middleware", () => {
     const { calls, auditQueue } = makeQueue();
     const app = new Hono<{ Variables: ObservabilityVariables }>();
     app.use("*", requestId());
-    app.use("*", createAuditTrailMiddleware({ auditQueue }));
+    app.use(
+      "*",
+      createAuditTrailMiddleware({ auditQueue, trustProxyHeaders: true }),
+    );
 
     app.get(
       "/audit-only",
@@ -182,7 +194,10 @@ describe("audit trail middleware", () => {
     const { auditQueue } = makeQueue({ overflow: true });
     const app = new Hono<{ Variables: ObservabilityVariables }>();
     app.use("*", requestId());
-    app.use("*", createAuditTrailMiddleware({ auditQueue }));
+    app.use(
+      "*",
+      createAuditTrailMiddleware({ auditQueue, trustProxyHeaders: true }),
+    );
 
     app.post(
       "/auth/login",

@@ -3,20 +3,24 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerRbacPermissionRoutes } from "./permissions.route";
 import { registerRbacRoleRoutes } from "./roles.route";
-import { createRbacUseCases, type RbacRouterDeps } from "./shared";
+import { type RbacRouterDeps, type RbacRouterUseCases } from "./shared";
 import { registerRbacUserRoutes } from "./users.route";
 
 export type { RbacRouterDeps } from "./shared";
 
-export const createRbacRouter = (deps: RbacRouterDeps) => {
+export interface RbacRouterModule {
+  deps: RbacRouterDeps;
+  useCases: RbacRouterUseCases;
+}
+
+export const createRbacRouter = ({ deps, useCases }: RbacRouterModule) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
-    authorizationRepository: deps.repositories.authorizationRepository,
+    checkPermissionUseCase: deps.checkPermissionUseCase,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
-  const useCases = createRbacUseCases(deps);
 
   registerRbacRoleRoutes({ router, deps, useCases, authorize });
   registerRbacPermissionRoutes({ router, useCases, authorize });

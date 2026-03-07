@@ -22,21 +22,24 @@ import {
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
-  AcceptInvitationUseCase,
-  AuthenticateUserUseCase,
+  type AcceptInvitationUseCase,
+  type AuthenticateUserUseCase,
   type ChangeCurrentUserPasswordUseCase,
-  CreateInvitationUseCase,
-  ForgotPasswordUseCase,
-  ListInvitationsUseCase,
-  RefreshSessionUseCase,
-  RequestEmailChangeUseCase,
-  ResendInvitationUseCase,
-  ResetPasswordUseCase,
+  type CreateInvitationUseCase,
+  type ForgotPasswordUseCase,
+  type ListInvitationsUseCase,
+  type RefreshSessionUseCase,
+  type RequestEmailChangeUseCase,
+  type ResendInvitationUseCase,
+  type ResetPasswordUseCase,
   type SetCurrentUserAvatarUseCase,
   type UpdateCurrentUserProfileUseCase,
-  VerifyEmailChangeUseCase,
+  type VerifyEmailChangeUseCase,
 } from "#/application/use-cases/auth";
-import { type DeleteCurrentUserUseCase } from "#/application/use-cases/rbac";
+import {
+  type CheckPermissionUseCase,
+  type DeleteCurrentUserUseCase,
+} from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 
@@ -58,10 +61,12 @@ export interface AuthRouterDeps {
   authLoginRateLimitWindowSeconds: number;
   authLoginLockoutThreshold: number;
   authLoginLockoutSeconds: number;
+  trustProxyHeaders: boolean;
   passwordResetTokenRepository: PasswordResetTokenRepository;
   emailChangeTokenRepository?: EmailChangeTokenRepository;
   invitationRepository: InvitationRepository;
   invitationEmailSender: InvitationEmailSender;
+  includeDevelopmentInviteUrls: boolean;
   emailChangeVerificationEmailSender?: EmailChangeVerificationEmailSender;
   passwordResetEmailSender?: PasswordResetEmailSender;
   inviteTokenTtlSeconds: number;
@@ -75,6 +80,7 @@ export interface AuthRouterDeps {
   setCurrentUserAvatarUseCase: SetCurrentUserAvatarUseCase;
   avatarStorage: ContentStorage;
   avatarUrlExpiresInSeconds: number;
+  checkPermissionUseCase: CheckPermissionUseCase;
 }
 
 export interface AuthRouterUseCases {
@@ -128,99 +134,6 @@ type AuthResultBase = {
   token: string;
   expiresAt: string;
   user: AuthResultUser;
-};
-
-export const createAuthUseCases = (
-  deps: AuthRouterDeps,
-): AuthRouterUseCases => {
-  const emailChangeTokenRepository =
-    deps.emailChangeTokenRepository ??
-    ({
-      store: async () => {},
-      findByHashedToken: async () => null,
-      findPendingByUserId: async () => null,
-      consumeByHashedToken: async () => {},
-      deleteByUserId: async () => {},
-      deleteExpired: async () => {},
-    } satisfies EmailChangeTokenRepository);
-  const emailChangeVerificationEmailSender =
-    deps.emailChangeVerificationEmailSender ??
-    ({
-      sendVerificationLink: async () => {},
-    } satisfies EmailChangeVerificationEmailSender);
-
-  const createInvitation = new CreateInvitationUseCase({
-    userRepository: deps.userRepository,
-    invitationRepository: deps.invitationRepository,
-    invitationEmailSender: deps.invitationEmailSender,
-    inviteTokenTtlSeconds: deps.inviteTokenTtlSeconds,
-    inviteAcceptBaseUrl: deps.inviteAcceptBaseUrl,
-  });
-
-  return {
-    authenticateUser: new AuthenticateUserUseCase({
-      credentialsRepository: deps.credentialsRepository,
-      passwordVerifier: deps.passwordVerifier,
-      tokenIssuer: deps.tokenIssuer,
-      userRepository: deps.userRepository,
-      clock: deps.clock,
-      tokenTtlSeconds: deps.tokenTtlSeconds,
-      issuer: deps.issuer,
-      authSessionRepository: deps.authSessionRepository,
-    }),
-    refreshSession: new RefreshSessionUseCase({
-      tokenIssuer: deps.tokenIssuer,
-      userRepository: deps.userRepository,
-      clock: deps.clock,
-      tokenTtlSeconds: deps.tokenTtlSeconds,
-      issuer: deps.issuer,
-      authSessionRepository: deps.authSessionRepository,
-    }),
-    forgotPassword: new ForgotPasswordUseCase({
-      userRepository: deps.userRepository,
-      passwordResetTokenRepository: deps.passwordResetTokenRepository,
-      passwordResetEmailSender: deps.passwordResetEmailSender ?? {
-        sendResetLink: async () => {},
-      },
-      resetPasswordBaseUrl:
-        deps.resetPasswordBaseUrl ?? "http://localhost:3000/reset-password",
-    }),
-    resetPassword: new ResetPasswordUseCase({
-      passwordResetTokenRepository: deps.passwordResetTokenRepository,
-      credentialsRepository: deps.credentialsRepository,
-      passwordHasher: deps.passwordHasher,
-      userRepository: deps.userRepository,
-      authSessionRepository: deps.authSessionRepository,
-    }),
-    createInvitation,
-    acceptInvitation: new AcceptInvitationUseCase({
-      invitationRepository: deps.invitationRepository,
-      userRepository: deps.userRepository,
-      passwordHasher: deps.passwordHasher,
-      credentialsRepository: deps.credentialsRepository,
-    }),
-    listInvitations: new ListInvitationsUseCase({
-      invitationRepository: deps.invitationRepository,
-    }),
-    resendInvitation: new ResendInvitationUseCase({
-      invitationRepository: deps.invitationRepository,
-      createInvitationUseCase: createInvitation,
-    }),
-    requestEmailChange: new RequestEmailChangeUseCase({
-      userRepository: deps.userRepository,
-      emailChangeTokenRepository,
-      emailChangeVerificationEmailSender,
-      emailChangeTokenTtlSeconds:
-        deps.emailChangeTokenTtlSeconds ?? 60 * 60 * 24,
-      emailChangeVerifyBaseUrl:
-        deps.emailChangeVerifyBaseUrl ??
-        "http://localhost:3000/verify-email-change",
-    }),
-    verifyEmailChange: new VerifyEmailChangeUseCase({
-      userRepository: deps.userRepository,
-      emailChangeTokenRepository,
-    }),
-  };
 };
 
 const enrichUserWithAvatarUrl = async (

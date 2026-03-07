@@ -1,6 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
-import { env } from "#/env";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import {
@@ -8,6 +7,7 @@ import {
   apiResponseSchema,
   errorResponseSchema,
   toApiListResponse,
+  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -61,7 +61,7 @@ export const registerAuthInvitationRoutes = (args: {
   const { router, deps, useCases } = args;
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
-    authorizationRepository: deps.authorizationRepository,
+    checkPermissionUseCase: deps.checkPermissionUseCase,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
@@ -105,15 +105,16 @@ export const registerAuthInvitationRoutes = (args: {
           invitedByUserId: c.get("userId"),
         });
         c.set("resourceId", result.id);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
 
         return c.json(
-          {
+          toApiResponse({
             id: result.id,
             expiresAt: result.expiresAt,
-            ...(env.NODE_ENV === "development"
+            ...(deps.includeDevelopmentInviteUrls
               ? { inviteUrl: result.inviteUrl }
               : {}),
-          },
+          }),
           201,
         );
       },
@@ -199,15 +200,16 @@ export const registerAuthInvitationRoutes = (args: {
           invitedByUserId: c.get("userId"),
         });
         c.set("resourceId", result.id);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
 
         return c.json(
-          {
+          toApiResponse({
             id: result.id,
             expiresAt: result.expiresAt,
-            ...(env.NODE_ENV === "development"
+            ...(deps.includeDevelopmentInviteUrls
               ? { inviteUrl: result.inviteUrl }
               : {}),
-          },
+          }),
           201,
         );
       },

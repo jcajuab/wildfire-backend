@@ -1,16 +1,17 @@
+import { type AdminDisplayLifecycleEventPublisher } from "#/application/ports/display-stream-events";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { deriveDisplayStatus } from "#/application/use-cases/displays";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
-import { publishAdminDisplayLifecycleEvent } from "./admin-lifecycle-events";
 
 const DEFAULT_RECONCILE_INTERVAL_MS = 30_000;
 
 export const startDisplayStatusReconciler = (input: {
   displayRepository: DisplayRepository;
   scheduleRepository: ScheduleRepository;
+  lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
   scheduleTimeZone?: string;
   intervalMs?: number;
 }): (() => Promise<void>) => {
@@ -57,15 +58,17 @@ export const startDisplayStatusReconciler = (input: {
               activePlaylistSchedule !== null || activeFlashSchedule !== null,
             now,
           });
+
           if (nextStatus === display.status) {
             continue;
           }
+
           await input.displayRepository.setStatus({
             id: display.id,
             status: nextStatus,
             at: now,
           });
-          publishAdminDisplayLifecycleEvent({
+          input.lifecycleEventPublisher.publish({
             type: "display_status_changed",
             displayId: display.id,
             slug: display.slug,

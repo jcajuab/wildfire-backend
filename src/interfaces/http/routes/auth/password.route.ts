@@ -1,7 +1,6 @@
 import { deleteCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { env } from "#/env";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
@@ -85,7 +84,7 @@ export const registerAuthPasswordRoute = (args: {
               xClientIp: c.req.header("x-client-ip"),
               forwarded: c.req.header("forwarded"),
             },
-            trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+            trustProxyHeaders: deps.trustProxyHeaders,
           })}`,
           nowMs: Date.now(),
           windowSeconds: deps.authLoginRateLimitWindowSeconds,

@@ -15,6 +15,10 @@ describe("RedisAuditQueue", () => {
       enabled: false,
       maxStreamLength: 10,
       streamName: "wf:stream:audit:test",
+      enqueueMaxAttempts: 1,
+      enqueueBaseDelayMs: 0,
+      enqueueMaxDelayMs: 0,
+      enqueueTimeoutMs: 100,
     });
 
     expect(await queue.enqueue(buildEvent())).toEqual({
@@ -34,6 +38,10 @@ describe("RedisAuditQueue", () => {
       enabled: true,
       maxStreamLength: 10,
       streamName: "wf:stream:audit:test",
+      enqueueMaxAttempts: 1,
+      enqueueBaseDelayMs: 0,
+      enqueueMaxDelayMs: 0,
+      enqueueTimeoutMs: 100,
     });
 
     await queue.stop();

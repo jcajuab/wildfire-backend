@@ -1,10 +1,14 @@
+import { AppError } from "#/application/errors/app-error";
 import { type AuditLogRepository } from "#/application/ports/audit";
 import { normalizeAuditFilters } from "./query-normalization";
 
-export class ExportLimitExceededError extends Error {
+export class ExportLimitExceededError extends AppError {
   constructor(public readonly limit: number) {
-    super(`Export limit exceeded. Max rows: ${limit}`);
-    this.name = "ExportLimitExceededError";
+    super(`Export limit exceeded. Max rows: ${limit}`, {
+      code: "export_limit_exceeded",
+      httpStatus: 400,
+      details: { limit },
+    });
   }
 }
 

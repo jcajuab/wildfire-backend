@@ -19,4 +19,25 @@ export {
   SetDisplayGroupsUseCase,
   UpdateDisplayGroupUseCase,
 } from "./display-groups.use-cases";
-export { DisplayGroupConflictError, NotFoundError } from "./errors";
+export {
+  CloseDisplayRegistrationAttemptUseCase,
+  CreateDisplayRegistrationSessionUseCase,
+  DISPLAY_REGISTRATION_CONSTRAINTS,
+  GetDisplayPreviewUseCase,
+  IssueDisplayRegistrationAttemptUseCase,
+  RegisterDisplayUseCase,
+  RotateDisplayRegistrationAttemptUseCase,
+} from "./display-registration.use-cases";
+export {
+  AuthorizeSignedDisplayRequestUseCase,
+  IssueDisplayAuthChallengeUseCase,
+  RecordDisplayHeartbeatUseCase,
+  StoreDisplaySnapshotUseCase,
+  toSignedRequestBodyHash,
+  VerifyDisplayAuthChallengeUseCase,
+} from "./display-runtime.use-cases";
+export {
+  DisplayGroupConflictError,
+  DisplayRegistrationConflictError,
+  NotFoundError,
+} from "./errors";

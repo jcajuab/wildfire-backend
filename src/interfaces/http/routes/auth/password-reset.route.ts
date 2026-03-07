@@ -1,5 +1,4 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { env } from "#/env";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -61,7 +60,7 @@ export const registerAuthPasswordResetRoutes = (args: {
             xClientIp: c.req.header("x-client-ip"),
             forwarded: c.req.header("forwarded"),
           },
-          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+          trustProxyHeaders: deps.trustProxyHeaders,
         });
         const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `forgot-password|${ip}`,
@@ -124,7 +123,7 @@ export const registerAuthPasswordResetRoutes = (args: {
             xClientIp: c.req.header("x-client-ip"),
             forwarded: c.req.header("forwarded"),
           },
-          trustProxyHeaders: env.TRUST_PROXY_HEADERS,
+          trustProxyHeaders: deps.trustProxyHeaders,
         });
         const allowed = await deps.authSecurityStore.consumeEndpointAttempt({
           key: `reset-password|${ip}`,

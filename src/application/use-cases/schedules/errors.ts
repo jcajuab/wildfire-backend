@@ -1,5 +1,7 @@
 export { NotFoundError } from "#/application/errors/not-found";
 
+import { AppError } from "#/application/errors/app-error";
+
 export interface ScheduleConflictDetails {
   requested: {
     id?: string;
@@ -27,8 +29,8 @@ export interface ScheduleConflictDetails {
   }>;
 }
 
-export class ScheduleConflictError extends Error {
-  public readonly details?: ScheduleConflictDetails;
+export class ScheduleConflictError extends AppError {
+  public override readonly details?: ScheduleConflictDetails;
 
   constructor(
     message = "This schedule overlaps with an existing schedule on the selected display.",
@@ -45,8 +47,12 @@ export class ScheduleConflictError extends Error {
         ? detailsOrOptions
         : undefined;
 
-    super(message, options);
-    this.name = "ScheduleConflictError";
+    super(message, {
+      ...options,
+      code: "schedule_conflict",
+      httpStatus: 409,
+      details,
+    });
     this.details = details;
   }
 }

@@ -1,13 +1,6 @@
 import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
-import { env } from "#/env";
-import { checkDbConnectivity } from "#/infrastructure/db/client";
-import {
-  executeRedisCommand,
-  getRedisCommandClient,
-} from "#/infrastructure/redis/client";
-import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
 
 export type HealthDependencyCheck = () => Promise<{
@@ -53,91 +46,25 @@ const runHealthDependencyCheck = async (
   }
 };
 
-const createStorageConnectivityCheck = (): HealthDependencyCheck => {
-  const healthStorage = new S3ContentStorage({
-    bucket: env.MINIO_BUCKET,
-    region: env.MINIO_REGION,
-    endpoint: `${env.MINIO_USE_SSL ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`,
-    accessKeyId: env.MINIO_ROOT_USER,
-    secretAccessKey: env.MINIO_ROOT_PASSWORD,
-    requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
-  });
+const healthyDependencyCheck: HealthDependencyCheck = async () => ({
+  ok: true,
+});
 
-  return async (): Promise<{ ok: boolean; error?: string }> => {
-    try {
-      const result = await healthStorage.checkConnectivity();
-      return result.ok ? { ok: true } : { ok: false, error: result.error };
-    } catch (error) {
-      return {
-        ok: false,
-        error: toErrorMessage(error),
-      };
-    }
-  };
-};
-
-const createDefaultHealthChecks = () => {
-  const dependencyChecks = {
-    checkMySql: async (): Promise<{ ok: boolean; error?: string }> => {
-      try {
-        await checkDbConnectivity();
-        return { ok: true };
-      } catch (error) {
-        return {
-          ok: false,
-          error: toErrorMessage(error),
-        };
-      }
-    },
-    checkRedis: async (): Promise<{ ok: boolean; error?: string }> => {
-      try {
-        const redis = await getRedisCommandClient();
-        await executeRedisCommand<void>(redis, ["PING"], {
-          timeoutMs: env.HEALTH_CHECK_TIMEOUT_MS,
-          operationName: "redis ping",
-        });
-        return { ok: true };
-      } catch (error) {
-        return {
-          ok: false,
-          error: toErrorMessage(error),
-        };
-      }
-    },
-    checkAuditStream: async (): Promise<{ ok: boolean; error?: string }> => {
-      try {
-        const redis = await getRedisCommandClient();
-        await executeRedisCommand<void>(
-          redis,
-          ["TYPE", env.REDIS_STREAM_AUDIT_NAME],
-          {
-            timeoutMs: env.HEALTH_CHECK_TIMEOUT_MS,
-            operationName: "audit stream health check",
-          },
-        );
-        return { ok: true };
-      } catch (error) {
-        return {
-          ok: false,
-          error: toErrorMessage(error),
-        };
-      }
-    },
-    checkStorage: createStorageConnectivityCheck(),
-  };
-
-  return dependencyChecks;
-};
-
-export type HealthDependencyChecks = ReturnType<
-  typeof createDefaultHealthChecks
->;
+export interface HealthDependencyChecks {
+  checkMySql: HealthDependencyCheck;
+  checkRedis: HealthDependencyCheck;
+  checkAuditStream: HealthDependencyCheck;
+  checkStorage: HealthDependencyCheck;
+}
 
 export const createHealthRouter = (
   checks: Partial<HealthDependencyChecks> = {},
 ): Hono => {
   const { checkMySql, checkRedis, checkAuditStream, checkStorage } = {
-    ...createDefaultHealthChecks(),
+    checkMySql: healthyDependencyCheck,
+    checkRedis: healthyDependencyCheck,
+    checkAuditStream: healthyDependencyCheck,
+    checkStorage: healthyDependencyCheck,
     ...checks,
   };
 
@@ -215,5 +142,3 @@ export const createHealthRouter = (
 
   return router;
 };
-
-export const healthRouter = createHealthRouter();

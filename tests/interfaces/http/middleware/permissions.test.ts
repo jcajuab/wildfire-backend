@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { requestId } from "#/interfaces/http/middleware/observability";
@@ -29,7 +30,9 @@ describe("permission middleware", () => {
 
     return createPermissionMiddleware({
       jwtSecret: "test-secret",
-      authorizationRepository,
+      checkPermissionUseCase: new CheckPermissionUseCase({
+        authorizationRepository,
+      }),
       authSessionRepository,
       authSessionCookieName: "wildfire_session_token",
     });

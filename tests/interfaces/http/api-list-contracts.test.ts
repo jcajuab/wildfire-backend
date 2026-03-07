@@ -27,8 +27,8 @@ describe("API list response contracts", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
       links: {
         self: string;
@@ -41,8 +41,8 @@ describe("API list response contracts", () => {
     expect(body.meta).toEqual({
       total: 1,
       page: 1,
-      per_page: 20,
-      total_pages: 1,
+      pageSize: 20,
+      totalPages: 1,
     });
     expect(body.links.self).toContain("/items");
   });
@@ -69,13 +69,13 @@ describe("API list response contracts", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
 
     expect(body.data).toEqual([]);
     expect(body.meta.total).toBe(0);
-    expect(body.meta.total_pages).toBe(1);
+    expect(body.meta.totalPages).toBe(1);
   });
 });

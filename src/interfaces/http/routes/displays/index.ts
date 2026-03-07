@@ -1,20 +1,27 @@
 import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
-import { createDisplaysUseCases, type DisplaysRouterDeps } from "./shared";
-import { registerDisplayStaffRoutes } from "./staff.route";
+import { type DisplaysRouterDeps, type DisplaysRouterUseCases } from "./module";
+import { registerDisplayStaffRoutes } from "./staff";
 
-export type { DisplaysRouterDeps } from "./shared";
+export type { DisplaysRouterDeps } from "./module";
 
-export const createDisplaysRouter = (deps: DisplaysRouterDeps) => {
+export interface DisplaysRouterModule {
+  deps: DisplaysRouterDeps;
+  useCases: DisplaysRouterUseCases;
+}
+
+export const createDisplaysRouter = ({
+  deps,
+  useCases,
+}: DisplaysRouterModule) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { authorize } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
-    authorizationRepository: deps.repositories.authorizationRepository,
+    checkPermissionUseCase: deps.checkPermissionUseCase,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
-  const useCases = createDisplaysUseCases(deps);
   registerDisplayStaffRoutes({
     router,
     useCases,

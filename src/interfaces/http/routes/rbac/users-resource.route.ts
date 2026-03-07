@@ -131,9 +131,9 @@ export const registerRbacUserResourceRoutes = (args: {
         c.header("Location", `${c.req.path}/${encodeURIComponent(user.id)}`);
         return c.json(toApiResponse(user), 201);
       },
+      ...applicationErrorMappers,
       mapErrorToResponse(DuplicateEmailError, conflict),
       mapErrorToResponse(DuplicateUsernameError, conflict),
-      ...applicationErrorMappers,
     ),
   );
 

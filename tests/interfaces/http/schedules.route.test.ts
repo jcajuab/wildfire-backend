@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { createSchedulesHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
@@ -62,129 +63,134 @@ const makeApp = async (
     },
   ];
 
-  const router = createSchedulesRouter({
-    jwtSecret: "test-secret",
-    authSessionRepository,
-    authSessionCookieName: "wildfire_session",
-    repositories: {
-      scheduleRepository: {
-        list: async () => [...schedules],
-        listByDisplay: async (displayId: string) =>
-          schedules.filter((schedule) => schedule.displayId === displayId),
-        findById: async (id: string) =>
-          schedules.find((schedule) => schedule.id === id) ?? null,
-        create: async (input) => {
-          if (options?.createScheduleError) {
-            throw options.createScheduleError;
-          }
-          const suffix = String(schedules.length + 1).padStart(12, "0");
-          const record = {
-            id: `00000000-0000-4000-8000-${suffix}`,
-            createdAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-            ...input,
-            kind: input.kind ?? "PLAYLIST",
-            contentId: input.contentId ?? null,
-          };
-          schedules.push(record);
-          return record;
+  const router = createSchedulesRouter(
+    createSchedulesHttpModule({
+      jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
+      repositories: {
+        scheduleRepository: {
+          list: async () => [...schedules],
+          listByDisplay: async (displayId: string) =>
+            schedules.filter((schedule) => schedule.displayId === displayId),
+          findById: async (id: string) =>
+            schedules.find((schedule) => schedule.id === id) ?? null,
+          create: async (input) => {
+            if (options?.createScheduleError) {
+              throw options.createScheduleError;
+            }
+            const suffix = String(schedules.length + 1).padStart(12, "0");
+            const record = {
+              id: `00000000-0000-4000-8000-${suffix}`,
+              createdAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              ...input,
+              kind: input.kind ?? "PLAYLIST",
+              contentId: input.contentId ?? null,
+            };
+            schedules.push(record);
+            return record;
+          },
+          update: async (id, input) => {
+            const index = schedules.findIndex((schedule) => schedule.id === id);
+            if (index === -1) return null;
+            const current = schedules[index];
+            if (!current) return null;
+            const next = {
+              ...current,
+              ...input,
+              kind: input.kind ?? current.kind,
+              contentId: input.contentId ?? current.contentId,
+            };
+            schedules[index] = next;
+            return next;
+          },
+          delete: async (id) => {
+            const index = schedules.findIndex((schedule) => schedule.id === id);
+            if (index === -1) return false;
+            schedules.splice(index, 1);
+            return true;
+          },
+          countByPlaylistId: async (id) =>
+            schedules.filter((schedule) => schedule.playlistId === id).length,
+          listByPlaylistId: async (playlistId: string) =>
+            schedules.filter((schedule) => schedule.playlistId === playlistId),
         },
-        update: async (id, input) => {
-          const index = schedules.findIndex((schedule) => schedule.id === id);
-          if (index === -1) return null;
-          const current = schedules[index];
-          if (!current) return null;
-          const next = {
-            ...current,
-            ...input,
-            kind: input.kind ?? current.kind,
-            contentId: input.contentId ?? current.contentId,
-          };
-          schedules[index] = next;
-          return next;
+        playlistRepository: {
+          list: async () => [...playlists],
+          listPage: async ({ offset, limit }) => ({
+            items: playlists.slice(offset, offset + limit),
+            total: playlists.length,
+          }),
+          findByIds: async (ids: string[]) =>
+            playlists.filter((playlist) => ids.includes(playlist.id)),
+          findById: async (id: string) =>
+            playlists.find((playlist) => playlist.id === id) ?? null,
+          create: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          updateStatus: async () => undefined,
+          delete: async () => false,
+          listItems: async () => [],
+          findItemById: async () => null,
+          countItemsByContentId: async () => 0,
+          addItem: async () => {
+            throw new Error("not used");
+          },
+          updateItem: async () => null,
+          reorderItems: async () => true,
+          deleteItem: async () => false,
         },
-        delete: async (id) => {
-          const index = schedules.findIndex((schedule) => schedule.id === id);
-          if (index === -1) return false;
-          schedules.splice(index, 1);
-          return true;
+        displayRepository: {
+          list: async () => [...displays],
+          listPage: async () => ({
+            items: [...displays],
+            total: displays.length,
+            page: 1,
+            pageSize: displays.length || 1,
+          }),
+          findByIds: async (ids: string[]) =>
+            displays.filter((display) => ids.includes(display.id)),
+          findById: async (id: string) =>
+            displays.find((display) => display.id === id) ?? null,
+          findBySlug: async () => null,
+          findByFingerprint: async () => null,
+          findByFingerprintAndOutput: async () => null,
+          create: async () => {
+            throw new Error("not used");
+          },
+          createRegisteredDisplay: async () => {
+            throw new Error("not used");
+          },
+          update: async () => null,
+          setStatus: async () => {},
+          touchSeen: async () => {},
+          bumpRefreshNonce: async () => false,
+          delete: async (_id: string) => false,
         },
-        countByPlaylistId: async (id) =>
-          schedules.filter((schedule) => schedule.playlistId === id).length,
-        listByPlaylistId: async (playlistId: string) =>
-          schedules.filter((schedule) => schedule.playlistId === playlistId),
+        authorizationRepository: {
+          findPermissionsForUser: async () =>
+            permissions.map((permission) => Permission.parse(permission)),
+        },
+        contentRepository: {
+          create: async () => {
+            throw new Error("not used");
+          },
+          findById: async () => null,
+          findByIds: async () => [],
+          list: async () => ({ items: [], total: 0 }),
+          update: async () => null,
+          countPlaylistReferences: async () => 0,
+          listPlaylistsReferencingContent: async () => [],
+          delete: async () => false,
+        },
       },
-      playlistRepository: {
-        list: async () => [...playlists],
-        listPage: async ({ offset, limit }) => ({
-          items: playlists.slice(offset, offset + limit),
-          total: playlists.length,
-        }),
-        findByIds: async (ids: string[]) =>
-          playlists.filter((playlist) => ids.includes(playlist.id)),
-        findById: async (id: string) =>
-          playlists.find((playlist) => playlist.id === id) ?? null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        updateStatus: async () => undefined,
-        delete: async () => false,
-        listItems: async () => [],
-        findItemById: async () => null,
-        countItemsByContentId: async () => 0,
-        addItem: async () => {
-          throw new Error("not used");
-        },
-        updateItem: async () => null,
-        reorderItems: async () => true,
-        deleteItem: async () => false,
+      displayEventPublisher: {
+        publish: () => {},
       },
-      displayRepository: {
-        list: async () => [...displays],
-        listPage: async () => ({
-          items: [...displays],
-          total: displays.length,
-          page: 1,
-          pageSize: displays.length || 1,
-        }),
-        findByIds: async (ids: string[]) =>
-          displays.filter((display) => ids.includes(display.id)),
-        findById: async (id: string) =>
-          displays.find((display) => display.id === id) ?? null,
-        findBySlug: async () => null,
-        findByFingerprint: async () => null,
-        findByFingerprintAndOutput: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        createRegisteredDisplay: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        setStatus: async () => {},
-        touchSeen: async () => {},
-        bumpRefreshNonce: async () => false,
-        delete: async (_id: string) => false,
-      },
-      authorizationRepository: {
-        findPermissionsForUser: async () =>
-          permissions.map((permission) => Permission.parse(permission)),
-      },
-      contentRepository: {
-        create: async () => {
-          throw new Error("not used");
-        },
-        findById: async () => null,
-        findByIds: async () => [],
-        list: async () => ({ items: [], total: 0 }),
-        update: async () => null,
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
-        delete: async () => false,
-      },
-    },
-  });
+    }),
+  );
 
   app.route("/schedules", router);
 
@@ -218,14 +224,14 @@ describe("Schedules routes", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
     expect(Array.isArray(body.data)).toBe(true);
     expect(typeof body.meta.total).toBe("number");
     expect(body.meta.page).toBe(1);
-    expect(body.meta.per_page).toBe(50);
+    expect(body.meta.pageSize).toBe(50);
   });
 
   test("POST /schedules creates schedule", async () => {
@@ -398,7 +404,7 @@ describe("Schedules routes", () => {
       };
     }>(conflict);
 
-    expect(conflictBody.error.code).toBe("CONFLICT");
+    expect(conflictBody.error.code).toBe("schedule_conflict");
     expect(conflictBody.error.message.length).toBeGreaterThan(0);
   });
 

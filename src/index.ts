@@ -1,13 +1,13 @@
-import { env } from "#/env";
-import { logger } from "#/infrastructure/observability/logger";
-import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   app,
   runStorageBootstrapChecks,
   startHttpBackgroundWorkers,
   stopHttpBackgroundWorkers,
   syncAuthIdentityOnStartup,
-} from "#/interfaces/http";
+} from "#/bootstrap/http";
+import { env } from "#/env";
+import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 
 let isShuttingDown = false;
 let server: ReturnType<typeof Bun.serve> | null = null;

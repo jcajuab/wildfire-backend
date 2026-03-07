@@ -62,3 +62,10 @@ export interface ContentJobEvent {
 export interface ContentJobEventPublisher {
   publish(event: ContentJobEvent): void;
 }
+
+export interface ContentJobEventSubscription {
+  subscribe(
+    jobId: string,
+    handler: (event: ContentJobEvent) => void,
+  ): () => void;
+}

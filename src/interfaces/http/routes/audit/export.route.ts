@@ -1,14 +1,11 @@
 import { describeRoute, resolver } from "hono-openapi";
-import { ValidationError } from "#/application/errors/validation";
+import { AppError } from "#/application/errors/app-error";
 import { type AuditLogRecord } from "#/application/ports/audit";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type UserRepository } from "#/application/ports/rbac";
 import { ExportLimitExceededError } from "#/application/use-cases/audit";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import {
-  errorResponseSchema,
-  validationError,
-} from "#/interfaces/http/responses";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import { auditLogExportQuerySchema } from "#/interfaces/http/validators/audit.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -280,11 +277,23 @@ export const registerAuditExportRoute = (args: {
           },
         });
       } catch (error) {
-        if (error instanceof ExportLimitExceededError) {
-          return validationError(c, error.message);
-        }
-        if (error instanceof ValidationError) {
-          return validationError(c, error.message);
+        if (
+          error instanceof ExportLimitExceededError ||
+          error instanceof AppError
+        ) {
+          return c.json(
+            {
+              error: {
+                code: error.code,
+                message: error.message,
+                requestId: c.get("requestId"),
+                ...(error.details !== undefined
+                  ? { details: error.details }
+                  : {}),
+              },
+            },
+            error.httpStatus,
+          );
         }
         throw error;
       }

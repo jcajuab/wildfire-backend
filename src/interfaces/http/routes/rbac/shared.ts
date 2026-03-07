@@ -10,22 +10,23 @@ import {
   type UserRoleRepository,
 } from "#/application/ports/rbac";
 import {
-  CreateRoleUseCase,
-  CreateUserUseCase,
-  DeleteRoleUseCase,
-  DeleteUserUseCase,
-  GetRolePermissionsUseCase,
-  GetRoleUseCase,
-  GetRoleUsersUseCase,
-  GetUserRolesUseCase,
-  GetUserUseCase,
-  ListPermissionsUseCase,
-  ListRolesUseCase,
-  ListUsersUseCase,
-  SetRolePermissionsUseCase,
-  SetUserRolesUseCase,
-  UpdateRoleUseCase,
-  UpdateUserUseCase,
+  type CheckPermissionUseCase,
+  type CreateRoleUseCase,
+  type CreateUserUseCase,
+  type DeleteRoleUseCase,
+  type DeleteUserUseCase,
+  type GetRolePermissionsUseCase,
+  type GetRoleUseCase,
+  type GetRoleUsersUseCase,
+  type GetUserRolesUseCase,
+  type GetUserUseCase,
+  type ListPermissionsUseCase,
+  type ListRolesUseCase,
+  type ListUsersUseCase,
+  type SetRolePermissionsUseCase,
+  type SetUserRolesUseCase,
+  type UpdateRoleUseCase,
+  type UpdateUserUseCase,
 } from "#/application/use-cases/rbac";
 import { addAvatarUrlToUser } from "#/interfaces/http/lib/avatar-url";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
@@ -44,6 +45,7 @@ export interface RbacRouterDeps {
   };
   avatarStorage?: ContentStorage;
   avatarUrlExpiresInSeconds?: number;
+  checkPermissionUseCase: CheckPermissionUseCase;
 }
 
 export interface RbacRouterUseCases {
@@ -77,75 +79,6 @@ export type AuthorizePermission = (
 export const roleTags = ["Roles"];
 export const permissionTags = ["Permissions"];
 export const userTags = ["Users"];
-
-export const createRbacUseCases = (
-  deps: RbacRouterDeps,
-): RbacRouterUseCases => ({
-  listRoles: new ListRolesUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-  }),
-  createRole: new CreateRoleUseCase({
-    roleRepository: deps.repositories.roleRepository,
-  }),
-  getRole: new GetRoleUseCase({
-    roleRepository: deps.repositories.roleRepository,
-  }),
-  updateRole: new UpdateRoleUseCase({
-    roleRepository: deps.repositories.roleRepository,
-  }),
-  deleteRole: new DeleteRoleUseCase({
-    roleRepository: deps.repositories.roleRepository,
-  }),
-  getRolePermissions: new GetRolePermissionsUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    rolePermissionRepository: deps.repositories.rolePermissionRepository,
-    permissionRepository: deps.repositories.permissionRepository,
-  }),
-  setRolePermissions: new SetRolePermissionsUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    rolePermissionRepository: deps.repositories.rolePermissionRepository,
-    permissionRepository: deps.repositories.permissionRepository,
-  }),
-  listPermissions: new ListPermissionsUseCase({
-    permissionRepository: deps.repositories.permissionRepository,
-  }),
-  listUsers: new ListUsersUseCase({
-    userRepository: deps.repositories.userRepository,
-  }),
-  createUser: new CreateUserUseCase({
-    userRepository: deps.repositories.userRepository,
-  }),
-  getUser: new GetUserUseCase({
-    userRepository: deps.repositories.userRepository,
-  }),
-  updateUser: new UpdateUserUseCase({
-    userRepository: deps.repositories.userRepository,
-    authorizationRepository: deps.repositories.authorizationRepository,
-  }),
-  deleteUser: new DeleteUserUseCase({
-    userRepository: deps.repositories.userRepository,
-    authorizationRepository: deps.repositories.authorizationRepository,
-  }),
-  setUserRoles: new SetUserRolesUseCase({
-    userRepository: deps.repositories.userRepository,
-    roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-    permissionRepository: deps.repositories.permissionRepository,
-    rolePermissionRepository: deps.repositories.rolePermissionRepository,
-    authorizationRepository: deps.repositories.authorizationRepository,
-  }),
-  getUserRoles: new GetUserRolesUseCase({
-    userRepository: deps.repositories.userRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-    roleRepository: deps.repositories.roleRepository,
-  }),
-  getRoleUsers: new GetRoleUsersUseCase({
-    roleRepository: deps.repositories.roleRepository,
-    userRoleRepository: deps.repositories.userRoleRepository,
-    userRepository: deps.repositories.userRepository,
-  }),
-});
 
 export const removeAvatarKey = <T extends { avatarKey?: string | null }>(
   user: T,

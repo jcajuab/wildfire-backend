@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { createAuditHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
@@ -140,18 +141,20 @@ const makeApp = async (permissions: string[]) => {
       permissions.map((permission) => Permission.parse(permission)),
   };
 
-  const router = createAuditRouter({
-    jwtSecret: "test-secret",
-    authSessionRepository,
-    authSessionCookieName: "wildfire_session",
-    exportMaxRows: 2,
-    repositories: {
-      auditLogRepository,
-      authorizationRepository,
-      userRepository: mockUserRepository,
-      displayRepository: mockDisplayRepository,
-    },
-  });
+  const router = createAuditRouter(
+    createAuditHttpModule({
+      jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session",
+      exportMaxRows: 2,
+      repositories: {
+        auditLogRepository,
+        authorizationRepository,
+        userRepository: mockUserRepository,
+        displayRepository: mockDisplayRepository,
+      },
+    }),
+  );
 
   const app = new Hono();
   app.route("/audit", router);
@@ -186,13 +189,13 @@ describe("Audit routes", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
     expect(body.data).toHaveLength(1);
     expect(body.meta.page).toBe(1);
-    expect(body.meta.per_page).toBe(50);
+    expect(body.meta.pageSize).toBe(50);
     expect(body.meta.total).toBe(1);
   });
 
@@ -300,18 +303,20 @@ describe("Audit routes", () => {
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
-    const router = createAuditRouter({
-      jwtSecret: "test-secret",
-      authSessionRepository,
-      authSessionCookieName: "wildfire_session",
-      exportMaxRows: 2,
-      repositories: {
-        auditLogRepository,
-        authorizationRepository,
-        userRepository: mockUserRepository,
-        displayRepository: mockDisplayRepository,
-      },
-    });
+    const router = createAuditRouter(
+      createAuditHttpModule({
+        jwtSecret: "test-secret",
+        authSessionRepository,
+        authSessionCookieName: "wildfire_session",
+        exportMaxRows: 2,
+        repositories: {
+          auditLogRepository,
+          authorizationRepository,
+          userRepository: mockUserRepository,
+          displayRepository: mockDisplayRepository,
+        },
+      }),
+    );
     const app = new Hono();
     app.route("/audit", router);
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -357,18 +362,20 @@ describe("Audit routes", () => {
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
-    const router = createAuditRouter({
-      jwtSecret: "test-secret",
-      authSessionRepository,
-      authSessionCookieName: "wildfire_session",
-      exportMaxRows: 2,
-      repositories: {
-        auditLogRepository,
-        authorizationRepository,
-        userRepository: mockUserRepository,
-        displayRepository: mockDisplayRepository,
-      },
-    });
+    const router = createAuditRouter(
+      createAuditHttpModule({
+        jwtSecret: "test-secret",
+        authSessionRepository,
+        authSessionCookieName: "wildfire_session",
+        exportMaxRows: 2,
+        repositories: {
+          auditLogRepository,
+          authorizationRepository,
+          userRepository: mockUserRepository,
+          displayRepository: mockDisplayRepository,
+        },
+      }),
+    );
 
     const app = new Hono();
     app.route("/audit", router);
@@ -389,7 +396,7 @@ describe("Audit routes", () => {
         Authorization: `Bearer ${token}`,
       },
     });
-    expect(overflowResponse.status).toBe(422);
+    expect(overflowResponse.status).toBe(400);
   });
 
   test("GET /audit/events/export returns 422 when from is after to", async () => {
@@ -417,18 +424,20 @@ describe("Audit routes", () => {
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
-    const router = createAuditRouter({
-      jwtSecret: "test-secret",
-      authSessionRepository,
-      authSessionCookieName: "wildfire_session",
-      exportMaxRows: 2,
-      repositories: {
-        auditLogRepository,
-        authorizationRepository,
-        userRepository: mockUserRepository,
-        displayRepository: mockDisplayRepository,
-      },
-    });
+    const router = createAuditRouter(
+      createAuditHttpModule({
+        jwtSecret: "test-secret",
+        authSessionRepository,
+        authSessionCookieName: "wildfire_session",
+        exportMaxRows: 2,
+        repositories: {
+          auditLogRepository,
+          authorizationRepository,
+          userRepository: mockUserRepository,
+          displayRepository: mockDisplayRepository,
+        },
+      }),
+    );
 
     const app = new Hono();
     app.route("/audit", router);
@@ -466,18 +475,20 @@ describe("Audit routes", () => {
     const authorizationRepository = {
       findPermissionsForUser: async () => [Permission.parse("audit:read")],
     };
-    const router = createAuditRouter({
-      jwtSecret: "test-secret",
-      authSessionRepository,
-      authSessionCookieName: "wildfire_session",
-      exportMaxRows: 2,
-      repositories: {
-        auditLogRepository,
-        authorizationRepository,
-        userRepository: mockUserRepository,
-        displayRepository: mockDisplayRepository,
-      },
-    });
+    const router = createAuditRouter(
+      createAuditHttpModule({
+        jwtSecret: "test-secret",
+        authSessionRepository,
+        authSessionCookieName: "wildfire_session",
+        exportMaxRows: 2,
+        repositories: {
+          auditLogRepository,
+          authorizationRepository,
+          userRepository: mockUserRepository,
+          displayRepository: mockDisplayRepository,
+        },
+      }),
+    );
 
     const app = new Hono();
     app.route("/audit", router);

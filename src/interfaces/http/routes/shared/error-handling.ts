@@ -1,4 +1,5 @@
 import { type MiddlewareHandler } from "hono";
+import { AppError } from "#/application/errors/app-error";
 import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
 import { ValidationError } from "#/application/errors/validation";
@@ -27,7 +28,26 @@ export const mapErrorToResponse = (
   };
 };
 
+export const appErrorMapper: ErrorMapper = (c, error) => {
+  if (!(error instanceof AppError)) {
+    return null;
+  }
+
+  return c.json(
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        requestId: c.get("requestId"),
+        ...(error.details !== undefined ? { details: error.details } : {}),
+      },
+    },
+    error.httpStatus,
+  );
+};
+
 export const applicationErrorMappers: readonly ErrorMapper[] = [
+  appErrorMapper,
   mapErrorToResponse(ValidationError, validationError),
   mapErrorToResponse(ForbiddenError, forbidden),
   mapErrorToResponse(NotFoundError, notFound),

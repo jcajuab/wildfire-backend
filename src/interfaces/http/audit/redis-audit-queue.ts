@@ -1,5 +1,4 @@
 import { type CreateAuditLogInput } from "#/application/ports/audit";
-import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -17,6 +16,10 @@ export interface RedisAuditQueueConfig {
   enabled: boolean;
   maxStreamLength: number;
   streamName: string;
+  enqueueMaxAttempts: number;
+  enqueueBaseDelayMs: number;
+  enqueueMaxDelayMs: number;
+  enqueueTimeoutMs: number;
 }
 
 const sanitizeConfig = (
@@ -25,6 +28,10 @@ const sanitizeConfig = (
   enabled: config.enabled,
   maxStreamLength: Math.max(1, Math.trunc(config.maxStreamLength)),
   streamName: config.streamName.trim(),
+  enqueueMaxAttempts: Math.max(1, Math.trunc(config.enqueueMaxAttempts)),
+  enqueueBaseDelayMs: Math.max(0, Math.trunc(config.enqueueBaseDelayMs)),
+  enqueueMaxDelayMs: Math.max(0, Math.trunc(config.enqueueMaxDelayMs)),
+  enqueueTimeoutMs: Math.max(1, Math.trunc(config.enqueueTimeoutMs)),
 });
 
 export class RedisAuditQueue implements AuditLogQueue {
@@ -56,10 +63,7 @@ export class RedisAuditQueue implements AuditLogQueue {
   }
 
   private async pushToStream(event: CreateAuditLogInput): Promise<void> {
-    const maxAttempts = Math.max(
-      1,
-      Math.trunc(env.AUDIT_QUEUE_ENQUEUE_MAX_ATTEMPTS),
-    );
+    const maxAttempts = this.config.enqueueMaxAttempts;
 
     let lastError: unknown;
 
@@ -79,7 +83,7 @@ export class RedisAuditQueue implements AuditLogQueue {
             JSON.stringify(event),
           ],
           {
-            timeoutMs: env.AUDIT_QUEUE_ENQUEUE_TIMEOUT_MS,
+            timeoutMs: this.config.enqueueTimeoutMs,
             operationName: "audit queue push",
           },
         );
@@ -111,8 +115,8 @@ export class RedisAuditQueue implements AuditLogQueue {
         await sleep(
           calculateExponentialDelayMs({
             attempt,
-            baseDelayMs: env.AUDIT_QUEUE_ENQUEUE_BASE_DELAY_MS,
-            maxDelayMs: env.AUDIT_QUEUE_ENQUEUE_MAX_DELAY_MS,
+            baseDelayMs: this.config.enqueueBaseDelayMs,
+            maxDelayMs: this.config.enqueueMaxDelayMs,
           }),
         );
       }

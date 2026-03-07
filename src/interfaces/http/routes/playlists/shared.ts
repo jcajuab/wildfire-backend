@@ -1,6 +1,7 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type ContentRepository } from "#/application/ports/content";
+import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
@@ -9,20 +10,20 @@ import {
 } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
-  AddPlaylistItemUseCase,
-  CreatePlaylistUseCase,
-  DeletePlaylistItemUseCase,
-  DeletePlaylistUseCase,
-  EstimatePlaylistDurationUseCase,
-  GetPlaylistUseCase,
-  ListPlaylistsUseCase,
-  ReorderPlaylistItemsUseCase,
-  ReplacePlaylistItemsAtomicUseCase,
-  UpdatePlaylistItemUseCase,
-  UpdatePlaylistUseCase,
+  type AddPlaylistItemUseCase,
+  type CreatePlaylistUseCase,
+  type DeletePlaylistItemUseCase,
+  type DeletePlaylistUseCase,
+  type EstimatePlaylistDurationUseCase,
+  type GetPlaylistUseCase,
+  type ListPlaylistsUseCase,
+  type ReorderPlaylistItemsUseCase,
+  type ReplacePlaylistItemsAtomicUseCase,
+  type UpdatePlaylistItemUseCase,
+  type UpdatePlaylistUseCase,
 } from "#/application/use-cases/playlists";
+import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
-import { publishDisplayStreamEvent } from "#/interfaces/http/routes/displays/stream";
 
 export interface PlaylistsRouterDeps {
   jwtSecret: string;
@@ -36,6 +37,8 @@ export interface PlaylistsRouterDeps {
     scheduleRepository: ScheduleRepository;
     displayRepository: DisplayRepository;
   };
+  displayEventPublisher: DisplayStreamEventPublisher;
+  checkPermissionUseCase: CheckPermissionUseCase;
 }
 
 export interface PlaylistsRouterUseCases {
@@ -62,92 +65,3 @@ export type AuthorizePermission = (
 ];
 
 export const playlistTags = ["Playlists"];
-
-export const createPlaylistsUseCases = (
-  deps: PlaylistsRouterDeps,
-): PlaylistsRouterUseCases => {
-  const displayEventPublisher = {
-    publish(input: {
-      type:
-        | "manifest_updated"
-        | "schedule_updated"
-        | "playlist_updated"
-        | "display_refresh_requested";
-      displayId: string;
-      reason?: string;
-      timestamp?: string;
-    }) {
-      publishDisplayStreamEvent({
-        type: input.type,
-        displayId: input.displayId,
-        reason: input.reason,
-        timestamp: input.timestamp ?? new Date().toISOString(),
-      });
-    },
-  };
-
-  return {
-    listPlaylists: new ListPlaylistsUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      userRepository: deps.repositories.userRepository,
-    }),
-    createPlaylist: new CreatePlaylistUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      userRepository: deps.repositories.userRepository,
-    }),
-    getPlaylist: new GetPlaylistUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      userRepository: deps.repositories.userRepository,
-    }),
-    updatePlaylist: new UpdatePlaylistUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      userRepository: deps.repositories.userRepository,
-    }),
-    deletePlaylist: new DeletePlaylistUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayRepository: deps.repositories.displayRepository,
-    }),
-    estimatePlaylistDuration: new EstimatePlaylistDurationUseCase({
-      contentRepository: deps.repositories.contentRepository,
-      displayRepository: deps.repositories.displayRepository,
-    }),
-    addPlaylistItem: new AddPlaylistItemUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayRepository: deps.repositories.displayRepository,
-      displayEventPublisher,
-    }),
-    updatePlaylistItem: new UpdatePlaylistItemUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayRepository: deps.repositories.displayRepository,
-      displayEventPublisher,
-    }),
-    replacePlaylistItemsAtomic: new ReplacePlaylistItemsAtomicUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayRepository: deps.repositories.displayRepository,
-      displayEventPublisher,
-    }),
-    reorderPlaylistItems: new ReorderPlaylistItemsUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayRepository: deps.repositories.displayRepository,
-      displayEventPublisher,
-    }),
-    deletePlaylistItem: new DeletePlaylistItemUseCase({
-      playlistRepository: deps.repositories.playlistRepository,
-      contentRepository: deps.repositories.contentRepository,
-      scheduleRepository: deps.repositories.scheduleRepository,
-      displayRepository: deps.repositories.displayRepository,
-      displayEventPublisher,
-    }),
-  };
-};

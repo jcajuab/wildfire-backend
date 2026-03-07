@@ -1,33 +1,48 @@
 export { NotFoundError } from "#/application/errors/not-found";
 
-export class InvalidContentTypeError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "InvalidContentTypeError";
+import { AppError } from "#/application/errors/app-error";
+
+export class InvalidContentTypeError extends AppError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, {
+      ...options,
+      code: "invalid_content_type",
+      httpStatus: 422,
+    });
   }
 }
 
-export class ContentInUseError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ContentInUseError";
+export class ContentInUseError extends AppError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, {
+      ...options,
+      code: "content_in_use",
+      httpStatus: 409,
+    });
   }
 }
 
-export class ContentStorageCleanupError extends Error {
+export class ContentStorageCleanupError extends AppError {
   constructor(
     message: string,
     public readonly context: { contentId: string; fileKey: string },
     options?: ErrorOptions,
   ) {
-    super(message, options);
-    this.name = "ContentStorageCleanupError";
+    super(message, {
+      ...options,
+      code: "content_storage_cleanup_failed",
+      httpStatus: 500,
+      details: context,
+    });
   }
 }
 
-export class ContentMetadataExtractionError extends Error {
+export class ContentMetadataExtractionError extends AppError {
   constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "ContentMetadataExtractionError";
+    super(message, {
+      ...options,
+      code: "content_metadata_extraction_failed",
+      httpStatus: 500,
+    });
   }
 }

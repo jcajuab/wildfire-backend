@@ -7,9 +7,10 @@ import {
   type UserRepository,
 } from "#/application/ports/rbac";
 import {
-  ExportAuditLogsUseCase,
-  ListAuditLogsUseCase,
+  type ExportAuditLogsUseCase,
+  type ListAuditLogsUseCase,
 } from "#/application/use-cases/audit";
+import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
 export interface AuditRouterDeps {
@@ -23,6 +24,7 @@ export interface AuditRouterDeps {
     userRepository: UserRepository;
     displayRepository: DisplayRepository;
   };
+  checkPermissionUseCase: CheckPermissionUseCase;
 }
 
 export interface AuditRouterUseCases {
@@ -40,15 +42,3 @@ export type AuthorizePermission = (
 ];
 
 export const auditTags = ["Audit"];
-
-export const createAuditUseCases = (
-  deps: AuditRouterDeps,
-): AuditRouterUseCases => ({
-  listAuditLogs: new ListAuditLogsUseCase({
-    auditLogRepository: deps.repositories.auditLogRepository,
-  }),
-  exportAuditLogs: new ExportAuditLogsUseCase({
-    auditLogRepository: deps.repositories.auditLogRepository,
-    maxRows: deps.exportMaxRows,
-  }),
-});

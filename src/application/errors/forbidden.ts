@@ -1,6 +1,11 @@
-export class ForbiddenError extends Error {
-  constructor(message = "Forbidden") {
-    super(message);
-    this.name = "ForbiddenError";
+import { AppError } from "./app-error";
+
+export class ForbiddenError extends AppError {
+  constructor(message = "Forbidden", options?: ErrorOptions) {
+    super(message, {
+      ...options,
+      code: "forbidden",
+      httpStatus: 403,
+    });
   }
 }

@@ -3,19 +3,26 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerContentCrudRoutes } from "./crud.route";
 import { registerContentFileRoutes } from "./file.route";
-import { type ContentRouterDeps, createContentUseCases } from "./shared";
+import { type ContentRouterDeps, type ContentRouterUseCases } from "./shared";
 
 export type { ContentRouterDeps } from "./shared";
 
-export const createContentRouter = (deps: ContentRouterDeps) => {
+export interface ContentRouterModule {
+  deps: ContentRouterDeps;
+  useCases: ContentRouterUseCases;
+}
+
+export const createContentRouter = ({
+  deps,
+  useCases,
+}: ContentRouterModule) => {
   const router = new Hono<{ Variables: JwtUserVariables }>();
   const { jwtMiddleware, requirePermission } = createPermissionMiddleware({
     jwtSecret: deps.jwtSecret,
-    authorizationRepository: deps.repositories.authorizationRepository,
+    checkPermissionUseCase: deps.checkPermissionUseCase,
     authSessionRepository: deps.authSessionRepository,
     authSessionCookieName: deps.authSessionCookieName,
   });
-  const useCases = createContentUseCases(deps);
 
   router.use("/*", jwtMiddleware);
 

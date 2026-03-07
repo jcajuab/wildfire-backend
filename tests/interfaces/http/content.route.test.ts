@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
 import { type ContentRecord } from "#/application/ports/content";
+import { createContentHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
@@ -155,66 +156,77 @@ const makeApp = async (permissions: string[]) => {
     isOwnedByUser: async () => true,
   };
 
-  const router = createContentRouter({
-    jwtSecret: "test-secret",
-    authSessionRepository,
-    authSessionCookieName: "wildfire_session_token",
-    maxUploadBytes: 5 * 1024 * 1024,
-    downloadUrlExpiresInSeconds: 3600,
-    thumbnailUrlExpiresInSeconds: 3600,
-    repositories: {
-      contentRepository: repository,
-      contentIngestionJobRepository: {
-        create: async (input: {
-          id: string;
-          contentId: string;
-          operation: "UPLOAD" | "REPLACE";
-          status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
-          createdById: string;
-          errorMessage?: string | null;
-        }) => ({
-          id: input.id,
-          contentId: input.contentId,
-          operation: input.operation,
-          status: input.status,
-          errorMessage: input.errorMessage ?? null,
-          createdById: input.createdById,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          startedAt: null,
-          completedAt: null,
-        }),
-        findById: async () => null,
-        update: async () => null,
-      },
-      scheduleRepository: {
-        list: async () => [],
-        listByDisplay: async () => [],
-        listByPlaylistId: async () => [],
-        listByContentId: async () => [],
-        findById: async () => null,
-        create: async () => {
-          throw new Error("not needed in test");
+  const router = createContentRouter(
+    createContentHttpModule({
+      jwtSecret: "test-secret",
+      authSessionRepository,
+      authSessionCookieName: "wildfire_session_token",
+      maxUploadBytes: 5 * 1024 * 1024,
+      downloadUrlExpiresInSeconds: 3600,
+      thumbnailUrlExpiresInSeconds: 3600,
+      repositories: {
+        contentRepository: repository,
+        contentIngestionJobRepository: {
+          create: async (input: {
+            id: string;
+            contentId: string;
+            operation: "UPLOAD" | "REPLACE";
+            status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+            createdById: string;
+            errorMessage?: string | null;
+          }) => ({
+            id: input.id,
+            contentId: input.contentId,
+            operation: input.operation,
+            status: input.status,
+            errorMessage: input.errorMessage ?? null,
+            createdById: input.createdById,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            startedAt: null,
+            completedAt: null,
+          }),
+          findById: async () => null,
+          update: async () => null,
         },
-        update: async () => null,
-        delete: async () => false,
-        countByPlaylistId: async () => 0,
-        countByContentId: async () => 0,
+        scheduleRepository: {
+          list: async () => [],
+          listByDisplay: async () => [],
+          listByPlaylistId: async () => [],
+          listByContentId: async () => [],
+          findById: async () => null,
+          create: async () => {
+            throw new Error("not needed in test");
+          },
+          update: async () => null,
+          delete: async () => false,
+          countByPlaylistId: async () => 0,
+          countByContentId: async () => 0,
+        },
+        userRepository,
+        authorizationRepository,
       },
-      userRepository,
-      authorizationRepository,
-    },
-    storage,
-    contentIngestionQueue: {
-      enqueue: async () => {},
-    },
-    contentMetadataExtractor: {
-      extract: async () => ({ width: 1366, height: 768, duration: null }),
-    },
-    contentThumbnailGenerator: {
-      generate: async () => null,
-    },
-  });
+      storage,
+      contentIngestionQueue: {
+        enqueue: async () => {},
+      },
+      contentMetadataExtractor: {
+        extract: async () => ({ width: 1366, height: 768, duration: null }),
+      },
+      contentThumbnailGenerator: {
+        generate: async () => null,
+      },
+      contentJobEventPublisher: {
+        publish: () => {},
+      },
+      contentJobEventSubscription: {
+        subscribe: () => () => {},
+      },
+      displayEventPublisher: {
+        publish: () => {},
+      },
+    }),
+  );
   app.route("/content", router);
 
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -295,8 +307,8 @@ describe("Content routes", () => {
       meta: {
         total: number;
         page: number;
-        per_page: number;
-        total_pages: number;
+        pageSize: number;
+        totalPages: number;
       };
     }>(response);
     expect(body.data).toHaveLength(1);
