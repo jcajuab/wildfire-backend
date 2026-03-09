@@ -67,7 +67,7 @@ export interface RoleRepository {
   }): Promise<RoleRecord>;
   update(
     id: string,
-    input: { name?: string; description?: string | null },
+    input: { name?: string; description?: string | null; isSystem?: boolean },
   ): Promise<RoleRecord | null>;
   delete(id: string): Promise<boolean>;
 }

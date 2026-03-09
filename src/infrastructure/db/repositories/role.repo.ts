@@ -43,7 +43,7 @@ export class RoleDbRepository implements RoleRepository {
 
   async update(
     id: string,
-    input: { name?: string; description?: string | null },
+    input: { name?: string; description?: string | null; isSystem?: boolean },
   ): Promise<RoleRecord | null> {
     const existing = await this.findById(id);
     if (!existing) return null;
@@ -54,11 +54,16 @@ export class RoleDbRepository implements RoleRepository {
         input.description !== undefined
           ? (input.description ?? null)
           : existing.description,
+      isSystem: input.isSystem ?? existing.isSystem,
     };
 
     await db
       .update(roles)
-      .set({ name: next.name, description: next.description })
+      .set({
+        name: next.name,
+        description: next.description,
+        isSystem: next.isSystem,
+      })
       .where(eq(roles.id, id));
 
     return { ...existing, ...next };

@@ -12,6 +12,7 @@ import {
   canonicalPermissionKey,
   ROOT_PERMISSION,
 } from "#/domain/rbac/canonical-permissions";
+import { PREDEFINED_SYSTEM_ROLE_TEMPLATES } from "#/domain/rbac/system-role-templates";
 import {
   createStartupRunId,
   logStartupPhaseFailed,
@@ -60,6 +61,12 @@ interface RootRolePermissionSyncMetrics {
   createdRootPermission: boolean;
   assignedRootPermissionToRootRole: boolean;
   rootPermissionPurgedFromOtherRoles: number;
+}
+
+interface SystemRoleSyncMetrics {
+  createdSystemRoles: number;
+  updatedSystemRoles: number;
+  reconciledSystemRolePermissionSets: number;
 }
 
 interface RootUserSyncMetrics {
@@ -391,6 +398,98 @@ const ensureRootUser = async (deps: {
   return result;
 };
 
+const hasExactIdSet = (
+  actual: readonly string[],
+  expected: readonly string[],
+): boolean => {
+  if (actual.length !== expected.length) {
+    return false;
+  }
+  const expectedSet = new Set(expected);
+  for (const value of actual) {
+    if (!expectedSet.has(value)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const ensurePredefinedSystemRoles = async (deps: {
+  roleRepository: RoleRepository;
+  permissionRepository: PermissionRepository;
+  rolePermissionRepository: RolePermissionRepository;
+}): Promise<SystemRoleSyncMetrics> => {
+  const result: SystemRoleSyncMetrics = {
+    createdSystemRoles: 0,
+    updatedSystemRoles: 0,
+    reconciledSystemRolePermissionSets: 0,
+  };
+
+  const permissions = await deps.permissionRepository.list();
+  const permissionIdByKey = new Map(
+    permissions.map((permission) => [
+      canonicalPermissionKey(permission),
+      permission.id,
+    ]),
+  );
+  const roles = await deps.roleRepository.list();
+  const rolesByName = new Map(roles.map((role) => [role.name, role]));
+
+  for (const template of PREDEFINED_SYSTEM_ROLE_TEMPLATES) {
+    const desiredPermissionIds = template.permissionKeys.map((key) => {
+      const permissionId = permissionIdByKey.get(key);
+      if (!permissionId) {
+        throw new Error(
+          `Cannot reconcile predefined system role '${template.name}'. Missing permission '${key}'.`,
+        );
+      }
+      return permissionId;
+    });
+
+    let role = rolesByName.get(template.name) ?? null;
+    if (!role) {
+      role = await deps.roleRepository.create({
+        name: template.name,
+        description: template.description,
+        isSystem: true,
+      });
+      rolesByName.set(role.name, role);
+      result.createdSystemRoles += 1;
+    } else if (
+      role.description !== template.description ||
+      role.isSystem !== true
+    ) {
+      const updatedRole = await deps.roleRepository.update(role.id, {
+        description: template.description,
+        isSystem: true,
+      });
+      if (!updatedRole) {
+        throw new Error(
+          `Cannot reconcile predefined system role '${template.name}'. Role disappeared during update.`,
+        );
+      }
+      role = updatedRole;
+      rolesByName.set(role.name, role);
+      result.updatedSystemRoles += 1;
+    }
+
+    const existingAssignments =
+      await deps.rolePermissionRepository.listPermissionsByRoleId(role.id);
+    const existingPermissionIds = existingAssignments.map(
+      (assignment) => assignment.permissionId,
+    );
+    if (!hasExactIdSet(existingPermissionIds, desiredPermissionIds)) {
+      await deps.rolePermissionRepository.setRolePermissions(
+        role.id,
+        uniqueIds(desiredPermissionIds),
+      );
+      result.reconciledSystemRolePermissionSets += 1;
+    }
+  }
+
+  return result;
+};
+
 const importHtshadowUsers = async (deps: {
   userRepository: UserRepository;
   usernames: readonly string[];
@@ -558,6 +657,22 @@ export const runStartupAuthIdentitySync = async (deps: {
       },
     });
 
+    const systemRoleSyncResult = await runStartupPhase({
+      context: {
+        ...contextBase,
+        operation: "system-role-sync",
+      },
+      action: () =>
+        ensurePredefinedSystemRoles({
+          roleRepository: deps.repositories.roleRepository,
+          permissionRepository: deps.repositories.permissionRepository,
+          rolePermissionRepository: deps.repositories.rolePermissionRepository,
+        }),
+      metadata: {
+        templates: PREDEFINED_SYSTEM_ROLE_TEMPLATES.length,
+      },
+    });
+
     const importedUsers = await runStartupPhase({
       context: {
         ...contextBase,
@@ -602,6 +717,10 @@ export const runStartupAuthIdentitySync = async (deps: {
         rootUserUpdated: rootUserSyncResult.rootUserUpdated,
         rootRoleAssignedToRootUser:
           rootUserSyncResult.rootRoleAssignedToRootUser,
+        createdSystemRoles: systemRoleSyncResult.createdSystemRoles,
+        updatedSystemRoles: systemRoleSyncResult.updatedSystemRoles,
+        reconciledSystemRolePermissionSets:
+          systemRoleSyncResult.reconciledSystemRolePermissionSets,
         totalRoles: totalRolesCount,
         runId,
       },
