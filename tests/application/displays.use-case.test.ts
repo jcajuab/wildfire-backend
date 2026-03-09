@@ -1199,6 +1199,163 @@ describe("Displays use cases", () => {
     ]);
   });
 
+  test("GetDisplayManifestUseCase splits emergency root PDF into page items", async () => {
+    const { repo } = makeRepository();
+    const created = await repo.create({
+      name: "Lobby",
+      slug: "AA:BB",
+      location: null,
+    });
+
+    const useCase = new GetDisplayManifestUseCase({
+      scheduleRepository: {
+        listByDisplay: async () => [],
+        list: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
+        listByPlaylistId: async () => [],
+      },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
+      },
+      contentRepository: {
+        findById: async (id: string) => {
+          if (id !== "content-pdf-root") {
+            return null;
+          }
+          return {
+            id: "content-pdf-root",
+            title: "Emergency Handbook",
+            type: "PDF",
+            kind: "ROOT",
+            status: "READY",
+            fileKey: "content/documents/emergency-root.pdf",
+            checksum: "root-checksum",
+            mimeType: "application/pdf",
+            fileSize: 100,
+            width: 1080,
+            height: 1920,
+            duration: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          };
+        },
+        findByIds: async () => [],
+        findChildrenByParentIds: async () => [
+          {
+            id: "content-pdf-page-2",
+            title: "Emergency Page 2",
+            type: "PDF",
+            kind: "PAGE",
+            parentContentId: "content-pdf-root",
+            pageNumber: 2,
+            status: "READY",
+            fileKey: "content/documents/emergency-page-2.pdf",
+            checksum: "page-2-checksum",
+            mimeType: "application/pdf",
+            fileSize: 50,
+            width: 1080,
+            height: 1920,
+            duration: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "content-pdf-page-1",
+            title: "Emergency Page 1",
+            type: "PDF",
+            kind: "PAGE",
+            parentContentId: "content-pdf-root",
+            pageNumber: 1,
+            status: "READY",
+            fileKey: "content/documents/emergency-page-1.pdf",
+            checksum: "page-1-checksum",
+            mimeType: "application/pdf",
+            fileSize: 50,
+            width: 1080,
+            height: 1920,
+            duration: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        list: async () => ({ items: [], total: 0 }),
+        create: async () => {
+          throw new Error("not used");
+        },
+        countPlaylistReferences: async () => 0,
+        listPlaylistsReferencingContent: async () => [],
+        delete: async () => false,
+        update: async () => null,
+      },
+      contentStorage: {
+        ensureBucketExists: async () => {},
+        upload: async () => {},
+        delete: async () => {},
+        getPresignedDownloadUrl: async ({ key }) =>
+          `https://example.com/${key}`,
+      },
+      displayRepository: repo,
+      runtimeControlRepository: {
+        getGlobal: async () => ({
+          id: "global",
+          globalEmergencyActive: true,
+          globalEmergencyStartedAt: "2025-01-01T00:00:00.000Z",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        setGlobalEmergencyState: async () => ({
+          id: "global",
+          globalEmergencyActive: true,
+          globalEmergencyStartedAt: "2025-01-01T00:00:00.000Z",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+      },
+      defaultEmergencyContentId: "content-pdf-root",
+      downloadUrlExpiresInSeconds: 3600,
+    });
+
+    const result = await useCase.execute({
+      displayId: created.id,
+      now: new Date("2025-01-06T00:00:00.000Z"),
+    });
+
+    expect(result.playback.mode).toBe("EMERGENCY");
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]?.duration).toBe(43200);
+    expect(result.items[1]?.duration).toBe(43200);
+    expect(result.items.map((item) => item.content.id)).toEqual([
+      "content-pdf-page-1",
+      "content-pdf-page-2",
+    ]);
+  });
+
   test("GetDisplayManifestUseCase presigns content URLs concurrently", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({

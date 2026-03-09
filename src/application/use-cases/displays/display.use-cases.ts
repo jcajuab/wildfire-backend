@@ -886,7 +886,7 @@ export class GetDisplayManifestUseCase {
         emergency.content.type === "VIDEO"
           ? Math.max(1, emergency.content.duration ?? 1)
           : 86_400;
-      const items = [
+      let items = [
         {
           id: `emergency:${emergency.content.id}`,
           sequence: 1,
@@ -894,6 +894,72 @@ export class GetDisplayManifestUseCase {
           content: emergency.content,
         },
       ];
+
+      if (emergency.content.type === "PDF") {
+        const emergencyAsset = await this.deps.contentRepository.findById(
+          emergency.content.id,
+        );
+        if (emergencyAsset?.kind === "ROOT" && emergencyAsset.type === "PDF") {
+          const childPages = this.deps.contentRepository.findChildrenByParentIds
+            ? await this.deps.contentRepository.findChildrenByParentIds(
+                [emergencyAsset.id],
+                {
+                  includeExcluded: false,
+                  onlyReady: true,
+                },
+              )
+            : [];
+          const pages =
+            childPages.length > 0
+              ? [...childPages].sort(
+                  (left, right) =>
+                    (left.pageNumber ?? 0) - (right.pageNumber ?? 0),
+                )
+              : [emergencyAsset];
+          const pageDurations = splitPdfDocumentDurationAcrossPages({
+            totalDurationSeconds: emergencyDuration,
+            pageCount: pages.length,
+          });
+
+          items = await mapWithConcurrency(pages, 8, async (page, index) => {
+            const downloadUrl =
+              await this.deps.contentStorage.getPresignedDownloadUrl({
+                key: page.fileKey,
+                expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+              });
+            const thumbnailKey =
+              page.thumbnailKey ?? emergencyAsset.thumbnailKey ?? null;
+            const thumbnailUrl = thumbnailKey
+              ? await this.deps.contentStorage.getPresignedDownloadUrl({
+                  key: thumbnailKey,
+                  expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+                })
+              : null;
+
+            return {
+              id: `emergency:${emergencyAsset.id}:${page.id}`,
+              sequence: index + 1,
+              duration: pageDurations[index] ?? 1,
+              content: {
+                id: page.id,
+                type: "PDF",
+                checksum: page.checksum,
+                downloadUrl,
+                thumbnailUrl,
+                mimeType: page.mimeType,
+                width: page.width,
+                height: page.height,
+                duration: page.duration,
+                scrollPxPerSecond:
+                  page.scrollPxPerSecond ??
+                  emergencyAsset.scrollPxPerSecond ??
+                  null,
+              },
+            };
+          });
+        }
+      }
+
       const playback: ManifestPlaybackState = {
         mode: "EMERGENCY",
         emergency,
