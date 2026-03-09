@@ -2,6 +2,7 @@ import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   type PermissionRepository,
   type RolePermissionRepository,
+  type RoleRecord,
   type RoleRepository,
   type RoleWithUserCount,
   type UserRepository,
@@ -12,6 +13,56 @@ import {
   type PaginatedResult,
   paginate,
 } from "#/application/use-cases/shared/pagination";
+
+const normalizeQuery = (value: string | undefined): string | null => {
+  const normalized = value?.trim().toLowerCase();
+  return normalized ? normalized : null;
+};
+
+const filterRoles = (
+  roles: readonly RoleWithUserCount[],
+  query: string | undefined,
+): RoleWithUserCount[] => {
+  const normalized = normalizeQuery(query);
+  if (!normalized) {
+    return [...roles];
+  }
+
+  return roles.filter((role) => {
+    return (
+      role.name.toLowerCase().includes(normalized) ||
+      (role.description?.toLowerCase().includes(normalized) ?? false)
+    );
+  });
+};
+
+const sortRoles = (
+  roles: readonly RoleWithUserCount[],
+  input?: { sortBy?: "name" | "usersCount"; sortDirection?: "asc" | "desc" },
+): RoleWithUserCount[] => {
+  const sortBy = input?.sortBy ?? "name";
+  const direction = input?.sortDirection === "desc" ? -1 : 1;
+
+  return [...roles].sort((left, right) => {
+    if (sortBy === "usersCount") {
+      const countDelta = (left.usersCount - right.usersCount) * direction;
+      if (countDelta !== 0) {
+        return countDelta;
+      }
+      return left.name.localeCompare(right.name) * direction;
+    }
+
+    return left.name.localeCompare(right.name) * direction;
+  });
+};
+
+const toRoleWithUserCount = (
+  role: RoleRecord,
+  usersCount: number,
+): RoleWithUserCount => ({
+  ...role,
+  usersCount,
+});
 
 export class ListRolesUseCase {
   constructor(
@@ -24,16 +75,42 @@ export class ListRolesUseCase {
   async execute(input?: {
     page?: number;
     pageSize?: number;
+    q?: string;
+    sortBy?: "name" | "usersCount";
+    sortDirection?: "asc" | "desc";
   }): Promise<PaginatedResult<RoleWithUserCount>> {
     const roles = await this.deps.roleRepository.list();
     const roleIds = roles.map((r) => r.id);
     const counts =
       await this.deps.userRoleRepository.listUserCountByRoleIds(roleIds);
-    const enriched = roles.map((r) => ({
-      ...r,
-      usersCount: counts[r.id] ?? 0,
-    }));
-    return paginate(enriched, input);
+    const enriched = roles.map((role) =>
+      toRoleWithUserCount(role, counts[role.id] ?? 0),
+    );
+    return paginate(sortRoles(filterRoles(enriched, input?.q), input), input);
+  }
+}
+
+export class ListRoleOptionsUseCase {
+  constructor(private readonly deps: { roleRepository: RoleRepository }) {}
+
+  async execute(input?: { q?: string; limit?: number }) {
+    const normalizedQuery = normalizeQuery(input?.q);
+    const limit = input?.limit;
+
+    const roles = (await this.deps.roleRepository.list())
+      .filter((role) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return (
+          role.name.toLowerCase().includes(normalizedQuery) ||
+          (role.description?.toLowerCase().includes(normalizedQuery) ?? false)
+        );
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    return limit != null ? roles.slice(0, Math.max(1, limit)) : roles;
   }
 }
 

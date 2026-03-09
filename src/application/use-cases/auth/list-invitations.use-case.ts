@@ -21,34 +21,50 @@ export class ListInvitationsUseCase {
     },
   ) {}
 
-  async execute(input?: { limit?: number }): Promise<
-    {
+  async execute(input?: { page?: number; pageSize?: number }): Promise<{
+    items: {
       id: string;
       email: string;
       name: string | null;
       status: InvitationStatus;
       expiresAt: string;
       createdAt: string;
-    }[]
-  > {
-    const limit = Math.max(1, Math.min(input?.limit ?? 100, 250));
+    }[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const page = Math.max(1, Math.trunc(input?.page ?? 1));
+    const pageSize = Math.max(
+      1,
+      Math.min(Math.trunc(input?.pageSize ?? 100), 250),
+    );
     const now = new Date();
-    const invitations = await this.deps.invitationRepository.listRecent({
-      limit,
-    });
-
-    return invitations.map((invitation) => ({
-      id: invitation.id,
-      email: invitation.email,
-      name: invitation.name,
-      status: resolveStatus({
-        acceptedAt: invitation.acceptedAt,
-        revokedAt: invitation.revokedAt,
-        expiresAt: invitation.expiresAt,
-        now,
+    const [invitations, total] = await Promise.all([
+      this.deps.invitationRepository.listPage({
+        page,
+        pageSize,
       }),
-      expiresAt: invitation.expiresAt.toISOString(),
-      createdAt: invitation.createdAt.toISOString(),
-    }));
+      this.deps.invitationRepository.countAll(),
+    ]);
+
+    return {
+      items: invitations.map((invitation) => ({
+        id: invitation.id,
+        email: invitation.email,
+        name: invitation.name,
+        status: resolveStatus({
+          acceptedAt: invitation.acceptedAt,
+          revokedAt: invitation.revokedAt,
+          expiresAt: invitation.expiresAt,
+          now,
+        }),
+        expiresAt: invitation.expiresAt.toISOString(),
+        createdAt: invitation.createdAt.toISOString(),
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 }

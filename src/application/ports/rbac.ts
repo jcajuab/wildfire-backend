@@ -88,6 +88,9 @@ export interface UserRoleRepository {
   listRolesByUserId(
     userId: string,
   ): Promise<{ userId: string; roleId: string }[]>;
+  listRolesByUserIds?(
+    userIds: string[],
+  ): Promise<Array<{ userId: string; roleId: string }>>;
   listUserIdsByRoleId(roleId: string): Promise<string[]>;
   listUserCountByRoleIds(roleIds: string[]): Promise<Record<string, number>>;
   setUserRoles(userId: string, roleIds: string[]): Promise<void>;

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
+import { createJwtMiddleware } from "#/interfaces/http/middleware/jwt-auth";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { registerAuthAvatarRoute } from "./avatar.route";
 import { registerAuthEmailChangeRoutes } from "./email-change.route";

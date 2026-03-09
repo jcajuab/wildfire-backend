@@ -1,6 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiListResponse } from "#/interfaces/http/responses";
+import { toApiListResponse, toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -129,15 +129,7 @@ export const registerRbacUserMembershipRoutes = (args: {
           userId: params.id,
           roleIds: payload.roleIds,
         });
-        return c.json(
-          toApiListResponse({
-            items: roles,
-            total: roles.length,
-            page: 1,
-            pageSize: Math.max(1, roles.length),
-            requestUrl: c.req.url,
-          }),
-        );
+        return c.json(toApiResponse(roles));
       },
       ...applicationErrorMappers,
     ),

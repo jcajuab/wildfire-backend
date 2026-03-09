@@ -71,6 +71,15 @@ describe("backend architecture boundaries", () => {
     expect(violations).toEqual([]);
   });
 
+  test("infrastructure layer does not depend on HTTP interface adapters", async () => {
+    const violations = await findImports(
+      join(srcRoot, "infrastructure"),
+      (contents) => /from ["']#\/interfaces\//u.test(contents),
+    );
+
+    expect(violations).toEqual([]);
+  });
+
   test("environment access stays in explicit runtime and infrastructure adapters", async () => {
     const envImportFiles = await findImports(srcRoot, (contents) =>
       /from ["']#\/env["']/u.test(contents),

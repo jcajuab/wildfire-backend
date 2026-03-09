@@ -45,6 +45,23 @@ export const scheduleListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+export const scheduleWindowQuerySchema = z
+  .object({
+    from: z.string().date(),
+    to: z.string().date(),
+    displayIds: z
+      .union([z.string().uuid(), z.array(z.string().uuid())])
+      .optional()
+      .transform((value) => {
+        if (value === undefined) return undefined;
+        return Array.isArray(value) ? value : [value];
+      }),
+  })
+  .refine((value) => value.from <= value.to, {
+    message: "`from` must be on or before `to`",
+    path: ["to"],
+  });
+
 export const scheduleResponseSchema = apiResponseSchema(scheduleSchema);
 
 export const scheduleIdParamSchema = z.object({
@@ -52,7 +69,7 @@ export const scheduleIdParamSchema = z.object({
 });
 
 export const createScheduleSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   kind: z.enum(["PLAYLIST", "FLASH"]),
   playlistId: z.string().uuid().nullable(),
   contentId: z.string().uuid().nullable(),
@@ -65,7 +82,7 @@ export const createScheduleSchema = z.object({
 });
 
 export const updateScheduleSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().trim().min(1).optional(),
   kind: z.enum(["PLAYLIST", "FLASH"]).optional(),
   playlistId: z.string().uuid().nullable().optional(),
   contentId: z.string().uuid().nullable().optional(),

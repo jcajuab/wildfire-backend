@@ -1,4 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { z } from "zod";
 import { PlaylistInUseError } from "#/application/use-cases/playlists";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -20,6 +21,8 @@ import {
   playlistIdParamSchema,
   playlistListQuerySchema,
   playlistListResponseSchema,
+  playlistOptionSchema,
+  playlistOptionsQuerySchema,
   playlistSchema,
   playlistWithItemsSchema,
   updatePlaylistSchema,
@@ -42,6 +45,40 @@ export const registerPlaylistCrudRoutes = (args: {
   authorize: AuthorizePermission;
 }) => {
   const { router, useCases, authorize } = args;
+
+  router.get(
+    "/options",
+    setAction("playlists.playlist.options", { route: "/playlists/options" }),
+    ...authorize("playlists:read"),
+    validateQuery(playlistOptionsQuerySchema),
+    describeRoute({
+      description: "List playlist options",
+      tags: playlistTags,
+      responses: {
+        200: {
+          description: "Playlist options",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(z.array(playlistOptionSchema)),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listPlaylistOptions.execute({
+          q: query.q,
+          status: query.status,
+        });
+        return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
 
   router.get(
     "/",

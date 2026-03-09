@@ -6,7 +6,7 @@ import {
   canonicalPermissionKey,
   ROOT_PERMISSION,
 } from "#/domain/rbac/canonical-permissions";
-import { createJwtMiddleware } from "#/infrastructure/auth/jwt";
+import { createJwtMiddleware } from "#/interfaces/http/middleware/jwt-auth";
 import {
   type JwtUserVariables,
   requireJwtUser,

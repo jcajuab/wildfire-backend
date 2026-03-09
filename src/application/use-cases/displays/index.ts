@@ -7,6 +7,8 @@ export {
   GetDisplayManifestUseCase,
   GetDisplayUseCase,
   GetRuntimeOverridesUseCase,
+  ListDisplayOptionsUseCase,
+  ListDisplayOutputOptionsUseCase,
   ListDisplaysUseCase,
   RequestDisplayRefreshUseCase,
   UnregisterDisplayUseCase,

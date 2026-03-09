@@ -51,18 +51,20 @@ const makeApp = async (
       updatedAt: string;
     }>;
     displays?: DisplayRecord[];
+    displayGroups?: Array<{
+      id: string;
+      name: string;
+      colorIndex: number;
+      displayIds: string[];
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    failOnBroadReads?: boolean;
   },
 ) => {
   const app = new Hono();
   const displays = [...(options?.displays ?? [])];
-  const displayGroups = [] as Array<{
-    id: string;
-    name: string;
-    colorIndex: number;
-    displayIds: string[];
-    createdAt: string;
-    updatedAt: string;
-  }>;
+  const displayGroups = [...(options?.displayGroups ?? [])];
   const pairingCodes = [] as Array<{
     id: string;
     codeHash: string;
@@ -96,6 +98,16 @@ const makeApp = async (
   const setDisplayGroupsCalls: Array<{
     displayId: string;
     groupIds: string[];
+  }> = [];
+  const searchPageCalls: Array<{
+    page: number;
+    pageSize: number;
+    q?: string;
+    status?: string;
+    output?: string;
+    groupIds?: readonly string[];
+    sortBy?: string;
+    sortDirection?: string;
   }> = [];
   const registrationAttempts = new Map<
     string,
@@ -147,7 +159,12 @@ const makeApp = async (
   };
 
   const displayRepository = {
-    list: async () => displays.map((display) => ({ ...display })),
+    list: async () => {
+      if (options?.failOnBroadReads) {
+        throw new Error("displayRepository.list should not be used");
+      }
+      return displays.map((display) => ({ ...display }));
+    },
     listPage: async (input: { page: number; pageSize: number }) => {
       const page = Math.max(1, input.page);
       const pageSize = Math.max(1, input.pageSize);
@@ -158,6 +175,78 @@ const makeApp = async (
       return {
         items,
         total: displays.length,
+        page,
+        pageSize,
+      };
+    },
+    searchPage: async (input: {
+      page: number;
+      pageSize: number;
+      q?: string;
+      status?: "PROCESSING" | "READY" | "LIVE" | "DOWN";
+      output?: string;
+      groupIds?: readonly string[];
+      sortBy?: "name" | "status" | "location";
+      sortDirection?: "asc" | "desc";
+    }) => {
+      searchPageCalls.push(input);
+      const normalizedQuery = input.q?.trim().toLowerCase();
+      const filtered = displays.filter((display) => {
+        if (input.status && display.status !== input.status) {
+          return false;
+        }
+        if (input.output && display.output !== input.output) {
+          return false;
+        }
+        if (input.groupIds && input.groupIds.length > 0) {
+          const matchesGroup = displayGroups.some(
+            (group) =>
+              input.groupIds?.includes(group.id) &&
+              group.displayIds.includes(display.id),
+          );
+          if (!matchesGroup) {
+            return false;
+          }
+        }
+        if (!normalizedQuery) {
+          return true;
+        }
+        return [
+          display.name,
+          display.slug,
+          display.location ?? "",
+          display.output ?? "",
+        ].some((value) => value.toLowerCase().includes(normalizedQuery));
+      });
+
+      const sorted = [...filtered].sort((left, right) => {
+        const direction = input.sortDirection === "desc" ? -1 : 1;
+        if (input.sortBy === "status") {
+          const statusDelta =
+            left.status.localeCompare(right.status) * direction;
+          if (statusDelta !== 0) {
+            return statusDelta;
+          }
+        } else if (input.sortBy === "location") {
+          const locationDelta =
+            (left.location ?? "").localeCompare(right.location ?? "") *
+            direction;
+          if (locationDelta !== 0) {
+            return locationDelta;
+          }
+        }
+        return left.name.localeCompare(right.name) * direction;
+      });
+
+      const page = Math.max(1, input.page);
+      const pageSize = Math.max(1, input.pageSize);
+      const offset = (page - 1) * pageSize;
+
+      return {
+        items: sorted.slice(offset, offset + pageSize).map((display) => ({
+          ...display,
+        })),
+        total: sorted.length,
         page,
         pageSize,
       };
@@ -578,10 +667,19 @@ const makeApp = async (
       repositories: {
         displayRepository,
         scheduleRepository: {
-          list: async () => schedules,
+          list: async () => {
+            if (options?.failOnBroadReads) {
+              throw new Error("scheduleRepository.list should not be used");
+            }
+            return schedules;
+          },
           listByDisplay: async (targetDisplayId: string) =>
             schedules.filter(
               (schedule) => schedule.displayId === targetDisplayId,
+            ),
+          listByDisplayIds: async (displayIds: string[]) =>
+            schedules.filter((schedule) =>
+              displayIds.includes(schedule.displayId),
             ),
           listByPlaylistId: async () => [],
           findById: async () => null,
@@ -703,6 +801,7 @@ const makeApp = async (
     displays,
     setDisplayGroupsCalls,
     revokedDisplayIds,
+    searchPageCalls,
   };
 };
 
@@ -840,6 +939,114 @@ describe("Displays routes", () => {
     expect(json.meta.total).toBe(1);
     expect(json.meta.page).toBe(1);
     expect(json.meta.pageSize).toBe(20);
+  });
+
+  test("GET /displays matches any selected group id", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displays: [
+        makeDisplay({ id: "display-1", name: "Lobby", slug: "lobby" }),
+        makeDisplay({ id: "display-2", name: "Hallway", slug: "hallway" }),
+        makeDisplay({ id: "display-3", name: "Other", slug: "other" }),
+      ],
+      displayGroups: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Lobby",
+          colorIndex: 0,
+          displayIds: ["display-1"],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Hallway",
+          colorIndex: 1,
+          displayIds: ["display-2"],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/displays?groupIds=11111111-1111-4111-8111-111111111111&groupIds=22222222-2222-4222-8222-222222222222",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string }> }>(response);
+    expect(body.data.map((item) => item.id)).toEqual([
+      "display-2",
+      "display-1",
+    ]);
+  });
+
+  test("GET /displays/options/outputs returns unique outputs", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displays: [
+        makeDisplay({ id: "display-1", output: "hdmi-0" }),
+        makeDisplay({ id: "display-2", output: "hdmi-1" }),
+        makeDisplay({ id: "display-3", output: "hdmi-0" }),
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/displays/options/outputs", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: string[] }>(response);
+    expect(body.data).toEqual(["hdmi-0", "hdmi-1"]);
+  });
+
+  test("GET /displays/options returns filtered display options", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displays: [
+        makeDisplay({ id: "display-1", name: "Lobby East" }),
+        makeDisplay({
+          id: "display-2",
+          name: "Hallway West",
+          slug: "hallway-west",
+        }),
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/displays/options?q=Lobby&limit=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string; name: string }> }>(
+      response,
+    );
+    expect(body.data).toEqual([{ id: "display-1", name: "Lobby East" }]);
+  });
+
+  test("GET /displays uses repository-backed paged search path", async () => {
+    const { app, issueToken, searchPageCalls } = await makeApp(
+      ["displays:read"],
+      {
+        failOnBroadReads: true,
+        displays: [
+          makeDisplay({ id: "display-1", name: "Lobby", slug: "lobby" }),
+          makeDisplay({ id: "display-2", name: "Atrium", slug: "atrium" }),
+        ],
+      },
+    );
+    const token = await issueToken();
+
+    const response = await app.request("/displays?q=Lobby&page=1&pageSize=10", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    expect(searchPageCalls).toHaveLength(1);
+    expect(searchPageCalls[0]?.q).toBe("Lobby");
   });
 
   test("GET /displays/:id returns display", async () => {

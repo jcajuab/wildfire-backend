@@ -10,6 +10,8 @@ import { toContentView } from "./content-view";
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+const CONTENT_OPTIONS_LIMIT = 100;
+
 export class ListContentUseCase {
   constructor(
     private readonly deps: {
@@ -85,5 +87,35 @@ export class ListContentUseCase {
       pageSize,
       total,
     };
+  }
+}
+
+export class ListContentOptionsUseCase {
+  constructor(
+    private readonly deps: {
+      contentRepository: ContentRepository;
+    },
+  ) {}
+
+  async execute(input: {
+    status?: ContentStatus;
+    type?: ContentType;
+    search?: string;
+  }) {
+    const result = await this.deps.contentRepository.list({
+      offset: 0,
+      limit: CONTENT_OPTIONS_LIMIT,
+      status: input.status,
+      type: input.type,
+      search: input.search,
+      sortBy: "title",
+      sortDirection: "asc",
+    });
+
+    return result.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+    }));
   }
 }

@@ -10,6 +10,19 @@ export class UserRoleDbRepository implements UserRoleRepository {
     return db.select().from(userRoles).where(eq(userRoles.userId, userId));
   }
 
+  async listRolesByUserIds(
+    userIds: string[],
+  ): Promise<Array<{ userId: string; roleId: string }>> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return db
+      .select()
+      .from(userRoles)
+      .where(inArray(userRoles.userId, userIds));
+  }
+
   async listUserIdsByRoleId(roleId: string): Promise<string[]> {
     const rows = await db
       .select({ userId: userRoles.userId })

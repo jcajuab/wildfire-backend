@@ -40,6 +40,8 @@ import {
   type GetRuntimeOverridesUseCase,
   type IssueDisplayRegistrationAttemptUseCase,
   type ListDisplayGroupsUseCase,
+  type ListDisplayOptionsUseCase,
+  type ListDisplayOutputOptionsUseCase,
   type ListDisplaysUseCase,
   type RegisterDisplayUseCase,
   type RequestDisplayRefreshUseCase,
@@ -84,6 +86,8 @@ export interface DisplaysRouterDeps {
 
 export interface DisplaysRouterUseCases {
   listDisplays: ListDisplaysUseCase;
+  listDisplayOptions: ListDisplayOptionsUseCase;
+  listDisplayOutputOptions: ListDisplayOutputOptionsUseCase;
   getDisplay: GetDisplayUseCase;
   updateDisplay: UpdateDisplayUseCase;
   listDisplayGroups: ListDisplayGroupsUseCase;

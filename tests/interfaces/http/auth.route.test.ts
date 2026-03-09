@@ -208,10 +208,11 @@ const buildApp = (opts?: {
       }
       return null;
     },
-    listRecent: async ({ limit }) =>
+    countAll: async () => invitations.size,
+    listPage: async ({ page, pageSize }) =>
       [...invitations.values()]
         .sort((a, b) => b.expiresAt.getTime() - a.expiresAt.getTime())
-        .slice(0, limit)
+        .slice((page - 1) * pageSize, page * pageSize)
         .map((invitation) => ({
           id: invitation.id,
           email: invitation.email,

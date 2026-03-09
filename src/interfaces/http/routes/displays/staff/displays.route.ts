@@ -19,6 +19,8 @@ import {
   displayIdParamSchema,
   displayListQuerySchema,
   displayListResponseSchema,
+  displayOptionsQuerySchema,
+  displayOutputOptionsSchema,
   displaySchema,
   patchDisplayRequestBodySchema,
   patchDisplaySchema,
@@ -69,6 +71,12 @@ export const registerDisplayStaffDisplayRoutes = (input: {
         const result = await useCases.listDisplays.execute({
           page: query.page,
           pageSize: query.pageSize,
+          q: query.q,
+          status: query.status,
+          output: query.output,
+          groupIds: query.groupIds,
+          sortBy: query.sortBy,
+          sortDirection: query.sortDirection,
         });
         return c.json(
           toApiListResponse({
@@ -79,6 +87,69 @@ export const registerDisplayStaffDisplayRoutes = (input: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/options/outputs",
+    setAction("displays.display.output-options", {
+      route: "/displays/options/outputs",
+      resourceType: "display",
+    }),
+    ...authorize("displays:read"),
+    describeRoute({
+      description: "List display output options",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Display output options",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(displayOutputOptionsSchema)),
+            },
+          },
+        },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const result = await useCases.listDisplayOutputOptions.execute();
+        return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/options",
+    setAction("displays.display.options", {
+      route: "/displays/options",
+      resourceType: "display",
+    }),
+    ...authorize("displays:read"),
+    validateQuery(displayOptionsQuerySchema),
+    describeRoute({
+      description: "List display options",
+      tags: displayTags,
+      responses: {
+        200: { description: "Display options" },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+        422: { ...validationErrorResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listDisplayOptions.execute({
+          q: query.q,
+          limit: query.limit,
+        });
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

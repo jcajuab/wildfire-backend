@@ -55,6 +55,10 @@ export const registerContentJobRoutes = (args: {
             },
           },
         },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+        404: { ...notFoundResponse },
+        422: { ...validationErrorResponse },
       },
     }),
     withRouteErrorHandling(

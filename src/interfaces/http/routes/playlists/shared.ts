@@ -16,6 +16,7 @@ import {
   type DeletePlaylistUseCase,
   type EstimatePlaylistDurationUseCase,
   type GetPlaylistUseCase,
+  type ListPlaylistOptionsUseCase,
   type ListPlaylistsUseCase,
   type ReorderPlaylistItemsUseCase,
   type ReplacePlaylistItemsAtomicUseCase,
@@ -43,6 +44,7 @@ export interface PlaylistsRouterDeps {
 
 export interface PlaylistsRouterUseCases {
   listPlaylists: ListPlaylistsUseCase;
+  listPlaylistOptions: ListPlaylistOptionsUseCase;
   createPlaylist: CreatePlaylistUseCase;
   getPlaylist: GetPlaylistUseCase;
   updatePlaylist: UpdatePlaylistUseCase;

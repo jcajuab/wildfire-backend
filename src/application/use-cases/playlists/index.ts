@@ -6,6 +6,7 @@ export {
   DeletePlaylistUseCase,
   EstimatePlaylistDurationUseCase,
   GetPlaylistUseCase,
+  ListPlaylistOptionsUseCase,
   ListPlaylistsUseCase,
   ReorderPlaylistItemsUseCase,
   ReplacePlaylistItemsAtomicUseCase,

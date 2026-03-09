@@ -14,6 +14,7 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { tooManyRequestsResponse } from "#/interfaces/http/routes/shared/openapi-responses";
 import { postAuthMePasswordSchema } from "#/interfaces/http/validators/auth.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -70,6 +71,7 @@ export const registerAuthPasswordRoute = (args: {
             },
           },
         },
+        429: { ...tooManyRequestsResponse },
       },
     }),
     withRouteErrorHandling(

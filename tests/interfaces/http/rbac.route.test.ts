@@ -31,6 +31,10 @@ const makePermissionId = (index: number): string =>
   `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
 
 const buildApp = (grantedPermissions: string[]) => {
+  const counters = {
+    listRolesByUserIdCalls: 0,
+    listRolesByUserIdsCalls: 0,
+  };
   const store: {
     users: UserRecord[];
     roles: RoleRecord[];
@@ -178,8 +182,14 @@ const buildApp = (grantedPermissions: string[]) => {
       },
     },
     userRoleRepository: {
-      listRolesByUserId: async (userId) =>
-        store.userRoles.filter((item) => item.userId === userId),
+      listRolesByUserIds: async (userIds) => {
+        counters.listRolesByUserIdsCalls += 1;
+        return store.userRoles.filter((item) => userIds.includes(item.userId));
+      },
+      listRolesByUserId: async (userId) => {
+        counters.listRolesByUserIdCalls += 1;
+        return store.userRoles.filter((item) => item.userId === userId);
+      },
       listUserIdsByRoleId: async (roleId) =>
         store.userRoles
           .filter((item) => item.roleId === roleId)
@@ -268,7 +278,7 @@ const buildApp = (grantedPermissions: string[]) => {
       issuer: undefined,
     });
 
-  return { app, issueToken };
+  return { app, issueToken, store, counters };
 };
 
 describe("RBAC routes", () => {
@@ -363,9 +373,8 @@ describe("RBAC routes", () => {
     expect(setPermissionsResponse.status).toBe(200);
     const body = await parseJson<{
       data: Array<{ id: string }>;
-      meta: { total: number };
     }>(setPermissionsResponse);
-    expect(body.meta.total).toBe(1);
+    expect(body.data).toHaveLength(1);
   });
 
   test("GET /users/:id/roles returns assigned roles", async () => {
@@ -383,5 +392,178 @@ describe("RBAC routes", () => {
     }>(response);
     expect(body.meta.total).toBe(1);
     expect(body.data[0]?.name).toBe("Root");
+  });
+
+  test("GET /roles/options returns filtered role options", async () => {
+    const { app, issueToken } = buildApp(["roles:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/roles/options?q=roo&limit=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        isSystem: boolean;
+      }>;
+    }>(response);
+    expect(body.data).toEqual([
+      {
+        id: rootRoleId,
+        name: "Root",
+        description: "All access",
+        isSystem: true,
+      },
+    ]);
+  });
+
+  test("GET /users/options returns filtered user options", async () => {
+    const { app, issueToken } = buildApp(["users:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/users/options?q=admin&limit=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        username: string;
+        email: string | null;
+        name: string;
+      }>;
+    }>(response);
+    expect(body.data).toEqual([
+      {
+        id: rootUserId,
+        username: "admin",
+        email: "admin@example.com",
+        name: "Admin",
+      },
+    ]);
+  });
+
+  test("GET /permissions/options returns filtered permission options", async () => {
+    const { app, issueToken } = buildApp(["roles:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/permissions/options?q=read", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        resource: string;
+        action: string;
+        isRoot?: boolean;
+      }>;
+    }>(response);
+    expect(body.data).toEqual([
+      {
+        id: makePermissionId(0),
+        resource: "roles",
+        action: "read",
+        isRoot: false,
+      },
+    ]);
+  });
+
+  test("GET /permissions filters by q", async () => {
+    const { app, issueToken } = buildApp(["roles:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/permissions?q=read", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        resource: string;
+        action: string;
+        isRoot?: boolean;
+      }>;
+      meta: { total: number };
+    }>(response);
+    expect(body.meta.total).toBe(1);
+    expect(body.data).toEqual([
+      {
+        id: makePermissionId(0),
+        resource: "roles",
+        action: "read",
+        isRoot: false,
+      },
+    ]);
+  });
+
+  test("GET /users sorts by lastSeenAt desc and uses bulk role enrichment", async () => {
+    const { app, issueToken, store, counters } = buildApp(["users:read"]);
+    store.users.push(
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        username: "older",
+        email: "older@example.com",
+        name: "Older User",
+        isActive: true,
+        lastSeenAt: "2025-01-01T00:00:00.000Z",
+        avatarKey: null,
+      },
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        username: "newer",
+        email: "newer@example.com",
+        name: "Newer User",
+        isActive: true,
+        lastSeenAt: "2025-02-01T00:00:00.000Z",
+        avatarKey: null,
+      },
+    );
+    store.roles.push({
+      id: "55555555-5555-4555-8555-555555555555",
+      name: "Viewer",
+      description: null,
+      isSystem: false,
+    });
+    store.userRoles.push({
+      userId: "44444444-4444-4444-8444-444444444444",
+      roleId: "55555555-5555-4555-8555-555555555555",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(
+      "/users?sortBy=lastSeenAt&sortDirection=desc&page=1&pageSize=10",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        roles: Array<{ id: string; name: string }>;
+      }>;
+    }>(response);
+    expect(body.data.map((user) => user.id)).toEqual([
+      "44444444-4444-4444-8444-444444444444",
+      "33333333-3333-4333-8333-333333333333",
+      rootUserId,
+    ]);
+    expect(body.data[0]?.roles).toEqual([
+      {
+        id: "55555555-5555-4555-8555-555555555555",
+        name: "Viewer",
+      },
+    ]);
+    expect(counters.listRolesByUserIdsCalls).toBe(1);
+    expect(counters.listRolesByUserIdCalls).toBe(0);
   });
 });

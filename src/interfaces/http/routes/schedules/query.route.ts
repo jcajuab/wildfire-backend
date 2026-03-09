@@ -1,6 +1,8 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { z } from "zod";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
+  apiResponseSchema,
   errorResponseSchema,
   toApiListResponse,
   toApiResponse,
@@ -14,6 +16,8 @@ import {
   scheduleListQuerySchema,
   scheduleListResponseSchema,
   scheduleResponseSchema,
+  scheduleSchema,
+  scheduleWindowQuerySchema,
 } from "#/interfaces/http/validators/schedules.schema";
 import {
   validateParams,
@@ -68,6 +72,39 @@ export const registerScheduleQueryRoutes = (args: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/window",
+    setAction("schedules.schedule.window", { route: "/schedules/window" }),
+    ...authorize("schedules:read"),
+    validateQuery(scheduleWindowQuerySchema),
+    describeRoute({
+      description: "List schedules intersecting a calendar window",
+      tags: scheduleTags,
+      responses: {
+        200: {
+          description: "Windowed schedules",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(z.array(scheduleSchema))),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listScheduleWindow.execute({
+          from: query.from,
+          to: query.to,
+          displayIds: query.displayIds,
+        });
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

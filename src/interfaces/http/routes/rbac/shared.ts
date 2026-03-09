@@ -20,8 +20,11 @@ import {
   type GetRoleUsersUseCase,
   type GetUserRolesUseCase,
   type GetUserUseCase,
+  type ListPermissionOptionsUseCase,
   type ListPermissionsUseCase,
+  type ListRoleOptionsUseCase,
   type ListRolesUseCase,
+  type ListUserOptionsUseCase,
   type ListUsersUseCase,
   type SetRolePermissionsUseCase,
   type SetUserRolesUseCase,
@@ -50,6 +53,7 @@ export interface RbacRouterDeps {
 
 export interface RbacRouterUseCases {
   listRoles: ListRolesUseCase;
+  listRoleOptions: ListRoleOptionsUseCase;
   createRole: CreateRoleUseCase;
   getRole: GetRoleUseCase;
   updateRole: UpdateRoleUseCase;
@@ -57,7 +61,9 @@ export interface RbacRouterUseCases {
   getRolePermissions: GetRolePermissionsUseCase;
   setRolePermissions: SetRolePermissionsUseCase;
   listPermissions: ListPermissionsUseCase;
+  listPermissionOptions: ListPermissionOptionsUseCase;
   listUsers: ListUsersUseCase;
+  listUserOptions: ListUserOptionsUseCase;
   createUser: CreateUserUseCase;
   getUser: GetUserUseCase;
   updateUser: UpdateUserUseCase;
@@ -119,4 +125,55 @@ export const maybeEnrichUsersForResponse = async <
   }
 
   return users.map(removeAvatarKey);
+};
+
+export const addRoleSummariesToUsers = async <
+  T extends { id: string; avatarKey?: string | null },
+>(
+  users: T[],
+  deps: RbacRouterDeps,
+): Promise<
+  Array<
+    Omit<T, "avatarKey"> & {
+      avatarUrl?: string;
+      roles: Array<{ id: string; name: string }>;
+    }
+  >
+> => {
+  const assignments =
+    deps.repositories.userRoleRepository.listRolesByUserIds != null
+      ? await deps.repositories.userRoleRepository.listRolesByUserIds(
+          users.map((user) => user.id),
+        )
+      : (
+          await Promise.all(
+            users.map((user) =>
+              deps.repositories.userRoleRepository.listRolesByUserId(user.id),
+            ),
+          )
+        ).flat();
+
+  const [enrichedUsers] = await Promise.all([
+    maybeEnrichUsersForResponse(users, deps),
+  ]);
+
+  const roleIds = [
+    ...new Set(assignments.map((assignment) => assignment.roleId)),
+  ];
+  const roles = await deps.repositories.roleRepository.findByIds(roleIds);
+  const rolesById = new Map(roles.map((role) => [role.id, role.name]));
+  const roleIdsByUser = new Map<string, string[]>();
+  for (const assignment of assignments) {
+    const existing = roleIdsByUser.get(assignment.userId) ?? [];
+    existing.push(assignment.roleId);
+    roleIdsByUser.set(assignment.userId, existing);
+  }
+
+  return enrichedUsers.map((user) => ({
+    ...user,
+    roles: (roleIdsByUser.get(user.id) ?? []).flatMap((roleId) => {
+      const roleName = rolesById.get(roleId);
+      return roleName ? [{ id: roleId, name: roleName }] : [];
+    }),
+  }));
 };

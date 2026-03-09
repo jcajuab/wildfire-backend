@@ -37,7 +37,8 @@ describe("Invitation use cases", () => {
         },
         findActiveByHashedToken: async () => null,
         findById: async () => null,
-        listRecent: async () => [],
+        countAll: async () => 0,
+        listPage: async () => [],
         revokeActiveByEmail: async () => {},
         markAccepted: async () => {},
         deleteExpired: async () => {},
@@ -96,7 +97,8 @@ describe("Invitation use cases", () => {
         create: async () => {},
         findActiveByHashedToken: async () => null,
         findById: async () => null,
-        listRecent: async () => [],
+        countAll: async () => 0,
+        listPage: async () => [],
         revokeActiveByEmail: async () => {},
         markAccepted: async () => {},
         deleteExpired: async () => {},
@@ -127,7 +129,8 @@ describe("Invitation use cases", () => {
           name: "Invited Name",
         }),
         findById: async () => null,
-        listRecent: async () => [],
+        countAll: async () => 0,
+        listPage: async () => [],
         revokeActiveByEmail: async () => {},
         markAccepted: async () => {
           events.push("accepted");
@@ -180,7 +183,8 @@ describe("Invitation use cases", () => {
         create: async () => {},
         findActiveByHashedToken: async () => null,
         findById: async () => null,
-        listRecent: async () => [
+        countAll: async () => 2,
+        listPage: async () => [
           {
             id: "inv-1",
             email: "pending@example.com",
@@ -207,7 +211,10 @@ describe("Invitation use cases", () => {
     });
 
     const result = await useCase.execute();
-    expect(result.map((item) => item.status)).toEqual(["pending", "accepted"]);
+    expect(result.items.map((item) => item.status)).toEqual([
+      "pending",
+      "accepted",
+    ]);
   });
 
   test("ResendInvitationUseCase recreates invitation from existing invite", async () => {
@@ -220,7 +227,8 @@ describe("Invitation use cases", () => {
           email: "invite@example.com",
           name: "Invited",
         }),
-        listRecent: async () => [],
+        countAll: async () => 0,
+        listPage: async () => [],
         revokeActiveByEmail: async () => {},
         markAccepted: async () => {},
         deleteExpired: async () => {},
@@ -246,7 +254,8 @@ describe("Invitation use cases", () => {
           create: async () => {},
           findActiveByHashedToken: async () => null,
           findById: async () => null,
-          listRecent: async () => [],
+          countAll: async () => 0,
+          listPage: async () => [],
           revokeActiveByEmail: async () => {},
           markAccepted: async () => {},
           deleteExpired: async () => {},

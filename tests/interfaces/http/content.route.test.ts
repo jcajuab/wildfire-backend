@@ -314,6 +314,52 @@ describe("Content routes", () => {
     expect(body.data).toHaveLength(1);
   });
 
+  test("GET /content/options returns filtered content options", async () => {
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const token = await issueToken();
+    records.push({
+      id: "flash-1",
+      title: "Critical Alert",
+      type: "FLASH",
+      kind: "ROOT",
+      status: "READY",
+      fileKey: "content/flash/flash-1",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
+      checksum: "flash-1",
+      mimeType: "text/plain",
+      fileSize: 1,
+      width: null,
+      height: null,
+      duration: null,
+      flashMessage: "Alert",
+      flashTone: "CRITICAL",
+      createdById: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const response = await app.request(
+      "/content/options?type=FLASH&status=READY",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{ id: string; title: string; type: string }>;
+    }>(response);
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        id: "flash-1",
+        title: "Critical Alert",
+        type: "FLASH",
+      }),
+    ]);
+  });
+
   test("GET /content/:id/file returns download URL", async () => {
     const { app, issueToken, records } = await makeApp(["content:read"]);
     const token = await issueToken();

@@ -4,6 +4,7 @@ import {
   type PermissionRepository,
   type RolePermissionRepository,
   type RoleRepository,
+  type UserRecord,
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
@@ -13,6 +14,62 @@ import {
   NotFoundError,
 } from "#/application/use-cases/rbac/errors";
 import { paginate } from "#/application/use-cases/shared/pagination";
+
+const normalizeQuery = (value: string | undefined): string | null => {
+  const normalized = value?.trim().toLowerCase();
+  return normalized ? normalized : null;
+};
+
+const filterUsers = (
+  users: readonly UserRecord[],
+  query: string | undefined,
+): UserRecord[] => {
+  const normalized = normalizeQuery(query);
+  if (!normalized) {
+    return [...users];
+  }
+
+  return users.filter((user) => {
+    return (
+      user.name.toLowerCase().includes(normalized) ||
+      user.username.toLowerCase().includes(normalized) ||
+      (user.email?.toLowerCase().includes(normalized) ?? false)
+    );
+  });
+};
+
+const sortUsers = (
+  users: readonly UserRecord[],
+  input?: { sortBy?: "name" | "lastSeenAt"; sortDirection?: "asc" | "desc" },
+): UserRecord[] => {
+  const sortBy = input?.sortBy ?? "name";
+  const direction = input?.sortDirection === "desc" ? -1 : 1;
+
+  return [...users].sort((left, right) => {
+    if (sortBy === "lastSeenAt") {
+      if (left.lastSeenAt == null && right.lastSeenAt == null) {
+        return left.name.localeCompare(right.name) * direction;
+      }
+      if (left.lastSeenAt == null) {
+        return 1;
+      }
+      if (right.lastSeenAt == null) {
+        return -1;
+      }
+
+      const lastSeenDelta =
+        input?.sortDirection === "desc"
+          ? right.lastSeenAt.localeCompare(left.lastSeenAt)
+          : left.lastSeenAt.localeCompare(right.lastSeenAt);
+      if (lastSeenDelta !== 0) {
+        return lastSeenDelta;
+      }
+      return left.name.localeCompare(right.name) * direction;
+    }
+
+    return left.name.localeCompare(right.name) * direction;
+  });
+};
 
 export class GetUserRolesUseCase {
   constructor(
@@ -49,9 +106,32 @@ export class GetUserRolesUseCase {
 export class ListUsersUseCase {
   constructor(private readonly deps: { userRepository: UserRepository }) {}
 
-  async execute(input?: { page?: number; pageSize?: number }) {
+  async execute(input?: {
+    page?: number;
+    pageSize?: number;
+    q?: string;
+    sortBy?: "name" | "lastSeenAt";
+    sortDirection?: "asc" | "desc";
+  }) {
     const all = await this.deps.userRepository.list();
-    return paginate(all, input);
+    return paginate(sortUsers(filterUsers(all, input?.q), input), input);
+  }
+}
+
+export class ListUserOptionsUseCase {
+  constructor(private readonly deps: { userRepository: UserRepository }) {}
+
+  async execute(input?: { q?: string; limit?: number }) {
+    const limit = input?.limit;
+    const users = sortUsers(
+      filterUsers(await this.deps.userRepository.list(), input?.q),
+      {
+        sortBy: "name",
+        sortDirection: "asc",
+      },
+    );
+
+    return limit != null ? users.slice(0, Math.max(1, limit)) : users;
   }
 }
 

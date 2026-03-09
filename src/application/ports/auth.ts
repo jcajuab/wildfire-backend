@@ -87,7 +87,8 @@ export interface InvitationRepository {
   findById(input: {
     id: string;
   }): Promise<{ id: string; email: string; name: string | null } | null>;
-  listRecent(input: { limit: number }): Promise<
+  countAll(): Promise<number>;
+  listPage(input: { page: number; pageSize: number }): Promise<
     {
       id: string;
       email: string;

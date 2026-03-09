@@ -12,6 +12,7 @@ import {
   type DeleteScheduleUseCase,
   type GetScheduleUseCase,
   type ListSchedulesUseCase,
+  type ListScheduleWindowUseCase,
   type UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
@@ -33,6 +34,7 @@ export interface SchedulesRouterDeps {
 
 export interface SchedulesRouterUseCases {
   listSchedules: ListSchedulesUseCase;
+  listScheduleWindow: ListScheduleWindowUseCase;
   createSchedule: CreateScheduleUseCase;
   getSchedule: GetScheduleUseCase;
   updateSchedule: UpdateScheduleUseCase;

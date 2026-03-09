@@ -14,6 +14,7 @@ import {
 import {
   roleIdParamSchema,
   roleListQuerySchema,
+  roleOptionsQuerySchema,
 } from "#/interfaces/http/validators/rbac.schema";
 import {
   validateParams,
@@ -60,6 +61,9 @@ export const registerRbacRoleReadRoutes = (args: {
         const result = await useCases.listRoles.execute({
           page: query.page,
           pageSize: query.pageSize,
+          q: query.q,
+          sortBy: query.sortBy,
+          sortDirection: query.sortDirection,
         });
         return c.json(
           toApiListResponse({
@@ -70,6 +74,37 @@ export const registerRbacRoleReadRoutes = (args: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/roles/options",
+    setAction("rbac.role.options", {
+      route: "/roles/options",
+      resourceType: "role",
+    }),
+    ...authorize("roles:read"),
+    validateQuery(roleOptionsQuerySchema),
+    describeRoute({
+      description: "List role options",
+      tags: roleTags,
+      responses: {
+        200: { description: "Role options" },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+        422: { ...validationErrorResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listRoleOptions.execute({
+          q: query.q,
+          limit: query.limit,
+        });
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

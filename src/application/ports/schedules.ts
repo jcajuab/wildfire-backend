@@ -20,7 +20,13 @@ export interface ScheduleRecord {
 export interface ScheduleRepository {
   list(): Promise<ScheduleRecord[]>;
   listByDisplay(displayId: string): Promise<ScheduleRecord[]>;
+  listByDisplayIds?(displayIds: string[]): Promise<ScheduleRecord[]>;
   listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]>;
+  listWindow?(input: {
+    from: string;
+    to: string;
+    displayIds?: readonly string[];
+  }): Promise<ScheduleRecord[]>;
   listByContentId?(contentId: string): Promise<ScheduleRecord[]>;
   findById(id: string): Promise<ScheduleRecord | null>;
   create(input: {

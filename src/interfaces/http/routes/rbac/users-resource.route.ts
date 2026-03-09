@@ -26,6 +26,7 @@ import {
   updateUserSchema,
   userIdParamSchema,
   userListQuerySchema,
+  userOptionsQuerySchema,
 } from "#/interfaces/http/validators/rbac.schema";
 import {
   validateJson,
@@ -34,8 +35,8 @@ import {
 } from "#/interfaces/http/validators/standard-validator";
 import {
   type AuthorizePermission,
+  addRoleSummariesToUsers,
   maybeEnrichUserForResponse,
-  maybeEnrichUsersForResponse,
   type RbacRouter,
   type RbacRouterDeps,
   type RbacRouterUseCases,
@@ -77,11 +78,11 @@ export const registerRbacUserResourceRoutes = (args: {
         const result = await useCases.listUsers.execute({
           page: query.page,
           pageSize: query.pageSize,
+          q: query.q,
+          sortBy: query.sortBy,
+          sortDirection: query.sortDirection,
         });
-        const enrichedItems = await maybeEnrichUsersForResponse(
-          result.items,
-          deps,
-        );
+        const enrichedItems = await addRoleSummariesToUsers(result.items, deps);
         return c.json(
           toApiListResponse({
             items: enrichedItems,
@@ -91,6 +92,43 @@ export const registerRbacUserResourceRoutes = (args: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/users/options",
+    setAction("rbac.user.options", {
+      route: "/users/options",
+      resourceType: "user",
+    }),
+    ...authorize("users:read"),
+    validateQuery(userOptionsQuerySchema),
+    describeRoute({
+      description: "List user options",
+      tags: userTags,
+      responses: {
+        200: { description: "User options" },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+        422: { ...validationErrorResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const users = await useCases.listUserOptions.execute({
+          q: query.q,
+          limit: query.limit,
+        });
+        const options = users.map((user) => ({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          name: user.name,
+        }));
+        return c.json(toApiResponse(options));
       },
       ...applicationErrorMappers,
     ),

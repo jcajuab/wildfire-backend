@@ -43,6 +43,16 @@ export const playlistListQuerySchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
 
+export const playlistOptionsQuerySchema = z.object({
+  q: z.string().trim().min(1).max(255).optional(),
+  status: z.enum(["DRAFT", "IN_USE"]).optional(),
+});
+
+export const playlistOptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
 export const playlistIdParamSchema = z.object({
   id: z.string().uuid(),
 });

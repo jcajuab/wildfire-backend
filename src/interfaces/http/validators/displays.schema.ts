@@ -34,7 +34,26 @@ export const displayListResponseSchema = apiListResponseSchema(displaySchema);
 export const displayListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  q: z.string().trim().min(1).max(255).optional(),
+  status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]).optional(),
+  output: z.string().trim().min(1).max(64).optional(),
+  groupIds: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      return Array.isArray(value) ? value : [value];
+    }),
+  sortBy: z.enum(["name", "status", "location"]).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
 });
+
+export const displayOptionsQuerySchema = z.object({
+  q: z.string().trim().min(1).max(255).optional(),
+  limit: z.coerce.number().int().min(1).max(250).optional(),
+});
+
+export const displayOutputOptionsSchema = z.array(z.string());
 
 export const displayIdParamSchema = z.object({
   id: z.string().uuid(),

@@ -1,12 +1,16 @@
 export { CheckPermissionUseCase } from "#/application/use-cases/rbac/check-permission.use-case";
 export { NotFoundError } from "#/application/use-cases/rbac/errors";
-export { ListPermissionsUseCase } from "#/application/use-cases/rbac/permission.use-cases";
+export {
+  ListPermissionOptionsUseCase,
+  ListPermissionsUseCase,
+} from "#/application/use-cases/rbac/permission.use-cases";
 export {
   CreateRoleUseCase,
   DeleteRoleUseCase,
   GetRolePermissionsUseCase,
   GetRoleUseCase,
   GetRoleUsersUseCase,
+  ListRoleOptionsUseCase,
   ListRolesUseCase,
   SetRolePermissionsUseCase,
   UpdateRoleUseCase,
@@ -17,6 +21,7 @@ export {
   DeleteUserUseCase,
   GetUserRolesUseCase,
   GetUserUseCase,
+  ListUserOptionsUseCase,
   ListUsersUseCase,
   SetUserRolesUseCase,
   UpdateUserUseCase,

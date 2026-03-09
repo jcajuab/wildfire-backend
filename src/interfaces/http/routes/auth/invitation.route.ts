@@ -142,24 +142,51 @@ export const registerAuthInvitationRoutes = (args: {
             },
           },
         },
+        401: {
+          description: "Unauthorized",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        403: {
+          description: "Forbidden",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+        422: {
+          description: "Validation failed",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
       },
     }),
-    async (c) => {
-      const query = c.req.valid("query");
-      const invitations = await useCases.listInvitations.execute({
-        limit: query.limit,
-      });
-      const pageSize = query.limit ?? 100;
-      return c.json(
-        toApiListResponse({
-          items: invitations,
-          total: invitations.length,
-          page: 1,
-          pageSize,
-          requestUrl: c.req.url,
-        }),
-      );
-    },
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listInvitations.execute({
+          page: query.page,
+          pageSize: query.pageSize,
+        });
+        return c.json(
+          toApiListResponse({
+            items: result.items,
+            total: result.total,
+            page: result.page,
+            pageSize: result.pageSize,
+            requestUrl: c.req.url,
+          }),
+        );
+      },
+      ...applicationErrorMappers,
+    ),
   );
 
   router.post(

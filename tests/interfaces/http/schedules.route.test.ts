@@ -20,25 +20,29 @@ const authSessionRepository = {
 
 const makeApp = async (
   permissions: string[],
-  options?: { createScheduleError?: Error },
+  options?: {
+    createScheduleError?: Error;
+    failOnBroadWindowRead?: boolean;
+    schedules?: Array<{
+      id: string;
+      name: string;
+      kind: "PLAYLIST" | "FLASH";
+      playlistId: string | null;
+      contentId: string | null;
+      displayId: string;
+      startDate?: string;
+      endDate?: string;
+      startTime: string;
+      endTime: string;
+      priority: number;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  },
 ) => {
   const app = new Hono();
-  const schedules: Array<{
-    id: string;
-    name: string;
-    kind: "PLAYLIST" | "FLASH";
-    playlistId: string | null;
-    contentId: string | null;
-    displayId: string;
-    startDate?: string;
-    endDate?: string;
-    startTime: string;
-    endTime: string;
-    priority: number;
-    isActive: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }> = [];
+  const schedules = [...(options?.schedules ?? [])];
   const playlists = [
     {
       id: playlistId,
@@ -70,11 +74,52 @@ const makeApp = async (
       authSessionCookieName: "wildfire_session",
       repositories: {
         scheduleRepository: {
-          list: async () => [...schedules],
+          list: async () => {
+            if (options?.failOnBroadWindowRead) {
+              throw new Error("scheduleRepository.list should not be used");
+            }
+            return [...schedules];
+          },
           listByDisplay: async (displayId: string) =>
             schedules.filter((schedule) => schedule.displayId === displayId),
+          listByDisplayIds: async (displayIds: string[]) =>
+            schedules.filter((schedule) =>
+              displayIds.includes(schedule.displayId),
+            ),
           findById: async (id: string) =>
             schedules.find((schedule) => schedule.id === id) ?? null,
+          listWindow: async (input: {
+            from: string;
+            to: string;
+            displayIds?: readonly string[];
+          }) =>
+            schedules
+              .filter((schedule) => {
+                if (
+                  input.displayIds &&
+                  input.displayIds.length > 0 &&
+                  !input.displayIds.includes(schedule.displayId)
+                ) {
+                  return false;
+                }
+                return (
+                  (schedule.startDate ?? "1970-01-01") <= input.to &&
+                  (schedule.endDate ?? "2099-12-31") >= input.from
+                );
+              })
+              .sort((left, right) => {
+                const dateDelta = (left.startDate ?? "").localeCompare(
+                  right.startDate ?? "",
+                );
+                if (dateDelta !== 0) {
+                  return dateDelta;
+                }
+                const timeDelta = left.startTime.localeCompare(right.startTime);
+                if (timeDelta !== 0) {
+                  return timeDelta;
+                }
+                return left.name.localeCompare(right.name);
+              }),
           create: async (input) => {
             if (options?.createScheduleError) {
               throw options.createScheduleError;
@@ -211,7 +256,10 @@ const makeApp = async (
 
 describe("Schedules routes", () => {
   test("GET /schedules returns list with permission", async () => {
-    const { app, issueToken } = await makeApp(["schedules:read"]);
+    const { app, issueToken } = await makeApp([
+      "schedules:read",
+      "schedules:create",
+    ]);
     const token = await issueToken();
 
     const response = await app.request("/schedules", {
@@ -232,6 +280,71 @@ describe("Schedules routes", () => {
     expect(typeof body.meta.total).toBe("number");
     expect(body.meta.page).toBe(1);
     expect(body.meta.pageSize).toBe(50);
+  });
+
+  test("GET /schedules/window returns schedules intersecting the requested range", async () => {
+    const { app, issueToken } = await makeApp(["schedules:read"], {
+      schedules: [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          name: "Morning",
+          kind: "PLAYLIST",
+          playlistId,
+          contentId: null,
+          displayId,
+          startDate: "2026-01-02",
+          endDate: "2026-01-05",
+          startTime: "08:00",
+          endTime: "10:00",
+          priority: 1,
+          isActive: true,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/schedules/window?from=2026-01-03&to=2026-01-03&displayIds=${displayId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ name: string }> }>(response);
+    expect(body.data.map((schedule) => schedule.name)).toEqual(["Morning"]);
+  });
+
+  test("GET /schedules/window returns 422 when from is after to", async () => {
+    const { app, issueToken } = await makeApp(["schedules:read"]);
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/schedules/window?from=2026-01-07&to=2026-01-03&displayIds=${displayId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(422);
+  });
+
+  test("GET /schedules/window uses repository-backed window query path", async () => {
+    const { app, issueToken } = await makeApp(["schedules:read"], {
+      failOnBroadWindowRead: true,
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/schedules/window?from=2026-01-01&to=2026-01-07&displayIds=${displayId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
   });
 
   test("POST /schedules creates schedule", async () => {

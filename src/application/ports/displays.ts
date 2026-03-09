@@ -28,6 +28,21 @@ export interface DisplayRepository {
     page: number;
     pageSize: number;
   }>;
+  searchPage?(input: {
+    page: number;
+    pageSize: number;
+    q?: string;
+    status?: DisplayStatus;
+    output?: string;
+    groupIds?: readonly string[];
+    sortBy?: "name" | "status" | "location";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{
+    items: DisplayRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>;
   findByIds(ids: string[]): Promise<DisplayRecord[]>;
   findById(id: string): Promise<DisplayRecord | null>;
   findBySlug(slug: string): Promise<DisplayRecord | null>;

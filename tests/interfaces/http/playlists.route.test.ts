@@ -277,6 +277,38 @@ describe("Playlists routes", () => {
     expect(body.meta.pageSize).toBe(20);
   });
 
+  test("GET /playlists/options returns playlist options", async () => {
+    const { app, issueToken } = await makeApp([
+      "playlists:create",
+      "playlists:read",
+    ]);
+    const token = await issueToken();
+
+    await app.request("/playlists", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Lobby Loop",
+        description: null,
+      }),
+    });
+
+    const response = await app.request("/playlists/options", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string; name: string }> }>(
+      response,
+    );
+    expect(body.data).toEqual([
+      expect.objectContaining({ id: playlistId, name: "Lobby Loop" }),
+    ]);
+  });
+
   test("POST /playlists creates playlist", async () => {
     const { app, issueToken } = await makeApp(["playlists:create"]);
     const token = await issueToken();

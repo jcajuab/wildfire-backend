@@ -4,6 +4,7 @@ import {
   DeleteScheduleUseCase,
   GetScheduleUseCase,
   ListSchedulesUseCase,
+  ListScheduleWindowUseCase,
   UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 import {
@@ -30,6 +31,12 @@ export const createSchedulesHttpModule = (
     deps: routerDeps,
     useCases: {
       listSchedules: new ListSchedulesUseCase({
+        scheduleRepository: routerDeps.repositories.scheduleRepository,
+        playlistRepository: routerDeps.repositories.playlistRepository,
+        contentRepository: routerDeps.repositories.contentRepository,
+        displayRepository: routerDeps.repositories.displayRepository,
+      }),
+      listScheduleWindow: new ListScheduleWindowUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         playlistRepository: routerDeps.repositories.playlistRepository,
         contentRepository: routerDeps.repositories.contentRepository,

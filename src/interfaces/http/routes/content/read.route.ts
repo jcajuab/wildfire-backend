@@ -1,4 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { z } from "zod";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -19,6 +20,8 @@ import {
   contentIdParamSchema,
   contentListQuerySchema,
   contentListResponseSchema,
+  contentOptionSchema,
+  contentOptionsQuerySchema,
   contentSchema,
 } from "#/interfaces/http/validators/content.schema";
 import {
@@ -38,6 +41,42 @@ export const registerContentReadRoutes = (args: {
   requirePermission: RequirePermission;
 }) => {
   const { router, useCases, requirePermission } = args;
+
+  router.get(
+    "/options",
+    setAction("content.content.options", {
+      route: "/content/options",
+      resourceType: "content",
+    }),
+    requirePermission("content:read"),
+    validateQuery(contentOptionsQuerySchema),
+    describeRoute({
+      description: "List content options",
+      tags: contentTags,
+      responses: {
+        200: {
+          description: "Content options",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(z.array(contentOptionSchema))),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listContentOptions.execute({
+          status: query.status,
+          type: query.type,
+          search: query.q,
+        });
+        return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
 
   router.get(
     "/",

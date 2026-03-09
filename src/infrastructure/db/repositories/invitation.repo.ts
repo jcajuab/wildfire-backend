@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lte, sql } from "drizzle-orm";
 import { type InvitationRepository } from "#/application/ports/auth";
 import { db } from "#/infrastructure/db/client";
 import { invitations } from "#/infrastructure/db/schema/auth-state.sql";
@@ -85,7 +85,14 @@ export class InvitationDbRepository implements InvitationRepository {
     };
   }
 
-  async listRecent(input: { limit: number }): Promise<
+  async countAll(): Promise<number> {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(invitations);
+    return Number(rows[0]?.count ?? 0);
+  }
+
+  async listPage(input: { page: number; pageSize: number }): Promise<
     {
       id: string;
       email: string;
@@ -108,7 +115,8 @@ export class InvitationDbRepository implements InvitationRepository {
       })
       .from(invitations)
       .orderBy(desc(invitations.createdAt))
-      .limit(input.limit);
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize);
 
     return rows.map((row) => ({
       id: row.id,

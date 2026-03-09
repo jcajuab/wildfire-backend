@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import {
   type DisplayRecord,
   type DisplayRepository,
@@ -6,9 +6,11 @@ import {
 } from "#/application/ports/displays";
 import { db } from "#/infrastructure/db/client";
 import {
+  displayGroupMembers,
   displayRuntimeStates,
   displays,
 } from "#/infrastructure/db/schema/displays.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const parseDisplayStatus = (
   value: string | null | undefined,
@@ -141,6 +143,99 @@ export class DisplayDbRepository implements DisplayRepository {
         .limit(pageSize)
         .offset(offset),
       db.select({ count: sql<number>`count(*)` }).from(displays),
+    ]);
+
+    return {
+      items: rows.map(toRecord),
+      total: Number(totalRows[0]?.count ?? 0),
+      page,
+      pageSize,
+    };
+  }
+
+  async searchPage(input: {
+    page: number;
+    pageSize: number;
+    q?: string;
+    status?: DisplayStatus;
+    output?: string;
+    groupIds?: readonly string[];
+    sortBy?: "name" | "status" | "location";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{
+    items: DisplayRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const page = Number.isInteger(input.page) ? Math.max(1, input.page) : 1;
+    const pageSize = Number.isInteger(input.pageSize)
+      ? Math.min(100, Math.max(1, input.pageSize))
+      : 20;
+    const offset = (page - 1) * pageSize;
+
+    let filteredDisplayIds: string[] | undefined;
+    if (input.groupIds && input.groupIds.length > 0) {
+      const rows = await db
+        .select({ displayId: displayGroupMembers.displayId })
+        .from(displayGroupMembers)
+        .where(inArray(displayGroupMembers.groupId, [...input.groupIds]));
+      filteredDisplayIds = [...new Set(rows.map((row) => row.displayId))];
+      if (filteredDisplayIds.length === 0) {
+        return { items: [], total: 0, page, pageSize };
+      }
+    }
+
+    const normalizedQuery = input.q?.trim();
+    const normalizedOutput = input.output?.trim();
+    const conditions = [
+      input.status ? eq(displayRuntimeStates.status, input.status) : undefined,
+      normalizedOutput ? eq(displays.output, normalizedOutput) : undefined,
+      filteredDisplayIds ? inArray(displays.id, filteredDisplayIds) : undefined,
+      normalizedQuery
+        ? or(
+            like(displays.name, buildLikeContainsPattern(normalizedQuery)),
+            like(displays.slug, buildLikeContainsPattern(normalizedQuery)),
+            like(displays.location, buildLikeContainsPattern(normalizedQuery)),
+            like(displays.output, buildLikeContainsPattern(normalizedQuery)),
+          )
+        : undefined,
+    ].filter((value) => value !== undefined);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const primaryOrder =
+      input.sortBy === "status"
+        ? input.sortDirection === "desc"
+          ? desc(displayRuntimeStates.status)
+          : asc(displayRuntimeStates.status)
+        : input.sortBy === "location"
+          ? input.sortDirection === "desc"
+            ? desc(displays.location)
+            : asc(displays.location)
+          : input.sortDirection === "desc"
+            ? desc(displays.name)
+            : asc(displays.name);
+    const secondaryOrder =
+      input.sortBy === "name"
+        ? desc(displays.createdAt)
+        : input.sortDirection === "desc"
+          ? desc(displays.name)
+          : asc(displays.name);
+
+    const [rows, totalRows] = await Promise.all([
+      withJoins()
+        .where(whereClause)
+        .orderBy(primaryOrder, secondaryOrder)
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(displays)
+        .leftJoin(
+          displayRuntimeStates,
+          eq(displayRuntimeStates.displayId, displays.id),
+        )
+        .where(whereClause),
     ]);
 
     return {

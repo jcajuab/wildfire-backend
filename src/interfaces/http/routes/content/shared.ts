@@ -24,6 +24,7 @@ import {
   type GetContentDownloadUrlUseCase,
   type GetContentJobUseCase,
   type GetContentUseCase,
+  type ListContentOptionsUseCase,
   type ListContentUseCase,
   type ReplaceContentFileUseCase,
   type SetContentExclusionUseCase,
@@ -61,6 +62,7 @@ export interface ContentRouterUseCases {
   uploadContent: UploadContentUseCase;
   replaceContentFile: ReplaceContentFileUseCase;
   listContent: ListContentUseCase;
+  listContentOptions: ListContentOptionsUseCase;
   getContent: GetContentUseCase;
   getContentJob: GetContentJobUseCase;
   createFlashContent: CreateFlashContentUseCase;

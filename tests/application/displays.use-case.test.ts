@@ -130,6 +130,17 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const listDisplays = new ListDisplaysUseCase({
       displayRepository: repo,
+      displayGroupRepository: {
+        list: async () => [],
+        findById: async () => null,
+        findByName: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        setDisplayGroups: async () => {},
+      },
       scheduleRepository: {
         list: async () => [],
         listByDisplay: async () => [],
@@ -187,6 +198,17 @@ describe("Displays use cases", () => {
     const { repo, records } = makeRepository();
     const listDisplays = new ListDisplaysUseCase({
       displayRepository: repo,
+      displayGroupRepository: {
+        list: async () => [],
+        findById: async () => null,
+        findByName: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        setDisplayGroups: async () => {},
+      },
       scheduleRepository: {
         list: async () => [
           {
@@ -317,6 +339,131 @@ describe("Displays use cases", () => {
       duration: 0,
     });
     expect(nowPlayingByIdentifier.get(neverSeen.slug)).toBeNull();
+  });
+
+  test("ListDisplaysUseCase matches displays in any selected group", async () => {
+    const { repo, records } = makeRepository();
+    const listDisplays = new ListDisplaysUseCase({
+      displayRepository: repo,
+      displayGroupRepository: {
+        list: async () => [
+          {
+            id: "group-a",
+            name: "Lobby",
+            colorIndex: 0,
+            displayIds: ["display-1"],
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "group-b",
+            name: "Hallway",
+            colorIndex: 1,
+            displayIds: ["display-2"],
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        findById: async () => null,
+        findByName: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        setDisplayGroups: async () => {},
+      },
+      scheduleRepository: {
+        list: async () => [],
+        listByDisplay: async () => [],
+        listByPlaylistId: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+      },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
+      },
+    });
+
+    records.push(
+      {
+        id: "display-1",
+        name: "Lobby",
+        slug: "lobby",
+        fingerprint: null,
+        status: "READY",
+        location: null,
+        screenWidth: null,
+        screenHeight: null,
+        output: null,
+        orientation: null,
+        lastSeenAt: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "display-2",
+        name: "Hallway",
+        slug: "hallway",
+        fingerprint: null,
+        status: "READY",
+        location: null,
+        screenWidth: null,
+        screenHeight: null,
+        output: null,
+        orientation: null,
+        lastSeenAt: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "display-3",
+        name: "Other",
+        slug: "other",
+        fingerprint: null,
+        status: "READY",
+        location: null,
+        screenWidth: null,
+        screenHeight: null,
+        output: null,
+        orientation: null,
+        lastSeenAt: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+
+    const result = await listDisplays.execute({
+      groupIds: ["group-a", "group-b"],
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual([
+      "display-2",
+      "display-1",
+    ]);
   });
 
   test("GetDisplayUseCase throws when missing", async () => {

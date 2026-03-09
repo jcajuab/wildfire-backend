@@ -54,6 +54,18 @@ export const contentListQuerySchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
 
+export const contentOptionsQuerySchema = z.object({
+  q: z.string().trim().min(1).max(255).optional(),
+  status: contentStatusSchema.optional(),
+  type: contentTypeSchema.optional(),
+});
+
+export const contentOptionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: contentTypeSchema,
+});
+
 export const createFlashContentSchema = z.object({
   title: z.string().trim().min(1).max(255),
   message: z.string().trim().min(1).max(240),

@@ -212,6 +212,40 @@ export class EstimatePlaylistDurationUseCase {
   }
 }
 
+export class ListPlaylistOptionsUseCase {
+  constructor(
+    private readonly deps: {
+      playlistRepository: PlaylistRepository;
+    },
+  ) {}
+
+  async execute(input?: { q?: string; status?: PlaylistStatus }) {
+    const normalizedQuery = input?.q?.trim().toLowerCase();
+
+    return (await this.deps.playlistRepository.list())
+      .filter((playlist) => {
+        if (input?.status && playlist.status !== input.status) {
+          return false;
+        }
+
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return (
+          playlist.name.toLowerCase().includes(normalizedQuery) ||
+          (playlist.description?.toLowerCase().includes(normalizedQuery) ??
+            false)
+        );
+      })
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map((playlist) => ({
+        id: playlist.id,
+        name: playlist.name,
+      }));
+  }
+}
+
 export class ListPlaylistsUseCase {
   constructor(
     private readonly deps: {

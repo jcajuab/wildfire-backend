@@ -4,6 +4,7 @@ import {
   GetContentDownloadUrlUseCase,
   GetContentJobUseCase,
   GetContentUseCase,
+  ListContentOptionsUseCase,
   ListContentUseCase,
   ReplaceContentFileUseCase,
   SetContentExclusionUseCase,
@@ -88,6 +89,9 @@ export const createContentHttpModule = (
         userRepository: routerDeps.repositories.userRepository,
         contentStorage: routerDeps.storage,
         thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
+      }),
+      listContentOptions: new ListContentOptionsUseCase({
+        contentRepository: routerDeps.repositories.contentRepository,
       }),
       getContent: new GetContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,

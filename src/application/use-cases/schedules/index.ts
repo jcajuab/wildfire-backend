@@ -5,5 +5,6 @@ export {
   GetActiveScheduleForDisplayUseCase,
   GetScheduleUseCase,
   ListSchedulesUseCase,
+  ListScheduleWindowUseCase,
   UpdateScheduleUseCase,
 } from "./schedule.use-cases";

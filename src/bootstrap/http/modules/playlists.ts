@@ -5,6 +5,7 @@ import {
   DeletePlaylistUseCase,
   EstimatePlaylistDurationUseCase,
   GetPlaylistUseCase,
+  ListPlaylistOptionsUseCase,
   ListPlaylistsUseCase,
   ReorderPlaylistItemsUseCase,
   ReplacePlaylistItemsAtomicUseCase,
@@ -38,6 +39,9 @@ export const createPlaylistsHttpModule = (
       listPlaylists: new ListPlaylistsUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
         userRepository: routerDeps.repositories.userRepository,
+      }),
+      listPlaylistOptions: new ListPlaylistOptionsUseCase({
+        playlistRepository: routerDeps.repositories.playlistRepository,
       }),
       createPlaylist: new CreatePlaylistUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,

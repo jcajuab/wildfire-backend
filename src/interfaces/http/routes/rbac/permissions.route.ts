@@ -1,6 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiListResponse } from "#/interfaces/http/responses";
+import { toApiListResponse, toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -14,6 +14,7 @@ import {
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   permissionListQuerySchema,
+  permissionOptionsQuerySchema,
   roleIdParamSchema,
   rolePermissionsListQuerySchema,
   setRolePermissionsSchema,
@@ -131,15 +132,7 @@ export const registerRbacPermissionRoutes = (args: {
           roleId: params.id,
           permissionIds: payload.permissionIds,
         });
-        return c.json(
-          toApiListResponse({
-            items: permissions,
-            total: permissions.length,
-            page: 1,
-            pageSize: Math.max(1, permissions.length),
-            requestUrl: c.req.url,
-          }),
-        );
+        return c.json(toApiResponse(permissions));
       },
       ...applicationErrorMappers,
     ),
@@ -175,6 +168,7 @@ export const registerRbacPermissionRoutes = (args: {
         const result = await useCases.listPermissions.execute({
           page: query.page,
           pageSize: query.pageSize,
+          q: query.q,
         });
         return c.json(
           toApiListResponse({
@@ -185,6 +179,36 @@ export const registerRbacPermissionRoutes = (args: {
             requestUrl: c.req.url,
           }),
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/permissions/options",
+    setAction("rbac.permission.options", {
+      route: "/permissions/options",
+      resourceType: "permission",
+    }),
+    ...authorize("roles:read"),
+    validateQuery(permissionOptionsQuerySchema),
+    describeRoute({
+      description: "List permission options",
+      tags: permissionTags,
+      responses: {
+        200: { description: "Permission options" },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+        422: { ...validationErrorResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.listPermissionOptions.execute({
+          q: query.q,
+        });
+        return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
     ),

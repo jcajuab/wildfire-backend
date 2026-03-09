@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { ValidationError } from "#/application/errors/validation";
 import {
   type ScheduleKind,
@@ -116,6 +116,17 @@ export class ScheduleDbRepository implements ScheduleRepository {
     return rows.map(toRecord);
   }
 
+  async listByDisplayIds(displayIds: string[]): Promise<ScheduleRecord[]> {
+    if (displayIds.length === 0) {
+      return [];
+    }
+
+    const rows = await withTargets()
+      .where(inArray(schedules.displayId, displayIds))
+      .orderBy(desc(schedules.createdAt));
+    return rows.map(toRecord);
+  }
+
   async listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]> {
     const rows = await withTargets().where(
       eq(schedulePlaylistTargets.playlistId, playlistId),
@@ -127,6 +138,29 @@ export class ScheduleDbRepository implements ScheduleRepository {
     const rows = await withTargets().where(
       eq(scheduleContentTargets.contentId, contentId),
     );
+    return rows.map(toRecord);
+  }
+
+  async listWindow(input: {
+    from: string;
+    to: string;
+    displayIds?: readonly string[];
+  }): Promise<ScheduleRecord[]> {
+    const conditions = [
+      lte(schedules.startDate, input.to),
+      gte(schedules.endDate, input.from),
+      input.displayIds && input.displayIds.length > 0
+        ? inArray(schedules.displayId, [...input.displayIds])
+        : undefined,
+    ].filter((value) => value !== undefined);
+
+    const rows = await withTargets()
+      .where(and(...conditions))
+      .orderBy(
+        asc(schedules.startDate),
+        asc(schedules.startTime),
+        asc(schedules.name),
+      );
     return rows.map(toRecord);
   }
 

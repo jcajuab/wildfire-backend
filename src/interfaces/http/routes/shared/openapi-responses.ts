@@ -36,3 +36,8 @@ export const conflictResponse = {
   description: "Conflict",
   content: jsonErrorContent,
 } as const;
+
+export const tooManyRequestsResponse = {
+  description: "Too many requests",
+  content: jsonErrorContent,
+} as const;

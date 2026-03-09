@@ -9,8 +9,11 @@ import {
   GetRoleUsersUseCase,
   GetUserRolesUseCase,
   GetUserUseCase,
+  ListPermissionOptionsUseCase,
   ListPermissionsUseCase,
+  ListRoleOptionsUseCase,
   ListRolesUseCase,
+  ListUserOptionsUseCase,
   ListUsersUseCase,
   SetRolePermissionsUseCase,
   SetUserRolesUseCase,
@@ -44,6 +47,9 @@ export const createRbacHttpModule = (
         roleRepository: routerDeps.repositories.roleRepository,
         userRoleRepository: routerDeps.repositories.userRoleRepository,
       }),
+      listRoleOptions: new ListRoleOptionsUseCase({
+        roleRepository: routerDeps.repositories.roleRepository,
+      }),
       createRole: new CreateRoleUseCase({
         roleRepository: routerDeps.repositories.roleRepository,
       }),
@@ -71,7 +77,13 @@ export const createRbacHttpModule = (
       listPermissions: new ListPermissionsUseCase({
         permissionRepository: routerDeps.repositories.permissionRepository,
       }),
+      listPermissionOptions: new ListPermissionOptionsUseCase({
+        permissionRepository: routerDeps.repositories.permissionRepository,
+      }),
       listUsers: new ListUsersUseCase({
+        userRepository: routerDeps.repositories.userRepository,
+      }),
+      listUserOptions: new ListUserOptionsUseCase({
         userRepository: routerDeps.repositories.userRepository,
       }),
       createUser: new CreateUserUseCase({
