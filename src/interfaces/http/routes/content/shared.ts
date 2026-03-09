@@ -39,6 +39,7 @@ export interface ContentRouterDeps {
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
   maxUploadBytes: number;
+  videoMaxUploadBytes: number;
   downloadUrlExpiresInSeconds: number;
   thumbnailUrlExpiresInSeconds: number;
   repositories: {

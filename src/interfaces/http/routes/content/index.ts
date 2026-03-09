@@ -31,6 +31,7 @@ export const createContentRouter = ({
     useCases,
     requirePermission,
     maxUploadBytes: deps.maxUploadBytes,
+    videoMaxUploadBytes: deps.videoMaxUploadBytes,
   });
   registerContentFileRoutes({
     router,

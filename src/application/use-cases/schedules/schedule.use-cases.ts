@@ -393,6 +393,7 @@ export class CreateScheduleUseCase {
       displayRepository: DisplayRepository;
       contentRepository: ContentRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
+      timezone: string;
     },
   ) {}
 
@@ -410,6 +411,18 @@ export class CreateScheduleUseCase {
     isActive: boolean;
   }) {
     const { startDate, endDate } = getValidatedWindow(input);
+
+    if (startDate && input.startTime) {
+      const startDateTimeStr = `${startDate}T${input.startTime}`;
+      const nowInTimezone = new Date(
+        new Date().toLocaleString("en-US", { timeZone: this.deps.timezone }),
+      );
+      const startLocal = new Date(startDateTimeStr);
+      const fiveMinutesMs = 5 * 60 * 1000;
+      if (startLocal.getTime() < nowInTimezone.getTime() - fiveMinutesMs) {
+        throw new ValidationError("Schedule start time cannot be in the past.");
+      }
+    }
     const display = await this.deps.displayRepository.findById(input.displayId);
     if (!display) {
       throw new NotFoundError("Display not found");

@@ -49,11 +49,23 @@ export const registerContentWriteRoutes = (args: {
   useCases: ContentRouterUseCases;
   requirePermission: RequirePermission;
   maxUploadBytes: number;
+  videoMaxUploadBytes: number;
 }) => {
-  const { router, useCases, requirePermission, maxUploadBytes } = args;
-  const uploadSchema = createUploadContentSchema(maxUploadBytes);
-  const replaceContentFileSchema =
-    createReplaceContentFileSchema(maxUploadBytes);
+  const {
+    router,
+    useCases,
+    requirePermission,
+    maxUploadBytes,
+    videoMaxUploadBytes,
+  } = args;
+  const uploadSchema = createUploadContentSchema(
+    maxUploadBytes,
+    videoMaxUploadBytes,
+  );
+  const replaceContentFileSchema = createReplaceContentFileSchema(
+    maxUploadBytes,
+    videoMaxUploadBytes,
+  );
 
   router.post(
     "/",

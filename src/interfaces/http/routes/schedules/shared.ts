@@ -21,6 +21,7 @@ export interface SchedulesRouterDeps {
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
+  timezone: string;
   repositories: {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;

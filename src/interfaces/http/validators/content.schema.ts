@@ -86,7 +86,10 @@ export const createFlashContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   additionalProperties: false,
 };
 
-export const createUploadContentSchema = (maxBytes: number) =>
+export const createUploadContentSchema = (
+  maxBytes: number,
+  videoMaxBytes: number,
+) =>
   z.object({
     title: z.string().min(1),
     scrollPxPerSecond: z.coerce.number().int().positive().optional(),
@@ -94,21 +97,26 @@ export const createUploadContentSchema = (maxBytes: number) =>
       .instanceof(File)
       .refine((file) => file.size > 0, "File is required")
       .refine((file) => isSupportedMimeType(file.type), "Unsupported file type")
+      .refine((file) => file.size <= maxBytes, `File exceeds ${maxBytes} bytes`)
       .refine(
-        (file) => file.size <= maxBytes,
-        `File exceeds ${maxBytes} bytes`,
+        (file) => file.type !== "video/mp4" || file.size <= videoMaxBytes,
+        `Video files cannot exceed ${videoMaxBytes} bytes`,
       ),
   });
 
-export const createReplaceContentFileSchema = (maxBytes: number) =>
+export const createReplaceContentFileSchema = (
+  maxBytes: number,
+  videoMaxBytes: number,
+) =>
   z.object({
     file: z
       .instanceof(File)
       .refine((file) => file.size > 0, "File is required")
       .refine((file) => isSupportedMimeType(file.type), "Unsupported file type")
+      .refine((file) => file.size <= maxBytes, `File exceeds ${maxBytes} bytes`)
       .refine(
-        (file) => file.size <= maxBytes,
-        `File exceeds ${maxBytes} bytes`,
+        (file) => file.type !== "video/mp4" || file.size <= videoMaxBytes,
+        `Video files cannot exceed ${videoMaxBytes} bytes`,
       ),
     title: z.string().min(1).optional(),
   });

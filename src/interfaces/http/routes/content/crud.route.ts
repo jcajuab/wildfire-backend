@@ -11,6 +11,7 @@ export const registerContentCrudRoutes = (args: {
   useCases: ContentRouterUseCases;
   requirePermission: RequirePermission;
   maxUploadBytes: number;
+  videoMaxUploadBytes: number;
 }) => {
   registerContentReadRoutes(args);
   registerContentWriteRoutes(args);

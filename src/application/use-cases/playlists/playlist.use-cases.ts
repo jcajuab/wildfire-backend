@@ -15,6 +15,7 @@ import {
 import {
   isValidDuration,
   isValidSequence,
+  MAX_PLAYLIST_BASE_DURATION_SECONDS,
   type PlaylistStatus,
 } from "#/domain/playlists/playlist";
 import { NotFoundError, PlaylistInUseError } from "./errors";
@@ -664,6 +665,19 @@ export class AddPlaylistItemUseCase {
     const existingItems = await this.deps.playlistRepository.listItems(
       input.playlistId,
     );
+    const existingBaseDuration = existingItems.reduce(
+      (sum, item) => sum + item.duration,
+      0,
+    );
+    if (
+      existingBaseDuration + input.duration >
+      MAX_PLAYLIST_BASE_DURATION_SECONDS
+    ) {
+      throw new ValidationError(
+        `Playlist total duration cannot exceed ${MAX_PLAYLIST_BASE_DURATION_SECONDS} seconds.`,
+      );
+    }
+
     const existingContentIds = Array.from(
       new Set(existingItems.map((item) => item.contentId)),
     );
@@ -753,6 +767,20 @@ export class UpdatePlaylistItemUseCase {
     );
     const existingItem = existingItems.find((item) => item.id === input.id);
     if (!existingItem) throw new NotFoundError("Playlist item not found");
+
+    if (input.duration !== undefined) {
+      const otherItemsBaseDuration = existingItems
+        .filter((item) => item.id !== input.id)
+        .reduce((sum, item) => sum + item.duration, 0);
+      if (
+        otherItemsBaseDuration + input.duration >
+        MAX_PLAYLIST_BASE_DURATION_SECONDS
+      ) {
+        throw new ValidationError(
+          `Playlist total duration cannot exceed ${MAX_PLAYLIST_BASE_DURATION_SECONDS} seconds.`,
+        );
+      }
+    }
 
     const item = await this.deps.playlistRepository.updateItem(input.id, {
       sequence: input.sequence,
@@ -862,6 +890,16 @@ export class ReplacePlaylistItemsAtomicUseCase {
       if (!isValidDuration(item.duration)) {
         throw new ValidationError("Invalid duration");
       }
+    }
+
+    const proposedBaseDuration = input.items.reduce(
+      (sum, item) => sum + item.duration,
+      0,
+    );
+    if (proposedBaseDuration > MAX_PLAYLIST_BASE_DURATION_SECONDS) {
+      throw new ValidationError(
+        `Playlist total duration cannot exceed ${MAX_PLAYLIST_BASE_DURATION_SECONDS} seconds.`,
+      );
     }
 
     const existingItems = await this.deps.playlistRepository.listItems(

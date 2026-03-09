@@ -489,6 +489,7 @@ const schedulesModule = createSchedulesHttpModule({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  timezone: env.SCHEDULE_TIMEZONE,
   repositories: {
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
@@ -567,6 +568,7 @@ const contentModule = createContentHttpModule({
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
+  videoMaxUploadBytes: env.VIDEO_MAX_UPLOAD_BYTES,
   downloadUrlExpiresInSeconds: 60 * 60,
   thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
   repositories: {

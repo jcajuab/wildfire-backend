@@ -48,6 +48,7 @@ export const createSchedulesHttpModule = (
         displayRepository: routerDeps.repositories.displayRepository,
         contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
+        timezone: routerDeps.timezone,
       }),
       getSchedule: new GetScheduleUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,
