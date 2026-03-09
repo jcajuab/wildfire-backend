@@ -4,7 +4,7 @@
   "description": "A digital signage management system",
   "type": "module",
   "scripts": {
-    "build": "bun run typecheck && bun build --target bun src/index.ts --outdir build",
+    "build": "bun run typecheck && rm -rf out && bun build --target bun src/index.ts workers/audit-stream.worker.ts workers/content-ingestion.worker.ts --outdir out",
     "check": "biome check --write",
     "db:drop": "bun run scripts/db/drop-all-tables.ts -- --force",
     "db:dump": "sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
@@ -12,10 +12,13 @@
     "db:studio": "drizzle-kit studio",
     "dev": "concurrently -k -n api,audit,content \"bun run dev:api\" \"bun run dev:worker:audit\" \"bun run dev:worker:content\"",
     "dev:api": "bun run --hot src/index.ts",
-    "dev:worker": "bun run --hot workers/audit-stream.worker.ts",
     "dev:worker:audit": "bun run --hot workers/audit-stream.worker.ts",
     "dev:worker:content": "bun run --hot workers/content-ingestion.worker.ts",
     "format": "prettier --write \"**/*.{md,yaml}\"",
+    "start": "concurrently -k -n api,audit,content \"bun run start:api\" \"bun run start:worker:audit\" \"bun run start:worker:content\"",
+    "start:api": "bun out/src/index.js",
+    "start:worker:audit": "bun out/workers/audit-stream.worker.js",
+    "start:worker:content": "bun out/workers/content-ingestion.worker.js",
     "test": "bun test",
     "test:integration": "RUN_INTEGRATION=true bun test tests/infrastructure",
     "typecheck": "tsc --noEmit"
