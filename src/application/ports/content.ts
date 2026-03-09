@@ -25,7 +25,7 @@ export interface ContentRecord {
   scrollPxPerSecond?: number | null;
   flashMessage?: string | null;
   flashTone?: "INFO" | "WARNING" | "CRITICAL" | null;
-  createdById: string;
+  ownerId: string;
   createdAt: string;
 }
 
@@ -38,8 +38,21 @@ export interface ExtractedContentMetadata {
 export interface ContentRepository {
   create(input: Omit<ContentRecord, "createdAt">): Promise<ContentRecord>;
   findById(id: string): Promise<ContentRecord | null>;
+  findByIdForOwner?(id: string, ownerId: string): Promise<ContentRecord | null>;
   findByIds(ids: string[]): Promise<ContentRecord[]>;
+  findByIdsForOwner?(ids: string[], ownerId: string): Promise<ContentRecord[]>;
   list(input: {
+    offset: number;
+    limit: number;
+    parentId?: string;
+    status?: ContentStatus;
+    type?: ContentType;
+    search?: string;
+    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: ContentRecord[]; total: number }>;
+  listForOwner?(input: {
+    ownerId: string;
     offset: number;
     limit: number;
     parentId?: string;
@@ -51,6 +64,14 @@ export interface ContentRepository {
   }): Promise<{ items: ContentRecord[]; total: number }>;
   findChildrenByParentIds?(
     parentIds: string[],
+    input?: {
+      includeExcluded?: boolean;
+      onlyReady?: boolean;
+    },
+  ): Promise<ContentRecord[]>;
+  findChildrenByParentIdsForOwner?(
+    parentIds: string[],
+    ownerId: string,
     input?: {
       includeExcluded?: boolean;
       onlyReady?: boolean;
@@ -83,12 +104,41 @@ export interface ContentRepository {
       >
     >,
   ): Promise<ContentRecord | null>;
+  updateForOwner?(
+    id: string,
+    ownerId: string,
+    input: Partial<
+      Pick<
+        ContentRecord,
+        | "title"
+        | "kind"
+        | "status"
+        | "fileKey"
+        | "thumbnailKey"
+        | "parentContentId"
+        | "pageNumber"
+        | "pageCount"
+        | "isExcluded"
+        | "type"
+        | "mimeType"
+        | "fileSize"
+        | "width"
+        | "height"
+        | "duration"
+        | "scrollPxPerSecond"
+        | "flashMessage"
+        | "flashTone"
+        | "checksum"
+      >
+    >,
+  ): Promise<ContentRecord | null>;
   countPlaylistReferences(contentId: string): Promise<number>;
   listPlaylistsReferencingContent(
     contentId: string,
   ): Promise<{ id: string; name: string }[]>;
   deleteByParentId?(parentId: string): Promise<ContentRecord[]>;
   delete(id: string): Promise<boolean>;
+  deleteForOwner?(id: string, ownerId: string): Promise<boolean>;
 }
 
 export interface ContentStorage {

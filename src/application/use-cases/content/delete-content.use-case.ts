@@ -20,23 +20,25 @@ export class DeleteContentUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
-    const record = await this.deps.contentRepository.findById(input.id);
+  async execute(input: { id: string; ownerId?: string }) {
+    const record =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.id);
     if (!record) {
       throw new NotFoundError("Content not found");
     }
 
-    const referencingPlaylists =
-      await this.deps.contentRepository.listPlaylistsReferencingContent(
-        input.id,
-      );
-    if (referencingPlaylists.length > 0) {
-      const firstPlaylist = referencingPlaylists[0];
-      const playlistName = firstPlaylist?.name?.trim() || "a playlist";
+    const playlistReferenceCount =
+      await this.deps.contentRepository.countPlaylistReferences(input.id);
+    if (playlistReferenceCount > 0) {
       const message =
-        referencingPlaylists.length > 1
+        playlistReferenceCount > 1
           ? "Failed to delete content. This content is in use by multiple playlists."
-          : `Failed to delete content. This content is in use by ${playlistName}.`;
+          : "Failed to delete content. This content is in use by a playlist.";
       throw new ContentInUseError(message);
     }
     if (record.type === "FLASH" && this.deps.scheduleRepository) {
@@ -52,15 +54,30 @@ export class DeleteContentUseCase {
     const children =
       record.kind === "ROOT" &&
       this.deps.contentRepository.findChildrenByParentIds
-        ? await this.deps.contentRepository.findChildrenByParentIds(
-            [record.id],
-            {
-              includeExcluded: true,
-            },
-          )
+        ? input.ownerId &&
+          this.deps.contentRepository.findChildrenByParentIdsForOwner
+          ? await this.deps.contentRepository.findChildrenByParentIdsForOwner(
+              [record.id],
+              input.ownerId,
+              {
+                includeExcluded: true,
+              },
+            )
+          : await this.deps.contentRepository.findChildrenByParentIds(
+              [record.id],
+              {
+                includeExcluded: true,
+              },
+            )
         : [];
 
-    const deleted = await this.deps.contentRepository.delete(input.id);
+    const deleted =
+      input.ownerId && this.deps.contentRepository.deleteForOwner
+        ? await this.deps.contentRepository.deleteForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.delete(input.id);
     if (!deleted) {
       throw new NotFoundError("Content not found");
     }

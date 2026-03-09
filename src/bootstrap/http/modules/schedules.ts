@@ -65,6 +65,7 @@ export const createSchedulesHttpModule = (
       deleteSchedule: new DeleteScheduleUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         playlistRepository: routerDeps.repositories.playlistRepository,
+        contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
       }),
     },

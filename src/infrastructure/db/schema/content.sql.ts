@@ -28,7 +28,7 @@ export const content = mysqlTable(
     pageNumber: int("page_number"),
     pageCount: int("page_count"),
     isExcluded: boolean("is_excluded").notNull().default(false),
-    createdById: varchar("created_by_id", { length: 36 })
+    ownerId: varchar("owner_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),

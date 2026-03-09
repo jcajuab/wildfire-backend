@@ -410,7 +410,7 @@ const processPdfChildren = async (input: {
       height: toPositiveInt(pageSize.height),
       duration: null,
       scrollPxPerSecond: null,
-      createdById: parent.createdById,
+      ownerId: parent.ownerId,
     });
   }
 

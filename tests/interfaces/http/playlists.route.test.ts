@@ -33,7 +33,7 @@ const makeApp = async (
     id: string;
     name: string;
     description: string | null;
-    createdById: string;
+    ownerId: string;
     createdAt: string;
     updatedAt: string;
   }> = [];
@@ -57,7 +57,7 @@ const makeApp = async (
       width: 10,
       height: 10,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     },
   ];
@@ -84,7 +84,7 @@ const makeApp = async (
               name: input.name,
               description: input.description,
               status: "DRAFT" as const,
-              createdById: input.createdById,
+              ownerId: input.ownerId,
               createdAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
             };
@@ -328,7 +328,7 @@ describe("Playlists routes", () => {
     expect(response.headers.get("Location")).toBe(`/playlists/${json.data.id}`);
   });
 
-  test("POST /playlists returns 404 when creator is missing", async () => {
+  test("POST /playlists returns 404 when owner is missing", async () => {
     const { app, issueToken } = await makeApp(["playlists:create"], {
       missingUser: true,
     });
@@ -352,7 +352,7 @@ describe("Playlists routes", () => {
       id: playlistId,
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -392,8 +392,16 @@ describe("Playlists routes", () => {
   });
 
   test("DELETE /playlists/:id returns 409 when playlist is in use", async () => {
-    const { app, issueToken } = await makeApp(["playlists:delete"], {
+    const { app, issueToken, playlists } = await makeApp(["playlists:delete"], {
       inUsePlaylistId: playlistId,
+    });
+    playlists.push({
+      id: playlistId,
+      name: "Morning",
+      description: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
     });
     const token = await issueToken();
 
@@ -416,7 +424,7 @@ describe("Playlists routes", () => {
       id: playlistId,
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -445,7 +453,7 @@ describe("Playlists routes", () => {
       id: playlistId,
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });

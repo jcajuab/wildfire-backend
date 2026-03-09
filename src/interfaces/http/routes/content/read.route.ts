@@ -68,6 +68,7 @@ export const registerContentReadRoutes = (args: {
       async (c) => {
         const query = c.req.valid("query");
         const result = await useCases.listContentOptions.execute({
+          ownerId: c.get("userId"),
           status: query.status,
           type: query.type,
           search: query.q,
@@ -112,7 +113,10 @@ export const registerContentReadRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const query = c.req.valid("query");
-        const result = await useCases.listContent.execute(query);
+        const result = await useCases.listContent.execute({
+          ownerId: c.get("userId"),
+          ...query,
+        });
         return c.json(
           toApiListResponse({
             items: result.items,
@@ -160,7 +164,10 @@ export const registerContentReadRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
-        const result = await useCases.getContent.execute({ id: params.id });
+        const result = await useCases.getContent.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

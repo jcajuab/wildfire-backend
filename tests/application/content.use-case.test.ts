@@ -217,7 +217,7 @@ const makeIngestionDeps = (options?: {
         operation: input.operation,
         status: input.status,
         errorMessage: input.errorMessage ?? null,
-        createdById: input.createdById,
+        ownerId: input.ownerId,
         createdAt: now,
         updatedAt: now,
         startedAt: null,
@@ -314,14 +314,14 @@ describe("Content use cases", () => {
     const result = await useCase.execute({
       title: "Welcome",
       file,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     expect(result.content.title).toBe("Welcome");
     expect(result.content.type).toBe("IMAGE");
     expect(result.content.status).toBe("PROCESSING");
     expect(result.content.checksum).toBe(checksum);
-    expect(result.content.createdBy).toEqual({ id: "user-1", name: "Ada" });
+    expect(result.content.owner).toEqual({ id: "user-1", name: "Ada" });
     expect(storage.lastUpload?.contentType).toBe("image/png");
     expect(storage.lastUpload?.key).toBe(
       `content/images/${result.content.id}.png`,
@@ -355,7 +355,7 @@ describe("Content use cases", () => {
     const result = await useCase.execute({
       title: "Welcome",
       file,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     expect(thumbnailCalls).toBe(0);
@@ -388,11 +388,11 @@ describe("Content use cases", () => {
     });
 
     await expect(
-      useCase.execute({ title: "Invalid", file, createdById: "user-1" }),
+      useCase.execute({ title: "Invalid", file, ownerId: "user-1" }),
     ).rejects.toBeInstanceOf(InvalidContentTypeError);
   });
 
-  test("throws when creator does not exist", async () => {
+  test("throws when owner does not exist", async () => {
     const { repository } = makeContentRepository();
     const storage = makeStorage();
     const userRepository = makeUserRepository([]);
@@ -409,11 +409,11 @@ describe("Content use cases", () => {
     });
 
     await expect(
-      useCase.execute({ title: "Missing user", file, createdById: "user-1" }),
+      useCase.execute({ title: "Missing user", file, ownerId: "user-1" }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  test("lists content with pagination and creator names", async () => {
+  test("lists content with pagination and owner names", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
     const userRepository = makeUserRepository([
@@ -435,7 +435,7 @@ describe("Content use cases", () => {
         width: null,
         height: null,
         duration: null,
-        createdById: "user-1",
+        ownerId: "user-1",
         createdAt: "2025-01-01T00:00:00.000Z",
       },
       {
@@ -450,7 +450,7 @@ describe("Content use cases", () => {
         width: null,
         height: null,
         duration: null,
-        createdById: "user-2",
+        ownerId: "user-2",
         createdAt: "2025-01-02T00:00:00.000Z",
       },
     );
@@ -466,7 +466,7 @@ describe("Content use cases", () => {
 
     expect(result.total).toBe(2);
     expect(result.items).toHaveLength(1);
-    expect(result.items[0]?.createdBy).toEqual({
+    expect(result.items[0]?.owner).toEqual({
       id: "user-1",
       name: "Ada",
     });
@@ -514,7 +514,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -560,7 +560,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -568,7 +568,7 @@ describe("Content use cases", () => {
       id: "11111111-1111-4111-8111-111111111111",
     });
     expect(result.id).toBe("11111111-1111-4111-8111-111111111111");
-    expect(result.createdBy.name).toBe("Ada");
+    expect(result.owner.name).toBe("Ada");
     expect(result.thumbnailUrl).toBe(
       "https://example.com/content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
     );
@@ -613,7 +613,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -648,7 +648,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -677,7 +677,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -728,7 +728,7 @@ describe("Content use cases", () => {
       useCase.execute({
         title: "Rollback failure",
         file,
-        createdById: "user-1",
+        ownerId: "user-1",
       }),
     ).rejects.toThrow("enqueue failed");
     expect(records[0]?.status).toBe("FAILED");
@@ -761,7 +761,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -793,7 +793,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -803,7 +803,7 @@ describe("Content use cases", () => {
     });
 
     expect(result.title).toBe("New Title");
-    expect(result.createdBy).toEqual({ id: "user-1", name: "Ada" });
+    expect(result.owner).toEqual({ id: "user-1", name: "Ada" });
   });
 
   test("throws when updating non-existent content", async () => {
@@ -862,7 +862,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -920,7 +920,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -969,7 +969,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -1011,7 +1011,7 @@ describe("Content use cases", () => {
       useCase.execute({
         title: "Queue failure",
         file,
-        createdById: "user-1",
+        ownerId: "user-1",
       }),
     ).rejects.toThrow("queue unavailable");
 
@@ -1049,7 +1049,7 @@ describe("Content use cases", () => {
       useCase.execute({
         title: "Create job failure",
         file,
-        createdById: "user-1",
+        ownerId: "user-1",
       }),
     ).rejects.toThrow("job create failed");
 
@@ -1090,7 +1090,7 @@ describe("Content use cases", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 

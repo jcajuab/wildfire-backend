@@ -12,8 +12,14 @@ export class SetContentExclusionUseCase {
     },
   ) {}
 
-  async execute(input: { id: string; isExcluded: boolean }) {
-    const existing = await this.deps.contentRepository.findById(input.id);
+  async execute(input: { id: string; ownerId?: string; isExcluded: boolean }) {
+    const existing =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.id);
     if (!existing) {
       throw new NotFoundError("Content not found");
     }
@@ -21,13 +27,22 @@ export class SetContentExclusionUseCase {
       throw new ValidationError("Only PDF page content can be excluded");
     }
 
-    const updated = await this.deps.contentRepository.update(input.id, {
-      isExcluded: input.isExcluded,
-    });
+    const updated =
+      input.ownerId && this.deps.contentRepository.updateForOwner
+        ? await this.deps.contentRepository.updateForOwner(
+            input.id,
+            input.ownerId,
+            {
+              isExcluded: input.isExcluded,
+            },
+          )
+        : await this.deps.contentRepository.update(input.id, {
+            isExcluded: input.isExcluded,
+          });
     if (!updated) {
       throw new NotFoundError("Content not found");
     }
-    const user = await this.deps.userRepository.findById(updated.createdById);
+    const user = await this.deps.userRepository.findById(updated.ownerId);
     return toContentView(updated, user?.name ?? null);
   }
 }

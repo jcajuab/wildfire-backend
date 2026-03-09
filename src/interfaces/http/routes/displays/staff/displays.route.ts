@@ -278,6 +278,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
         c.set("resourceId", params.id);
         const result = await useCases.updateDisplay.execute({
           id: params.id,
+          ownerId: c.get("userId"),
           name: payload.name,
           location: payload.location,
           ipAddress: payload.ipAddress,

@@ -26,21 +26,21 @@ export interface DisplayRegistrationAttemptEventSubscription {
 
 export interface DisplayRegistrationAttemptStore {
   createOrReplaceOpenAttempt(input: {
-    createdById: string;
+    ownerId: string;
     activeCode: RegistrationAttemptCode;
   }): Promise<{ attemptId: string; invalidatedPairingCodeId: string | null }>;
   rotateCode(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
     nextCode: RegistrationAttemptCode;
   }): Promise<{ invalidatedPairingCodeId: string | null } | null>;
   closeAttempt(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
   }): Promise<{ invalidatedPairingCodeId: string | null } | null>;
   isAttemptOwnedBy(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
   }): Promise<boolean>;
   consumeCodeHash(input: {
     codeHash: string;

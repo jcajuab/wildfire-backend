@@ -70,7 +70,7 @@ const makeApp = async (
     codeHash: string;
     expiresAt: Date;
     usedAt: Date | null;
-    createdById: string;
+    ownerId: string;
     createdAt: Date;
     updatedAt: Date;
   }>;
@@ -113,7 +113,7 @@ const makeApp = async (
     string,
     {
       attemptId: string;
-      createdById: string;
+      ownerId: string;
       codeHash: string | null;
       pairingCodeId: string | null;
     }
@@ -127,7 +127,7 @@ const makeApp = async (
       id: playlistId,
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     },
@@ -146,7 +146,7 @@ const makeApp = async (
       width: 10,
       height: 10,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     },
   ];
@@ -440,7 +440,7 @@ const makeApp = async (
     create: async (input: {
       codeHash: string;
       expiresAt: Date;
-      createdById: string;
+      ownerId: string;
     }) => {
       const now = new Date();
       const record = {
@@ -448,7 +448,7 @@ const makeApp = async (
         codeHash: input.codeHash,
         expiresAt: input.expiresAt,
         usedAt: null as Date | null,
-        createdById: input.createdById,
+        ownerId: input.ownerId,
         createdAt: now,
         updatedAt: now,
       };
@@ -458,7 +458,7 @@ const makeApp = async (
         codeHash: record.codeHash,
         expiresAt: record.expiresAt.toISOString(),
         usedAt: null,
-        createdById: record.createdById,
+        ownerId: record.ownerId,
         createdAt: record.createdAt.toISOString(),
         updatedAt: record.updatedAt.toISOString(),
       };
@@ -559,7 +559,7 @@ const makeApp = async (
 
   const registrationAttemptStore: DisplayRegistrationAttemptStore = {
     createOrReplaceOpenAttempt: async (input) => {
-      const existingAttemptId = openAttemptByUserId.get(input.createdById);
+      const existingAttemptId = openAttemptByUserId.get(input.ownerId);
       let invalidatedPairingCodeId: string | null = null;
 
       if (existingAttemptId) {
@@ -577,18 +577,18 @@ const makeApp = async (
       const attemptId = crypto.randomUUID();
       registrationAttempts.set(attemptId, {
         attemptId,
-        createdById: input.createdById,
+        ownerId: input.ownerId,
         codeHash: input.activeCode.codeHash,
         pairingCodeId: input.activeCode.pairingCodeId,
       });
-      openAttemptByUserId.set(input.createdById, attemptId);
+      openAttemptByUserId.set(input.ownerId, attemptId);
       attemptIdByCodeHash.set(input.activeCode.codeHash, attemptId);
 
       return { attemptId, invalidatedPairingCodeId };
     },
     rotateCode: async (input) => {
       const attempt = registrationAttempts.get(input.attemptId);
-      if (!attempt || attempt.createdById !== input.createdById) {
+      if (!attempt || attempt.ownerId !== input.ownerId) {
         return null;
       }
 
@@ -603,7 +603,7 @@ const makeApp = async (
     },
     closeAttempt: async (input) => {
       const attempt = registrationAttempts.get(input.attemptId);
-      if (!attempt || attempt.createdById !== input.createdById) {
+      if (!attempt || attempt.ownerId !== input.ownerId) {
         return null;
       }
 
@@ -611,16 +611,15 @@ const makeApp = async (
       if (attempt.codeHash) {
         attemptIdByCodeHash.delete(attempt.codeHash);
       }
-      if (openAttemptByUserId.get(input.createdById) === input.attemptId) {
-        openAttemptByUserId.delete(input.createdById);
+      if (openAttemptByUserId.get(input.ownerId) === input.attemptId) {
+        openAttemptByUserId.delete(input.ownerId);
       }
       attempt.codeHash = null;
       attempt.pairingCodeId = null;
       return { invalidatedPairingCodeId };
     },
     isAttemptOwnedBy: async (input) =>
-      registrationAttempts.get(input.attemptId)?.createdById ===
-      input.createdById,
+      registrationAttempts.get(input.attemptId)?.ownerId === input.ownerId,
     consumeCodeHash: async (input) => {
       const attemptId = attemptIdByCodeHash.get(input.codeHash);
       if (!attemptId) {

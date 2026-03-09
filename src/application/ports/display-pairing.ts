@@ -3,7 +3,7 @@ export interface DisplayPairingCodeRecord {
   codeHash: string;
   expiresAt: string;
   usedAt: string | null;
-  createdById: string;
+  ownerId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,7 +19,7 @@ export interface DisplayPairingCodeRepository {
   create(input: {
     codeHash: string;
     expiresAt: Date;
-    createdById: string;
+    ownerId: string;
   }): Promise<DisplayPairingCodeRecord>;
   consumeValidCode(input: {
     codeHash: string;

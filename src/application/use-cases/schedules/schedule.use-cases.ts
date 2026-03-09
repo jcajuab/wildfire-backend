@@ -210,6 +210,7 @@ const buildScheduleViewMaps = async (input: {
   playlistRepository: PlaylistRepository;
   contentRepository: ContentRepository;
   displayRepository: DisplayRepository;
+  ownerId?: string;
 }) => {
   const playlistIds = Array.from(
     new Set(
@@ -230,8 +231,12 @@ const buildScheduleViewMaps = async (input: {
   );
 
   const [playlists, contents, displays] = await Promise.all([
-    input.playlistRepository.findByIds(playlistIds),
-    input.contentRepository.findByIds(contentIds),
+    input.ownerId && input.playlistRepository.findByIdsForOwner
+      ? input.playlistRepository.findByIdsForOwner(playlistIds, input.ownerId)
+      : input.playlistRepository.findByIds(playlistIds),
+    input.ownerId && input.contentRepository.findByIdsForOwner
+      ? input.contentRepository.findByIdsForOwner(contentIds, input.ownerId)
+      : input.contentRepository.findByIds(contentIds),
     input.displayRepository.findByIds(displayIds),
   ]);
 
@@ -240,6 +245,22 @@ const buildScheduleViewMaps = async (input: {
     contentMap: new Map(contents.map((item) => [item.id, item])),
     displayMap: new Map(displays.map((item) => [item.id, item])),
   };
+};
+
+const scheduleTargetVisibleToOwner = (
+  schedule: ScheduleRecord,
+  maps: {
+    playlistMap: Map<string, unknown>;
+    contentMap: Map<string, unknown>;
+  },
+) => {
+  if (schedule.playlistId) {
+    return maps.playlistMap.has(schedule.playlistId);
+  }
+  if (schedule.contentId) {
+    return maps.contentMap.has(schedule.contentId);
+  }
+  return false;
 };
 
 export class ListSchedulesUseCase {
@@ -252,15 +273,23 @@ export class ListSchedulesUseCase {
     },
   ) {}
 
-  async execute(input?: { page?: number; pageSize?: number }) {
+  async execute(input?: {
+    ownerId?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
     const schedules = await this.deps.scheduleRepository.list();
     const maps = await buildScheduleViewMaps({
       schedules,
       playlistRepository: this.deps.playlistRepository,
       contentRepository: this.deps.contentRepository,
       displayRepository: this.deps.displayRepository,
+      ownerId: input?.ownerId,
     });
-    const views = schedules.map((schedule) =>
+    const visibleSchedules = schedules.filter((schedule) =>
+      scheduleTargetVisibleToOwner(schedule, maps),
+    );
+    const views = visibleSchedules.map((schedule) =>
       toScheduleView(
         schedule,
         schedule.playlistId
@@ -272,7 +301,7 @@ export class ListSchedulesUseCase {
         maps.displayMap.get(schedule.displayId) ?? null,
       ),
     );
-    return paginate(views, input);
+    return paginate(views, { page: input?.page, pageSize: input?.pageSize });
   }
 }
 
@@ -286,7 +315,12 @@ export class ListScheduleWindowUseCase {
     },
   ) {}
 
-  async execute(input: { from: string; to: string; displayIds?: string[] }) {
+  async execute(input: {
+    ownerId?: string;
+    from: string;
+    to: string;
+    displayIds?: string[];
+  }) {
     const filtered =
       this.deps.scheduleRepository.listWindow != null
         ? await this.deps.scheduleRepository.listWindow(input)
@@ -331,20 +365,23 @@ export class ListScheduleWindowUseCase {
       playlistRepository: this.deps.playlistRepository,
       contentRepository: this.deps.contentRepository,
       displayRepository: this.deps.displayRepository,
+      ownerId: input.ownerId,
     });
 
-    return filtered.map((schedule) =>
-      toScheduleView(
-        schedule,
-        schedule.playlistId
-          ? (maps.playlistMap.get(schedule.playlistId) ?? null)
-          : null,
-        schedule.contentId
-          ? (maps.contentMap.get(schedule.contentId) ?? null)
-          : null,
-        maps.displayMap.get(schedule.displayId) ?? null,
-      ),
-    );
+    return filtered
+      .filter((schedule) => scheduleTargetVisibleToOwner(schedule, maps))
+      .map((schedule) =>
+        toScheduleView(
+          schedule,
+          schedule.playlistId
+            ? (maps.playlistMap.get(schedule.playlistId) ?? null)
+            : null,
+          schedule.contentId
+            ? (maps.contentMap.get(schedule.contentId) ?? null)
+            : null,
+          maps.displayMap.get(schedule.displayId) ?? null,
+        ),
+      );
   }
 }
 
@@ -360,6 +397,7 @@ export class CreateScheduleUseCase {
   ) {}
 
   async execute(input: {
+    ownerId?: string;
     name: string;
     kind: ScheduleKind;
     playlistId: string | null;
@@ -383,7 +421,13 @@ export class CreateScheduleUseCase {
       if (!input.playlistId || input.contentId) {
         throw new ValidationError("Playlist schedules require playlistId only");
       }
-      playlist = await this.deps.playlistRepository.findById(input.playlistId);
+      playlist =
+        input.ownerId && this.deps.playlistRepository.findByIdForOwner
+          ? await this.deps.playlistRepository.findByIdForOwner(
+              input.playlistId,
+              input.ownerId,
+            )
+          : await this.deps.playlistRepository.findById(input.playlistId);
       if (!playlist) {
         throw new NotFoundError("Playlist not found");
       }
@@ -417,7 +461,13 @@ export class CreateScheduleUseCase {
       if (!input.contentId || input.playlistId) {
         throw new ValidationError("Flash schedules require contentId only");
       }
-      content = await this.deps.contentRepository.findById(input.contentId);
+      content =
+        input.ownerId && this.deps.contentRepository.findByIdForOwner
+          ? await this.deps.contentRepository.findByIdForOwner(
+              input.contentId,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findById(input.contentId);
       if (!content) {
         throw new NotFoundError("Content not found");
       }
@@ -479,19 +529,36 @@ export class GetScheduleUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
+  async execute(input: { id: string; ownerId?: string }) {
     const schedule = await this.deps.scheduleRepository.findById(input.id);
     if (!schedule) throw new NotFoundError("Schedule not found");
 
     const [playlist, content, display] = await Promise.all([
       schedule.playlistId
-        ? this.deps.playlistRepository.findById(schedule.playlistId)
+        ? input.ownerId && this.deps.playlistRepository.findByIdForOwner
+          ? this.deps.playlistRepository.findByIdForOwner(
+              schedule.playlistId,
+              input.ownerId,
+            )
+          : this.deps.playlistRepository.findById(schedule.playlistId)
         : Promise.resolve(null),
       schedule.contentId
-        ? this.deps.contentRepository.findById(schedule.contentId)
+        ? input.ownerId && this.deps.contentRepository.findByIdForOwner
+          ? this.deps.contentRepository.findByIdForOwner(
+              schedule.contentId,
+              input.ownerId,
+            )
+          : this.deps.contentRepository.findById(schedule.contentId)
         : Promise.resolve(null),
       this.deps.displayRepository.findById(schedule.displayId),
     ]);
+
+    if (
+      (schedule.playlistId && !playlist) ||
+      (schedule.contentId && !content)
+    ) {
+      throw new NotFoundError("Schedule not found");
+    }
 
     return toScheduleView(schedule, playlist, content, display);
   }
@@ -510,6 +577,7 @@ export class UpdateScheduleUseCase {
 
   async execute(input: {
     id: string;
+    ownerId?: string;
     name?: string;
     kind?: ScheduleKind;
     playlistId?: string | null;
@@ -523,6 +591,28 @@ export class UpdateScheduleUseCase {
   }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
+    if (input.ownerId && existing.playlistId) {
+      const ownedPlaylist = this.deps.playlistRepository.findByIdForOwner
+        ? await this.deps.playlistRepository.findByIdForOwner(
+            existing.playlistId,
+            input.ownerId,
+          )
+        : await this.deps.playlistRepository.findById(existing.playlistId);
+      if (!ownedPlaylist) {
+        throw new NotFoundError("Schedule not found");
+      }
+    }
+    if (input.ownerId && existing.contentId) {
+      const ownedContent = this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            existing.contentId,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(existing.contentId);
+      if (!ownedContent) {
+        throw new NotFoundError("Schedule not found");
+      }
+    }
 
     const nextKind = input.kind ?? existing.kind;
     const nextWindow = getValidatedWindow({
@@ -549,7 +639,13 @@ export class UpdateScheduleUseCase {
       if (!nextPlaylistId || nextContentId) {
         throw new ValidationError("Playlist schedules require playlistId only");
       }
-      playlist = await this.deps.playlistRepository.findById(nextPlaylistId);
+      playlist =
+        input.ownerId && this.deps.playlistRepository.findByIdForOwner
+          ? await this.deps.playlistRepository.findByIdForOwner(
+              nextPlaylistId,
+              input.ownerId,
+            )
+          : await this.deps.playlistRepository.findById(nextPlaylistId);
       if (!playlist) {
         throw new NotFoundError("Playlist not found");
       }
@@ -583,7 +679,13 @@ export class UpdateScheduleUseCase {
       if (!nextContentId || nextPlaylistId) {
         throw new ValidationError("Flash schedules require contentId only");
       }
-      content = await this.deps.contentRepository.findById(nextContentId);
+      content =
+        input.ownerId && this.deps.contentRepository.findByIdForOwner
+          ? await this.deps.contentRepository.findByIdForOwner(
+              nextContentId,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findById(nextContentId);
       if (!content) {
         throw new NotFoundError("Content not found");
       }
@@ -658,13 +760,36 @@ export class DeleteScheduleUseCase {
     private readonly deps: {
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
+      contentRepository: ContentRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
 
-  async execute(input: { id: string }) {
+  async execute(input: { id: string; ownerId?: string }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
+    if (input.ownerId && existing.playlistId) {
+      const ownedPlaylist = this.deps.playlistRepository.findByIdForOwner
+        ? await this.deps.playlistRepository.findByIdForOwner(
+            existing.playlistId,
+            input.ownerId,
+          )
+        : await this.deps.playlistRepository.findById(existing.playlistId);
+      if (!ownedPlaylist) {
+        throw new NotFoundError("Schedule not found");
+      }
+    }
+    if (input.ownerId && existing.contentId) {
+      const ownedContent = this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            existing.contentId,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(existing.contentId);
+      if (!ownedContent) {
+        throw new NotFoundError("Schedule not found");
+      }
+    }
 
     const deleted = await this.deps.scheduleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Schedule not found");

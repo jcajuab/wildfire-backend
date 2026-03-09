@@ -172,7 +172,7 @@ const makeApp = async (permissions: string[]) => {
             contentId: string;
             operation: "UPLOAD" | "REPLACE";
             status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
-            createdById: string;
+            ownerId: string;
             errorMessage?: string | null;
           }) => ({
             id: input.id,
@@ -180,7 +180,7 @@ const makeApp = async (permissions: string[]) => {
             operation: input.operation,
             status: input.status,
             errorMessage: input.errorMessage ?? null,
-            createdById: input.createdById,
+            ownerId: input.ownerId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             startedAt: null,
@@ -293,7 +293,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -336,7 +336,7 @@ describe("Content routes", () => {
       duration: null,
       flashMessage: "Alert",
       flashTone: "CRITICAL",
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -380,7 +380,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -419,7 +419,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -481,7 +481,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -524,7 +524,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -602,7 +602,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 
@@ -663,7 +663,7 @@ describe("Content routes", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
 

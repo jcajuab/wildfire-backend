@@ -159,6 +159,113 @@ const runPlaylistPostMutationEffects = async (
   ]);
 };
 
+const listPlaylistsForOwner = async (
+  playlistRepository: PlaylistRepository,
+  ownerId: string,
+) => {
+  if (playlistRepository.listForOwner) {
+    return playlistRepository.listForOwner(ownerId);
+  }
+  return (await playlistRepository.list()).filter(
+    (playlist) => playlist.ownerId === ownerId,
+  );
+};
+
+const listPlaylistPageForOwner = async (
+  playlistRepository: PlaylistRepository,
+  input: {
+    ownerId?: string;
+    offset: number;
+    limit: number;
+    status?: PlaylistStatus;
+    search?: string;
+    sortBy?: "updatedAt" | "name";
+    sortDirection?: "asc" | "desc";
+  },
+) => {
+  if (input.ownerId && playlistRepository.listPageForOwner) {
+    return playlistRepository.listPageForOwner({
+      ownerId: input.ownerId,
+      offset: input.offset,
+      limit: input.limit,
+      status: input.status,
+      search: input.search,
+      sortBy: input.sortBy,
+      sortDirection: input.sortDirection,
+    });
+  }
+
+  const { items, total } = await playlistRepository.listPage({
+    offset: input.offset,
+    limit: input.limit,
+    status: input.status,
+    search: input.search,
+    sortBy: input.sortBy,
+    sortDirection: input.sortDirection,
+  });
+
+  return {
+    items:
+      input.ownerId !== undefined
+        ? items.filter((playlist) => playlist.ownerId === input.ownerId)
+        : items,
+    total,
+  };
+};
+
+const findPlaylistByIdForOwner = async (
+  playlistRepository: PlaylistRepository,
+  id: string,
+  ownerId?: string,
+) => {
+  if (ownerId && playlistRepository.findByIdForOwner) {
+    return playlistRepository.findByIdForOwner(id, ownerId);
+  }
+
+  const playlist = await playlistRepository.findById(id);
+  if (ownerId && playlist?.ownerId !== ownerId) {
+    return null;
+  }
+  return playlist;
+};
+
+const updatePlaylistForOwner = async (
+  playlistRepository: PlaylistRepository,
+  id: string,
+  ownerId: string | undefined,
+  input: { name?: string; description?: string | null },
+) => {
+  if (ownerId && playlistRepository.updateForOwner) {
+    return playlistRepository.updateForOwner(id, ownerId, input);
+  }
+
+  const playlist = await playlistRepository.update(id, input);
+  if (ownerId && playlist?.ownerId !== ownerId) {
+    return null;
+  }
+  return playlist;
+};
+
+const deletePlaylistForOwner = async (
+  playlistRepository: PlaylistRepository,
+  id: string,
+  ownerId?: string,
+) => {
+  if (ownerId && playlistRepository.deleteForOwner) {
+    return playlistRepository.deleteForOwner(id, ownerId);
+  }
+
+  const playlist = await findPlaylistByIdForOwner(
+    playlistRepository,
+    id,
+    ownerId,
+  );
+  if (!playlist) {
+    return false;
+  }
+  return playlistRepository.delete(id);
+};
+
 export class EstimatePlaylistDurationUseCase {
   constructor(
     private readonly deps: {
@@ -168,6 +275,7 @@ export class EstimatePlaylistDurationUseCase {
   ) {}
 
   async execute(input: {
+    ownerId?: string;
     displayId: string;
     items: readonly {
       contentId: string;
@@ -206,6 +314,7 @@ export class EstimatePlaylistDurationUseCase {
       displayWidth: display.screenWidth,
       displayHeight: display.screenHeight,
       defaultScrollPxPerSecond: DEFAULT_SCROLL_PX_PER_SECOND,
+      ownerId: input.ownerId,
     });
 
     return result;
@@ -219,10 +328,17 @@ export class ListPlaylistOptionsUseCase {
     },
   ) {}
 
-  async execute(input?: { q?: string; status?: PlaylistStatus }) {
+  async execute(input?: {
+    ownerId?: string;
+    q?: string;
+    status?: PlaylistStatus;
+  }) {
     const normalizedQuery = input?.q?.trim().toLowerCase();
+    const playlists = input?.ownerId
+      ? await listPlaylistsForOwner(this.deps.playlistRepository, input.ownerId)
+      : await this.deps.playlistRepository.list();
 
-    return (await this.deps.playlistRepository.list())
+    return playlists
       .filter((playlist) => {
         if (input?.status && playlist.status !== input.status) {
           return false;
@@ -255,6 +371,7 @@ export class ListPlaylistsUseCase {
   ) {}
 
   async execute(input?: {
+    ownerId?: string;
     page?: number;
     pageSize?: number;
     status?: PlaylistStatus;
@@ -269,17 +386,20 @@ export class ListPlaylistsUseCase {
     );
     const offset = (page - 1) * pageSize;
 
-    const { items: playlists, total } =
-      await this.deps.playlistRepository.listPage({
+    const { items: playlists, total } = await listPlaylistPageForOwner(
+      this.deps.playlistRepository,
+      {
+        ownerId: input?.ownerId,
         offset,
         limit: pageSize,
         status: input?.status,
         search: input?.search,
         sortBy: input?.sortBy,
         sortDirection: input?.sortDirection,
-      });
+      },
+    );
     const creatorIds = Array.from(
-      new Set(playlists.map((item) => item.createdById)),
+      new Set(playlists.map((item) => item.ownerId)),
     );
     const creators = await this.deps.userRepository.findByIds(creatorIds);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
@@ -295,7 +415,7 @@ export class ListPlaylistsUseCase {
     const items = playlists.map((playlist) =>
       toPlaylistView(
         playlist,
-        creatorsById.get(playlist.createdById)?.name ?? null,
+        creatorsById.get(playlist.ownerId)?.name ?? null,
         statsByPlaylistId.get(playlist.id),
       ),
     );
@@ -337,19 +457,19 @@ export class CreatePlaylistUseCase {
   async execute(input: {
     name: string;
     description?: string | null;
-    createdById: string;
+    ownerId: string;
   }) {
-    const creator = await this.deps.userRepository.findById(input.createdById);
-    if (!creator) {
+    const owner = await this.deps.userRepository.findById(input.ownerId);
+    if (!owner) {
       throw new NotFoundError("User not found");
     }
 
     const playlist = await this.deps.playlistRepository.create({
       name: input.name,
       description: input.description ?? null,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
     });
-    return toPlaylistView(playlist, creator.name, {
+    return toPlaylistView(playlist, owner.name, {
       itemsCount: 0,
       totalDuration: 0,
     });
@@ -365,18 +485,20 @@ export class GetPlaylistUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
-    const playlist = await this.deps.playlistRepository.findById(input.id);
+  async execute(input: { id: string; ownerId?: string }) {
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
+      input.id,
+      input.ownerId,
+    );
     if (!playlist) throw new NotFoundError("Playlist not found");
 
     const items = await this.deps.playlistRepository.listItems(input.id);
-    const itemViews = await this.buildItems(items);
+    const itemViews = await this.buildItems(items, input.ownerId);
 
-    const creator = await this.deps.userRepository.findById(
-      playlist.createdById,
-    );
+    const owner = await this.deps.userRepository.findById(playlist.ownerId);
     return {
-      ...toPlaylistView(playlist, creator?.name ?? null, {
+      ...toPlaylistView(playlist, owner?.name ?? null, {
         itemsCount: itemViews.length,
         totalDuration: itemViews.reduce((sum, item) => sum + item.duration, 0),
       }),
@@ -384,9 +506,15 @@ export class GetPlaylistUseCase {
     };
   }
 
-  private async buildItems(items: PlaylistItemRecord[]) {
+  private async buildItems(items: PlaylistItemRecord[], ownerId?: string) {
     const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
-    const contents = await this.deps.contentRepository.findByIds(contentIds);
+    const contents =
+      ownerId && this.deps.contentRepository.findByIdsForOwner
+        ? await this.deps.contentRepository.findByIdsForOwner(
+            contentIds,
+            ownerId,
+          )
+        : await this.deps.contentRepository.findByIds(contentIds);
     const contentById = new Map(
       contents.map((content) => [content.id, content]),
     );
@@ -413,20 +541,24 @@ export class UpdatePlaylistUseCase {
 
   async execute(input: {
     id: string;
+    ownerId?: string;
     name?: string;
     description?: string | null;
   }) {
-    const playlist = await this.deps.playlistRepository.update(input.id, {
-      name: input.name,
-      description: input.description,
-    });
+    const playlist = await updatePlaylistForOwner(
+      this.deps.playlistRepository,
+      input.id,
+      input.ownerId,
+      {
+        name: input.name,
+        description: input.description,
+      },
+    );
     if (!playlist) throw new NotFoundError("Playlist not found");
 
-    const creator = await this.deps.userRepository.findById(
-      playlist.createdById,
-    );
+    const owner = await this.deps.userRepository.findById(playlist.ownerId);
     const items = await this.deps.playlistRepository.listItems(playlist.id);
-    return toPlaylistView(playlist, creator?.name ?? null, {
+    return toPlaylistView(playlist, owner?.name ?? null, {
       itemsCount: items.length,
       totalDuration: items.reduce((sum, item) => sum + item.duration, 0),
     });
@@ -443,7 +575,14 @@ export class DeletePlaylistUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
+  async execute(input: { id: string; ownerId?: string }) {
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
+      input.id,
+      input.ownerId,
+    );
+    if (!playlist) throw new NotFoundError("Playlist not found");
+
     const schedules = await this.deps.scheduleRepository.listByPlaylistId(
       input.id,
     );
@@ -462,7 +601,11 @@ export class DeletePlaylistUseCase {
       throw new PlaylistInUseError(message);
     }
 
-    const deleted = await this.deps.playlistRepository.delete(input.id);
+    const deleted = await deletePlaylistForOwner(
+      this.deps.playlistRepository,
+      input.id,
+      input.ownerId,
+    );
     if (!deleted) throw new NotFoundError("Playlist not found");
   }
 }
@@ -479,6 +622,7 @@ export class AddPlaylistItemUseCase {
   ) {}
 
   async execute(input: {
+    ownerId?: string;
     playlistId: string;
     contentId: string;
     sequence: number;
@@ -491,12 +635,20 @@ export class AddPlaylistItemUseCase {
       throw new ValidationError("Invalid duration");
     }
 
-    const playlist = await this.deps.playlistRepository.findById(
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
       input.playlistId,
+      input.ownerId,
     );
     if (!playlist) throw new NotFoundError("Playlist not found");
 
-    const content = await this.deps.contentRepository.findById(input.contentId);
+    const content =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.contentId,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.contentId);
     if (!content) throw new NotFoundError("Content not found");
     if (content.status !== "READY") {
       throw new ValidationError(
@@ -517,7 +669,12 @@ export class AddPlaylistItemUseCase {
     );
     const existingContents =
       existingContentIds.length > 0
-        ? await this.deps.contentRepository.findByIds(existingContentIds)
+        ? input.ownerId && this.deps.contentRepository.findByIdsForOwner
+          ? await this.deps.contentRepository.findByIdsForOwner(
+              existingContentIds,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findByIds(existingContentIds)
         : [];
     const hasParentPdfRefs = existingContents.some(
       (existingContent) =>
@@ -570,7 +727,13 @@ export class UpdatePlaylistItemUseCase {
     },
   ) {}
 
-  async execute(input: { id: string; sequence?: number; duration?: number }) {
+  async execute(input: {
+    playlistId: string;
+    ownerId?: string;
+    id: string;
+    sequence?: number;
+    duration?: number;
+  }) {
     if (input.sequence !== undefined && !isValidSequence(input.sequence)) {
       throw new ValidationError("Invalid sequence");
     }
@@ -578,13 +741,32 @@ export class UpdatePlaylistItemUseCase {
       throw new ValidationError("Invalid duration");
     }
 
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
+      input.playlistId,
+      input.ownerId,
+    );
+    if (!playlist) throw new NotFoundError("Playlist not found");
+
+    const existingItems = await this.deps.playlistRepository.listItems(
+      input.playlistId,
+    );
+    const existingItem = existingItems.find((item) => item.id === input.id);
+    if (!existingItem) throw new NotFoundError("Playlist item not found");
+
     const item = await this.deps.playlistRepository.updateItem(input.id, {
       sequence: input.sequence,
       duration: input.duration,
     });
     if (!item) throw new NotFoundError("Playlist item not found");
 
-    const content = await this.deps.contentRepository.findById(item.contentId);
+    const content =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            item.contentId,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(item.contentId);
     if (!content) throw new NotFoundError("Content not found");
     await runPlaylistPostMutationEffects(
       this.deps,
@@ -608,11 +790,14 @@ export class ReorderPlaylistItemsUseCase {
   ) {}
 
   async execute(input: {
+    ownerId?: string;
     playlistId: string;
     orderedItemIds: readonly string[];
   }) {
-    const playlist = await this.deps.playlistRepository.findById(
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
       input.playlistId,
+      input.ownerId,
     );
     if (!playlist) {
       throw new NotFoundError("Playlist not found");
@@ -645,6 +830,7 @@ export class ReplacePlaylistItemsAtomicUseCase {
   ) {}
 
   async execute(input: {
+    ownerId?: string;
     playlistId: string;
     items: readonly (
       | {
@@ -663,8 +849,10 @@ export class ReplacePlaylistItemsAtomicUseCase {
       throw new Error("Atomic playlist item replacement is not supported");
     }
 
-    const playlist = await this.deps.playlistRepository.findById(
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
       input.playlistId,
+      input.ownerId,
     );
     if (!playlist) {
       throw new NotFoundError("Playlist not found");
@@ -702,7 +890,12 @@ export class ReplacePlaylistItemsAtomicUseCase {
     const uniqueContentIds = Array.from(new Set(requestedContentIds));
     const contents =
       uniqueContentIds.length > 0
-        ? await this.deps.contentRepository.findByIds(uniqueContentIds)
+        ? input.ownerId && this.deps.contentRepository.findByIdsForOwner
+          ? await this.deps.contentRepository.findByIdsForOwner(
+              uniqueContentIds,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findByIds(uniqueContentIds)
         : [];
     const contentById = new Map(
       contents.map((content) => [content.id, content]),
@@ -760,7 +953,12 @@ export class ReplacePlaylistItemsAtomicUseCase {
     );
     const replacedContents =
       replacedContentIds.length > 0
-        ? await this.deps.contentRepository.findByIds(replacedContentIds)
+        ? input.ownerId && this.deps.contentRepository.findByIdsForOwner
+          ? await this.deps.contentRepository.findByIdsForOwner(
+              replacedContentIds,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findByIds(replacedContentIds)
         : [];
     const replacedContentById = new Map(
       replacedContents.map((content) => [content.id, content]),
@@ -787,8 +985,17 @@ export class DeletePlaylistItemUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
-    const existing = await this.deps.playlistRepository.findItemById(input.id);
+  async execute(input: { playlistId: string; ownerId?: string; id: string }) {
+    const playlist = await findPlaylistByIdForOwner(
+      this.deps.playlistRepository,
+      input.playlistId,
+      input.ownerId,
+    );
+    if (!playlist) throw new NotFoundError("Playlist not found");
+
+    const existing = (
+      await this.deps.playlistRepository.listItems(input.playlistId)
+    ).find((item) => item.id === input.id);
     if (!existing) throw new NotFoundError("Playlist item not found");
 
     const deleted = await this.deps.playlistRepository.deleteItem(input.id);

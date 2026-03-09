@@ -24,6 +24,7 @@ export class UpdateContentUseCase {
 
   async execute(input: {
     id: string;
+    ownerId?: string;
     title?: string;
     status?: ContentStatus;
     flashMessage?: string;
@@ -39,7 +40,13 @@ export class UpdateContentUseCase {
     ) {
       throw new ValidationError("At least one field must be provided");
     }
-    const existing = await this.deps.contentRepository.findById(input.id);
+    const existing =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.id);
     if (!existing) {
       throw new NotFoundError("Content not found");
     }
@@ -98,17 +105,34 @@ export class UpdateContentUseCase {
       });
     }
 
-    const updated = await this.deps.contentRepository.update(input.id, {
-      title: nextTitle,
-      status: input.status,
-      flashMessage,
-      flashTone,
-      ...(input.scrollPxPerSecond !== undefined
-        ? { scrollPxPerSecond: input.scrollPxPerSecond }
-        : {}),
-      checksum,
-      fileSize,
-    });
+    const updated =
+      input.ownerId && this.deps.contentRepository.updateForOwner
+        ? await this.deps.contentRepository.updateForOwner(
+            input.id,
+            input.ownerId,
+            {
+              title: nextTitle,
+              status: input.status,
+              flashMessage,
+              flashTone,
+              ...(input.scrollPxPerSecond !== undefined
+                ? { scrollPxPerSecond: input.scrollPxPerSecond }
+                : {}),
+              checksum,
+              fileSize,
+            },
+          )
+        : await this.deps.contentRepository.update(input.id, {
+            title: nextTitle,
+            status: input.status,
+            flashMessage,
+            flashTone,
+            ...(input.scrollPxPerSecond !== undefined
+              ? { scrollPxPerSecond: input.scrollPxPerSecond }
+              : {}),
+            checksum,
+            fileSize,
+          });
     if (!updated) {
       throw new NotFoundError("Content not found");
     }
@@ -126,7 +150,7 @@ export class UpdateContentUseCase {
       }
     }
 
-    const user = await this.deps.userRepository.findById(updated.createdById);
+    const user = await this.deps.userRepository.findById(updated.ownerId);
     return toContentView(updated, user?.name ?? null);
   }
 }

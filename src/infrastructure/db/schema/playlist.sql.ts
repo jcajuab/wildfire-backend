@@ -15,7 +15,7 @@ export const playlists = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
     status: mysqlEnum("status", ["DRAFT", "IN_USE"]).notNull().default("DRAFT"),
-    createdById: varchar("created_by_id", { length: 36 })
+    ownerId: varchar("owner_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),

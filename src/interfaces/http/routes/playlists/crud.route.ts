@@ -71,6 +71,7 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const query = c.req.valid("query");
         const result = await useCases.listPlaylistOptions.execute({
+          ownerId: c.get("userId"),
           q: query.q,
           status: query.status,
         });
@@ -103,6 +104,7 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const query = c.req.valid("query");
         const result = await useCases.listPlaylists.execute({
+          ownerId: c.get("userId"),
           page: query.page,
           pageSize: query.pageSize,
           status: query.status,
@@ -151,7 +153,10 @@ export const registerPlaylistCrudRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        const result = await useCases.estimatePlaylistDuration.execute(payload);
+        const result = await useCases.estimatePlaylistDuration.execute({
+          ownerId: c.get("userId"),
+          ...payload,
+        });
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
@@ -186,7 +191,7 @@ export const registerPlaylistCrudRoutes = (args: {
         const result = await useCases.createPlaylist.execute({
           name: payload.name,
           description: payload.description ?? null,
-          createdById: c.get("userId"),
+          ownerId: c.get("userId"),
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
@@ -230,7 +235,10 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getPlaylist.execute({ id: params.id });
+        const result = await useCases.getPlaylist.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
@@ -267,6 +275,7 @@ export const registerPlaylistCrudRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.updatePlaylist.execute({
           id: params.id,
+          ownerId: c.get("userId"),
           name: payload.name,
           description: payload.description,
         });
@@ -311,7 +320,10 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        await useCases.deletePlaylist.execute({ id: params.id });
+        await useCases.deletePlaylist.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

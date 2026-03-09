@@ -70,7 +70,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
     withRouteErrorHandling(
       async (c) => {
         const created = await useCases.issueDisplayRegistrationAttempt.execute({
-          createdById: c.get("userId"),
+          ownerId: c.get("userId"),
         });
         c.header(
           "Location",
@@ -116,7 +116,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
         const params = c.req.valid("param");
         const result = await useCases.rotateDisplayRegistrationAttempt.execute({
           attemptId: params.attemptId,
-          createdById: c.get("userId"),
+          ownerId: c.get("userId"),
         });
         return c.json(toApiResponse(result));
       },
@@ -148,7 +148,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
         const params = c.req.valid("param");
         await useCases.closeDisplayRegistrationAttempt.execute({
           attemptId: params.attemptId,
-          createdById: c.get("userId"),
+          ownerId: c.get("userId"),
         });
         return c.body(null, 204);
       },

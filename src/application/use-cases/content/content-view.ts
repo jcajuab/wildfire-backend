@@ -22,7 +22,7 @@ export interface ContentView {
   flashMessage: string | null;
   flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
   createdAt: string;
-  createdBy: {
+  owner: {
     id: string;
     name: string;
   };
@@ -30,7 +30,7 @@ export interface ContentView {
 
 export const toContentView = (
   record: ContentRecord,
-  creatorName: string | null,
+  ownerName: string | null,
   input?: {
     thumbnailUrl?: string;
   },
@@ -55,8 +55,8 @@ export const toContentView = (
   flashMessage: record.flashMessage ?? null,
   flashTone: record.flashTone ?? null,
   createdAt: record.createdAt,
-  createdBy: {
-    id: record.createdById,
-    name: creatorName ?? "Unknown",
+  owner: {
+    id: record.ownerId,
+    name: ownerName ?? "Unknown",
   },
 });

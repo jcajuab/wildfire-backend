@@ -29,7 +29,7 @@ const setup = async () => {
       id varchar(36) PRIMARY KEY,
       name varchar(255) NOT NULL,
       description text NULL,
-      created_by_id varchar(36) NOT NULL,
+      owner_id varchar(36) NOT NULL,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
@@ -48,7 +48,7 @@ const setup = async () => {
       width int NULL,
       height int NULL,
       duration int NULL,
-      created_by_id varchar(36) NOT NULL,
+      owner_id varchar(36) NOT NULL,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -67,7 +67,7 @@ const setup = async () => {
       code_hash varchar(64) NOT NULL,
       expires_at timestamp NOT NULL,
       used_at timestamp NULL,
-      created_by_id varchar(36) NOT NULL,
+      owner_id varchar(36) NOT NULL,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY pairing_codes_code_hash_unique (code_hash)
@@ -142,7 +142,7 @@ describe("Module repositories (integration)", () => {
       ON DUPLICATE KEY UPDATE id = id
     `);
     await db.execute(sql`
-      INSERT INTO content (id, title, type, status, file_key, checksum, mime_type, file_size, created_by_id)
+      INSERT INTO content (id, title, type, status, file_key, checksum, mime_type, file_size, owner_id)
       VALUES ('content-1', 'Welcome', 'IMAGE', 'READY', 'content/images/a.png', 'abc', 'image/png', 100, 'user-1')
     `);
 
@@ -150,7 +150,7 @@ describe("Module repositories (integration)", () => {
     const playlist = await repo.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     await repo.addItem({
@@ -181,7 +181,7 @@ describe("Module repositories (integration)", () => {
       ON DUPLICATE KEY UPDATE id = id
     `);
     await db.execute(sql`
-      INSERT INTO playlists (id, name, description, status, created_by_id)
+      INSERT INTO playlists (id, name, description, status, owner_id)
       VALUES ('playlist-1', 'Playlist 1', NULL, 'DRAFT', 'user-1')
       ON DUPLICATE KEY UPDATE id = id
     `);
@@ -214,7 +214,7 @@ describe("Module repositories (integration)", () => {
       const created = await repo.create({
         codeHash: "hash-1",
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        createdById: "user-1",
+        ownerId: "user-1",
       });
       expect(created.id).toBeDefined();
 

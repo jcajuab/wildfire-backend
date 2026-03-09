@@ -11,7 +11,7 @@ export interface ContentIngestionJobRecord {
   operation: ContentIngestionJobOperation;
   status: ContentIngestionJobStatus;
   errorMessage: string | null;
-  createdById: string;
+  ownerId: string;
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
@@ -25,9 +25,13 @@ export interface ContentIngestionJobRepository {
     operation: ContentIngestionJobOperation;
     status: ContentIngestionJobStatus;
     errorMessage?: string | null;
-    createdById: string;
+    ownerId: string;
   }): Promise<ContentIngestionJobRecord>;
   findById(id: string): Promise<ContentIngestionJobRecord | null>;
+  findByIdForOwner?(
+    id: string,
+    ownerId: string,
+  ): Promise<ContentIngestionJobRecord | null>;
   update(
     id: string,
     input: {

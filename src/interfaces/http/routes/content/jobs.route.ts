@@ -65,7 +65,10 @@ export const registerContentJobRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getContentJob.execute({ id: params.id });
+        const result = await useCases.getContentJob.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.json(toApiResponse(result), 200);
       },
       ...applicationErrorMappers,
@@ -112,7 +115,10 @@ export const registerContentJobRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const job = await useCases.getContentJob.execute({ id: params.id });
+        const job = await useCases.getContentJob.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         const stream = createSseStream({
           heartbeatIntervalMs: STREAM_HEARTBEAT_INTERVAL_MS,
           start(handle) {

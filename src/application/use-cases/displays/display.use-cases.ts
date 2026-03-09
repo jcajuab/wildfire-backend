@@ -493,6 +493,7 @@ export class UpdateDisplayUseCase {
 
   async execute(input: {
     id: string;
+    ownerId?: string;
     name?: string;
     location?: string | null;
     ipAddress?: string | null;
@@ -541,9 +542,15 @@ export class UpdateDisplayUseCase {
     const screenWidth = normalizeDimension(input.screenWidth, "screenWidth");
     const screenHeight = normalizeDimension(input.screenHeight, "screenHeight");
     if (input.emergencyContentId !== undefined && input.emergencyContentId) {
-      const emergencyAsset = await this.deps.contentRepository.findById(
-        input.emergencyContentId,
-      );
+      const emergencyAsset =
+        input.ownerId && this.deps.contentRepository.findByIdForOwner
+          ? await this.deps.contentRepository.findByIdForOwner(
+              input.emergencyContentId,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findById(
+              input.emergencyContentId,
+            );
       if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
         throw new ValidationError(
           "emergencyContentId must reference a READY root IMAGE, VIDEO, or PDF asset",

@@ -20,7 +20,7 @@ export const contentIngestionJobs = mysqlTable(
       .notNull()
       .default("QUEUED"),
     errorMessage: varchar("error_message", { length: 1024 }),
-    createdById: varchar("created_by_id", { length: 36 })
+    ownerId: varchar("owner_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),

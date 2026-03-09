@@ -136,7 +136,7 @@ const parseImageDataUrl = (
 
 const issuePairingCode = async (input: {
   displayPairingCodeRepository: DisplayPairingCodeRepository;
-  createdById: string;
+  ownerId: string;
   now: Date;
 }): Promise<{
   code: string;
@@ -153,7 +153,7 @@ const issuePairingCode = async (input: {
       const created = await input.displayPairingCodeRepository.create({
         codeHash,
         expiresAt,
-        createdById: input.createdById,
+        ownerId: input.ownerId,
       });
       return {
         code,
@@ -179,17 +179,17 @@ export class IssueDisplayRegistrationAttemptUseCase {
     },
   ) {}
 
-  async execute(input: { createdById: string; now?: Date }) {
+  async execute(input: { ownerId: string; now?: Date }) {
     const now = input.now ?? new Date();
     const issued = await issuePairingCode({
       displayPairingCodeRepository: this.deps.displayPairingCodeRepository,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       now,
     });
 
     const created =
       await this.deps.registrationAttemptStore.createOrReplaceOpenAttempt({
-        createdById: input.createdById,
+        ownerId: input.ownerId,
         activeCode: {
           code: issued.code,
           codeHash: issued.codeHash,
@@ -221,17 +221,17 @@ export class RotateDisplayRegistrationAttemptUseCase {
     },
   ) {}
 
-  async execute(input: { attemptId: string; createdById: string; now?: Date }) {
+  async execute(input: { attemptId: string; ownerId: string; now?: Date }) {
     const now = input.now ?? new Date();
     const issued = await issuePairingCode({
       displayPairingCodeRepository: this.deps.displayPairingCodeRepository,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       now,
     });
 
     const rotated = await this.deps.registrationAttemptStore.rotateCode({
       attemptId: input.attemptId,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       nextCode: {
         code: issued.code,
         codeHash: issued.codeHash,
@@ -267,13 +267,13 @@ export class CloseDisplayRegistrationAttemptUseCase {
 
   async execute(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
     now?: Date;
   }): Promise<void> {
     const now = input.now ?? new Date();
     const closed = await this.deps.registrationAttemptStore.closeAttempt({
       attemptId: input.attemptId,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
     });
     if (!closed) {
       throw new NotFoundError("Registration attempt not found");

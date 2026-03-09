@@ -6,7 +6,7 @@ import {
 
 export const toPlaylistView = (
   playlist: PlaylistRecord,
-  creatorName: string | null,
+  ownerName: string | null,
   stats?: { itemsCount: number; totalDuration: number },
 ) => ({
   id: playlist.id,
@@ -17,9 +17,9 @@ export const toPlaylistView = (
   totalDuration: stats?.totalDuration ?? 0,
   createdAt: playlist.createdAt,
   updatedAt: playlist.updatedAt,
-  createdBy: {
-    id: playlist.createdById,
-    name: creatorName,
+  owner: {
+    id: playlist.ownerId,
+    name: ownerName,
   },
 });
 

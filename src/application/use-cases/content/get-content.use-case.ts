@@ -34,13 +34,19 @@ export class GetContentUseCase {
     }
   }
 
-  async execute(input: { id: string }) {
-    const record = await this.deps.contentRepository.findById(input.id);
+  async execute(input: { id: string; ownerId?: string }) {
+    const record =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.id);
     if (!record) {
       throw new NotFoundError("Content not found");
     }
 
-    const user = await this.deps.userRepository.findById(record.createdById);
+    const user = await this.deps.userRepository.findById(record.ownerId);
     const thumbnailUrl = await this.buildThumbnailUrl(record);
     return toContentView(record, user?.name ?? null, { thumbnailUrl });
   }

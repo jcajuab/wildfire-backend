@@ -105,7 +105,7 @@ export const registerDisplayStaffEventRoutes = (input: {
       if (
         !(await deps.registrationAttemptStore.isAttemptOwnedBy({
           attemptId: params.attemptId,
-          createdById: userId,
+          ownerId: userId,
         }))
       ) {
         return notFound(c, "Registration attempt not found");

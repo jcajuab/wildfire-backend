@@ -78,6 +78,7 @@ export const registerScheduleCommandRoutes = (args: {
       async (c) => {
         const payload = c.req.valid("json");
         const result = await useCases.createSchedule.execute({
+          ownerId: c.get("userId"),
           name: payload.name,
           kind: payload.kind,
           playlistId: payload.playlistId,
@@ -130,6 +131,7 @@ export const registerScheduleCommandRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.updateSchedule.execute({
           id: params.id,
+          ownerId: c.get("userId"),
           name: payload.name,
           kind: payload.kind,
           playlistId: payload.playlistId,
@@ -174,7 +176,10 @@ export const registerScheduleCommandRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        await useCases.deleteSchedule.execute({ id: params.id });
+        await useCases.deleteSchedule.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

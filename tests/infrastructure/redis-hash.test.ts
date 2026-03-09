@@ -6,7 +6,7 @@ describe("normalizeRedisHash", () => {
     const normalized = normalizeRedisHash([
       "id",
       "attempt-1",
-      "createdById",
+      "ownerId",
       "user-1",
       "createdAtMs",
       "123",
@@ -14,7 +14,7 @@ describe("normalizeRedisHash", () => {
 
     expect(normalized).toEqual({
       id: "attempt-1",
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAtMs: "123",
     });
   });

@@ -118,7 +118,7 @@ export const registerContentWriteRoutes = (args: {
         const result = await useCases.uploadContent.execute({
           title: payload.title,
           file: payload.file,
-          createdById: c.get("userId"),
+          ownerId: c.get("userId"),
           scrollPxPerSecond: payload.scrollPxPerSecond,
         });
         c.set("resourceId", result.content.id);
@@ -180,7 +180,7 @@ export const registerContentWriteRoutes = (args: {
           title: payload.title,
           message: payload.message,
           tone: payload.tone,
-          createdById: c.get("userId"),
+          ownerId: c.get("userId"),
         });
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
@@ -254,6 +254,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.updateContent.execute({
           id: params.id,
+          ownerId: c.get("userId"),
           title: body.title,
           flashMessage: body.flashMessage,
           flashTone: body.flashTone,
@@ -333,6 +334,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.replaceContentFile.execute({
           id: params.id,
+          ownerId: c.get("userId"),
           file: body.file,
           title: body.title,
         });
@@ -403,6 +405,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.setContentExclusion.execute({
           id: params.id,
+          ownerId: c.get("userId"),
           isExcluded: body.isExcluded,
         });
         return c.json(toApiResponse(result), 200);
@@ -455,7 +458,10 @@ export const registerContentWriteRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
-        await useCases.deleteContent.execute({ id: params.id });
+        await useCases.deleteContent.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

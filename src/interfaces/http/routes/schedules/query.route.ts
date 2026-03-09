@@ -60,6 +60,7 @@ export const registerScheduleQueryRoutes = (args: {
       async (c) => {
         const query = c.req.valid("query");
         const result = await useCases.listSchedules.execute({
+          ownerId: c.get("userId"),
           page: query.page,
           pageSize: query.pageSize,
         });
@@ -100,6 +101,7 @@ export const registerScheduleQueryRoutes = (args: {
       async (c) => {
         const query = c.req.valid("query");
         const result = await useCases.listScheduleWindow.execute({
+          ownerId: c.get("userId"),
           from: query.from,
           to: query.to,
           displayIds: query.displayIds,
@@ -144,7 +146,10 @@ export const registerScheduleQueryRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getSchedule.execute({ id: params.id });
+        const result = await useCases.getSchedule.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

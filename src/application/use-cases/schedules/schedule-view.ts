@@ -22,11 +22,7 @@ export const toScheduleView = (
   isActive: schedule.isActive,
   createdAt: schedule.createdAt,
   updatedAt: schedule.updatedAt,
-  playlist: playlist
-    ? { id: playlist.id, name: playlist.name }
-    : schedule.playlistId
-      ? { id: schedule.playlistId, name: null }
-      : null,
+  playlist: playlist ? { id: playlist.id, name: playlist.name } : null,
   content: content
     ? {
         id: content.id,
@@ -35,15 +31,7 @@ export const toScheduleView = (
         flashMessage: content.flashMessage ?? null,
         flashTone: content.flashTone ?? null,
       }
-    : schedule.contentId
-      ? {
-          id: schedule.contentId,
-          title: null,
-          type: "FLASH" as const,
-          flashMessage: null,
-          flashTone: null,
-        }
-      : null,
+    : null,
   display: display
     ? { id: display.id, name: display.name }
     : { id: schedule.displayId, name: null },

@@ -27,7 +27,7 @@ const toPlaylistRecord = (
     name: row.name,
     description: row.description ?? null,
     status: row.status,
-    createdById: row.createdById,
+    ownerId: row.ownerId,
     createdAt:
       row.createdAt instanceof Date
         ? row.createdAt.toISOString()
@@ -86,6 +86,15 @@ export class PlaylistDbRepository implements PlaylistRepository {
     return rows.map(toPlaylistRecord);
   }
 
+  async listForOwner(ownerId: string): Promise<PlaylistRecord[]> {
+    const rows = await db
+      .select()
+      .from(playlists)
+      .where(eq(playlists.ownerId, ownerId))
+      .orderBy(desc(playlists.updatedAt));
+    return rows.map(toPlaylistRecord);
+  }
+
   async listPage(input: {
     offset: number;
     limit: number;
@@ -94,7 +103,32 @@ export class PlaylistDbRepository implements PlaylistRepository {
     sortBy?: "updatedAt" | "name";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }> {
+    return this.listPageInternal(input);
+  }
+
+  async listPageForOwner(input: {
+    ownerId: string;
+    offset: number;
+    limit: number;
+    status?: PlaylistStatus;
+    search?: string;
+    sortBy?: "updatedAt" | "name";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: PlaylistRecord[]; total: number }> {
+    return this.listPageInternal(input);
+  }
+
+  private async listPageInternal(input: {
+    ownerId?: string;
+    offset: number;
+    limit: number;
+    status?: PlaylistStatus;
+    search?: string;
+    sortBy?: "updatedAt" | "name";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: PlaylistRecord[]; total: number }> {
     const conditions = [
+      input.ownerId ? eq(playlists.ownerId, input.ownerId) : undefined,
       input.status ? eq(playlists.status, input.status) : undefined,
       input.search && input.search.length > 0
         ? like(playlists.name, buildLikeContainsPattern(input.search))
@@ -130,29 +164,56 @@ export class PlaylistDbRepository implements PlaylistRepository {
   }
 
   async findByIds(ids: string[]): Promise<PlaylistRecord[]> {
+    return this.findByIdsInternal(ids);
+  }
+
+  async findByIdsForOwner(
+    ids: string[],
+    ownerId: string,
+  ): Promise<PlaylistRecord[]> {
+    return this.findByIdsInternal(ids, ownerId);
+  }
+
+  private async findByIdsInternal(
+    ids: string[],
+    ownerId?: string,
+  ): Promise<PlaylistRecord[]> {
     if (ids.length === 0) {
       return [];
     }
-    const rows = await db
-      .select()
-      .from(playlists)
-      .where(inArray(playlists.id, ids));
+    const whereClause = ownerId
+      ? and(inArray(playlists.id, ids), eq(playlists.ownerId, ownerId))
+      : inArray(playlists.id, ids);
+    const rows = await db.select().from(playlists).where(whereClause);
     return rows.map(toPlaylistRecord);
   }
 
   async findById(id: string): Promise<PlaylistRecord | null> {
-    const rows = await db
-      .select()
-      .from(playlists)
-      .where(eq(playlists.id, id))
-      .limit(1);
+    return this.findByIdInternal(id);
+  }
+
+  async findByIdForOwner(
+    id: string,
+    ownerId: string,
+  ): Promise<PlaylistRecord | null> {
+    return this.findByIdInternal(id, ownerId);
+  }
+
+  private async findByIdInternal(
+    id: string,
+    ownerId?: string,
+  ): Promise<PlaylistRecord | null> {
+    const whereClause = ownerId
+      ? and(eq(playlists.id, id), eq(playlists.ownerId, ownerId))
+      : eq(playlists.id, id);
+    const rows = await db.select().from(playlists).where(whereClause).limit(1);
     return rows[0] ? toPlaylistRecord(rows[0]) : null;
   }
 
   async create(input: {
     name: string;
     description: string | null;
-    createdById: string;
+    ownerId: string;
   }): Promise<PlaylistRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -161,7 +222,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       name: input.name,
       description: input.description,
       status: "DRAFT",
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       createdAt: now,
       updatedAt: now,
     });
@@ -171,7 +232,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       name: input.name,
       description: input.description,
       status: "DRAFT",
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -181,7 +242,25 @@ export class PlaylistDbRepository implements PlaylistRepository {
     id: string,
     input: { name?: string; description?: string | null },
   ): Promise<PlaylistRecord | null> {
-    const existing = await this.findById(id);
+    return this.updateInternal(id, input);
+  }
+
+  async updateForOwner(
+    id: string,
+    ownerId: string,
+    input: { name?: string; description?: string | null },
+  ): Promise<PlaylistRecord | null> {
+    return this.updateInternal(id, input, ownerId);
+  }
+
+  private async updateInternal(
+    id: string,
+    input: { name?: string; description?: string | null },
+    ownerId?: string,
+  ): Promise<PlaylistRecord | null> {
+    const existing = ownerId
+      ? await this.findByIdForOwner(id, ownerId)
+      : await this.findById(id);
     if (!existing) return null;
 
     const next = {
@@ -200,7 +279,11 @@ export class PlaylistDbRepository implements PlaylistRepository {
         description: next.description,
         updatedAt: now,
       })
-      .where(eq(playlists.id, id));
+      .where(
+        ownerId
+          ? and(eq(playlists.id, id), eq(playlists.ownerId, ownerId))
+          : eq(playlists.id, id),
+      );
 
     return {
       ...existing,
@@ -214,7 +297,21 @@ export class PlaylistDbRepository implements PlaylistRepository {
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await db.delete(playlists).where(eq(playlists.id, id));
+    return this.deleteInternal(id);
+  }
+
+  async deleteForOwner(id: string, ownerId: string): Promise<boolean> {
+    return this.deleteInternal(id, ownerId);
+  }
+
+  private async deleteInternal(id: string, ownerId?: string): Promise<boolean> {
+    const result = await db
+      .delete(playlists)
+      .where(
+        ownerId
+          ? and(eq(playlists.id, id), eq(playlists.ownerId, ownerId))
+          : eq(playlists.id, id),
+      );
     return result[0]?.affectedRows > 0;
   }
 

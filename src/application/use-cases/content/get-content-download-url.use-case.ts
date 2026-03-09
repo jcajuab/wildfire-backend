@@ -21,8 +21,14 @@ export class GetContentDownloadUrlUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
-    const record = await this.deps.contentRepository.findById(input.id);
+  async execute(input: { id: string; ownerId?: string }) {
+    const record =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.id);
     if (!record) {
       throw new NotFoundError("Content not found");
     }

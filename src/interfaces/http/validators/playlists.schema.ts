@@ -10,7 +10,7 @@ export const playlistSchema = z.object({
   totalDuration: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  createdBy: z.object({
+  owner: z.object({
     id: z.string(),
     name: z.string().nullable(),
   }),

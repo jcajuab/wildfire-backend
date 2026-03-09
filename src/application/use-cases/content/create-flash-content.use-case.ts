@@ -33,7 +33,7 @@ export class CreateFlashContentUseCase {
     title: string;
     message: string;
     tone: "INFO" | "WARNING" | "CRITICAL";
-    createdById: string;
+    ownerId: string;
   }) {
     const title = input.title.trim();
     const message = normalizeFlashMessage(input.message);
@@ -82,14 +82,14 @@ export class CreateFlashContentUseCase {
       scrollPxPerSecond: null,
       flashMessage: message,
       flashTone: input.tone,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
     });
 
     const content = await this.deps.contentRepository.findById(id);
     if (!content) {
       throw new Error("Flash content was created but could not be loaded");
     }
-    const user = await this.deps.userRepository.findById(content.createdById);
+    const user = await this.deps.userRepository.findById(content.ownerId);
     return toContentView(content, user?.name ?? null);
   }
 }

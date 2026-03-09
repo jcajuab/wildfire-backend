@@ -33,7 +33,7 @@ describe("ContentDbRepository (integration)", () => {
           width int NULL,
           height int NULL,
           duration int NULL,
-          created_by_id varchar(36) NOT NULL,
+          owner_id varchar(36) NOT NULL,
           created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
       `,
@@ -64,7 +64,7 @@ describe("ContentDbRepository (integration)", () => {
       width: null,
       height: null,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     expect(created.id).toBe(id);

@@ -69,6 +69,7 @@ export const registerPlaylistItemRoutes = (args: {
         const params = c.req.valid("param");
         const payload = c.req.valid("json");
         const result = await useCases.addPlaylistItem.execute({
+          ownerId: c.get("userId"),
           playlistId: params.id,
           contentId: payload.contentId,
           sequence: payload.sequence,
@@ -114,6 +115,8 @@ export const registerPlaylistItemRoutes = (args: {
         c.set("resourceId", params.itemId);
         const payload = c.req.valid("json");
         const result = await useCases.updatePlaylistItem.execute({
+          playlistId: params.id,
+          ownerId: c.get("userId"),
           id: params.itemId,
           sequence: payload.sequence,
           duration: payload.duration,
@@ -158,6 +161,7 @@ export const registerPlaylistItemRoutes = (args: {
         const payload = c.req.valid("json");
         c.set("resourceId", params.id);
         const result = await useCases.replacePlaylistItemsAtomic.execute({
+          ownerId: c.get("userId"),
           playlistId: params.id,
           items: payload.items,
         });
@@ -189,6 +193,7 @@ export const registerPlaylistItemRoutes = (args: {
         const payload = c.req.valid("json");
         c.set("resourceId", params.id);
         await useCases.reorderPlaylistItems.execute({
+          ownerId: c.get("userId"),
           playlistId: params.id,
           orderedItemIds: payload.orderedItemIds,
         });
@@ -225,7 +230,11 @@ export const registerPlaylistItemRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.itemId);
-        await useCases.deletePlaylistItem.execute({ id: params.itemId });
+        await useCases.deletePlaylistItem.execute({
+          playlistId: params.id,
+          ownerId: c.get("userId"),
+          id: params.itemId,
+        });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

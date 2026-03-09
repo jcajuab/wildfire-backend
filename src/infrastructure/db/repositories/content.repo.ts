@@ -38,7 +38,7 @@ type ContentRow = {
   pageNumber: number | null;
   pageCount: number | null;
   isExcluded: boolean;
-  createdById: string;
+  ownerId: string;
   createdAt: Date | string;
   fileKey: string | null;
   thumbnailKey: string | null;
@@ -65,7 +65,7 @@ const baseQuery = () =>
       pageNumber: content.pageNumber,
       pageCount: content.pageCount,
       isExcluded: content.isExcluded,
-      createdById: content.createdById,
+      ownerId: content.ownerId,
       createdAt: content.createdAt,
       fileKey: contentAssets.fileKey,
       thumbnailKey: contentAssets.thumbnailKey,
@@ -130,7 +130,7 @@ const toRecord = (row: ContentRow): ContentRecord => {
     scrollPxPerSecond: row.scrollPxPerSecond,
     flashMessage: row.flashMessage,
     flashTone: row.flashTone,
-    createdById: row.createdById,
+    ownerId: row.ownerId,
     createdAt:
       row.createdAt instanceof Date
         ? row.createdAt.toISOString()
@@ -155,7 +155,7 @@ export class ContentDbRepository implements ContentRepository {
         pageNumber: input.pageNumber,
         pageCount: input.pageCount,
         isExcluded: input.isExcluded,
-        createdById: input.createdById,
+        ownerId: input.ownerId,
         createdAt: now,
         updatedAt: now,
       });
@@ -195,16 +195,50 @@ export class ContentDbRepository implements ContentRepository {
   }
 
   async findById(id: string): Promise<ContentRecord | null> {
-    const result = await baseQuery().where(eq(content.id, id)).limit(1);
+    return this.findByIdInternal(id);
+  }
+
+  async findByIdForOwner(
+    id: string,
+    ownerId: string,
+  ): Promise<ContentRecord | null> {
+    return this.findByIdInternal(id, ownerId);
+  }
+
+  private async findByIdInternal(
+    id: string,
+    ownerId?: string,
+  ): Promise<ContentRecord | null> {
+    const whereClause = ownerId
+      ? and(eq(content.id, id), eq(content.ownerId, ownerId))
+      : eq(content.id, id);
+    const result = await baseQuery().where(whereClause).limit(1);
     const row = result[0];
     return row ? toRecord(row) : null;
   }
 
   async findByIds(ids: string[]): Promise<ContentRecord[]> {
+    return this.findByIdsInternal(ids);
+  }
+
+  async findByIdsForOwner(
+    ids: string[],
+    ownerId: string,
+  ): Promise<ContentRecord[]> {
+    return this.findByIdsInternal(ids, ownerId);
+  }
+
+  private async findByIdsInternal(
+    ids: string[],
+    ownerId?: string,
+  ): Promise<ContentRecord[]> {
     if (ids.length === 0) {
       return [];
     }
-    const rows = await baseQuery().where(inArray(content.id, ids));
+    const whereClause = ownerId
+      ? and(inArray(content.id, ids), eq(content.ownerId, ownerId))
+      : inArray(content.id, ids);
+    const rows = await baseQuery().where(whereClause);
     return rows.map(toRecord);
   }
 
@@ -218,6 +252,54 @@ export class ContentDbRepository implements ContentRepository {
     sortBy = "createdAt",
     sortDirection = "desc",
   }: {
+    ownerId?: string;
+    offset: number;
+    limit: number;
+    parentId?: string;
+    status?: ContentRecord["status"];
+    type?: ContentRecord["type"];
+    search?: string;
+    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: ContentRecord[]; total: number }> {
+    return this.listInternal({
+      offset,
+      limit,
+      parentId,
+      status,
+      type,
+      search,
+      sortBy,
+      sortDirection,
+    });
+  }
+
+  async listForOwner(input: {
+    ownerId: string;
+    offset: number;
+    limit: number;
+    parentId?: string;
+    status?: ContentRecord["status"];
+    type?: ContentRecord["type"];
+    search?: string;
+    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: ContentRecord[]; total: number }> {
+    return this.listInternal(input);
+  }
+
+  private async listInternal({
+    ownerId,
+    offset,
+    limit,
+    parentId,
+    status,
+    type,
+    search,
+    sortBy = "createdAt",
+    sortDirection = "desc",
+  }: {
+    ownerId?: string;
     offset: number;
     limit: number;
     parentId?: string;
@@ -228,6 +310,7 @@ export class ContentDbRepository implements ContentRepository {
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }> {
     const conditions = [
+      ownerId ? eq(content.ownerId, ownerId) : undefined,
       parentId
         ? eq(content.parentContentId, parentId)
         : isNull(content.parentContentId),
@@ -282,11 +365,34 @@ export class ContentDbRepository implements ContentRepository {
       onlyReady?: boolean;
     },
   ): Promise<ContentRecord[]> {
+    return this.findChildrenByParentIdsInternal(parentIds, input);
+  }
+
+  async findChildrenByParentIdsForOwner(
+    parentIds: string[],
+    ownerId: string,
+    input?: {
+      includeExcluded?: boolean;
+      onlyReady?: boolean;
+    },
+  ): Promise<ContentRecord[]> {
+    return this.findChildrenByParentIdsInternal(parentIds, input, ownerId);
+  }
+
+  private async findChildrenByParentIdsInternal(
+    parentIds: string[],
+    input?: {
+      includeExcluded?: boolean;
+      onlyReady?: boolean;
+    },
+    ownerId?: string,
+  ): Promise<ContentRecord[]> {
     if (parentIds.length === 0) {
       return [];
     }
 
     const conditions = [
+      ownerId ? eq(content.ownerId, ownerId) : undefined,
       inArray(content.parentContentId, parentIds),
       input?.onlyReady ? eq(content.status, "READY") : undefined,
       input?.includeExcluded ? undefined : eq(content.isExcluded, false),
@@ -330,7 +436,71 @@ export class ContentDbRepository implements ContentRepository {
       >
     >,
   ): Promise<ContentRecord | null> {
-    const existing = await this.findById(id);
+    return this.updateInternal(id, input);
+  }
+
+  async updateForOwner(
+    id: string,
+    ownerId: string,
+    input: Partial<
+      Pick<
+        ContentRecord,
+        | "title"
+        | "kind"
+        | "status"
+        | "fileKey"
+        | "thumbnailKey"
+        | "parentContentId"
+        | "pageNumber"
+        | "pageCount"
+        | "isExcluded"
+        | "type"
+        | "mimeType"
+        | "fileSize"
+        | "width"
+        | "height"
+        | "duration"
+        | "scrollPxPerSecond"
+        | "flashMessage"
+        | "flashTone"
+        | "checksum"
+      >
+    >,
+  ): Promise<ContentRecord | null> {
+    return this.updateInternal(id, input, ownerId);
+  }
+
+  private async updateInternal(
+    id: string,
+    input: Partial<
+      Pick<
+        ContentRecord,
+        | "title"
+        | "kind"
+        | "status"
+        | "fileKey"
+        | "thumbnailKey"
+        | "parentContentId"
+        | "pageNumber"
+        | "pageCount"
+        | "isExcluded"
+        | "type"
+        | "mimeType"
+        | "fileSize"
+        | "width"
+        | "height"
+        | "duration"
+        | "scrollPxPerSecond"
+        | "flashMessage"
+        | "flashTone"
+        | "checksum"
+      >
+    >,
+    ownerId?: string,
+  ): Promise<ContentRecord | null> {
+    const existing = ownerId
+      ? await this.findByIdForOwner(id, ownerId)
+      : await this.findById(id);
     if (!existing) {
       return null;
     }
@@ -340,7 +510,7 @@ export class ContentDbRepository implements ContentRepository {
       ...input,
       id: existing.id,
       createdAt: existing.createdAt,
-      createdById: existing.createdById,
+      ownerId: existing.ownerId,
       fileKey: input.fileKey ?? existing.fileKey,
       thumbnailKey:
         input.thumbnailKey !== undefined
@@ -381,7 +551,11 @@ export class ContentDbRepository implements ContentRepository {
           isExcluded: next.isExcluded,
           updatedAt: now,
         })
-        .where(eq(content.id, id));
+        .where(
+          ownerId
+            ? and(eq(content.id, id), eq(content.ownerId, ownerId))
+            : eq(content.id, id),
+        );
 
       await tx
         .insert(contentAssets)
@@ -438,7 +612,7 @@ export class ContentDbRepository implements ContentRepository {
       }
     });
 
-    return this.findById(id);
+    return ownerId ? this.findByIdForOwner(id, ownerId) : this.findById(id);
   }
 
   async countPlaylistReferences(contentId: string): Promise<number> {
@@ -483,7 +657,21 @@ export class ContentDbRepository implements ContentRepository {
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = await db.delete(content).where(eq(content.id, id));
+    return this.deleteInternal(id);
+  }
+
+  async deleteForOwner(id: string, ownerId: string): Promise<boolean> {
+    return this.deleteInternal(id, ownerId);
+  }
+
+  private async deleteInternal(id: string, ownerId?: string): Promise<boolean> {
+    const result = await db
+      .delete(content)
+      .where(
+        ownerId
+          ? and(eq(content.id, id), eq(content.ownerId, ownerId))
+          : eq(content.id, id),
+      );
     return result[0]?.affectedRows > 0;
   }
 }

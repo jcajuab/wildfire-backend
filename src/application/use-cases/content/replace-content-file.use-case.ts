@@ -41,6 +41,7 @@ export class ReplaceContentFileUseCase {
 
   async execute(input: {
     id: string;
+    ownerId?: string;
     file: File;
     title?: string;
     status?: ContentStatus;
@@ -52,7 +53,7 @@ export class ReplaceContentFileUseCase {
         contentId: string;
         operation: "UPLOAD" | "REPLACE";
         status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
-        createdById: string;
+        ownerId: string;
         errorMessage?: string | null;
       }) => ({
         id: jobInput.id,
@@ -60,7 +61,7 @@ export class ReplaceContentFileUseCase {
         operation: jobInput.operation,
         status: jobInput.status,
         errorMessage: jobInput.errorMessage ?? null,
-        createdById: jobInput.createdById,
+        ownerId: jobInput.ownerId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         startedAt: null,
@@ -76,7 +77,13 @@ export class ReplaceContentFileUseCase {
       publish: () => {},
     };
 
-    const existing = await this.deps.contentRepository.findById(input.id);
+    const existing =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(input.id);
     if (!existing) {
       throw new NotFoundError("Content not found");
     }
@@ -117,20 +124,40 @@ export class ReplaceContentFileUseCase {
       contentLength: input.file.size,
     });
 
-    const updated = await this.deps.contentRepository.update(input.id, {
-      ...(input.title !== undefined ? { title: input.title } : {}),
-      type,
-      status: "PROCESSING",
-      fileKey,
-      thumbnailKey: null,
-      mimeType,
-      fileSize: input.file.size,
-      width: null,
-      height: null,
-      duration: null,
-      checksum,
-      ...(existing.kind === "ROOT" ? { pageCount: null } : {}),
-    });
+    const updated =
+      input.ownerId && this.deps.contentRepository.updateForOwner
+        ? await this.deps.contentRepository.updateForOwner(
+            input.id,
+            input.ownerId,
+            {
+              ...(input.title !== undefined ? { title: input.title } : {}),
+              type,
+              status: "PROCESSING",
+              fileKey,
+              thumbnailKey: null,
+              mimeType,
+              fileSize: input.file.size,
+              width: null,
+              height: null,
+              duration: null,
+              checksum,
+              ...(existing.kind === "ROOT" ? { pageCount: null } : {}),
+            },
+          )
+        : await this.deps.contentRepository.update(input.id, {
+            ...(input.title !== undefined ? { title: input.title } : {}),
+            type,
+            status: "PROCESSING",
+            fileKey,
+            thumbnailKey: null,
+            mimeType,
+            fileSize: input.file.size,
+            width: null,
+            height: null,
+            duration: null,
+            checksum,
+            ...(existing.kind === "ROOT" ? { pageCount: null } : {}),
+          });
     if (!updated) {
       throw new NotFoundError("Content not found");
     }
@@ -170,7 +197,7 @@ export class ReplaceContentFileUseCase {
         contentId: updated.id,
         operation: "REPLACE",
         status: "QUEUED",
-        createdById: updated.createdById,
+        ownerId: updated.ownerId,
       });
       jobId = job.id;
       await contentIngestionQueue.enqueue({
@@ -185,11 +212,9 @@ export class ReplaceContentFileUseCase {
         message: "Content replacement queued for processing",
       });
 
-      const creator = await this.deps.userRepository.findById(
-        updated.createdById,
-      );
+      const owner = await this.deps.userRepository.findById(updated.ownerId);
       return {
-        content: toContentView(updated, creator?.name ?? null),
+        content: toContentView(updated, owner?.name ?? null),
         job: toContentJobView(job),
       };
     } catch (error) {

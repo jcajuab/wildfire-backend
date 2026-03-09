@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   type ContentIngestionJobRecord,
   type ContentIngestionJobRepository,
@@ -15,7 +15,7 @@ const toRecord = (
   operation: toOperation(row.operation),
   status: toStatus(row.status),
   errorMessage: row.errorMessage ?? null,
-  createdById: row.createdById,
+  ownerId: row.ownerId,
   createdAt:
     row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
   updatedAt:
@@ -58,7 +58,7 @@ export class ContentIngestionJobDbRepository
     operation: "UPLOAD" | "REPLACE";
     status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
     errorMessage?: string | null;
-    createdById: string;
+    ownerId: string;
   }): Promise<ContentIngestionJobRecord> {
     const now = new Date();
     await db.insert(contentIngestionJobs).values({
@@ -67,7 +67,7 @@ export class ContentIngestionJobDbRepository
       operation: input.operation,
       status: input.status,
       errorMessage: input.errorMessage ?? null,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       createdAt: now,
       updatedAt: now,
       startedAt: null,
@@ -82,10 +82,31 @@ export class ContentIngestionJobDbRepository
   }
 
   async findById(id: string): Promise<ContentIngestionJobRecord | null> {
+    return this.findByIdInternal(id);
+  }
+
+  async findByIdForOwner(
+    id: string,
+    ownerId: string,
+  ): Promise<ContentIngestionJobRecord | null> {
+    return this.findByIdInternal(id, ownerId);
+  }
+
+  private async findByIdInternal(
+    id: string,
+    ownerId?: string,
+  ): Promise<ContentIngestionJobRecord | null> {
     const rows = await db
       .select()
       .from(contentIngestionJobs)
-      .where(eq(contentIngestionJobs.id, id))
+      .where(
+        ownerId
+          ? and(
+              eq(contentIngestionJobs.id, id),
+              eq(contentIngestionJobs.ownerId, ownerId),
+            )
+          : eq(contentIngestionJobs.id, id),
+      )
       .limit(1);
     const row = rows[0];
     return row ? toRecord(row) : null;

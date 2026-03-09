@@ -6,7 +6,7 @@ export interface ContentJobView {
   operation: "UPLOAD" | "REPLACE";
   status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
   errorMessage: string | null;
-  createdById: string;
+  ownerId: string;
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
@@ -21,7 +21,7 @@ export const toContentJobView = (
   operation: record.operation,
   status: record.status,
   errorMessage: record.errorMessage,
-  createdById: record.createdById,
+  ownerId: record.ownerId,
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
   startedAt: record.startedAt,

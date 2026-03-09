@@ -29,7 +29,7 @@ export const contentSchema = z.object({
   flashMessage: z.string().nullable(),
   flashTone: flashToneSchema.nullable(),
   createdAt: z.string(),
-  createdBy: z.object({
+  owner: z.object({
     id: z.string(),
     name: z.string(),
   }),
@@ -188,7 +188,7 @@ export const contentJobSchema = z.object({
   operation: contentJobOperationSchema,
   status: contentJobStatusSchema,
   errorMessage: z.string().nullable(),
-  createdById: z.string().uuid(),
+  ownerId: z.string().uuid(),
   createdAt: z.string(),
   updatedAt: z.string(),
   startedAt: z.string().nullable(),

@@ -92,6 +92,7 @@ export const computePlaylistEffectiveDuration = async (input: {
   displayWidth: number;
   displayHeight: number;
   defaultScrollPxPerSecond?: number;
+  ownerId?: string;
 }): Promise<PlaylistDurationComputation> => {
   if (input.items.length === 0) {
     return {
@@ -105,7 +106,13 @@ export const computePlaylistEffectiveDuration = async (input: {
   const requestedContentIds = Array.from(
     new Set(input.items.map((item) => item.contentId)),
   );
-  const contents = await input.contentRepository.findByIds(requestedContentIds);
+  const contents =
+    input.ownerId !== undefined && input.contentRepository.findByIdsForOwner
+      ? await input.contentRepository.findByIdsForOwner(
+          requestedContentIds,
+          input.ownerId,
+        )
+      : await input.contentRepository.findByIds(requestedContentIds);
   const contentById = new Map(contents.map((content) => [content.id, content]));
 
   const parentIdsToLoad = Array.from(
@@ -116,7 +123,13 @@ export const computePlaylistEffectiveDuration = async (input: {
     ),
   ).filter((id) => !contentById.has(id));
   if (parentIdsToLoad.length > 0) {
-    const parents = await input.contentRepository.findByIds(parentIdsToLoad);
+    const parents =
+      input.ownerId !== undefined && input.contentRepository.findByIdsForOwner
+        ? await input.contentRepository.findByIdsForOwner(
+            parentIdsToLoad,
+            input.ownerId,
+          )
+        : await input.contentRepository.findByIds(parentIdsToLoad);
     for (const parent of parents) {
       contentById.set(parent.id, parent);
     }
@@ -144,15 +157,25 @@ export const computePlaylistEffectiveDuration = async (input: {
   const childPagesByParentId = new Map<string, typeof contents>();
   if (
     rootPdfIds.length > 0 &&
-    input.contentRepository.findChildrenByParentIds
+    (input.ownerId !== undefined
+      ? input.contentRepository.findChildrenByParentIdsForOwner
+      : input.contentRepository.findChildrenByParentIds)
   ) {
-    const childPages = await input.contentRepository.findChildrenByParentIds(
-      rootPdfIds,
-      {
-        includeExcluded: false,
-        onlyReady: true,
-      },
-    );
+    const childPages =
+      input.ownerId !== undefined &&
+      input.contentRepository.findChildrenByParentIdsForOwner
+        ? await input.contentRepository.findChildrenByParentIdsForOwner(
+            rootPdfIds,
+            input.ownerId,
+            {
+              includeExcluded: false,
+              onlyReady: true,
+            },
+          )
+        : await input.contentRepository.findChildrenByParentIds!(rootPdfIds, {
+            includeExcluded: false,
+            onlyReady: true,
+          });
     for (const childPage of childPages) {
       if (!childPage.parentContentId) {
         continue;

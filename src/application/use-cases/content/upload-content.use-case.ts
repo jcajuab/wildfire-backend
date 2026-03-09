@@ -35,7 +35,7 @@ export class UploadContentUseCase {
   async execute(input: {
     title: string;
     file: File;
-    createdById: string;
+    ownerId: string;
     scrollPxPerSecond?: number;
   }) {
     const contentIngestionJobRepository = this.deps
@@ -45,7 +45,7 @@ export class UploadContentUseCase {
         contentId: string;
         operation: "UPLOAD" | "REPLACE";
         status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
-        createdById: string;
+        ownerId: string;
         errorMessage?: string | null;
       }) => ({
         id: jobInput.id,
@@ -53,7 +53,7 @@ export class UploadContentUseCase {
         operation: jobInput.operation,
         status: jobInput.status,
         errorMessage: jobInput.errorMessage ?? null,
-        createdById: jobInput.createdById,
+        ownerId: jobInput.ownerId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         startedAt: null,
@@ -69,7 +69,7 @@ export class UploadContentUseCase {
       publish: () => {},
     };
 
-    const user = await this.deps.userRepository.findById(input.createdById);
+    const user = await this.deps.userRepository.findById(input.ownerId);
     if (!user) {
       throw new NotFoundError("User not found");
     }
@@ -107,7 +107,7 @@ export class UploadContentUseCase {
       scrollPxPerSecond: supportsScrollOverride
         ? (input.scrollPxPerSecond ?? null)
         : null,
-      createdById: user.id,
+      ownerId: user.id,
     });
 
     let uploaded = false;
@@ -126,7 +126,7 @@ export class UploadContentUseCase {
         contentId: created.id,
         operation: "UPLOAD",
         status: "QUEUED",
-        createdById: user.id,
+        ownerId: user.id,
       });
       jobId = job.id;
       await contentIngestionQueue.enqueue({

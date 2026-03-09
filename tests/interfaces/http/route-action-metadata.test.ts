@@ -192,7 +192,7 @@ const buildContentActionApp = async () => {
             contentId: string;
             operation: "UPLOAD" | "REPLACE";
             status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
-            createdById: string;
+            ownerId: string;
             errorMessage?: string | null;
           }) => ({
             id: input.id,
@@ -200,7 +200,7 @@ const buildContentActionApp = async () => {
             operation: input.operation,
             status: input.status,
             errorMessage: input.errorMessage ?? null,
-            createdById: input.createdById,
+            ownerId: input.ownerId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             startedAt: null,

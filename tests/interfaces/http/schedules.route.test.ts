@@ -48,7 +48,7 @@ const makeApp = async (
       id: playlistId,
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     },

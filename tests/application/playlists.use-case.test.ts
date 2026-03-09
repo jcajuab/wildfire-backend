@@ -34,7 +34,7 @@ const makeDeps = () => {
       width: 10,
       height: 10,
       duration: null,
-      createdById: "user-1",
+      ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     },
   ];
@@ -55,7 +55,7 @@ const makeDeps = () => {
         name: input.name,
         description: input.description,
         status: "DRAFT",
-        createdById: input.createdById,
+        ownerId: input.ownerId,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       };
@@ -163,12 +163,12 @@ const makeDeps = () => {
 };
 
 describe("Playlists use cases", () => {
-  test("ListPlaylistsUseCase returns playlists with creator", async () => {
+  test("ListPlaylistsUseCase returns playlists with owner", async () => {
     const deps = makeDeps();
     await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     const useCase = new ListPlaylistsUseCase({
@@ -177,7 +177,7 @@ describe("Playlists use cases", () => {
     });
 
     const result = await useCase.execute();
-    expect(result.items[0]?.createdBy.name).toBe("User");
+    expect(result.items[0]?.owner.name).toBe("User");
   });
 
   test("ListPlaylistsUseCase uses batched playlist stats when available", async () => {
@@ -185,7 +185,7 @@ describe("Playlists use cases", () => {
     await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     let listItemsCalls = 0;
@@ -225,13 +225,13 @@ describe("Playlists use cases", () => {
 
     const result = await useCase.execute({
       name: "Morning",
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     expect(result.name).toBe("Morning");
   });
 
-  test("CreatePlaylistUseCase throws when creator is missing", async () => {
+  test("CreatePlaylistUseCase throws when owner is missing", async () => {
     const deps = makeDeps();
     const useCase = new CreatePlaylistUseCase({
       playlistRepository: deps.playlistRepository,
@@ -241,7 +241,7 @@ describe("Playlists use cases", () => {
     await expect(
       useCase.execute({
         name: "Morning",
-        createdById: "missing-user",
+        ownerId: "missing-user",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -264,7 +264,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
       playlistId: playlist.id,
@@ -288,7 +288,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
       playlistId: playlist.id,
@@ -341,7 +341,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
     const useCase = new AddPlaylistItemUseCase({
       playlistRepository: deps.playlistRepository,
@@ -363,7 +363,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
       playlistId: playlist.id,
@@ -392,7 +392,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
     const updates: Array<{ id: string; isActive?: boolean }> = [];
     const scheduleRepository: ScheduleRepository = {
@@ -443,7 +443,7 @@ describe("Playlists use cases", () => {
           width: 100,
           height: 3000,
           duration: null,
-          createdById: "user-1",
+          ownerId: "user-1",
           createdAt: "2025-01-01T00:00:00.000Z",
         }),
         findByIds: async () => [
@@ -459,7 +459,7 @@ describe("Playlists use cases", () => {
             width: 100,
             height: 3000,
             duration: null,
-            createdById: "user-1",
+            ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
@@ -511,7 +511,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
     const updates: Array<{ id: string; isActive?: boolean }> = [];
     const scheduleRepository: ScheduleRepository = {
@@ -563,7 +563,7 @@ describe("Playlists use cases", () => {
           width: null,
           height: null,
           duration: null,
-          createdById: "user-1",
+          ownerId: "user-1",
           createdAt: "2025-01-01T00:00:00.000Z",
         }),
         findByIds: async () => [
@@ -580,7 +580,7 @@ describe("Playlists use cases", () => {
             width: null,
             height: null,
             duration: null,
-            createdById: "user-1",
+            ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
@@ -600,7 +600,7 @@ describe("Playlists use cases", () => {
             width: null,
             height: null,
             duration: null,
-            createdById: "user-1",
+            ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
           },
           {
@@ -618,7 +618,7 @@ describe("Playlists use cases", () => {
             width: null,
             height: null,
             duration: null,
-            createdById: "user-1",
+            ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
@@ -671,7 +671,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     const scheduleRepository: ScheduleRepository = {
@@ -752,7 +752,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     const scheduleRepository: ScheduleRepository = {
@@ -845,7 +845,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
-      createdById: "user-1",
+      ownerId: "user-1",
     });
 
     let deleteCalled = false;

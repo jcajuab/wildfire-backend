@@ -9,10 +9,14 @@ export class GetContentJobUseCase {
     },
   ) {}
 
-  async execute(input: { id: string }) {
-    const job = await this.deps.contentIngestionJobRepository.findById(
-      input.id,
-    );
+  async execute(input: { id: string; ownerId?: string }) {
+    const job =
+      input.ownerId && this.deps.contentIngestionJobRepository.findByIdForOwner
+        ? await this.deps.contentIngestionJobRepository.findByIdForOwner(
+            input.id,
+            input.ownerId,
+          )
+        : await this.deps.contentIngestionJobRepository.findById(input.id);
     if (!job) {
       throw new NotFoundError("Content job not found");
     }

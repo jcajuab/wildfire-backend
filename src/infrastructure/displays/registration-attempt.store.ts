@@ -13,7 +13,7 @@ import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 
 interface RegistrationAttemptRecord {
   id: string;
-  createdById: string;
+  ownerId: string;
   createdAtMs: number;
   closedAtMs: number | null;
   activeCodeHash: string | null;
@@ -54,13 +54,13 @@ const parseRegistrationAttempt = (
   value: Record<string, string>,
 ): RegistrationAttemptRecord | null => {
   const id = value.id;
-  const createdById = value.createdById;
+  const ownerId = value.ownerId;
   const createdAtMs = parseMilliseconds(value.createdAtMs);
   if (
     typeof id !== "string" ||
     id.length === 0 ||
-    typeof createdById !== "string" ||
-    createdById.length === 0 ||
+    typeof ownerId !== "string" ||
+    ownerId.length === 0 ||
     createdAtMs == null
   ) {
     return null;
@@ -80,7 +80,7 @@ const parseRegistrationAttempt = (
 
   return {
     id,
-    createdById,
+    ownerId,
     createdAtMs,
     closedAtMs,
     activeCodeHash:
@@ -117,7 +117,7 @@ local openAttemptKey = KEYS[1]
 
 local attemptPrefix = ARGV[1]
 local codeIndexPrefix = ARGV[2]
-local createdById = ARGV[3]
+local ownerId = ARGV[3]
 local nowMs = tonumber(ARGV[4])
 local staleTtlMs = tonumber(ARGV[5])
 local newAttemptId = ARGV[6]
@@ -132,7 +132,7 @@ local invalidatedPairingCodeId = ''
 
 if existingAttemptId and existingAttemptId ~= '' then
   local existingAttemptKey = attemptPrefix .. ':' .. existingAttemptId
-  local existingCreatedById = redis.call('HGET', existingAttemptKey, 'createdById')
+  local existingCreatedById = redis.call('HGET', existingAttemptKey, 'ownerId')
   if existingCreatedById and existingCreatedById ~= '' then
     local existingCodeHash = redis.call('HGET', existingAttemptKey, 'activeCodeHash')
     local existingPairingCodeId = redis.call('HGET', existingAttemptKey, 'activePairingCodeId')
@@ -160,7 +160,7 @@ redis.call(
   'HSET',
   newAttemptKey,
   'id', newAttemptId,
-  'createdById', createdById,
+  'ownerId', ownerId,
   'createdAtMs', tostring(nowMs),
   'closedAtMs', '',
   'activeCodeHash', newCodeHash,
@@ -192,8 +192,8 @@ if (not attemptId) or attemptId == '' then
   return {'not_found', ''}
 end
 
-local createdById = redis.call('HGET', attemptKey, 'createdById')
-if (not createdById) or createdById ~= expectedCreatedById then
+local ownerId = redis.call('HGET', attemptKey, 'ownerId')
+if (not ownerId) or ownerId ~= expectedCreatedById then
   return {'not_found', ''}
 end
 
@@ -234,8 +234,8 @@ local expectedCreatedById = ARGV[2]
 local nowMs = tonumber(ARGV[3])
 local staleTtlMs = tonumber(ARGV[4])
 
-local createdById = redis.call('HGET', attemptKey, 'createdById')
-if (not createdById) or createdById ~= expectedCreatedById then
+local ownerId = redis.call('HGET', attemptKey, 'ownerId')
+if (not ownerId) or ownerId ~= expectedCreatedById then
   return {'not_found', ''}
 end
 
@@ -274,8 +274,8 @@ if (not attemptId) then
 end
 
 local attemptKey = ARGV[1] .. ':' .. attemptId
-local createdById = redis.call('HGET', attemptKey, 'createdById')
-if (not createdById) or createdById == '' then
+local ownerId = redis.call('HGET', attemptKey, 'ownerId')
+if (not ownerId) or ownerId == '' then
   redis.call('DEL', KEYS[1])
   return {'', ''}
 end
@@ -312,7 +312,7 @@ export class RedisDisplayRegistrationAttemptStore
   implements DisplayRegistrationAttemptStore
 {
   async createOrReplaceOpenAttempt(input: {
-    createdById: string;
+    ownerId: string;
     activeCode: RegistrationAttemptCode;
   }): Promise<{ attemptId: string; invalidatedPairingCodeId: string | null }> {
     const redis = await getRedisCommandClient();
@@ -328,11 +328,11 @@ export class RedisDisplayRegistrationAttemptStore
       redis,
       scriptName: "display-registration-attempt:create-or-replace-open-attempt",
       script: CREATE_OR_REPLACE_OPEN_ATTEMPT_SCRIPT,
-      keys: [openAttemptByUserKey(input.createdById)],
+      keys: [openAttemptByUserKey(input.ownerId)],
       args: [
         attemptPrefix,
         attemptByCodeHashPrefix,
-        input.createdById,
+        input.ownerId,
         String(nowMs),
         String(staleTtlMs),
         attemptId,
@@ -360,7 +360,7 @@ export class RedisDisplayRegistrationAttemptStore
 
   async rotateCode(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
     nextCode: RegistrationAttemptCode;
   }): Promise<{
     invalidatedPairingCodeId: string | null;
@@ -379,12 +379,12 @@ export class RedisDisplayRegistrationAttemptStore
       script: ROTATE_CODE_SCRIPT,
       keys: [
         attemptKey(input.attemptId),
-        openAttemptByUserKey(input.createdById),
+        openAttemptByUserKey(input.ownerId),
         attemptByCodeHashKey(input.nextCode.codeHash),
       ],
       args: [
         attemptByCodeHashPrefix,
-        input.createdById,
+        input.ownerId,
         input.nextCode.codeHash,
         input.nextCode.pairingCodeId,
         String(nextCodeExpiresAtMs),
@@ -411,20 +411,17 @@ export class RedisDisplayRegistrationAttemptStore
 
   async closeAttempt(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
   }): Promise<{ invalidatedPairingCodeId: string | null } | null> {
     const redis = await getRedisCommandClient();
     const result = await evalCachedRedisScript({
       redis,
       scriptName: "display-registration-attempt:close-attempt",
       script: CLOSE_ATTEMPT_SCRIPT,
-      keys: [
-        attemptKey(input.attemptId),
-        openAttemptByUserKey(input.createdById),
-      ],
+      keys: [attemptKey(input.attemptId), openAttemptByUserKey(input.ownerId)],
       args: [
         attemptByCodeHashPrefix,
-        input.createdById,
+        input.ownerId,
         String(Date.now()),
         String(staleTtlMs),
       ],
@@ -448,7 +445,7 @@ export class RedisDisplayRegistrationAttemptStore
 
   async isAttemptOwnedBy(input: {
     attemptId: string;
-    createdById: string;
+    ownerId: string;
   }): Promise<boolean> {
     const redis = await getRedisCommandClient();
     const attempt = parseRegistrationAttempt(
@@ -459,7 +456,7 @@ export class RedisDisplayRegistrationAttemptStore
         ]),
       ),
     );
-    return attempt?.createdById === input.createdById;
+    return attempt?.ownerId === input.ownerId;
   }
 
   async consumeCodeHash(input: {

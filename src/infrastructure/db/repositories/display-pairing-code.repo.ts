@@ -27,7 +27,7 @@ interface StoredPairingCode {
   codeHash: string;
   expiresAtMs: number;
   usedAtMs: number | null;
-  createdById: string;
+  ownerId: string;
   createdAtMs: number;
   updatedAtMs: number;
 }
@@ -46,7 +46,7 @@ const parseStoredPairingCode = (
 ): StoredPairingCode | null => {
   const id = value.id;
   const codeHash = value.codeHash;
-  const createdById = value.createdById;
+  const ownerId = value.ownerId;
   const expiresAtMs = parseMilliseconds(value.expiresAtMs);
   const createdAtMs = parseMilliseconds(value.createdAtMs);
   const updatedAtMs = parseMilliseconds(value.updatedAtMs);
@@ -56,8 +56,8 @@ const parseStoredPairingCode = (
     id.length === 0 ||
     typeof codeHash !== "string" ||
     codeHash.length === 0 ||
-    typeof createdById !== "string" ||
-    createdById.length === 0 ||
+    typeof ownerId !== "string" ||
+    ownerId.length === 0 ||
     expiresAtMs == null ||
     createdAtMs == null ||
     updatedAtMs == null
@@ -70,7 +70,7 @@ const parseStoredPairingCode = (
     codeHash,
     expiresAtMs,
     usedAtMs: parseMilliseconds(value.usedAtMs),
-    createdById,
+    ownerId,
     createdAtMs,
     updatedAtMs,
   };
@@ -82,7 +82,7 @@ const toRecord = (value: StoredPairingCode): DisplayPairingCodeRecord => ({
   expiresAt: new Date(value.expiresAtMs).toISOString(),
   usedAt:
     value.usedAtMs == null ? null : new Date(value.usedAtMs).toISOString(),
-  createdById: value.createdById,
+  ownerId: value.ownerId,
   createdAt: new Date(value.createdAtMs).toISOString(),
   updatedAt: new Date(value.updatedAtMs).toISOString(),
 });
@@ -93,7 +93,7 @@ export class DisplayPairingCodeRedisRepository
   async create(input: {
     codeHash: string;
     expiresAt: Date;
-    createdById: string;
+    ownerId: string;
   }): Promise<DisplayPairingCodeRecord> {
     const redis = await getRedisCommandClient();
     const id = crypto.randomUUID();
@@ -111,8 +111,8 @@ export class DisplayPairingCodeRedisRepository
       String(expiresAtMs),
       "usedAtMs",
       "",
-      "createdById",
-      input.createdById,
+      "ownerId",
+      input.ownerId,
       "createdAtMs",
       String(nowMs),
       "updatedAtMs",
@@ -137,7 +137,7 @@ export class DisplayPairingCodeRedisRepository
       codeHash: input.codeHash,
       expiresAtMs,
       usedAtMs: null,
-      createdById: input.createdById,
+      ownerId: input.ownerId,
       createdAtMs: nowMs,
       updatedAtMs: nowMs,
     });

@@ -40,6 +40,7 @@ export class ListContentUseCase {
   }
 
   async execute(input: {
+    ownerId?: string;
     page?: number;
     pageSize?: number;
     parentId?: string;
@@ -53,20 +54,31 @@ export class ListContentUseCase {
     const pageSize = clamp(Math.trunc(input.pageSize ?? 20), 1, 100);
     const offset = (page - 1) * pageSize;
 
-    const { items, total } = await this.deps.contentRepository.list({
-      offset,
-      limit: pageSize,
-      parentId: input.parentId,
-      status: input.status,
-      type: input.type,
-      search: input.search,
-      sortBy: input.sortBy,
-      sortDirection: input.sortDirection,
-    });
+    const { items, total } =
+      input.ownerId && this.deps.contentRepository.listForOwner
+        ? await this.deps.contentRepository.listForOwner({
+            ownerId: input.ownerId,
+            offset,
+            limit: pageSize,
+            parentId: input.parentId,
+            status: input.status,
+            type: input.type,
+            search: input.search,
+            sortBy: input.sortBy,
+            sortDirection: input.sortDirection,
+          })
+        : await this.deps.contentRepository.list({
+            offset,
+            limit: pageSize,
+            parentId: input.parentId,
+            status: input.status,
+            type: input.type,
+            search: input.search,
+            sortBy: input.sortBy,
+            sortDirection: input.sortDirection,
+          });
 
-    const creatorIds = Array.from(
-      new Set(items.map((item) => item.createdById)),
-    );
+    const creatorIds = Array.from(new Set(items.map((item) => item.ownerId)));
     const creators = await this.deps.userRepository.findByIds(creatorIds);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
@@ -75,7 +87,7 @@ export class ListContentUseCase {
         const thumbnailUrl = await this.buildThumbnailUrl(item);
         return toContentView(
           item,
-          creatorsById.get(item.createdById)?.name ?? null,
+          creatorsById.get(item.ownerId)?.name ?? null,
           { thumbnailUrl },
         );
       }),
@@ -98,19 +110,32 @@ export class ListContentOptionsUseCase {
   ) {}
 
   async execute(input: {
+    ownerId?: string;
     status?: ContentStatus;
     type?: ContentType;
     search?: string;
   }) {
-    const result = await this.deps.contentRepository.list({
-      offset: 0,
-      limit: CONTENT_OPTIONS_LIMIT,
-      status: input.status,
-      type: input.type,
-      search: input.search,
-      sortBy: "title",
-      sortDirection: "asc",
-    });
+    const result =
+      input.ownerId && this.deps.contentRepository.listForOwner
+        ? await this.deps.contentRepository.listForOwner({
+            ownerId: input.ownerId,
+            offset: 0,
+            limit: CONTENT_OPTIONS_LIMIT,
+            status: input.status,
+            type: input.type,
+            search: input.search,
+            sortBy: "title",
+            sortDirection: "asc",
+          })
+        : await this.deps.contentRepository.list({
+            offset: 0,
+            limit: CONTENT_OPTIONS_LIMIT,
+            status: input.status,
+            type: input.type,
+            search: input.search,
+            sortBy: "title",
+            sortDirection: "asc",
+          });
 
     return result.items.map((item) => ({
       id: item.id,

@@ -71,7 +71,10 @@ export const registerContentFileRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
-        const result = await useCases.getDownloadUrl.execute({ id: params.id });
+        const result = await useCases.getDownloadUrl.execute({
+          id: params.id,
+          ownerId: c.get("userId"),
+        });
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
