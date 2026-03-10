@@ -354,7 +354,6 @@ export class GetDisplayManifestUseCase {
       };
     }
 
-    // Gather playlist IDs from all active schedules
     const playlistIds = activeSchedules
       .map((s) => s.playlistId)
       .filter((id): id is string => id !== null);
@@ -363,15 +362,12 @@ export class GetDisplayManifestUseCase {
       throw new ValidationError("Playlist schedule is missing playlistId");
     }
 
-    // Fetch all playlists
     const playlists = await this.deps.playlistRepository.findByIds(playlistIds);
     if (playlists.length === 0) throw new NotFoundError("Playlist not found");
 
-    // Use first playlist for manifest response (for backward compat)
     const playlist = playlists[0];
     if (!playlist) throw new NotFoundError("Playlist not found");
 
-    // Gather all items from all playlists, ordered by schedule createdAt then item sequence
     const allItems: Array<{
       playlistId: string;
       contentId: string;
@@ -393,7 +389,6 @@ export class GetDisplayManifestUseCase {
       }
     }
 
-    // Sort by original sequence within each playlist (schedules already sorted by createdAt)
     const items = allItems.sort((a, b) => a.sequence - b.sequence);
     const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
     const contents = await this.deps.contentRepository.findByIds(contentIds);
