@@ -56,7 +56,6 @@ const buildApp = (grantedPermissions: string[]) => {
         id: rootRoleId,
         name: "Root",
         description: "All access",
-        isSystem: true,
       },
     ],
     permissions: [
@@ -142,7 +141,6 @@ const buildApp = (grantedPermissions: string[]) => {
           id: crypto.randomUUID(),
           name: input.name,
           description: input.description ?? null,
-          isSystem: input.isSystem ?? false,
         };
         store.roles.push(created);
         return created;
@@ -321,14 +319,12 @@ describe("RBAC routes", () => {
       data: {
         id: string;
         name: string;
-        isSystem: boolean;
       };
     }>(response);
     expect(body.data.name).toBe("Editor");
-    expect(body.data.isSystem).toBe(false);
   });
 
-  test("DELETE /roles/:id rejects deletion of system role", async () => {
+  test("DELETE /roles/:id deletes a role", async () => {
     const { app, issueToken } = buildApp(["roles:delete"]);
     const token = await issueToken();
 
@@ -337,7 +333,7 @@ describe("RBAC routes", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(204);
   });
 
   test("PUT /roles/:id/permissions sets permissions for custom role", async () => {
@@ -409,7 +405,6 @@ describe("RBAC routes", () => {
         id: string;
         name: string;
         description: string | null;
-        isSystem: boolean;
       }>;
     }>(response);
     expect(body.data).toEqual([
@@ -417,7 +412,6 @@ describe("RBAC routes", () => {
         id: rootRoleId,
         name: "Root",
         description: "All access",
-        isSystem: true,
       },
     ]);
   });
@@ -531,7 +525,6 @@ describe("RBAC routes", () => {
       id: "55555555-5555-4555-8555-555555555555",
       name: "Viewer",
       description: null,
-      isSystem: false,
     });
     store.userRoles.push({
       userId: "44444444-4444-4444-8444-444444444444",

@@ -15,7 +15,6 @@ export interface RoleRecord {
   id: string;
   name: string;
   description: string | null;
-  isSystem: boolean;
 }
 
 export interface RoleWithUserCount extends RoleRecord {
@@ -63,11 +62,10 @@ export interface RoleRepository {
   create(input: {
     name: string;
     description?: string | null;
-    isSystem?: boolean;
   }): Promise<RoleRecord>;
   update(
     id: string,
-    input: { name?: string; description?: string | null; isSystem?: boolean },
+    input: { name?: string; description?: string | null },
   ): Promise<RoleRecord | null>;
   delete(id: string): Promise<boolean>;
 }

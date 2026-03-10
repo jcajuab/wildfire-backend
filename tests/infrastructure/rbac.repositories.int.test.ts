@@ -161,7 +161,6 @@ describe("RBAC repositories (integration)", () => {
       id: "role-1",
       name: "Admin",
       description: null,
-      isSystem: false,
     });
 
     const repo = new UserRoleDbRepository();
@@ -181,7 +180,6 @@ describe("RBAC repositories (integration)", () => {
       id: "role-1",
       name: "Admin",
       description: null,
-      isSystem: false,
     });
     await db.insert(schema.permissions).values({
       id: "perm-1",

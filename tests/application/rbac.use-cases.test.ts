@@ -15,7 +15,6 @@ describe("RBAC use cases", () => {
             id: "role-1",
             name: "Editor",
             description: null,
-            isSystem: false,
           },
         ],
       } as never,
@@ -78,14 +77,12 @@ describe("RBAC use cases", () => {
             id,
             name: id,
             description: null,
-            isSystem: false,
           })),
         findByIds: async (ids: string[]) =>
           ids.map((id) => ({
             id,
             name: id,
             description: null,
-            isSystem: false,
           })),
       } as never,
       userRoleRepository: {

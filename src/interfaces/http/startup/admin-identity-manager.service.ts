@@ -74,7 +74,6 @@ export const ensureAdminRoleAndPermission = async (deps: {
       adminRole = await deps.roleRepository.create({
         name: ADMIN_ROLE_NAME,
         description: "Global admin access",
-        isSystem: true,
       });
     }
 

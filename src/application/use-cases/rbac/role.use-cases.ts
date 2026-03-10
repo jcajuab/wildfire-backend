@@ -145,9 +145,6 @@ export class UpdateRoleUseCase {
   }) {
     const existing = await this.deps.roleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Role not found");
-    if (existing.isSystem) {
-      throw new ForbiddenError("Cannot modify system role");
-    }
     const role = await this.deps.roleRepository.update(input.id, {
       name: input.name,
       description: input.description,
@@ -167,10 +164,6 @@ export class DeleteRoleUseCase {
   async execute(input: { id: string; callerUserId?: string }) {
     const role = await this.deps.roleRepository.findById(input.id);
     if (!role) throw new NotFoundError("Role not found");
-    if (role.isSystem) {
-      throw new ForbiddenError("Cannot delete system role");
-    }
-
     const deleted = await this.deps.roleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Role not found");
   }
@@ -220,9 +213,6 @@ export class SetRolePermissionsUseCase {
   }) {
     const role = await this.deps.roleRepository.findById(input.roleId);
     if (!role) throw new NotFoundError("Role not found");
-    if (role.isSystem) {
-      throw new ForbiddenError("Cannot modify permissions of system role");
-    }
 
     const selectedPermissions = await this.deps.permissionRepository.findByIds(
       input.permissionIds,

@@ -83,17 +83,12 @@ export const ensurePredefinedSystemRoles = async (deps: {
       role = await deps.roleRepository.create({
         name: template.name,
         description: template.description,
-        isSystem: true,
       });
       rolesByName.set(role.name, role);
       result.createdSystemRoles += 1;
-    } else if (
-      role.description !== template.description ||
-      role.isSystem !== true
-    ) {
+    } else if (role.description !== template.description) {
       const updatedRole = await deps.roleRepository.update(role.id, {
         description: template.description,
-        isSystem: true,
       });
       if (!updatedRole) {
         throw new Error(

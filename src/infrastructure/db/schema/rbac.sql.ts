@@ -34,7 +34,6 @@ export const roles = mysqlTable(
     id: varchar("id", { length: 36 }).primaryKey(),
     name: varchar("name", { length: 120 }).notNull(),
     description: text("description"),
-    isSystem: boolean("is_system").notNull().default(false),
   },
   (table) => ({
     nameUnique: uniqueIndex("roles_name_unique").on(table.name),
