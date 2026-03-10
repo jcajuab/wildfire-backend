@@ -132,10 +132,6 @@ export interface ContentRepository {
       >
     >,
   ): Promise<ContentRecord | null>;
-  countPlaylistReferences(contentId: string): Promise<number>;
-  listPlaylistsReferencingContent(
-    contentId: string,
-  ): Promise<{ id: string; name: string }[]>;
   deleteByParentId?(parentId: string): Promise<ContentRecord[]>;
   delete(id: string): Promise<boolean>;
   deleteForOwner?(id: string, ownerId: string): Promise<boolean>;

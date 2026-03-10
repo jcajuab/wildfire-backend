@@ -1,7 +1,7 @@
 import { type AdminDisplayLifecycleEventPublisher } from "#/application/ports/display-stream-events";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { deriveDisplayStatus } from "#/application/use-cases/displays";
+import { deriveDisplayStatus } from "#/application/use-cases/displays/display-status";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";

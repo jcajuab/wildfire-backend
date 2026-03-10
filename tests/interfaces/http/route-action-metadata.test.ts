@@ -168,6 +168,7 @@ const buildContentActionApp = async () => {
       },
       authSessionCookieName: "wildfire_session_token",
       maxUploadBytes: 5 * 1024 * 1024,
+      videoMaxUploadBytes: 50 * 1024 * 1024,
       downloadUrlExpiresInSeconds: 3600,
       thumbnailUrlExpiresInSeconds: 3600,
       repositories: {
@@ -180,8 +181,6 @@ const buildContentActionApp = async () => {
           findByIds: async () => [],
           list: async () => ({ items: [], total: 0 }),
           findChildrenByParentIds: async () => [],
-          countPlaylistReferences: async () => 0,
-          listPlaylistsReferencingContent: async () => [],
           deleteByParentId: async () => [],
           delete: async () => false,
           update: async () => null,

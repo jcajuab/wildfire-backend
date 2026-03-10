@@ -4,6 +4,7 @@ import {
 } from "#/application/ports/content";
 import { type CleanupFailureLogger } from "#/application/ports/observability";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { ContentPlaylistReportingService } from "#/application/reporting/content-playlist-reporting";
 import {
   ContentInUseError,
   ContentStorageCleanupError,
@@ -17,6 +18,7 @@ export class DeleteContentUseCase {
       contentStorage: ContentStorage;
       scheduleRepository?: ScheduleRepository;
       cleanupFailureLogger?: CleanupFailureLogger;
+      contentPlaylistReportingService?: ContentPlaylistReportingService;
     },
   ) {}
 
@@ -32,8 +34,11 @@ export class DeleteContentUseCase {
       throw new NotFoundError("Content not found");
     }
 
+    const contentPlaylistReportingService =
+      this.deps.contentPlaylistReportingService ??
+      new ContentPlaylistReportingService();
     const playlistReferenceCount =
-      await this.deps.contentRepository.countPlaylistReferences(input.id);
+      await contentPlaylistReportingService.countPlaylistReferences(input.id);
     if (playlistReferenceCount > 0) {
       const message =
         playlistReferenceCount > 1

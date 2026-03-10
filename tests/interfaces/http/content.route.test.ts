@@ -51,8 +51,6 @@ const makeRepository = () => {
         ).length,
       }),
       findChildrenByParentIds: async () => [],
-      countPlaylistReferences: async () => 0,
-      listPlaylistsReferencingContent: async () => [],
       deleteByParentId: async () => [],
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
@@ -162,6 +160,7 @@ const makeApp = async (permissions: string[]) => {
       authSessionRepository,
       authSessionCookieName: "wildfire_session_token",
       maxUploadBytes: 5 * 1024 * 1024,
+      videoMaxUploadBytes: 5 * 1024 * 1024,
       downloadUrlExpiresInSeconds: 3600,
       thumbnailUrlExpiresInSeconds: 3600,
       repositories: {

@@ -118,15 +118,20 @@ describe("backend architecture boundaries", () => {
 
     expect(dbClientImportFiles).toEqual(
       [
+        "src/application/reporting/content-playlist-reporting.ts",
         "src/bootstrap/http/health-checks.ts",
         "src/bootstrap/http/index.ts",
         "src/bootstrap/workers/audit/index.ts",
+        "src/bootstrap/workers/content-ingestion/entry-processor.ts",
         "src/bootstrap/workers/content-ingestion/index.ts",
+        "src/bootstrap/workers/content-ingestion/job-processor.ts",
         "src/infrastructure/db/repositories/audit-logs.repo.ts",
         "src/infrastructure/db/repositories/auth-session.repo.ts",
         "src/infrastructure/db/repositories/authorization.repo.ts",
         "src/infrastructure/db/repositories/content-job.repo.ts",
-        "src/infrastructure/db/repositories/content.repo.ts",
+        "src/infrastructure/db/repositories/content.repo.queries.ts",
+        "src/infrastructure/db/repositories/content.repo.shared.ts",
+        "src/infrastructure/db/repositories/content.repo.writes.ts",
         "src/infrastructure/db/repositories/display-groups.repo.ts",
         "src/infrastructure/db/repositories/display-key.repo.ts",
         "src/infrastructure/db/repositories/display.repo.ts",
@@ -141,6 +146,7 @@ describe("backend architecture boundaries", () => {
         "src/infrastructure/db/repositories/schedule.repo.ts",
         "src/infrastructure/db/repositories/user-role.repo.ts",
         "src/infrastructure/db/repositories/user.repo.ts",
+        "src/interfaces/http/startup/root-identity-manager.service.ts",
       ].sort(),
     );
   });

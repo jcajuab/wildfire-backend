@@ -638,8 +638,6 @@ describe("Displays use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -714,8 +712,6 @@ describe("Displays use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -831,8 +827,6 @@ describe("Displays use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -915,8 +909,6 @@ describe("Displays use cases", () => {
         throw new Error("not used");
       },
       list: async () => ({ items: [], total: 0 }),
-      countPlaylistReferences: async () => 0,
-      listPlaylistsReferencingContent: async () => [],
       delete: async () => false,
     };
 
@@ -1169,8 +1161,6 @@ describe("Displays use cases", () => {
         create: async () => {
           throw new Error("not used");
         },
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -1308,8 +1298,6 @@ describe("Displays use cases", () => {
         create: async () => {
           throw new Error("not used");
         },
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },
@@ -1494,8 +1482,6 @@ describe("Displays use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
-        countPlaylistReferences: async () => 0,
-        listPlaylistsReferencingContent: async () => [],
         delete: async () => false,
         update: async () => null,
       },

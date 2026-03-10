@@ -64,8 +64,6 @@ const makeContentRepository = () => {
         }
         return true;
       }),
-    countPlaylistReferences: async () => 0,
-    listPlaylistsReferencingContent: async () => [],
     deleteByParentId: async (parentId) => {
       const children = records.filter(
         (item) => item.parentContentId === parentId,

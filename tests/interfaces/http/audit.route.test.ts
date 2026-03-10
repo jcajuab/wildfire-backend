@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import {
+  type AuditLogRepository,
+  type ListAuditLogsQuery,
+} from "#/application/ports/audit";
 import { createAuditHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
@@ -120,21 +124,30 @@ const mockDisplayRepository = {
   delete: async (_id: string) => false,
 };
 
-const makeApp = async (permissions: string[]) => {
+type AuditLogRepositoryStub = Partial<AuditLogRepository>;
+
+const makeApp = async (
+  permissions: string[],
+  options: {
+    auditLogRepository?: AuditLogRepositoryStub;
+    exportMaxRows?: number;
+  } = {},
+) => {
   const listCalls: unknown[] = [];
   const countCalls: unknown[] = [];
 
-  const auditLogRepository = {
+  const auditLogRepository: AuditLogRepository = {
     create: async () => buildAuditLog("event-created"),
-    list: async (query: unknown) => {
+    list: async (query: ListAuditLogsQuery) => {
       listCalls.push(query);
       return [buildAuditLog("event-1")];
     },
-    count: async (query: unknown) => {
+    count: async (query: ListAuditLogsQuery) => {
       countCalls.push(query);
       return 1;
     },
     deleteByRequestIdPrefix: async () => 0,
+    ...options.auditLogRepository,
   };
   const authorizationRepository = {
     findPermissionsForUser: async () =>
@@ -146,7 +159,7 @@ const makeApp = async (permissions: string[]) => {
       jwtSecret: "test-secret",
       authSessionRepository,
       authSessionCookieName: "wildfire_session",
-      exportMaxRows: 2,
+      exportMaxRows: options.exportMaxRows ?? 2,
       repositories: {
         auditLogRepository,
         authorizationRepository,
@@ -175,341 +188,236 @@ const makeApp = async (permissions: string[]) => {
 };
 
 describe("Audit routes", () => {
-  test("GET /audit/events returns paginated events when authorized", async () => {
-    const { app, issueToken } = await makeApp(["audit:read"]);
-    const token = await issueToken();
+  describe("GET /audit/events", () => {
+    test("returns paginated events when authorized", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"]);
+      const token = await issueToken();
 
-    const response = await app.request("/audit/events", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    expect(response.status).toBe(200);
-    const body = await parseJson<{
-      data: Array<{ id: string }>;
-      meta: {
-        total: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-      };
-    }>(response);
-    expect(body.data).toHaveLength(1);
-    expect(body.meta.page).toBe(1);
-    expect(body.meta.pageSize).toBe(50);
-    expect(body.meta.total).toBe(1);
-  });
-
-  test("GET /audit/events forwards normalized filters to use case", async () => {
-    const { app, issueToken, listCalls, countCalls } = await makeApp([
-      "audit:read",
-    ]);
-    const token = await issueToken();
-
-    const response = await app.request(
-      "/audit/events?page=2&pageSize=30&actorType=user&status=403&action=rbac.user.delete",
-      {
+      const response = await app.request("/audit/events", {
         headers: { Authorization: `Bearer ${token}` },
-      },
-    );
+      });
 
-    expect(response.status).toBe(200);
-    expect(listCalls).toHaveLength(1);
-    expect(countCalls).toHaveLength(1);
-    expect(listCalls[0]).toEqual(
-      expect.objectContaining({
-        offset: 30,
-        limit: 30,
-        actorType: "user",
-        status: 403,
-        action: "rbac.user.delete",
-      }),
-    );
-  });
-
-  test("GET /audit/events returns 401 without token", async () => {
-    const { app } = await makeApp(["audit:read"]);
-
-    const response = await app.request("/audit/events");
-    expect(response.status).toBe(401);
-  });
-
-  test("GET /audit/events returns 403 without permission", async () => {
-    const { app, issueToken } = await makeApp(["users:read"]);
-    const token = await issueToken();
-
-    const response = await app.request("/audit/events", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    expect(response.status).toBe(403);
-  });
-
-  test("GET /audit/events returns 422 for invalid query", async () => {
-    const { app, issueToken } = await makeApp(["audit:read"]);
-    const token = await issueToken();
-
-    const response = await app.request("/audit/events?status=999", {
-      headers: { Authorization: `Bearer ${token}` },
+      expect(response.status).toBe(200);
+      const body = await parseJson<{
+        data: Array<{ id: string }>;
+        meta: {
+          total: number;
+          page: number;
+          pageSize: number;
+          totalPages: number;
+        };
+      }>(response);
+      expect(body.data).toHaveLength(1);
+      expect(body.meta.page).toBe(1);
+      expect(body.meta.pageSize).toBe(50);
+      expect(body.meta.total).toBe(1);
     });
 
-    expect(response.status).toBe(422);
-  });
+    test("forwards normalized filters to use case", async () => {
+      const { app, issueToken, listCalls, countCalls } = await makeApp([
+        "audit:read",
+      ]);
+      const token = await issueToken();
 
-  test("GET /audit/events returns 422 when from is after to", async () => {
-    const { app, issueToken } = await makeApp(["audit:read"]);
-    const token = await issueToken();
+      const response = await app.request(
+        "/audit/events?page=2&pageSize=30&actorType=user&status=403&action=rbac.user.delete",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
-    const response = await app.request(
-      "/audit/events?from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-
-    expect(response.status).toBe(422);
-  });
-
-  test("GET /audit/events/export returns CSV when authorized", async () => {
-    const { app, issueToken } = await makeApp(["audit:read"]);
-    const token = await issueToken();
-
-    const response = await app.request("/audit/events/export", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain("text/csv");
-    expect(response.headers.get("content-disposition")).toContain(
-      "attachment; filename=",
-    );
-    const body = await response.text();
-    expect(body).toContain("occurredAt,requestId,action,route,method,path");
-    expect(body).toContain("actorId,actorType,name,");
-    expect(body).toContain("rbac.user.update");
-    expect(body).toContain('"Admin User"');
-  });
-
-  test("GET /audit/events/export resolves unknown actor to fallback name", async () => {
-    const auditLogRepository = {
-      create: async () => buildAuditLog("event-created"),
-      list: async () => [
-        buildAuditLog("event-1", {
-          actorId: "deleted-user",
+      expect(response.status).toBe(200);
+      expect(listCalls).toHaveLength(1);
+      expect(countCalls).toHaveLength(1);
+      expect(listCalls[0]).toEqual(
+        expect.objectContaining({
+          offset: 30,
+          limit: 30,
           actorType: "user",
+          status: 403,
+          action: "rbac.user.delete",
         }),
-      ],
-      count: async () => 1,
-      deleteByRequestIdPrefix: async () => 0,
-    };
-    const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:read")],
-    };
-    const router = createAuditRouter(
-      createAuditHttpModule({
-        jwtSecret: "test-secret",
-        authSessionRepository,
-        authSessionCookieName: "wildfire_session",
-        exportMaxRows: 2,
-        repositories: {
-          auditLogRepository,
-          authorizationRepository,
-          userRepository: mockUserRepository,
-          displayRepository: mockDisplayRepository,
+      );
+    });
+
+    test("returns 401 without token", async () => {
+      const { app } = await makeApp(["audit:read"]);
+
+      const response = await app.request("/audit/events");
+      expect(response.status).toBe(401);
+    });
+
+    test("returns 403 without permission", async () => {
+      const { app, issueToken } = await makeApp(["users:read"]);
+      const token = await issueToken();
+
+      const response = await app.request("/audit/events", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.status).toBe(403);
+    });
+
+    test("returns 422 for invalid query", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"]);
+      const token = await issueToken();
+
+      const response = await app.request("/audit/events?status=999", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      expect(response.status).toBe(422);
+    });
+
+    test("returns 422 when from is after to", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"]);
+      const token = await issueToken();
+
+      const response = await app.request(
+        "/audit/events?from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z",
+        {
+          headers: { Authorization: `Bearer ${token}` },
         },
-      }),
-    );
-    const app = new Hono();
-    app.route("/audit", router);
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const token = await tokenIssuer.issueToken({
-      subject: "user-1",
-      username: "admin",
-      email: "admin@example.com",
-      issuedAt: nowSeconds,
-      expiresAt: nowSeconds + 3600,
-      sessionId: crypto.randomUUID(),
-      issuer: "wildfire",
+      );
+
+      expect(response.status).toBe(422);
     });
-    const response = await app.request("/audit/events/export", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    expect(response.status).toBe(200);
-    const body = await response.text();
-    expect(body).toContain('"Unknown user"');
   });
 
-  test("GET /audit/events/export returns 401 without token", async () => {
-    const { app } = await makeApp(["audit:read"]);
-    const response = await app.request("/audit/events/export");
-    expect(response.status).toBe(401);
-  });
+  describe("GET /audit/events/export", () => {
+    test("returns CSV when authorized", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"]);
+      const token = await issueToken();
 
-  test("GET /audit/events/export returns 403 without permission", async () => {
-    const { app, issueToken } = await makeApp(["users:read"]);
-    const token = await issueToken();
-    const response = await app.request("/audit/events/export", {
-      headers: { Authorization: `Bearer ${token}` },
+      const response = await app.request("/audit/events/export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/csv");
+      expect(response.headers.get("content-disposition")).toContain(
+        "attachment; filename=",
+      );
+      const body = await response.text();
+      expect(body).toContain("occurredAt,requestId,action,route,method,path");
+      expect(body).toContain("actorId,actorType,name,");
+      expect(body).toContain("rbac.user.update");
+      expect(body).toContain('"Admin User"');
     });
-    expect(response.status).toBe(403);
-  });
 
-  test("GET /audit/events/export returns 400 when export exceeds limit", async () => {
-    const auditLogRepository = {
-      create: async () => buildAuditLog("event-created"),
-      list: async () => [buildAuditLog("event-1")],
-      count: async () => 3,
-      deleteByRequestIdPrefix: async () => 0,
-    };
-    const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:read")],
-    };
-    const router = createAuditRouter(
-      createAuditHttpModule({
-        jwtSecret: "test-secret",
-        authSessionRepository,
-        authSessionCookieName: "wildfire_session",
-        exportMaxRows: 2,
-        repositories: {
-          auditLogRepository,
-          authorizationRepository,
-          userRepository: mockUserRepository,
-          displayRepository: mockDisplayRepository,
+    test("resolves unknown actor to fallback name", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"], {
+        auditLogRepository: {
+          create: async () => buildAuditLog("event-created"),
+          list: async () => [
+            buildAuditLog("event-1", {
+              actorId: "deleted-user",
+              actorType: "user",
+            }),
+          ],
+          count: async () => 1,
+          deleteByRequestIdPrefix: async () => 0,
         },
-      }),
-    );
+      });
+      const token = await issueToken();
 
-    const app = new Hono();
-    app.route("/audit", router);
-
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const token = await tokenIssuer.issueToken({
-      subject: "user-1",
-      username: "admin",
-      email: "admin@example.com",
-      issuedAt: nowSeconds,
-      expiresAt: nowSeconds + 3600,
-      sessionId: crypto.randomUUID(),
-      issuer: "wildfire",
+      const response = await app.request("/audit/events/export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.status).toBe(200);
+      const body = await response.text();
+      expect(body).toContain('"Unknown user"');
     });
 
-    const overflowResponse = await app.request("/audit/events/export", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    test("returns 401 without token", async () => {
+      const { app } = await makeApp(["audit:read"]);
+      const response = await app.request("/audit/events/export");
+      expect(response.status).toBe(401);
     });
-    expect(overflowResponse.status).toBe(400);
-  });
 
-  test("GET /audit/events/export returns 422 when from is after to", async () => {
-    const { app, issueToken } = await makeApp(["audit:read"]);
-    const token = await issueToken();
-    const response = await app.request(
-      "/audit/events/export?from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z",
-      {
+    test("returns 403 without permission", async () => {
+      const { app, issueToken } = await makeApp(["users:read"]);
+      const token = await issueToken();
+      const response = await app.request("/audit/events/export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.status).toBe(403);
+    });
+
+    test("returns 400 when export exceeds limit", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"], {
+        auditLogRepository: {
+          create: async () => buildAuditLog("event-created"),
+          list: async () => [buildAuditLog("event-1")],
+          count: async () => 3,
+          deleteByRequestIdPrefix: async () => 0,
+        },
+      });
+      const token = await issueToken();
+
+      const overflowResponse = await app.request("/audit/events/export", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      },
-    );
+      });
+      expect(overflowResponse.status).toBe(400);
+    });
 
-    expect(response.status).toBe(422);
-  });
-
-  test("GET /audit/events/export neutralizes spreadsheet formulas", async () => {
-    const auditLogRepository = {
-      create: async () => buildAuditLog("event-created"),
-      list: async () => [buildAuditLog("event-1", { userAgent: "=2+5" })],
-      count: async () => 1,
-      deleteByRequestIdPrefix: async () => 0,
-    };
-    const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:read")],
-    };
-    const router = createAuditRouter(
-      createAuditHttpModule({
-        jwtSecret: "test-secret",
-        authSessionRepository,
-        authSessionCookieName: "wildfire_session",
-        exportMaxRows: 2,
-        repositories: {
-          auditLogRepository,
-          authorizationRepository,
-          userRepository: mockUserRepository,
-          displayRepository: mockDisplayRepository,
+    test("returns 422 when from is after to", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"]);
+      const token = await issueToken();
+      const response = await app.request(
+        "/audit/events/export?from=2026-01-02T00:00:00.000Z&to=2026-01-01T00:00:00.000Z",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      }),
-    );
+      );
 
-    const app = new Hono();
-    app.route("/audit", router);
-
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const token = await tokenIssuer.issueToken({
-      subject: "user-1",
-      username: "admin",
-      email: "admin@example.com",
-      issuedAt: nowSeconds,
-      expiresAt: nowSeconds + 3600,
-      sessionId: crypto.randomUUID(),
-      issuer: "wildfire",
+      expect(response.status).toBe(422);
     });
 
-    const response = await app.request("/audit/events/export", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    expect(response.status).toBe(200);
-    const body = await response.text();
-    expect(body).toContain('"\'=2+5"');
-  });
-
-  test("GET /audit/events/export returns 500 on unexpected repository failure", async () => {
-    const auditLogRepository = {
-      create: async () => buildAuditLog("event-created"),
-      list: async () => [buildAuditLog("event-1")],
-      count: async () => {
-        throw new Error("db unavailable");
-      },
-      deleteByRequestIdPrefix: async () => 0,
-    };
-    const authorizationRepository = {
-      findPermissionsForUser: async () => [Permission.parse("audit:read")],
-    };
-    const router = createAuditRouter(
-      createAuditHttpModule({
-        jwtSecret: "test-secret",
-        authSessionRepository,
-        authSessionCookieName: "wildfire_session",
-        exportMaxRows: 2,
-        repositories: {
-          auditLogRepository,
-          authorizationRepository,
-          userRepository: mockUserRepository,
-          displayRepository: mockDisplayRepository,
+    test("neutralizes spreadsheet formulas", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"], {
+        auditLogRepository: {
+          create: async () => buildAuditLog("event-created"),
+          list: async () => [buildAuditLog("event-1", { userAgent: "=2+5" })],
+          count: async () => 1,
+          deleteByRequestIdPrefix: async () => 0,
         },
-      }),
-    );
+      });
+      const token = await issueToken();
 
-    const app = new Hono();
-    app.route("/audit", router);
-
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const token = await tokenIssuer.issueToken({
-      subject: "user-1",
-      username: "admin",
-      email: "admin@example.com",
-      issuedAt: nowSeconds,
-      expiresAt: nowSeconds + 3600,
-      sessionId: crypto.randomUUID(),
-      issuer: "wildfire",
+      const response = await app.request("/audit/events/export", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      expect(response.status).toBe(200);
+      const body = await response.text();
+      expect(body).toContain('"\'=2+5"');
     });
 
-    const response = await app.request("/audit/events/export", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    test("returns 500 on unexpected repository failure", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"], {
+        auditLogRepository: {
+          create: async () => buildAuditLog("event-created"),
+          list: async () => [buildAuditLog("event-1")],
+          count: async () => {
+            throw new Error("db unavailable");
+          },
+          deleteByRequestIdPrefix: async () => 0,
+        },
+      });
+      const token = await issueToken();
 
-    expect(response.status).toBe(500);
+      const response = await app.request("/audit/events/export", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.status).toBe(500);
+    });
   });
 });

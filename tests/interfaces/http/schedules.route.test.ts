@@ -72,6 +72,7 @@ const makeApp = async (
       jwtSecret: "test-secret",
       authSessionRepository,
       authSessionCookieName: "wildfire_session",
+      timezone: "UTC",
       repositories: {
         scheduleRepository: {
           list: async () => {
@@ -226,8 +227,6 @@ const makeApp = async (
           findByIds: async () => [],
           list: async () => ({ items: [], total: 0 }),
           update: async () => null,
-          countPlaylistReferences: async () => 0,
-          listPlaylistsReferencingContent: async () => [],
           delete: async () => false,
         },
       },

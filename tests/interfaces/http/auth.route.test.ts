@@ -371,10 +371,8 @@ describe("Auth routes", () => {
     );
   };
 
-  test("POST /auth/login returns token for valid credentials", async () => {
-    const { app, nowSeconds } = buildApp();
-
-    const response = await app.request("/auth/login", {
+  const loginAsDefaultUser = async (app: Hono): Promise<Response> =>
+    app.request("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -383,55 +381,10 @@ describe("Auth routes", () => {
       }),
     });
 
-    expect(response.status).toBe(200);
-    const body =
-      await parseJson<
-        ApiData<{
-          type: "bearer";
-          token: string;
-          expiresAt: string;
-          user: {
-            id: string;
-            username: string;
-            email: string | null;
-            name: string;
-            timezone: string | null;
-            isRoot: boolean;
-          };
-          permissions: string[];
-        }>
-      >(response);
-
-    expect(body.data).toMatchObject({
-      type: "bearer",
-      expiresAt: new Date(
-        nowSeconds * 1000 + tokenTtlSeconds * 1000,
-      ).toISOString(),
-      user: {
-        id: "user-1",
-        username: "test1",
-        email: "test1@example.com",
-        name: "Test One",
-        timezone: null,
-        isRoot: false,
-      },
-      permissions: ["roles:read", "roles:create"],
-    });
-    expect(typeof body.data.token).toBe("string");
-  });
-
-  test("POST /auth/login returns 401 for invalid credentials", async () => {
-    const { app } = buildApp();
-
-    const response = await app.request("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "test1",
-        password: "wrong",
-      }),
-    });
-
+  const expectInvalidCredentials = async (
+    response: Response,
+    message = "Invalid credentials",
+  ): Promise<void> => {
     expect(response.status).toBe(401);
     const body = await parseJson<{
       error: { code: string; message: string; requestId: string };
@@ -441,433 +394,464 @@ describe("Auth routes", () => {
       expect.objectContaining({
         error: expect.objectContaining({
           code: "invalid_credentials",
-          message: "Invalid credentials",
+          message,
         }),
       }),
     );
-  });
+  };
 
-  test("POST /auth/login returns 401 with deactivated message when user is inactive", async () => {
-    const { app } = buildApp({ inactiveUsername: "test1" });
+  describe("POST /auth/login", () => {
+    test("returns token for valid credentials", async () => {
+      const { app, nowSeconds } = buildApp();
 
-    const response = await app.request("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "test1",
-        password: "xc4uuicX",
-      }),
+      const response = await loginAsDefaultUser(app);
+
+      expect(response.status).toBe(200);
+      const body =
+        await parseJson<
+          ApiData<{
+            type: "bearer";
+            token: string;
+            expiresAt: string;
+            user: {
+              id: string;
+              username: string;
+              email: string | null;
+              name: string;
+              timezone: string | null;
+              isRoot: boolean;
+            };
+            permissions: string[];
+          }>
+        >(response);
+
+      expect(body.data).toMatchObject({
+        type: "bearer",
+        expiresAt: new Date(
+          nowSeconds * 1000 + tokenTtlSeconds * 1000,
+        ).toISOString(),
+        user: {
+          id: "user-1",
+          username: "test1",
+          email: "test1@example.com",
+          name: "Test One",
+          timezone: null,
+          isRoot: false,
+        },
+        permissions: ["roles:read", "roles:create"],
+      });
+      expect(typeof body.data.token).toBe("string");
     });
 
-    expect(response.status).toBe(401);
-    const body = await parseJson<{
-      error: { code: string; message: string; requestId: string };
-    }>(response);
+    test("returns 401 for invalid credentials", async () => {
+      const { app } = buildApp();
 
-    expect(body).toEqual(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          code: "invalid_credentials",
-          message: DEACTIVATED_MESSAGE,
+      const response = await app.request("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "test1",
+          password: "wrong",
         }),
-      }),
-    );
+      });
+
+      await expectInvalidCredentials(response);
+    });
+
+    test("returns 401 with deactivated message when user is inactive", async () => {
+      const { app } = buildApp({ inactiveUsername: "test1" });
+
+      const response = await loginAsDefaultUser(app);
+
+      await expectInvalidCredentials(response, DEACTIVATED_MESSAGE);
+    });
   });
 
-  test("POST /auth/session/refresh returns refreshed token when authorized", async () => {
-    const { app, nowSeconds } = buildApp();
+  describe("POST /auth/session/refresh", () => {
+    test("returns refreshed token when authorized", async () => {
+      const { app, nowSeconds } = buildApp();
 
-    const loginResponse = await app.request("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "test1",
-        password: "xc4uuicX",
-      }),
-    });
+      const loginResponse = await loginAsDefaultUser(app);
 
-    const loginBody =
-      await parseJson<ApiData<{ token: string }>>(loginResponse);
-    const token = loginBody.data.token;
+      const loginBody =
+        await parseJson<ApiData<{ token: string }>>(loginResponse);
+      const token = loginBody.data.token;
 
-    const response = await app.request("/auth/session/refresh", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+      const response = await app.request("/auth/session/refresh", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    expect(response.status).toBe(200);
-    const body =
-      await parseJson<
-        ApiData<{
-          type: "bearer";
-          token: string;
-          expiresAt: string;
-          user: {
-            id: string;
-            username: string;
-            email: string | null;
-            name: string;
-            timezone: string | null;
-            isRoot: boolean;
-          };
-          permissions: string[];
-        }>
-      >(response);
+      expect(response.status).toBe(200);
+      const body =
+        await parseJson<
+          ApiData<{
+            type: "bearer";
+            token: string;
+            expiresAt: string;
+            user: {
+              id: string;
+              username: string;
+              email: string | null;
+              name: string;
+              timezone: string | null;
+              isRoot: boolean;
+            };
+            permissions: string[];
+          }>
+        >(response);
 
-    expect(body.data).toMatchObject({
-      type: "bearer",
-      expiresAt: new Date(
-        nowSeconds * 1000 + tokenTtlSeconds * 1000,
-      ).toISOString(),
-      user: {
-        id: "user-1",
-        username: "test1",
-        email: "test1@example.com",
-        name: "Test One",
-        timezone: null,
-        isRoot: false,
-      },
-      permissions: ["roles:read", "roles:create"],
-    });
-    expect(typeof body.data.token).toBe("string");
-  });
-
-  test("POST /auth/session/refresh returns 401 for invalid token payload", async () => {
-    const { app } = buildApp();
-    const token = await sign({ sub: 123 }, "test-secret");
-
-    const response = await app.request("/auth/session/refresh", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    expect(response.status).toBe(401);
-  });
-
-  test("POST /auth/session/refresh returns 401 without token", async () => {
-    const { app } = buildApp();
-
-    const response = await app.request("/auth/session/refresh", {
-      method: "POST",
-    });
-
-    expect(response.status).toBe(401);
-  });
-
-  test("POST /auth/logout returns 204", async () => {
-    const { app } = buildApp();
-
-    const loginResponse = await app.request("/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "test1",
-        password: "xc4uuicX",
-      }),
-    });
-
-    const { data } = await parseJson<ApiData<{ token: string }>>(loginResponse);
-    const { token } = data;
-
-    const response = await app.request("/auth/logout", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    expect(response.status).toBe(204);
-  });
-
-  test("PATCH /auth/profile updates profile and returns refreshed payload", async () => {
-    const { app } = buildApp();
-    const token = await issueToken();
-
-    const response = await app.request("/auth/profile", {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Updated Name",
-        timezone: "Asia/Taipei",
-      }),
-    });
-
-    expect(response.status).toBe(200);
-    const body =
-      await parseJson<
-        ApiData<{
-          user: {
-            name: string;
-            timezone: string | null;
-          };
-        }>
-      >(response);
-    expect(body.data.user.name).toBe("Updated Name");
-    expect(body.data.user.timezone).toBe("Asia/Taipei");
-  });
-
-  test("POST /auth/password/change returns 204 when current password is valid", async () => {
-    const hasher = new BcryptPasswordHasher();
-    let passwordHash = await hasher.hash("old-password");
-    const { app } = buildApp({
-      credentialsRepository: {
-        findPasswordHash: async () => passwordHash,
-        updatePasswordHash: async (_username, nextHash) => {
-          passwordHash = nextHash;
+      expect(body.data).toMatchObject({
+        type: "bearer",
+        expiresAt: new Date(
+          nowSeconds * 1000 + tokenTtlSeconds * 1000,
+        ).toISOString(),
+        user: {
+          id: "user-1",
+          username: "test1",
+          email: "test1@example.com",
+          name: "Test One",
+          timezone: null,
+          isRoot: false,
         },
-      },
-    });
-    const token = await issueToken();
-
-    const response = await app.request("/auth/password/change", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        currentPassword: "old-password",
-        newPassword: "new-password-123",
-      }),
+        permissions: ["roles:read", "roles:create"],
+      });
+      expect(typeof body.data.token).toBe("string");
     });
 
-    expect(response.status).toBe(204);
+    test("returns 401 for invalid token payload", async () => {
+      const { app } = buildApp();
+      const token = await sign({ sub: 123 }, "test-secret");
+
+      const response = await app.request("/auth/session/refresh", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      expect(response.status).toBe(401);
+    });
+
+    test("returns 401 without token", async () => {
+      const { app } = buildApp();
+
+      const response = await app.request("/auth/session/refresh", {
+        method: "POST",
+      });
+
+      expect(response.status).toBe(401);
+    });
   });
 
-  test("PUT /auth/me/avatar uploads avatar and returns refreshed payload", async () => {
-    const uploads: string[] = [];
-    const avatarStorage: ContentStorage = {
-      ensureBucketExists: async () => {},
-      upload: async ({ key }) => {
-        uploads.push(key);
-      },
-      delete: async () => {},
-      getPresignedDownloadUrl: async ({ key }) =>
-        `https://example.com/download/${key}`,
-    };
+  describe("authenticated profile and session routes", () => {
+    test("POST /auth/logout returns 204", async () => {
+      const { app } = buildApp();
 
-    const { app } = buildApp({ avatarStorage });
-    const token = await issueToken();
-    const form = new FormData();
-    form.set(
-      "file",
-      new File([new Uint8Array([137, 80, 78, 71])], "avatar.png", {
-        type: "image/png",
-      }),
-    );
+      const loginResponse = await loginAsDefaultUser(app);
+      const { data } =
+        await parseJson<ApiData<{ token: string }>>(loginResponse);
 
-    const response = await app.request("/auth/me/avatar", {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
+      const response = await app.request("/auth/logout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.token}` },
+      });
+
+      expect(response.status).toBe(204);
     });
 
-    expect(response.status).toBe(200);
-    expect(uploads).toEqual(["avatars/user-1"]);
-  });
+    test("PATCH /auth/profile updates profile and returns refreshed payload", async () => {
+      const { app } = buildApp();
+      const token = await issueToken();
 
-  test("DELETE /auth/profile deletes current user", async () => {
-    const { app } = buildApp();
-    const token = await issueToken();
-
-    const response = await app.request("/auth/profile", {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    expect(response.status).toBe(204);
-  });
-
-  test("POST /auth/invitations requires users:create permission", async () => {
-    const { app } = buildApp();
-    const token = await issueToken();
-
-    const response = await app.request("/auth/invitations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: "invited@example.com" }),
-    });
-
-    expect(response.status).toBe(403);
-  });
-
-  test("POST /auth/invitations returns 201 with metadata", async () => {
-    let inviteUrl: string | undefined;
-    const { app } = buildApp({
-      permissions: [new Permission("users", "create")],
-      invitationEmailSender: {
-        sendInvite: async (input) => {
-          inviteUrl = input.inviteUrl;
+      const response = await app.request("/auth/profile", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      },
-    });
-    const token = await issueToken();
+        body: JSON.stringify({
+          name: "Updated Name",
+          timezone: "Asia/Taipei",
+        }),
+      });
 
-    const response = await app.request("/auth/invitations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: "invited@example.com",
-        name: "Invited User",
-      }),
-    });
-
-    expect(response.status).toBe(201);
-    const body =
-      await parseJson<
-        ApiData<{
-          id: string;
-          expiresAt: string;
-          inviteUrl?: string;
-        }>
-      >(response);
-    expect(body.data.id).toEqual(expect.any(String));
-    expect(body.data.expiresAt).toEqual(expect.any(String));
-    expect(inviteUrl).toContain("token=");
-  });
-
-  test("GET /auth/invitations returns invitation statuses", async () => {
-    const { app } = buildApp({
-      permissions: [new Permission("users", "create")],
-    });
-    const token = await issueToken();
-
-    const createResponse = await app.request("/auth/invitations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: "list.invite@example.com" }),
-    });
-    expect(createResponse.status).toBe(201);
-
-    const response = await app.request("/auth/invitations", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      expect(response.status).toBe(200);
+      const body =
+        await parseJson<
+          ApiData<{
+            user: {
+              name: string;
+              timezone: string | null;
+            };
+          }>
+        >(response);
+      expect(body.data.user.name).toBe("Updated Name");
+      expect(body.data.user.timezone).toBe("Asia/Taipei");
     });
 
-    expect(response.status).toBe(200);
-    const body = await parseJson<{
-      data: {
-        id: string;
-        email: string;
-        status: string;
-        expiresAt: string;
-      }[];
-      meta: {
-        total: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-      };
-    }>(response);
-    expect(
-      body.data.some((item) => item.email === "list.invite@example.com"),
-    ).toBe(true);
-    const listed = body.data.find(
-      (item) => item.email === "list.invite@example.com",
-    );
-    expect(listed?.status).toBe("pending");
-    expect(listed?.expiresAt).toEqual(expect.any(String));
-    expect(body.meta.total).toBeGreaterThanOrEqual(1);
-  });
-
-  test("POST /auth/invitations/:id/resend creates new invite", async () => {
-    const inviteUrls: string[] = [];
-    const { app } = buildApp({
-      permissions: [new Permission("users", "create")],
-      invitationEmailSender: {
-        sendInvite: async (input) => {
-          inviteUrls.push(input.inviteUrl);
+    test("POST /auth/password/change returns 204 when current password is valid", async () => {
+      const hasher = new BcryptPasswordHasher();
+      let passwordHash = await hasher.hash("old-password");
+      const { app } = buildApp({
+        credentialsRepository: {
+          findPasswordHash: async () => passwordHash,
+          updatePasswordHash: async (_username, nextHash) => {
+            passwordHash = nextHash;
+          },
         },
-      },
-    });
-    const token = await issueToken();
+      });
+      const token = await issueToken();
 
-    const createResponse = await app.request("/auth/invitations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: "resend.invite@example.com" }),
-    });
-    const created = await parseJson<ApiData<{ id: string }>>(createResponse);
-
-    const resendResponse = await app.request(
-      `/auth/invitations/${created.data.id}/resend`,
-      {
+      const response = await app.request("/auth/password/change", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      },
-    );
+        body: JSON.stringify({
+          currentPassword: "old-password",
+          newPassword: "new-password-123",
+        }),
+      });
 
-    expect(resendResponse.status).toBe(201);
-    const resent = await parseJson<ApiData<{ id: string }>>(resendResponse);
-    expect(resent.data.id).not.toBe(created.data.id);
-    expect(inviteUrls).toHaveLength(2);
-    expect(inviteUrls.at(-1)).toContain("token=");
+      expect(response.status).toBe(204);
+    });
+
+    test("PUT /auth/me/avatar uploads avatar and returns refreshed payload", async () => {
+      const uploads: string[] = [];
+      const avatarStorage: ContentStorage = {
+        ensureBucketExists: async () => {},
+        upload: async ({ key }) => {
+          uploads.push(key);
+        },
+        delete: async () => {},
+        getPresignedDownloadUrl: async ({ key }) =>
+          `https://example.com/download/${key}`,
+      };
+
+      const { app } = buildApp({ avatarStorage });
+      const token = await issueToken();
+      const form = new FormData();
+      form.set(
+        "file",
+        new File([new Uint8Array([137, 80, 78, 71])], "avatar.png", {
+          type: "image/png",
+        }),
+      );
+
+      const response = await app.request("/auth/me/avatar", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+
+      expect(response.status).toBe(200);
+      expect(uploads).toEqual(["avatars/user-1"]);
+    });
+
+    test("DELETE /auth/profile deletes current user", async () => {
+      const { app } = buildApp();
+      const token = await issueToken();
+
+      const response = await app.request("/auth/profile", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      expect(response.status).toBe(204);
+    });
   });
 
-  test("POST /auth/invitations/accept accepts a valid invitation", async () => {
-    const credentials = new Map<string, string>([["test1", "hash"]]);
-    let inviteUrl: string | undefined;
-    const credentialsRepository: CredentialsRepository = {
-      findPasswordHash: async (username) => credentials.get(username) ?? null,
-      updatePasswordHash: async (username, newPasswordHash) => {
-        credentials.set(username, newPasswordHash);
-      },
-      createPasswordHash: async (username, passwordHash) => {
-        credentials.set(username, passwordHash);
-      },
-    };
+  describe("invitation routes", () => {
+    test("POST /auth/invitations requires users:create permission", async () => {
+      const { app } = buildApp();
+      const token = await issueToken();
 
-    const { app } = buildApp({
-      credentialsRepository,
-      permissions: [new Permission("users", "create")],
-      invitationEmailSender: {
-        sendInvite: async (input) => {
-          inviteUrl = input.inviteUrl;
+      const response = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      },
-    });
-    const token = await issueToken();
-    const createResponse = await app.request("/auth/invitations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: "new.invite@example.com" }),
-    });
-    expect(createResponse.status).toBe(201);
-    expect(inviteUrl).toContain("token=");
-    const parsedUrl = new URL(inviteUrl ?? "http://localhost/invalid");
-    const inviteToken = parsedUrl.searchParams.get("token") ?? "";
+        body: JSON.stringify({ email: "invited@example.com" }),
+      });
 
-    const acceptResponse = await app.request("/auth/invitations/accept", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: inviteToken,
-        username: "brandnew",
-        password: "new-password-123",
-        name: "Brand New User",
-      }),
+      expect(response.status).toBe(403);
     });
 
-    expect(acceptResponse.status).toBe(204);
-    expect(credentials.get("brandnew")).toEqual(expect.any(String));
+    test("POST /auth/invitations returns 201 with metadata", async () => {
+      let inviteUrl: string | undefined;
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+        invitationEmailSender: {
+          sendInvite: async (input) => {
+            inviteUrl = input.inviteUrl;
+          },
+        },
+      });
+      const token = await issueToken();
+
+      const response = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: "invited@example.com",
+          name: "Invited User",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      const body =
+        await parseJson<
+          ApiData<{
+            id: string;
+            expiresAt: string;
+            inviteUrl?: string;
+          }>
+        >(response);
+      expect(body.data.id).toEqual(expect.any(String));
+      expect(body.data.expiresAt).toEqual(expect.any(String));
+      expect(inviteUrl).toContain("token=");
+    });
+
+    test("GET /auth/invitations returns invitation statuses", async () => {
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "list.invite@example.com" }),
+      });
+      expect(createResponse.status).toBe(201);
+
+      const response = await app.request("/auth/invitations", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await parseJson<{
+        data: {
+          id: string;
+          email: string;
+          status: string;
+          expiresAt: string;
+        }[];
+        meta: {
+          total: number;
+          page: number;
+          pageSize: number;
+          totalPages: number;
+        };
+      }>(response);
+      expect(
+        body.data.some((item) => item.email === "list.invite@example.com"),
+      ).toBe(true);
+      const listed = body.data.find(
+        (item) => item.email === "list.invite@example.com",
+      );
+      expect(listed?.status).toBe("pending");
+      expect(listed?.expiresAt).toEqual(expect.any(String));
+      expect(body.meta.total).toBeGreaterThanOrEqual(1);
+    });
+
+    test("POST /auth/invitations/:id/resend creates new invite", async () => {
+      const inviteUrls: string[] = [];
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+        invitationEmailSender: {
+          sendInvite: async (input) => {
+            inviteUrls.push(input.inviteUrl);
+          },
+        },
+      });
+      const token = await issueToken();
+
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "resend.invite@example.com" }),
+      });
+      const created = await parseJson<ApiData<{ id: string }>>(createResponse);
+
+      const resendResponse = await app.request(
+        `/auth/invitations/${created.data.id}/resend`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      expect(resendResponse.status).toBe(201);
+      const resent = await parseJson<ApiData<{ id: string }>>(resendResponse);
+      expect(resent.data.id).not.toBe(created.data.id);
+      expect(inviteUrls).toHaveLength(2);
+      expect(inviteUrls.at(-1)).toContain("token=");
+    });
+
+    test("POST /auth/invitations/accept accepts a valid invitation", async () => {
+      const credentials = new Map<string, string>([["test1", "hash"]]);
+      let inviteUrl: string | undefined;
+      const credentialsRepository: CredentialsRepository = {
+        findPasswordHash: async (username) => credentials.get(username) ?? null,
+        updatePasswordHash: async (username, newPasswordHash) => {
+          credentials.set(username, newPasswordHash);
+        },
+        createPasswordHash: async (username, passwordHash) => {
+          credentials.set(username, passwordHash);
+        },
+      };
+
+      const { app } = buildApp({
+        credentialsRepository,
+        permissions: [new Permission("users", "create")],
+        invitationEmailSender: {
+          sendInvite: async (input) => {
+            inviteUrl = input.inviteUrl;
+          },
+        },
+      });
+      const token = await issueToken();
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "new.invite@example.com" }),
+      });
+      expect(createResponse.status).toBe(201);
+      expect(inviteUrl).toContain("token=");
+      const parsedUrl = new URL(inviteUrl ?? "http://localhost/invalid");
+      const inviteToken = parsedUrl.searchParams.get("token") ?? "";
+
+      const acceptResponse = await app.request("/auth/invitations/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: inviteToken,
+          username: "brandnew",
+          password: "new-password-123",
+          name: "Brand New User",
+        }),
+      });
+
+      expect(acceptResponse.status).toBe(204);
+      expect(credentials.get("brandnew")).toEqual(expect.any(String));
+    });
   });
 });

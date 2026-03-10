@@ -20,8 +20,8 @@ import {
   type DisplayRepository,
 } from "#/application/ports/displays";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { deriveDisplayStatus } from "#/application/use-cases/displays/display-status";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
-import { deriveDisplayStatus } from "./display.use-cases";
 import { NotFoundError } from "./errors";
 
 const CHALLENGE_TTL_MS = 2 * 60 * 1000;

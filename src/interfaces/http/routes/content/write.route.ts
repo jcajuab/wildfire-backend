@@ -9,6 +9,7 @@ import {
   apiResponseSchema,
   conflict,
   errorResponseSchema,
+  parseValidationDetails,
   toApiResponse,
   validationError,
 } from "#/interfaces/http/responses";
@@ -288,7 +289,6 @@ export const registerContentWriteRoutes = (args: {
     requirePermission("content:update"),
     validateParams(contentIdParamSchema),
     bodyLimit({ maxSize: maxUploadBytes }),
-    validateForm(replaceContentFileSchema),
     describeRoute({
       description: "Replace content file and metadata",
       tags: contentTags,
@@ -341,7 +341,22 @@ export const registerContentWriteRoutes = (args: {
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
-        const body = c.req.valid("form");
+        const form = await c.req.formData();
+        const parsed = replaceContentFileSchema.safeParse({
+          file: form.get("file"),
+          title:
+            typeof form.get("title") === "string"
+              ? (form.get("title") as string)
+              : undefined,
+        });
+        if (!parsed.success) {
+          return validationError(
+            c,
+            "Invalid request",
+            parseValidationDetails(parsed.error.issues),
+          );
+        }
+        const body = parsed.data;
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
         const result = await useCases.replaceContentFile.execute({

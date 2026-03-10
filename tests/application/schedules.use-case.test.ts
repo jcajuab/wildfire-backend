@@ -189,8 +189,6 @@ const makeDeps = () => {
     list: async () => ({ items: [], total: 0 }),
     findChildrenByParentIds: async () => [],
     update: async () => null,
-    countPlaylistReferences: async () => 0,
-    listPlaylistsReferencingContent: async () => [],
     deleteByParentId: async () => [],
     delete: async () => false,
   };
@@ -203,6 +201,15 @@ const makeDeps = () => {
     schedules,
   };
 };
+
+const futureDate = (daysFromToday: number): string => {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysFromToday);
+  return date.toISOString().slice(0, 10);
+};
+
+const FUTURE_START_DATE = futureDate(30);
+const FUTURE_END_DATE = futureDate(365);
 
 describe("Schedules use cases", () => {
   test("ListSchedulesUseCase hydrates schedules with targeted lookups", async () => {
@@ -509,8 +516,8 @@ describe("Schedules use cases", () => {
       playlistId: "playlist-1",
       contentId: null,
       displayId: "display-1",
-      startDate: "2025-01-01",
-      endDate: "2025-12-31",
+      startDate: FUTURE_START_DATE,
+      endDate: FUTURE_END_DATE,
       startTime: "10:00",
       endTime: "11:00",
       priority: 1,
@@ -532,8 +539,8 @@ describe("Schedules use cases", () => {
         playlistId: "playlist-1",
         contentId: null,
         displayId: "display-1",
-        startDate: "2025-02-01",
-        endDate: "2025-11-30",
+        startDate: futureDate(45),
+        endDate: futureDate(330),
         startTime: "10:30",
         endTime: "11:30",
         isActive: true,
@@ -550,8 +557,8 @@ describe("Schedules use cases", () => {
       playlistId: "playlist-1",
       contentId: null,
       displayId: "display-1",
-      startDate: "2025-01-01",
-      endDate: "2025-12-31",
+      startDate: FUTURE_START_DATE,
+      endDate: FUTURE_END_DATE,
       startTime: "10:00",
       endTime: "11:00",
       priority: 1,
@@ -573,8 +580,8 @@ describe("Schedules use cases", () => {
         playlistId: "playlist-1",
         contentId: null,
         displayId: "display-1",
-        startDate: "2025-02-01",
-        endDate: "2025-11-30",
+        startDate: futureDate(45),
+        endDate: futureDate(330),
         startTime: "11:00",
         endTime: "12:00",
         isActive: true,

@@ -12,6 +12,7 @@ import {
   computePlaylistEffectiveDuration,
   DEFAULT_SCROLL_PX_PER_SECOND,
 } from "#/application/use-cases/shared/playlist-effective-duration";
+import { computeRequiredMinPlaylistDurationSeconds } from "#/application/use-cases/shared/playlist-required-duration";
 import {
   isValidDuration,
   isValidSequence,
@@ -67,28 +68,6 @@ const scheduleWindowDurationSeconds = (startTime: string, endTime: string) => {
   return 0;
 };
 
-const computeRequiredMinDurationSeconds = async (input: {
-  playlistRepository: PlaylistRepository;
-  contentRepository: ContentRepository;
-  playlistId: string;
-  displayWidth: number;
-  displayHeight: number;
-  scrollPxPerSecond: number;
-}) => {
-  const items = await input.playlistRepository.listItems(input.playlistId);
-  const result = await computePlaylistEffectiveDuration({
-    items: items.map((item) => ({
-      contentId: item.contentId,
-      duration: item.duration,
-    })),
-    contentRepository: input.contentRepository,
-    displayWidth: input.displayWidth,
-    displayHeight: input.displayHeight,
-    defaultScrollPxPerSecond: input.scrollPxPerSecond,
-  });
-  return result.effectiveDurationSeconds;
-};
-
 const invalidateImpactedSchedules = async (
   deps: {
     playlistRepository: PlaylistRepository;
@@ -118,7 +97,7 @@ const invalidateImpactedSchedules = async (
     }
     const displayWidth = display.screenWidth;
     const displayHeight = display.screenHeight;
-    const required = await computeRequiredMinDurationSeconds({
+    const required = await computeRequiredMinPlaylistDurationSeconds({
       playlistRepository: deps.playlistRepository,
       contentRepository: deps.contentRepository,
       playlistId,
@@ -154,10 +133,15 @@ const runPlaylistPostMutationEffects = async (
 ): Promise<void> => {
   // Item mutations are the primary operation; downstream notifications and
   // schedule invalidation should not fail an already-committed write.
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     publishPlaylistUpdateEvents(deps, playlistId, reason),
     invalidateImpactedSchedules(deps, playlistId),
   ]);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("Playlist post-mutation effect failed.", result.reason);
+    }
+  }
 };
 
 const listPlaylistsForOwner = async (

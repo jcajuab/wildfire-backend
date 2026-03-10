@@ -724,8 +724,6 @@ const makeApp = async (
             throw new Error("not used");
           },
           list: async () => ({ items: [], total: 0 }),
-          countPlaylistReferences: async () => 0,
-          listPlaylistsReferencingContent: async () => [],
           delete: async () => false,
           update: async () => null,
         },

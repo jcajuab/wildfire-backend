@@ -9,10 +9,8 @@ import {
   type ScheduleRepository,
 } from "#/application/ports/schedules";
 import { paginate } from "#/application/use-cases/shared/pagination";
-import {
-  computePlaylistEffectiveDuration,
-  DEFAULT_SCROLL_PX_PER_SECOND,
-} from "#/application/use-cases/shared/playlist-effective-duration";
+import { DEFAULT_SCROLL_PX_PER_SECOND } from "#/application/use-cases/shared/playlist-effective-duration";
+import { computeRequiredMinPlaylistDurationSeconds } from "#/application/use-cases/shared/playlist-required-duration";
 import {
   isValidDate,
   isValidTime,
@@ -23,8 +21,17 @@ import { toScheduleView } from "./schedule-view";
 
 const DEFAULT_SCHEDULE_PRIORITY = 1;
 const DAY_SECONDS = 24 * 60 * 60;
+const DEFAULT_SCHEDULE_TIMEZONE = "UTC";
 const SCHEDULE_OVERLAP_MESSAGE =
   "This schedule overlaps with an existing schedule on the selected display.";
+
+type ScheduleMutationDeps = {
+  scheduleRepository: ScheduleRepository;
+  playlistRepository: PlaylistRepository;
+  displayRepository: DisplayRepository;
+  contentRepository: ContentRepository;
+  timezone?: string;
+};
 
 type ScheduleWindow = {
   id?: string;
@@ -37,6 +44,61 @@ type ScheduleWindow = {
   endDate: string;
   startTime: string;
   endTime: string;
+};
+
+const findPlaylistForOwner = async (
+  playlistRepository: PlaylistRepository,
+  playlistId: string,
+  ownerId?: string,
+) => {
+  if (ownerId && playlistRepository.findByIdForOwner) {
+    return playlistRepository.findByIdForOwner(playlistId, ownerId);
+  }
+  return playlistRepository.findById(playlistId);
+};
+
+const findContentForOwner = async (
+  contentRepository: ContentRepository,
+  contentId: string,
+  ownerId?: string,
+) => {
+  if (ownerId && contentRepository.findByIdForOwner) {
+    return contentRepository.findByIdForOwner(contentId, ownerId);
+  }
+  return contentRepository.findById(contentId);
+};
+
+const ensureScheduleVisibleToOwner = async (input: {
+  ownerId?: string;
+  schedule: ScheduleRecord;
+  playlistRepository: PlaylistRepository;
+  contentRepository: ContentRepository;
+}) => {
+  if (!input.ownerId) {
+    return;
+  }
+
+  if (input.schedule.playlistId) {
+    const ownedPlaylist = await findPlaylistForOwner(
+      input.playlistRepository,
+      input.schedule.playlistId,
+      input.ownerId,
+    );
+    if (!ownedPlaylist) {
+      throw new NotFoundError("Schedule not found");
+    }
+  }
+
+  if (input.schedule.contentId) {
+    const ownedContent = await findContentForOwner(
+      input.contentRepository,
+      input.schedule.contentId,
+      input.ownerId,
+    );
+    if (!ownedContent) {
+      throw new NotFoundError("Schedule not found");
+    }
+  }
 };
 
 const parseTimeToSeconds = (value: string): number => {
@@ -149,28 +211,6 @@ const ensureNoScheduleConflicts = (input: {
       id: conflict.id ?? "unknown",
     })),
   });
-};
-
-const computeRequiredMinDurationSeconds = async (input: {
-  playlistRepository: PlaylistRepository;
-  contentRepository: ContentRepository;
-  playlistId: string;
-  displayWidth: number;
-  displayHeight: number;
-  scrollPxPerSecond: number;
-}): Promise<number> => {
-  const items = await input.playlistRepository.listItems(input.playlistId);
-  const result = await computePlaylistEffectiveDuration({
-    items: items.map((item) => ({
-      contentId: item.contentId,
-      duration: item.duration,
-    })),
-    contentRepository: input.contentRepository,
-    displayWidth: input.displayWidth,
-    displayHeight: input.displayHeight,
-    defaultScrollPxPerSecond: input.scrollPxPerSecond,
-  });
-  return result.effectiveDurationSeconds;
 };
 
 const getValidatedWindow = (input: {
@@ -387,13 +427,8 @@ export class ListScheduleWindowUseCase {
 
 export class CreateScheduleUseCase {
   constructor(
-    private readonly deps: {
-      scheduleRepository: ScheduleRepository;
-      playlistRepository: PlaylistRepository;
-      displayRepository: DisplayRepository;
-      contentRepository: ContentRepository;
+    private readonly deps: ScheduleMutationDeps & {
       displayEventPublisher?: DisplayStreamEventPublisher;
-      timezone: string;
     },
   ) {}
 
@@ -412,10 +447,12 @@ export class CreateScheduleUseCase {
   }) {
     const { startDate, endDate } = getValidatedWindow(input);
 
-    if (startDate && input.startTime) {
+    if (input.startDate && input.startTime) {
       const startDateTimeStr = `${startDate}T${input.startTime}`;
       const nowInTimezone = new Date(
-        new Date().toLocaleString("en-US", { timeZone: this.deps.timezone }),
+        new Date().toLocaleString("en-US", {
+          timeZone: this.deps.timezone ?? DEFAULT_SCHEDULE_TIMEZONE,
+        }),
       );
       const startLocal = new Date(startDateTimeStr);
       const fiveMinutesMs = 5 * 60 * 1000;
@@ -453,7 +490,7 @@ export class CreateScheduleUseCase {
         );
       }
       const requiredMinDurationSeconds =
-        await computeRequiredMinDurationSeconds({
+        await computeRequiredMinPlaylistDurationSeconds({
           playlistRepository: this.deps.playlistRepository,
           contentRepository: this.deps.contentRepository,
           playlistId: input.playlistId,
@@ -579,11 +616,7 @@ export class GetScheduleUseCase {
 
 export class UpdateScheduleUseCase {
   constructor(
-    private readonly deps: {
-      scheduleRepository: ScheduleRepository;
-      playlistRepository: PlaylistRepository;
-      displayRepository: DisplayRepository;
-      contentRepository: ContentRepository;
+    private readonly deps: ScheduleMutationDeps & {
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
@@ -604,28 +637,12 @@ export class UpdateScheduleUseCase {
   }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
-    if (input.ownerId && existing.playlistId) {
-      const ownedPlaylist = this.deps.playlistRepository.findByIdForOwner
-        ? await this.deps.playlistRepository.findByIdForOwner(
-            existing.playlistId,
-            input.ownerId,
-          )
-        : await this.deps.playlistRepository.findById(existing.playlistId);
-      if (!ownedPlaylist) {
-        throw new NotFoundError("Schedule not found");
-      }
-    }
-    if (input.ownerId && existing.contentId) {
-      const ownedContent = this.deps.contentRepository.findByIdForOwner
-        ? await this.deps.contentRepository.findByIdForOwner(
-            existing.contentId,
-            input.ownerId,
-          )
-        : await this.deps.contentRepository.findById(existing.contentId);
-      if (!ownedContent) {
-        throw new NotFoundError("Schedule not found");
-      }
-    }
+    await ensureScheduleVisibleToOwner({
+      ownerId: input.ownerId,
+      schedule: existing,
+      playlistRepository: this.deps.playlistRepository,
+      contentRepository: this.deps.contentRepository,
+    });
 
     const nextKind = input.kind ?? existing.kind;
     const nextWindow = getValidatedWindow({
@@ -671,7 +688,7 @@ export class UpdateScheduleUseCase {
         );
       }
       const requiredMinDurationSeconds =
-        await computeRequiredMinDurationSeconds({
+        await computeRequiredMinPlaylistDurationSeconds({
           playlistRepository: this.deps.playlistRepository,
           contentRepository: this.deps.contentRepository,
           playlistId: nextPlaylistId,
@@ -781,28 +798,12 @@ export class DeleteScheduleUseCase {
   async execute(input: { id: string; ownerId?: string }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
-    if (input.ownerId && existing.playlistId) {
-      const ownedPlaylist = this.deps.playlistRepository.findByIdForOwner
-        ? await this.deps.playlistRepository.findByIdForOwner(
-            existing.playlistId,
-            input.ownerId,
-          )
-        : await this.deps.playlistRepository.findById(existing.playlistId);
-      if (!ownedPlaylist) {
-        throw new NotFoundError("Schedule not found");
-      }
-    }
-    if (input.ownerId && existing.contentId) {
-      const ownedContent = this.deps.contentRepository.findByIdForOwner
-        ? await this.deps.contentRepository.findByIdForOwner(
-            existing.contentId,
-            input.ownerId,
-          )
-        : await this.deps.contentRepository.findById(existing.contentId);
-      if (!ownedContent) {
-        throw new NotFoundError("Schedule not found");
-      }
-    }
+    await ensureScheduleVisibleToOwner({
+      ownerId: input.ownerId,
+      schedule: existing,
+      playlistRepository: this.deps.playlistRepository,
+      contentRepository: this.deps.contentRepository,
+    });
 
     const deleted = await this.deps.scheduleRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("Schedule not found");
@@ -842,7 +843,7 @@ export class GetActiveScheduleForDisplayUseCase {
       schedules,
       "PLAYLIST",
       input.now,
-      this.deps.scheduleTimeZone ?? "UTC",
+      this.deps.scheduleTimeZone ?? DEFAULT_SCHEDULE_TIMEZONE,
     );
   }
 }

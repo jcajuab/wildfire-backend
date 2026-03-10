@@ -1,3 +1,4 @@
+import { ContentPlaylistReportingService } from "#/application/reporting/content-playlist-reporting";
 import {
   CreateFlashContentUseCase,
   DeleteContentUseCase,
@@ -62,6 +63,8 @@ export const createContentHttpModule = (
     },
   };
 
+  const contentPlaylistReportingService = new ContentPlaylistReportingService();
+
   return {
     deps: routerDeps,
     useCases: {
@@ -83,6 +86,7 @@ export const createContentHttpModule = (
         contentJobEventPublisher: routerDeps.contentJobEventPublisher,
         userRepository: routerDeps.repositories.userRepository,
         cleanupFailureLogger,
+        contentPlaylistReportingService,
       }),
       listContent: new ListContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
@@ -124,6 +128,7 @@ export const createContentHttpModule = (
         contentStorage: routerDeps.storage,
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         cleanupFailureLogger,
+        contentPlaylistReportingService,
       }),
       getDownloadUrl: new GetContentDownloadUrlUseCase({
         contentRepository: routerDeps.repositories.contentRepository,

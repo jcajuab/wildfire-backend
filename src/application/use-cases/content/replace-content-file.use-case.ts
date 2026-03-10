@@ -10,6 +10,7 @@ import {
 } from "#/application/ports/content-jobs";
 import { type CleanupFailureLogger } from "#/application/ports/observability";
 import { type UserRepository } from "#/application/ports/rbac";
+import { ContentPlaylistReportingService } from "#/application/reporting/content-playlist-reporting";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
   buildContentFileKey,
@@ -36,6 +37,7 @@ export class ReplaceContentFileUseCase {
       contentJobEventPublisher?: ContentJobEventPublisher;
       userRepository: UserRepository;
       cleanupFailureLogger?: CleanupFailureLogger;
+      contentPlaylistReportingService?: ContentPlaylistReportingService;
     },
   ) {}
 
@@ -96,8 +98,11 @@ export class ReplaceContentFileUseCase {
       );
     }
 
+    const contentPlaylistReportingService =
+      this.deps.contentPlaylistReportingService ??
+      new ContentPlaylistReportingService();
     const references =
-      await this.deps.contentRepository.countPlaylistReferences(input.id);
+      await contentPlaylistReportingService.countPlaylistReferences(input.id);
     if (references > 0) {
       throw new ContentInUseError("Cannot replace a content item in use.");
     }
