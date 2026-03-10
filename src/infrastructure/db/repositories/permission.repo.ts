@@ -19,21 +19,21 @@ export class PermissionDbRepository implements PermissionRepository {
   async create(input: {
     resource: string;
     action: string;
-    isRoot?: boolean;
+    isAdmin?: boolean;
   }): Promise<PermissionRecord> {
     const id = crypto.randomUUID();
-    const isRoot = input.isRoot ?? false;
+    const isAdmin = input.isAdmin ?? false;
     await db.insert(permissions).values({
       id,
       resource: input.resource,
       action: input.action,
-      isRoot,
+      isAdmin,
     });
-    return { id, resource: input.resource, action: input.action, isRoot };
+    return { id, resource: input.resource, action: input.action, isAdmin };
   }
 
-  async updateIsRoot(id: string, isRoot: boolean): Promise<void> {
-    await db.update(permissions).set({ isRoot }).where(eq(permissions.id, id));
+  async updateIsAdmin(id: string, isAdmin: boolean): Promise<void> {
+    await db.update(permissions).set({ isAdmin }).where(eq(permissions.id, id));
   }
 
   async deleteByIds(ids: string[]): Promise<void> {

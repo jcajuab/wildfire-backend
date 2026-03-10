@@ -18,18 +18,18 @@ export class AuthorizationDbRepository implements AuthorizationRepository {
       .from(userRoles)
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
       .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(and(eq(userRoles.userId, userId), eq(permissions.isRoot, false)));
+      .where(and(eq(userRoles.userId, userId), eq(permissions.isAdmin, false)));
 
     return rows.map((row) => Permission.parse(`${row.resource}:${row.action}`));
   }
 
-  async isRootUser(userId: string): Promise<boolean> {
+  async isAdminUser(userId: string): Promise<boolean> {
     const rows = await db
       .select({ permissionId: permissions.id })
       .from(userRoles)
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
       .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-      .where(and(eq(userRoles.userId, userId), eq(permissions.isRoot, true)))
+      .where(and(eq(userRoles.userId, userId), eq(permissions.isAdmin, true)))
       .limit(1);
 
     return rows.length > 0;

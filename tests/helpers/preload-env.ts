@@ -1,9 +1,9 @@
 const defaults: Record<string, string> = {
   PORT: "3000",
   NODE_ENV: "test",
-  ROOT_USERNAME: "root",
-  ROOT_EMAIL: "root@example.com",
-  ROOT_PASSWORD: "root",
+  ADMIN_USERNAME: "admin",
+  ADMIN_EMAIL: "admin@example.com",
+  ADMIN_PASSWORD: "admin",
   MYSQL_HOST: "127.0.0.1",
   MYSQL_PORT: "3306",
   MYSQL_DATABASE: "wildfire_test",

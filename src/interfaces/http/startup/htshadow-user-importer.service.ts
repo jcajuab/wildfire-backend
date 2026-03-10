@@ -1,4 +1,8 @@
-import { type UserRepository } from "#/application/ports/rbac";
+import {
+  type RoleRepository,
+  type UserRepository,
+  type UserRoleRepository,
+} from "#/application/ports/rbac";
 
 /**
  * Derives a display name from a username.
@@ -15,23 +19,32 @@ export const deriveUserName = (username: string): string => {
 export interface HtshadowUserImportMetrics {
   importedUserCount: number;
   skippedExistingUsers: number;
+  viewerRoleAssignedCount: number;
 }
 
 /**
  * Imports users from htshadow file into the user directory.
- * Skips root user and users that already exist.
+ * Skips admin user and users that already exist.
+ * Assigns Viewer role to new users without any roles.
  */
 export const importHtshadowUsers = async (deps: {
   userRepository: UserRepository;
+  roleRepository: RoleRepository;
+  userRoleRepository: UserRoleRepository;
   usernames: readonly string[];
-  rootUsername: string;
+  adminUsername: string;
 }): Promise<HtshadowUserImportMetrics> => {
   const result: HtshadowUserImportMetrics = {
     importedUserCount: 0,
     skippedExistingUsers: 0,
+    viewerRoleAssignedCount: 0,
   };
+
+  const roles = await deps.roleRepository.list();
+  const viewerRole = roles.find((r) => r.name === "Viewer") ?? null;
+
   for (const username of deps.usernames) {
-    if (username === deps.rootUsername) {
+    if (username === deps.adminUsername) {
       continue;
     }
     const existing = await deps.userRepository.findByUsername(username);
@@ -40,12 +53,22 @@ export const importHtshadowUsers = async (deps: {
       continue;
     }
     result.importedUserCount += 1;
-    await deps.userRepository.create({
+    const newUser = await deps.userRepository.create({
       username,
       email: null,
       name: deriveUserName(username),
       isActive: true,
     });
+
+    if (viewerRole) {
+      const existingRoles = await deps.userRoleRepository.listRolesByUserId(
+        newUser.id,
+      );
+      if (existingRoles.length === 0) {
+        await deps.userRoleRepository.setUserRoles(newUser.id, [viewerRole.id]);
+        result.viewerRoleAssignedCount += 1;
+      }
+    }
   }
   return result;
 };

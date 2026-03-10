@@ -2,9 +2,9 @@ import { type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
+  ADMIN_PERMISSION,
   CANONICAL_STANDARD_RESOURCE_ACTIONS,
   canonicalPermissionKey,
-  ROOT_PERMISSION,
 } from "#/domain/rbac/canonical-permissions";
 import { createJwtMiddleware } from "#/interfaces/http/middleware/jwt-auth";
 import {
@@ -30,7 +30,7 @@ export const createPermissionMiddleware = (deps: {
       canonicalPermissionKey(permission),
     ),
   );
-  canonicalPermissions.add(canonicalPermissionKey(ROOT_PERMISSION));
+  canonicalPermissions.add(canonicalPermissionKey(ADMIN_PERMISSION));
 
   const normalizePermission = (permission: string): string => {
     const normalized = permission.trim();

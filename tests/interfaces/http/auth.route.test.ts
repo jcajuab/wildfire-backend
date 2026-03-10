@@ -419,7 +419,7 @@ describe("Auth routes", () => {
               email: string | null;
               name: string;
               timezone: string | null;
-              isRoot: boolean;
+              isAdmin: boolean;
             };
             permissions: string[];
           }>
@@ -436,7 +436,7 @@ describe("Auth routes", () => {
           email: "test1@example.com",
           name: "Test One",
           timezone: null,
-          isRoot: false,
+          isAdmin: false,
         },
         permissions: ["roles:read", "roles:create"],
       });
@@ -495,7 +495,7 @@ describe("Auth routes", () => {
               email: string | null;
               name: string;
               timezone: string | null;
-              isRoot: boolean;
+              isAdmin: boolean;
             };
             permissions: string[];
           }>
@@ -512,7 +512,7 @@ describe("Auth routes", () => {
           email: "test1@example.com",
           name: "Test One",
           timezone: null,
-          isRoot: false,
+          isAdmin: false,
         },
         permissions: ["roles:read", "roles:create"],
       });

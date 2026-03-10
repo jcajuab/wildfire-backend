@@ -13,7 +13,7 @@ export class ListPermissionsUseCase {
 
   async execute(input?: { page?: number; pageSize?: number; q?: string }) {
     const all = (await this.deps.permissionRepository.list()).filter(
-      (permission) => !permission.isRoot,
+      (permission) => !permission.isAdmin,
     );
     const query = normalizeQuery(input?.q);
     const filtered = query
@@ -35,7 +35,7 @@ export class ListPermissionOptionsUseCase {
   async execute(input?: { q?: string }) {
     const query = normalizeQuery(input?.q);
     const all = (await this.deps.permissionRepository.list()).filter(
-      (permission) => !permission.isRoot,
+      (permission) => !permission.isAdmin,
     );
 
     const filtered = query

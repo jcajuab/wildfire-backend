@@ -64,7 +64,7 @@ const buildApp = (grantedPermissions: string[]) => {
         id: "perm-root-access",
         resource: "root",
         action: "access",
-        isRoot: true,
+        isAdmin: true,
       },
       ...grantedPermissions.map((value, index) => {
         const [resource, action] = value.split(":");
@@ -75,7 +75,7 @@ const buildApp = (grantedPermissions: string[]) => {
           id: makePermissionId(index),
           resource,
           action,
-          isRoot: false,
+          isAdmin: false,
         };
       }),
     ],
@@ -175,7 +175,7 @@ const buildApp = (grantedPermissions: string[]) => {
           id: crypto.randomUUID(),
           resource: input.resource,
           action: input.action,
-          isRoot: input.isRoot ?? false,
+          isAdmin: input.isAdmin ?? false,
         };
         store.permissions.push(created);
         return created;
@@ -232,13 +232,13 @@ const buildApp = (grantedPermissions: string[]) => {
           .filter(
             (permission) =>
               permissionIds.includes(permission.id) &&
-              permission.isRoot !== true,
+              permission.isAdmin !== true,
           )
           .map((permission) =>
             Permission.parse(`${permission.resource}:${permission.action}`),
           );
       },
-      isRootUser: async (userId) => {
+      isAdminUser: async (userId) => {
         const roleIds = store.userRoles
           .filter((item) => item.userId === userId)
           .map((item) => item.roleId);
@@ -247,7 +247,8 @@ const buildApp = (grantedPermissions: string[]) => {
           .map((item) => item.permissionId);
         return store.permissions.some(
           (permission) =>
-            permissionIds.includes(permission.id) && permission.isRoot === true,
+            permissionIds.includes(permission.id) &&
+            permission.isAdmin === true,
         );
       },
     },
@@ -462,7 +463,7 @@ describe("RBAC routes", () => {
         id: string;
         resource: string;
         action: string;
-        isRoot?: boolean;
+        isAdmin?: boolean;
       }>;
     }>(response);
     expect(body.data).toEqual([
@@ -470,7 +471,7 @@ describe("RBAC routes", () => {
         id: makePermissionId(0),
         resource: "roles",
         action: "read",
-        isRoot: false,
+        isAdmin: false,
       },
     ]);
   });
@@ -489,7 +490,7 @@ describe("RBAC routes", () => {
         id: string;
         resource: string;
         action: string;
-        isRoot?: boolean;
+        isAdmin?: boolean;
       }>;
       meta: { total: number };
     }>(response);
@@ -499,7 +500,7 @@ describe("RBAC routes", () => {
         id: makePermissionId(0),
         resource: "roles",
         action: "read",
-        isRoot: false,
+        isAdmin: false,
       },
     ]);
   });

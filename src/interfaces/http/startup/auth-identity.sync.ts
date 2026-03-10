@@ -12,6 +12,13 @@ import {
   logStartupPhaseStarted,
   logStartupPhaseSucceeded,
 } from "#/infrastructure/observability/startup-logging";
+import {
+  type AdminRolePermissionSyncMetrics,
+  type AdminUserSyncMetrics,
+  ensureAdminHtshadowEntry,
+  ensureAdminRoleAndPermission,
+  ensureAdminUser,
+} from "./admin-identity-manager.service";
 import { readHtshadowMap } from "./htshadow-file.adapter";
 import {
   type HtshadowUserImportMetrics,
@@ -23,18 +30,11 @@ import {
   type PermissionSyncMetrics,
 } from "./permission-seeder.service";
 import {
-  ensureRootHtshadowEntry,
-  ensureRootRoleAndPermission,
-  ensureRootUser,
-  type RootRolePermissionSyncMetrics,
-  type RootUserSyncMetrics,
-} from "./root-identity-manager.service";
-import {
   buildStartupContext,
-  normalizeRootIdentity,
+  normalizeAdminIdentity,
   runStartupPhase,
-  type StartupRootIdentity,
-  validateRootIdentity,
+  type StartupAdminIdentity,
+  validateAdminIdentity,
 } from "./startup-orchestration.helpers";
 import {
   ensurePredefinedSystemRoles,
@@ -52,17 +52,17 @@ interface AuthIdentitySyncRepositories {
 interface AuthIdentityPhaseRunner {
   contextBase: ReturnType<typeof buildStartupContext>;
   repositories: AuthIdentitySyncRepositories;
-  rootIdentity: StartupRootIdentity;
+  adminIdentity: StartupAdminIdentity;
 }
 
-type RootRolePermissionSyncState = RootRolePermissionSyncMetrics & {
-  rootRoleId: string;
-  rootPermissionId: string;
+type AdminRolePermissionSyncState = AdminRolePermissionSyncMetrics & {
+  adminRoleId: string;
+  adminPermissionId: string;
 };
 
 interface HtshadowSyncState {
   map: Map<string, string>;
-  rootHtshadowUpdated: boolean;
+  adminHtshadowUpdated: boolean;
 }
 
 const runAuthIdentityPhase = <T>(
@@ -96,68 +96,68 @@ const syncCanonicalPermissions = (
     },
   });
 
-const syncRootRoleAndPermission = (
+const syncAdminRoleAndPermission = (
   runner: AuthIdentityPhaseRunner,
   permissionSyncResult: PermissionSyncMetrics,
-): Promise<RootRolePermissionSyncState> =>
+): Promise<AdminRolePermissionSyncState> =>
   runAuthIdentityPhase(runner, {
-    operation: "root-role-permission-sync",
+    operation: "admin-role-permission-sync",
     action: () =>
-      ensureRootRoleAndPermission({
+      ensureAdminRoleAndPermission({
         roleRepository: runner.repositories.roleRepository,
         permissionRepository: runner.repositories.permissionRepository,
         rolePermissionRepository: runner.repositories.rolePermissionRepository,
       }),
     metadata: {
-      rootPermissionAction:
+      adminPermissionAction:
         permissionSyncResult.created > 0 ? "upserted" : "already-present",
     },
   });
 
-const syncRootHtshadow = async (
+const syncAdminHtshadow = async (
   runner: AuthIdentityPhaseRunner,
 ): Promise<HtshadowSyncState> => {
   const map = await runAuthIdentityPhase(runner, {
     operation: "htshadow-load",
-    action: () => readHtshadowMap(runner.rootIdentity.htshadowPath),
+    action: () => readHtshadowMap(runner.adminIdentity.htshadowPath),
   });
-  const rootHtshadowUpdated = await runAuthIdentityPhase(runner, {
-    operation: "root-htshadow-sync",
+  const adminHtshadowUpdated = await runAuthIdentityPhase(runner, {
+    operation: "admin-htshadow-sync",
     action: () =>
-      ensureRootHtshadowEntry({
-        htshadowPath: runner.rootIdentity.htshadowPath,
-        rootUsername: runner.rootIdentity.username,
-        rootPassword: runner.rootIdentity.password,
+      ensureAdminHtshadowEntry({
+        htshadowPath: runner.adminIdentity.htshadowPath,
+        adminUsername: runner.adminIdentity.username,
+        adminPassword: runner.adminIdentity.password,
         map,
       }),
     metadata: {
-      rootUsername: runner.rootIdentity.username,
-      htshadowPath: runner.rootIdentity.htshadowPath,
+      adminUsername: runner.adminIdentity.username,
+      htshadowPath: runner.adminIdentity.htshadowPath,
     },
   });
 
   return {
     map,
-    rootHtshadowUpdated,
+    adminHtshadowUpdated,
   };
 };
 
-const syncRootUserIdentity = (
+const syncAdminUserIdentity = (
   runner: AuthIdentityPhaseRunner,
-  rootRoleId: string,
-): Promise<RootUserSyncMetrics> =>
+  adminRoleId: string,
+): Promise<AdminUserSyncMetrics> =>
   runAuthIdentityPhase(runner, {
-    operation: "root-user-sync",
+    operation: "admin-user-sync",
     action: () =>
-      ensureRootUser({
+      ensureAdminUser({
         userRepository: runner.repositories.userRepository,
         userRoleRepository: runner.repositories.userRoleRepository,
-        rootRoleId,
-        rootUsername: runner.rootIdentity.username,
-        rootEmail: runner.rootIdentity.email,
+        adminRoleId,
+        adminUsername: runner.adminIdentity.username,
+        adminEmail: runner.adminIdentity.email,
       }),
     metadata: {
-      rootUsername: runner.rootIdentity.username,
+      adminUsername: runner.adminIdentity.username,
     },
   });
 
@@ -181,8 +181,8 @@ const importHtshadowUsersIntoDirectory = (
   runner: AuthIdentityPhaseRunner,
   input: {
     usernames: readonly string[];
-    rootRoleId: string;
-    rootPermissionId: string;
+    adminRoleId: string;
+    adminPermissionId: string;
   },
 ): Promise<HtshadowUserImportMetrics> =>
   runAuthIdentityPhase(runner, {
@@ -190,13 +190,15 @@ const importHtshadowUsersIntoDirectory = (
     action: () =>
       importHtshadowUsers({
         userRepository: runner.repositories.userRepository,
+        roleRepository: runner.repositories.roleRepository,
+        userRoleRepository: runner.repositories.userRoleRepository,
         usernames: input.usernames,
-        rootUsername: runner.rootIdentity.username,
+        adminUsername: runner.adminIdentity.username,
       }),
     metadata: {
       importedFromHtshadow: input.usernames.length,
-      rootRoleId: input.rootRoleId,
-      rootPermissionId: input.rootPermissionId,
+      adminRoleId: input.adminRoleId,
+      adminPermissionId: input.adminPermissionId,
     },
   });
 
@@ -204,9 +206,9 @@ const logAuthIdentitySyncCompletion = async (input: {
   runner: AuthIdentityPhaseRunner;
   runStartedAtMs: number;
   permissionSyncResult: PermissionSyncMetrics;
-  rootSyncState: RootRolePermissionSyncState;
+  adminSyncState: AdminRolePermissionSyncState;
   htshadowSyncState: HtshadowSyncState;
-  rootUserSyncResult: RootUserSyncMetrics;
+  adminUserSyncResult: AdminUserSyncMetrics;
   systemRoleSyncResult: SystemRoleSyncMetrics;
   importedUsers: HtshadowUserImportMetrics;
 }): Promise<void> => {
@@ -226,17 +228,18 @@ const logAuthIdentitySyncCompletion = async (input: {
       permissionSyncUnchanged: input.permissionSyncResult.unchanged,
       importedUsersCreated: input.importedUsers.importedUserCount,
       importedUsersSkipped: input.importedUsers.skippedExistingUsers,
-      createdRootRole: input.rootSyncState.createdRootRole,
-      createdRootPermission: input.rootSyncState.createdRootPermission,
-      assignedRootPermissionToRootRole:
-        input.rootSyncState.assignedRootPermissionToRootRole,
-      rootPermissionPurgedFromOtherRoles:
-        input.rootSyncState.rootPermissionPurgedFromOtherRoles,
-      rootHtshadowUpdated: input.htshadowSyncState.rootHtshadowUpdated,
-      rootUserCreated: input.rootUserSyncResult.rootUserCreated,
-      rootUserUpdated: input.rootUserSyncResult.rootUserUpdated,
-      rootRoleAssignedToRootUser:
-        input.rootUserSyncResult.rootRoleAssignedToRootUser,
+      viewerRoleAssignedCount: input.importedUsers.viewerRoleAssignedCount,
+      createdAdminRole: input.adminSyncState.createdAdminRole,
+      createdAdminPermission: input.adminSyncState.createdAdminPermission,
+      assignedAdminPermissionToAdminRole:
+        input.adminSyncState.assignedAdminPermissionToAdminRole,
+      adminPermissionPurgedFromOtherRoles:
+        input.adminSyncState.adminPermissionPurgedFromOtherRoles,
+      adminHtshadowUpdated: input.htshadowSyncState.adminHtshadowUpdated,
+      adminUserCreated: input.adminUserSyncResult.adminUserCreated,
+      adminUserUpdated: input.adminUserSyncResult.adminUserUpdated,
+      adminRoleAssignedToAdminUser:
+        input.adminUserSyncResult.adminRoleAssignedToAdminUser,
       createdSystemRoles: input.systemRoleSyncResult.createdSystemRoles,
       updatedSystemRoles: input.systemRoleSyncResult.updatedSystemRoles,
       reconciledSystemRolePermissionSets:
@@ -249,15 +252,15 @@ const logAuthIdentitySyncCompletion = async (input: {
 
 export const runStartupAuthIdentitySync = async (deps: {
   htshadowPath: string;
-  rootUsername: string;
-  rootEmail: string | null;
-  rootPassword: string;
+  adminUsername: string;
+  adminEmail: string | null;
+  adminPassword: string;
   repositories: AuthIdentitySyncRepositories;
 }): Promise<void> => {
   const runId = createStartupRunId("auth-bootstrap");
   const runStartMs = Date.now();
-  const rootIdentity = normalizeRootIdentity(deps);
-  validateRootIdentity(rootIdentity);
+  const adminIdentity = normalizeAdminIdentity(deps);
+  validateAdminIdentity(adminIdentity);
   const contextBase = buildStartupContext({
     runId,
     operation: "",
@@ -265,48 +268,48 @@ export const runStartupAuthIdentitySync = async (deps: {
   const runner: AuthIdentityPhaseRunner = {
     contextBase,
     repositories: deps.repositories,
-    rootIdentity,
+    adminIdentity,
   };
   const topLevelContext = {
     ...contextBase,
     operation: "auth-identity-sync",
   };
   logStartupPhaseStarted(topLevelContext, {
-    rootUsername: rootIdentity.username,
-    rootEmail: rootIdentity.email,
+    adminUsername: adminIdentity.username,
+    adminEmail: adminIdentity.email,
   });
 
   try {
     const permissionSyncResult = await syncCanonicalPermissions(runner);
-    const rootSyncState = await syncRootRoleAndPermission(
+    const adminSyncState = await syncAdminRoleAndPermission(
       runner,
       permissionSyncResult,
     );
-    const htshadowSyncState = await syncRootHtshadow(runner);
-    const rootUserSyncResult = await syncRootUserIdentity(
+    const htshadowSyncState = await syncAdminHtshadow(runner);
+    const adminUserSyncResult = await syncAdminUserIdentity(
       runner,
-      rootSyncState.rootRoleId,
+      adminSyncState.adminRoleId,
     );
     const systemRoleSyncResult = await syncPredefinedSystemRoles(runner);
     const importedUsers = await importHtshadowUsersIntoDirectory(runner, {
       usernames: [...htshadowSyncState.map.keys()],
-      rootRoleId: rootSyncState.rootRoleId,
-      rootPermissionId: rootSyncState.rootPermissionId,
+      adminRoleId: adminSyncState.adminRoleId,
+      adminPermissionId: adminSyncState.adminPermissionId,
     });
 
     await logAuthIdentitySyncCompletion({
       runner,
       runStartedAtMs: runStartMs,
       permissionSyncResult,
-      rootSyncState,
+      adminSyncState,
       htshadowSyncState,
-      rootUserSyncResult,
+      adminUserSyncResult,
       systemRoleSyncResult,
       importedUsers,
     });
   } catch (error) {
     logStartupPhaseFailed(topLevelContext, Date.now() - runStartMs, error, {
-      rootUsername: rootIdentity.username,
+      adminUsername: adminIdentity.username,
     });
     throw error;
   }

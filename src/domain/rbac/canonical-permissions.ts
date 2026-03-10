@@ -1,7 +1,7 @@
-export const ROOT_PERMISSION = {
-  resource: "root",
+export const ADMIN_PERMISSION = {
+  resource: "admin",
   action: "access",
-  isRoot: true,
+  isAdmin: true,
 } as const;
 
 export const CANONICAL_STANDARD_RESOURCE_ACTIONS = [

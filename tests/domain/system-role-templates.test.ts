@@ -1,21 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { ROOT_PERMISSION } from "#/domain/rbac/canonical-permissions";
+import { ADMIN_PERMISSION } from "#/domain/rbac/canonical-permissions";
 import { PREDEFINED_SYSTEM_ROLE_TEMPLATES } from "#/domain/rbac/system-role-templates";
 
 describe("predefined system role templates", () => {
   test("includes the expected locked role set", () => {
     expect(PREDEFINED_SYSTEM_ROLE_TEMPLATES.map((role) => role.name)).toEqual([
-      "Admin",
-      "Operator",
       "Editor",
       "Viewer",
     ]);
   });
 
-  test("never includes root permission in non-root templates", () => {
-    const rootKey = `${ROOT_PERMISSION.resource}:${ROOT_PERMISSION.action}`;
+  test("never includes admin permission in non-admin templates", () => {
+    const adminKey = `${ADMIN_PERMISSION.resource}:${ADMIN_PERMISSION.action}`;
     for (const role of PREDEFINED_SYSTEM_ROLE_TEMPLATES) {
-      expect(role.permissionKeys.includes(rootKey)).toBe(false);
+      expect(role.permissionKeys.includes(adminKey)).toBe(false);
     }
   });
 
@@ -38,6 +36,19 @@ describe("predefined system role templates", () => {
       "schedules:read",
       "schedules:update",
       "schedules:delete",
+    ]);
+  });
+
+  test("defines viewer permissions as read-only access", () => {
+    const viewer = PREDEFINED_SYSTEM_ROLE_TEMPLATES.find(
+      (role) => role.name === "Viewer",
+    );
+    expect(viewer).toBeDefined();
+    expect(viewer?.permissionKeys).toEqual([
+      "displays:read",
+      "content:read",
+      "playlists:read",
+      "schedules:read",
     ]);
   });
 });

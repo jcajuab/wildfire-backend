@@ -42,13 +42,13 @@ describe("RBAC use cases", () => {
             id: "perm-1",
             resource: "roles",
             action: "read",
-            isRoot: false,
+            isAdmin: false,
           },
           {
             id: "perm-2",
             resource: "roles",
             action: "create",
-            isRoot: false,
+            isAdmin: false,
           },
         ],
       } as never,
@@ -102,7 +102,7 @@ describe("RBAC use cases", () => {
       } as never,
       authorizationRepository: {
         findPermissionsForUser: async () => [Permission.parse("users:update")],
-        isRootUser: async () => false,
+        isAdminUser: async () => false,
       } as never,
     });
 

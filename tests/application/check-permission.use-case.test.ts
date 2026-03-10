@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { Permission } from "#/domain/rbac/permission";
 
-const makeUseCase = (permissions: string[], isRoot = false) =>
+const makeUseCase = (permissions: string[], isAdmin = false) =>
   new CheckPermissionUseCase({
     authorizationRepository: {
       findPermissionsForUser: async () =>
         permissions.map((permission) => Permission.parse(permission)),
-      isRootUser: async () => isRoot,
+      isAdminUser: async () => isAdmin,
     },
   });
 
@@ -23,7 +23,7 @@ describe("CheckPermissionUseCase", () => {
     expect(allowed).toBe(true);
   });
 
-  test("returns true for root users", async () => {
+  test("returns true for admin users", async () => {
     const useCase = makeUseCase([], true);
 
     const allowed = await useCase.execute({

@@ -9,25 +9,6 @@ export interface SystemRoleTemplate {
   readonly permissionKeys: readonly string[];
 }
 
-const MODULE_RESOURCES = new Set([
-  "displays",
-  "content",
-  "playlists",
-  "schedules",
-]);
-
-const nonRootPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.map((entry) =>
-  canonicalPermissionKey(entry),
-);
-
-const readOnlyPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.filter(
-  (entry) => entry.action === "read",
-).map((entry) => canonicalPermissionKey(entry));
-
-const operatorPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.filter(
-  (entry) => entry.action === "read" && MODULE_RESOURCES.has(entry.resource),
-).map((entry) => canonicalPermissionKey(entry));
-
 const editorPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.filter(
   (entry) => {
     if (entry.resource === "displays" && entry.action === "read") {
@@ -53,23 +34,19 @@ const editorPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.filter(
 
 export const PREDEFINED_SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = [
   {
-    name: "Admin",
-    description: "Full access to all modules except Root-level access",
-    permissionKeys: nonRootPermissionKeys,
-  },
-  {
-    name: "Operator",
-    description: "Read access for operational modules",
-    permissionKeys: operatorPermissionKeys,
-  },
-  {
     name: "Editor",
     description: "Can manage content, playlists, and schedules",
     permissionKeys: editorPermissionKeys,
   },
   {
     name: "Viewer",
-    description: "Read-only access across all modules",
-    permissionKeys: readOnlyPermissionKeys,
+    description:
+      "Read-only access to displays, content, playlists, and schedules",
+    permissionKeys: [
+      "displays:read",
+      "content:read",
+      "playlists:read",
+      "schedules:read",
+    ],
   },
 ] as const;

@@ -9,10 +9,10 @@ export class CheckPermissionUseCase {
   constructor(private readonly deps: CheckPermissionDeps) {}
 
   async execute(input: { userId: string; required: string }): Promise<boolean> {
-    const isRoot = this.deps.authorizationRepository.isRootUser
-      ? await this.deps.authorizationRepository.isRootUser(input.userId)
+    const isAdmin = this.deps.authorizationRepository.isAdminUser
+      ? await this.deps.authorizationRepository.isAdminUser(input.userId)
       : false;
-    if (isRoot) {
+    if (isAdmin) {
       return true;
     }
 

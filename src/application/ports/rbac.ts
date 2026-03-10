@@ -26,7 +26,7 @@ export interface PermissionRecord {
   id: string;
   resource: string;
   action: string;
-  isRoot?: boolean;
+  isAdmin?: boolean;
 }
 
 export interface UserRepository {
@@ -78,9 +78,9 @@ export interface PermissionRepository {
   create(input: {
     resource: string;
     action: string;
-    isRoot?: boolean;
+    isAdmin?: boolean;
   }): Promise<PermissionRecord>;
-  updateIsRoot?: (id: string, isRoot: boolean) => Promise<void>;
+  updateIsAdmin?: (id: string, isAdmin: boolean) => Promise<void>;
   deleteByIds?: (ids: string[]) => Promise<void>;
 }
 
@@ -105,5 +105,5 @@ export interface RolePermissionRepository {
 
 export interface AuthorizationRepository {
   findPermissionsForUser(userId: string): Promise<Permission[]>;
-  isRootUser?: (userId: string) => Promise<boolean>;
+  isAdminUser?: (userId: string) => Promise<boolean>;
 }

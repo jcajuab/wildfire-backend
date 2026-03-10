@@ -210,9 +210,9 @@ const storageStartupContext = {
 export const syncAuthIdentityOnStartup = () =>
   runStartupAuthIdentitySync({
     htshadowPath: env.HTSHADOW_PATH,
-    rootUsername: env.ROOT_USERNAME,
-    rootEmail: env.ROOT_EMAIL ?? null,
-    rootPassword: env.ROOT_PASSWORD,
+    adminUsername: env.ADMIN_USERNAME,
+    adminEmail: env.ADMIN_EMAIL ?? null,
+    adminPassword: env.ADMIN_PASSWORD,
     repositories: {
       userRepository: container.repositories.userRepository,
       roleRepository: container.repositories.roleRepository,

@@ -150,7 +150,7 @@ describe("backend architecture boundaries", () => {
         "src/infrastructure/db/repositories/schedule.repo.ts",
         "src/infrastructure/db/repositories/user-role.repo.ts",
         "src/infrastructure/db/repositories/user.repo.ts",
-        "src/interfaces/http/startup/root-identity-manager.service.ts",
+        "src/interfaces/http/startup/admin-identity-manager.service.ts",
       ].sort(),
     );
   });

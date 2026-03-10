@@ -227,9 +227,9 @@ export class SetRolePermissionsUseCase {
     const selectedPermissions = await this.deps.permissionRepository.findByIds(
       input.permissionIds,
     );
-    if (selectedPermissions.some((permission) => permission.isRoot)) {
+    if (selectedPermissions.some((permission) => permission.isAdmin)) {
       throw new ForbiddenError(
-        "Cannot assign Root permission via the application. Use the provided script.",
+        "Cannot assign Admin permission via the application.",
       );
     }
 

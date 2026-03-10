@@ -173,7 +173,7 @@ export class GetUserUseCase {
   }
 }
 
-async function ensureCallerCanModifyRootUser(
+async function ensureCallerCanModifyAdminUser(
   deps: {
     authorizationRepository: AuthorizationRepository;
   },
@@ -181,19 +181,19 @@ async function ensureCallerCanModifyRootUser(
   callerUserId: string | undefined,
   forbiddenMessage: string,
 ): Promise<void> {
-  const targetIsRoot = deps.authorizationRepository.isRootUser
-    ? await deps.authorizationRepository.isRootUser(targetUserId)
+  const targetIsAdmin = deps.authorizationRepository.isAdminUser
+    ? await deps.authorizationRepository.isAdminUser(targetUserId)
     : false;
-  if (!targetIsRoot) return;
+  if (!targetIsAdmin) return;
 
   if (callerUserId === undefined) {
     throw new ForbiddenError(forbiddenMessage);
   }
 
-  const callerIsRoot = deps.authorizationRepository.isRootUser
-    ? await deps.authorizationRepository.isRootUser(callerUserId)
+  const callerIsAdmin = deps.authorizationRepository.isAdminUser
+    ? await deps.authorizationRepository.isAdminUser(callerUserId)
     : false;
-  if (!callerIsRoot) {
+  if (!callerIsAdmin) {
     throw new ForbiddenError(forbiddenMessage);
   }
 }
@@ -214,11 +214,11 @@ export class UpdateUserUseCase {
     isActive?: boolean;
     callerUserId?: string;
   }) {
-    await ensureCallerCanModifyRootUser(
+    await ensureCallerCanModifyAdminUser(
       this.deps,
       input.id,
       input.callerUserId,
-      "Cannot modify a Root user",
+      "Cannot modify an Admin user",
     );
 
     if (input.username) {
@@ -258,11 +258,11 @@ export class DeleteUserUseCase {
   ) {}
 
   async execute(input: { id: string; callerUserId?: string }) {
-    await ensureCallerCanModifyRootUser(
+    await ensureCallerCanModifyAdminUser(
       this.deps,
       input.id,
       input.callerUserId,
-      "Cannot delete a Root user",
+      "Cannot delete an Admin user",
     );
 
     const deleted = await this.deps.userRepository.delete(input.id);
@@ -295,18 +295,19 @@ export class SetUserRolesUseCase {
   async execute(input: {
     userId: string;
     roleIds: string[];
+    callerUserId?: string;
     actorId?: string;
     requestId?: string;
   }) {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
 
-    const targetIsRoot = this.deps.authorizationRepository.isRootUser
-      ? await this.deps.authorizationRepository.isRootUser(input.userId)
+    const targetIsAdmin = this.deps.authorizationRepository.isAdminUser
+      ? await this.deps.authorizationRepository.isAdminUser(input.userId)
       : false;
-    if (targetIsRoot) {
+    if (targetIsAdmin) {
       throw new ForbiddenError(
-        "Cannot modify roles for a Root user via the application. Use the provided script.",
+        "Cannot modify roles for an Admin user via the application.",
       );
     }
 
@@ -325,22 +326,26 @@ export class SetUserRolesUseCase {
         ).flat(),
       ),
     ];
+
     if (selectedPermissionIds.length > 0) {
       const selectedPermissions =
         await this.deps.permissionRepository.findByIds(selectedPermissionIds);
-      const rootPermissionIds = new Set(
-        selectedPermissions
-          .filter((permission) => permission.isRoot === true)
-          .map((permission) => permission.id),
+      const hasAdminPermission = selectedPermissions.some(
+        (permission) => permission.isAdmin === true,
       );
-      if (
-        selectedPermissionIds.some((permissionId) =>
-          rootPermissionIds.has(permissionId),
-        )
-      ) {
-        throw new ForbiddenError(
-          "Cannot assign Root role via the application. Use the provided script.",
-        );
+
+      if (hasAdminPermission) {
+        const callerIsAdmin =
+          input.callerUserId && this.deps.authorizationRepository.isAdminUser
+            ? await this.deps.authorizationRepository.isAdminUser(
+                input.callerUserId,
+              )
+            : false;
+        if (!callerIsAdmin) {
+          throw new ForbiddenError(
+            "Only Admin users can assign the Admin role.",
+          );
+        }
       }
     }
 

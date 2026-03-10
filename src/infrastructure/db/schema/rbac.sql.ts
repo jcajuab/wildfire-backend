@@ -47,7 +47,7 @@ export const permissions = mysqlTable(
     id: varchar("id", { length: 36 }).primaryKey(),
     resource: varchar("resource", { length: 120 }).notNull(),
     action: varchar("action", { length: 120 }).notNull(),
-    isRoot: boolean("is_root").notNull().default(false),
+    isAdmin: boolean("is_admin").notNull().default(false),
   },
   (table) => ({
     resourceActionUnique: uniqueIndex("permissions_resource_action_unique").on(

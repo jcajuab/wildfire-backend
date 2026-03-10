@@ -1,13 +1,13 @@
 import { type PermissionRepository } from "#/application/ports/rbac";
 import {
+  ADMIN_PERMISSION,
   CANONICAL_STANDARD_RESOURCE_ACTIONS,
   canonicalPermissionKey,
-  ROOT_PERMISSION,
 } from "#/domain/rbac/canonical-permissions";
 
 const CANONICAL_PERMISSION_SEEDS = [
   ...CANONICAL_STANDARD_RESOURCE_ACTIONS,
-  ROOT_PERMISSION,
+  ADMIN_PERMISSION,
 ];
 
 export interface PermissionSyncMetrics {
@@ -20,7 +20,7 @@ export interface PermissionSyncMetrics {
 /**
  * Syncs canonical permissions to the database.
  * - Creates missing permissions
- * - Updates isRoot flag if incorrect
+ * - Updates isAdmin flag if incorrect
  * - Removes stale permissions not in canonical set
  */
 export const ensureCanonicalStandardPermissions = async (deps: {
@@ -55,18 +55,18 @@ export const ensureCanonicalStandardPermissions = async (deps: {
       continue;
     }
 
-    const expectedIsRoot =
-      existingPermission.resource === ROOT_PERMISSION.resource &&
-      existingPermission.action === ROOT_PERMISSION.action;
-    if (existingPermission.isRoot !== expectedIsRoot) {
-      if (!deps.permissionRepository.updateIsRoot) {
+    const expectedIsAdmin =
+      existingPermission.resource === ADMIN_PERMISSION.resource &&
+      existingPermission.action === ADMIN_PERMISSION.action;
+    if (existingPermission.isAdmin !== expectedIsAdmin) {
+      if (!deps.permissionRepository.updateIsAdmin) {
         throw new Error(
-          "permissionRepository.updateIsRoot is required for strict permission normalization",
+          "permissionRepository.updateIsAdmin is required for strict permission normalization",
         );
       }
-      await deps.permissionRepository.updateIsRoot(
+      await deps.permissionRepository.updateIsAdmin(
         existingPermission.id,
-        expectedIsRoot,
+        expectedIsAdmin,
       );
       result.updated += 1;
       continue;

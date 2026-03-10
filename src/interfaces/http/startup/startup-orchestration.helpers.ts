@@ -7,7 +7,7 @@ import {
 
 const normalizeUsername = (value: string): string => value.trim().toLowerCase();
 
-export interface StartupRootIdentity {
+export interface StartupAdminIdentity {
   htshadowPath: string;
   username: string;
   email: string | null;
@@ -58,34 +58,34 @@ export const runStartupPhase = async <T>(input: {
 };
 
 /**
- * Normalizes root identity input by trimming and lowercasing.
+ * Normalizes admin identity input by trimming and lowercasing.
  */
-export const normalizeRootIdentity = (input: {
+export const normalizeAdminIdentity = (input: {
   htshadowPath: string;
-  rootUsername: string;
-  rootEmail: string | null;
-  rootPassword: string;
-}): StartupRootIdentity => ({
+  adminUsername: string;
+  adminEmail: string | null;
+  adminPassword: string;
+}): StartupAdminIdentity => ({
   htshadowPath: input.htshadowPath,
-  username: normalizeUsername(input.rootUsername),
-  email: input.rootEmail?.trim().toLowerCase() ?? null,
-  password: input.rootPassword.trim(),
+  username: normalizeUsername(input.adminUsername),
+  email: input.adminEmail?.trim().toLowerCase() ?? null,
+  password: input.adminPassword.trim(),
 });
 
 /**
- * Validates root identity input.
+ * Validates admin identity input.
  * Throws if username/password is empty or email is invalid.
  */
-export const validateRootIdentity = (
-  rootIdentity: StartupRootIdentity,
+export const validateAdminIdentity = (
+  adminIdentity: StartupAdminIdentity,
 ): void => {
-  if (!rootIdentity.username) {
-    throw new Error("ROOT_USERNAME must not be empty.");
+  if (!adminIdentity.username) {
+    throw new Error("ADMIN_USERNAME must not be empty.");
   }
-  if (!rootIdentity.password) {
-    throw new Error("ROOT_PASSWORD must not be empty.");
+  if (!adminIdentity.password) {
+    throw new Error("ADMIN_PASSWORD must not be empty.");
   }
-  if (rootIdentity.email != null && !rootIdentity.email.includes("@")) {
-    throw new Error("ROOT_EMAIL must be a valid email when provided.");
+  if (adminIdentity.email != null && !adminIdentity.email.includes("@")) {
+    throw new Error("ADMIN_EMAIL must be a valid email when provided.");
   }
 };

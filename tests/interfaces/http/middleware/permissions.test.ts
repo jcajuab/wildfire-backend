@@ -25,7 +25,7 @@ describe("permission middleware", () => {
 
     const authorizationRepository = {
       findPermissionsForUser: async () => permissions,
-      isRootUser: async () => false,
+      isAdminUser: async () => false,
     };
 
     return createPermissionMiddleware({
