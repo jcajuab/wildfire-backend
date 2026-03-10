@@ -1,6 +1,7 @@
 import { ContentPlaylistReportingService } from "#/application/reporting/content-playlist-reporting";
 import {
   CreateFlashContentUseCase,
+  CreateTextContentUseCase,
   DeleteContentUseCase,
   GetContentDownloadUrlUseCase,
   GetContentJobUseCase,
@@ -108,6 +109,11 @@ export const createContentHttpModule = (
           routerDeps.repositories.contentIngestionJobRepository,
       }),
       createFlashContent: new CreateFlashContentUseCase({
+        contentRepository: routerDeps.repositories.contentRepository,
+        contentStorage: routerDeps.storage,
+        userRepository: routerDeps.repositories.userRepository,
+      }),
+      createTextContent: new CreateTextContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
         contentStorage: routerDeps.storage,
         userRepository: routerDeps.repositories.userRepository,

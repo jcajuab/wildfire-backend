@@ -231,15 +231,16 @@ export const displayManifestItemSchema = z.object({
   duration: z.number().int(),
   content: z.object({
     id: z.string(),
-    type: z.enum(["IMAGE", "VIDEO", "PDF"]),
+    type: z.enum(["IMAGE", "VIDEO", "PDF", "TEXT"]),
     checksum: z.string(),
-    downloadUrl: z.string().url(),
+    downloadUrl: z.string().url().or(z.literal("")),
     thumbnailUrl: z.string().url().nullable().optional(),
     mimeType: z.string(),
     width: z.number().int().nullable(),
     height: z.number().int().nullable(),
     duration: z.number().int().nullable(),
     scrollPxPerSecond: z.number().int().positive().nullable(),
+    textHtmlContent: z.string().nullable(),
   }),
 });
 

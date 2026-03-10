@@ -23,7 +23,7 @@ export const playlistItemSchema = z.object({
   content: z.object({
     id: z.string(),
     title: z.string(),
-    type: z.enum(["IMAGE", "VIDEO", "PDF"]),
+    type: z.enum(["IMAGE", "VIDEO", "PDF", "TEXT"]),
     checksum: z.string(),
   }),
 });

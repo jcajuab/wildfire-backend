@@ -183,7 +183,7 @@ export class DefaultContentThumbnailGenerator
     mimeType: string;
     data: Uint8Array;
   }): Promise<Uint8Array | null> {
-    if (input.type === "FLASH") {
+    if (input.type === "FLASH" || input.type === "TEXT") {
       return null;
     }
 

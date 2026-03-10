@@ -10,6 +10,7 @@ import {
   content,
   contentAssets,
   contentFlashMessages,
+  contentTextContent,
 } from "#/infrastructure/db/schema/content.sql";
 
 export type ContentRow = {
@@ -35,6 +36,8 @@ export type ContentRow = {
   scrollPxPerSecond: number | null;
   flashMessage: string | null;
   flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
+  textJsonContent: string | null;
+  textHtmlContent: string | null;
 };
 
 export interface ContentListInput {
@@ -75,6 +78,8 @@ export type ContentUpdateInput = Partial<
     | "scrollPxPerSecond"
     | "flashMessage"
     | "flashTone"
+    | "textJsonContent"
+    | "textHtmlContent"
     | "checksum"
   >
 >;
@@ -104,13 +109,16 @@ export const buildBaseContentQuery = () =>
       scrollPxPerSecond: contentAssets.scrollPxPerSecond,
       flashMessage: contentFlashMessages.message,
       flashTone: contentFlashMessages.tone,
+      textJsonContent: contentTextContent.jsonContent,
+      textHtmlContent: contentTextContent.htmlContent,
     })
     .from(content)
     .innerJoin(contentAssets, eq(contentAssets.contentId, content.id))
     .leftJoin(
       contentFlashMessages,
       eq(contentFlashMessages.contentId, content.id),
-    );
+    )
+    .leftJoin(contentTextContent, eq(contentTextContent.contentId, content.id));
 
 export const mapContentRowToRecord = (row: ContentRow): ContentRecord => {
   const parsedType = parseContentType(row.type);
@@ -156,6 +164,8 @@ export const mapContentRowToRecord = (row: ContentRow): ContentRecord => {
     scrollPxPerSecond: row.scrollPxPerSecond,
     flashMessage: row.flashMessage,
     flashTone: row.flashTone,
+    textJsonContent: row.textJsonContent,
+    textHtmlContent: row.textHtmlContent,
     ownerId: row.ownerId,
     createdAt:
       row.createdAt instanceof Date

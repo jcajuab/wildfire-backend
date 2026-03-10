@@ -30,13 +30,17 @@ export class UpdateContentUseCase {
     flashMessage?: string;
     flashTone?: "INFO" | "WARNING" | "CRITICAL";
     scrollPxPerSecond?: number | null;
+    textJsonContent?: string;
+    textHtmlContent?: string;
   }) {
     if (
       input.title === undefined &&
       input.status === undefined &&
       input.flashMessage === undefined &&
       input.flashTone === undefined &&
-      input.scrollPxPerSecond === undefined
+      input.scrollPxPerSecond === undefined &&
+      input.textJsonContent === undefined &&
+      input.textHtmlContent === undefined
     ) {
       throw new ValidationError("At least one field must be provided");
     }
@@ -59,6 +63,16 @@ export class UpdateContentUseCase {
         );
       }
     }
+    if (existing.type !== "TEXT") {
+      if (
+        input.textJsonContent !== undefined ||
+        input.textHtmlContent !== undefined
+      ) {
+        throw new ValidationError(
+          "Text content fields can only be updated on TEXT content",
+        );
+      }
+    }
     if (input.scrollPxPerSecond !== undefined) {
       if (existing.type !== "IMAGE" && existing.type !== "PDF") {
         throw new ValidationError(
@@ -78,6 +92,8 @@ export class UpdateContentUseCase {
     let fileSize = existing.fileSize;
     let flashMessage = existing.flashMessage ?? null;
     let flashTone = existing.flashTone ?? null;
+    let textJsonContent = existing.textJsonContent ?? null;
+    let textHtmlContent = existing.textHtmlContent ?? null;
 
     if (existing.type === "FLASH") {
       flashMessage =
@@ -105,6 +121,38 @@ export class UpdateContentUseCase {
       });
     }
 
+    if (existing.type === "TEXT") {
+      textJsonContent =
+        input.textJsonContent === undefined
+          ? (existing.textJsonContent ?? null)
+          : input.textJsonContent;
+      textHtmlContent =
+        input.textHtmlContent === undefined
+          ? (existing.textHtmlContent ?? null)
+          : input.textHtmlContent;
+      if (!textJsonContent || !textHtmlContent) {
+        throw new ValidationError(
+          "Text content requires both JSON and HTML content",
+        );
+      }
+      const body = new TextEncoder().encode(textJsonContent);
+      checksum = await sha256Hex(
+        new TextEncoder().encode(
+          JSON.stringify({
+            jsonContent: textJsonContent,
+            htmlContent: textHtmlContent,
+          }),
+        ).buffer,
+      );
+      fileSize = body.byteLength;
+      await this.deps.contentStorage?.upload({
+        key: existing.fileKey,
+        body,
+        contentType: "application/json; charset=utf-8",
+        contentLength: body.byteLength,
+      });
+    }
+
     const updated =
       input.ownerId && this.deps.contentRepository.updateForOwner
         ? await this.deps.contentRepository.updateForOwner(
@@ -115,6 +163,8 @@ export class UpdateContentUseCase {
               status: input.status,
               flashMessage,
               flashTone,
+              textJsonContent,
+              textHtmlContent,
               ...(input.scrollPxPerSecond !== undefined
                 ? { scrollPxPerSecond: input.scrollPxPerSecond }
                 : {}),
@@ -127,6 +177,8 @@ export class UpdateContentUseCase {
             status: input.status,
             flashMessage,
             flashTone,
+            textJsonContent,
+            textHtmlContent,
             ...(input.scrollPxPerSecond !== undefined
               ? { scrollPxPerSecond: input.scrollPxPerSecond }
               : {}),

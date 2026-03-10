@@ -28,6 +28,8 @@ import {
   createFlashContentRequestBodySchema,
   createFlashContentSchema,
   createReplaceContentFileSchema,
+  createTextContentRequestBodySchema,
+  createTextContentSchema,
   createUploadContentSchema,
   replaceContentFileRequestBodySchema,
   updateContentRequestBodySchema,
@@ -193,6 +195,62 @@ export const registerContentWriteRoutes = (args: {
           title: payload.title,
           message: payload.message,
           tone: payload.tone,
+          ownerId: c.get("userId"),
+        });
+        c.set("resourceId", created.id);
+        c.set("fileId", created.id);
+        c.header("Location", `${c.req.path}/${encodeURIComponent(created.id)}`);
+        return c.json(toApiResponse(created), 201);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/text",
+    setAction("content.text.create", {
+      route: "/content/text",
+      resourceType: "content",
+    }),
+    requirePermission("content:create"),
+    validateJson(createTextContentSchema),
+    describeRoute({
+      description: "Create text content with rich text formatting",
+      tags: contentTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: createTextContentRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        201: {
+          description: "Text content created",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(contentSchema)),
+            },
+          },
+        },
+        422: {
+          description: "Invalid request",
+          content: {
+            "application/json": {
+              schema: resolver(errorResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const created = await useCases.createTextContent.execute({
+          title: payload.title,
+          jsonContent: payload.jsonContent,
+          htmlContent: payload.htmlContent,
           ownerId: c.get("userId"),
         });
         c.set("resourceId", created.id);

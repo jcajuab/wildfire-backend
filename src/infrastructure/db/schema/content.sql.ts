@@ -5,6 +5,7 @@ import {
   int,
   mysqlEnum,
   mysqlTable,
+  text,
   timestamp,
   uniqueIndex,
   varchar,
@@ -16,7 +17,13 @@ export const content = mysqlTable(
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     title: varchar("title", { length: 255 }).notNull(),
-    type: mysqlEnum("type", ["IMAGE", "VIDEO", "PDF", "FLASH"]).notNull(),
+    type: mysqlEnum("type", [
+      "IMAGE",
+      "VIDEO",
+      "PDF",
+      "FLASH",
+      "TEXT",
+    ]).notNull(),
     kind: mysqlEnum("kind", ["ROOT", "PAGE"]).notNull().default("ROOT"),
     status: mysqlEnum("status", ["PROCESSING", "READY", "FAILED"])
       .notNull()
@@ -95,3 +102,13 @@ export const contentFlashMessages = mysqlTable(
     toneIndex: index("content_flash_messages_tone_idx").on(table.tone),
   }),
 );
+
+export const contentTextContent = mysqlTable("content_text_content", {
+  contentId: varchar("content_id", { length: 36 })
+    .primaryKey()
+    .references(() => content.id, { onDelete: "cascade" }),
+  jsonContent: text("json_content").notNull(),
+  htmlContent: text("html_content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

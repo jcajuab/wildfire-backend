@@ -20,6 +20,7 @@ import {
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   type CreateFlashContentUseCase,
+  type CreateTextContentUseCase,
   type DeleteContentUseCase,
   type GetContentDownloadUrlUseCase,
   type GetContentJobUseCase,
@@ -67,6 +68,7 @@ export interface ContentRouterUseCases {
   getContent: GetContentUseCase;
   getContentJob: GetContentJobUseCase;
   createFlashContent: CreateFlashContentUseCase;
+  createTextContent: CreateTextContentUseCase;
   updateContent: UpdateContentUseCase;
   setContentExclusion: SetContentExclusionUseCase;
   deleteContent: DeleteContentUseCase;

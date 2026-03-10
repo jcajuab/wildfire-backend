@@ -5,6 +5,7 @@ import {
   content,
   contentAssets,
   contentFlashMessages,
+  contentTextContent,
 } from "#/infrastructure/db/schema/content.sql";
 import {
   buildBaseContentQuery,
@@ -61,6 +62,20 @@ export class ContentWriteRepository {
           contentId: input.id,
           message: input.flashMessage,
           tone: input.flashTone,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      if (
+        input.type === "TEXT" &&
+        input.textJsonContent &&
+        input.textHtmlContent
+      ) {
+        await tx.insert(contentTextContent).values({
+          contentId: input.id,
+          jsonContent: input.textJsonContent,
+          htmlContent: input.textHtmlContent,
           createdAt: now,
           updatedAt: now,
         });
@@ -130,6 +145,14 @@ export class ContentWriteRepository {
           : existing.flashMessage,
       flashTone:
         input.flashTone !== undefined ? input.flashTone : existing.flashTone,
+      textJsonContent:
+        input.textJsonContent !== undefined
+          ? input.textJsonContent
+          : existing.textJsonContent,
+      textHtmlContent:
+        input.textHtmlContent !== undefined
+          ? input.textHtmlContent
+          : existing.textHtmlContent,
     };
 
     const now = new Date();
@@ -206,6 +229,33 @@ export class ContentWriteRepository {
         await tx
           .delete(contentFlashMessages)
           .where(eq(contentFlashMessages.contentId, id));
+      }
+
+      if (
+        next.type === "TEXT" &&
+        next.textJsonContent &&
+        next.textHtmlContent
+      ) {
+        await tx
+          .insert(contentTextContent)
+          .values({
+            contentId: id,
+            jsonContent: next.textJsonContent,
+            htmlContent: next.textHtmlContent,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onDuplicateKeyUpdate({
+            set: {
+              jsonContent: next.textJsonContent,
+              htmlContent: next.textHtmlContent,
+              updatedAt: now,
+            },
+          });
+      } else {
+        await tx
+          .delete(contentTextContent)
+          .where(eq(contentTextContent.contentId, id));
       }
     });
 

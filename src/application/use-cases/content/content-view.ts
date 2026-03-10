@@ -21,6 +21,8 @@ export interface ContentView {
   scrollPxPerSecond: number | null;
   flashMessage: string | null;
   flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
+  textJsonContent: string | null;
+  textHtmlContent: string | null;
   createdAt: string;
   owner: {
     id: string;
@@ -54,6 +56,8 @@ export const toContentView = (
   scrollPxPerSecond: record.scrollPxPerSecond ?? null,
   flashMessage: record.flashMessage ?? null,
   flashTone: record.flashTone ?? null,
+  textJsonContent: record.textJsonContent ?? null,
+  textHtmlContent: record.textHtmlContent ?? null,
   createdAt: record.createdAt,
   owner: {
     id: record.ownerId,

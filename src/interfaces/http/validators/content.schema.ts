@@ -3,7 +3,13 @@ import { z } from "zod";
 import { isSupportedMimeType } from "#/domain/content/content";
 import { apiListResponseSchema } from "#/interfaces/http/responses";
 
-export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "PDF", "FLASH"]);
+export const contentTypeSchema = z.enum([
+  "IMAGE",
+  "VIDEO",
+  "PDF",
+  "FLASH",
+  "TEXT",
+]);
 export const contentKindSchema = z.enum(["ROOT", "PAGE"]);
 export const contentStatusSchema = z.enum(["PROCESSING", "READY", "FAILED"]);
 export const flashToneSchema = z.enum(["INFO", "WARNING", "CRITICAL"]);
@@ -28,6 +34,8 @@ export const contentSchema = z.object({
   scrollPxPerSecond: z.number().int().positive().nullable(),
   flashMessage: z.string().nullable(),
   flashTone: flashToneSchema.nullable(),
+  textJsonContent: z.string().nullable(),
+  textHtmlContent: z.string().nullable(),
   createdAt: z.string(),
   owner: z.object({
     id: z.string(),
@@ -86,6 +94,23 @@ export const createFlashContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   additionalProperties: false,
 };
 
+export const createTextContentSchema = z.object({
+  title: z.string().trim().min(1).max(255),
+  jsonContent: z.string().min(1),
+  htmlContent: z.string().min(1),
+});
+
+export const createTextContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    title: { type: "string", minLength: 1, maxLength: 255 },
+    jsonContent: { type: "string", minLength: 1 },
+    htmlContent: { type: "string", minLength: 1 },
+  },
+  required: ["title", "jsonContent", "htmlContent"],
+  additionalProperties: false,
+};
+
 export const createUploadContentSchema = (
   maxBytes: number,
   videoMaxBytes: number,
@@ -131,13 +156,17 @@ export const updateContentSchema = z
     flashMessage: z.string().trim().min(1).max(240).optional(),
     flashTone: flashToneSchema.optional(),
     scrollPxPerSecond: z.number().int().positive().nullable().optional(),
+    textJsonContent: z.string().min(1).optional(),
+    textHtmlContent: z.string().min(1).optional(),
   })
   .refine(
     (value) =>
       value.title !== undefined ||
       value.flashMessage !== undefined ||
       value.flashTone !== undefined ||
-      value.scrollPxPerSecond !== undefined,
+      value.scrollPxPerSecond !== undefined ||
+      value.textJsonContent !== undefined ||
+      value.textHtmlContent !== undefined,
     "At least one field must be provided",
   );
 
@@ -153,6 +182,8 @@ export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
     scrollPxPerSecond: {
       oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }],
     },
+    textJsonContent: { type: "string", minLength: 1 },
+    textHtmlContent: { type: "string", minLength: 1 },
   },
   additionalProperties: false,
 };

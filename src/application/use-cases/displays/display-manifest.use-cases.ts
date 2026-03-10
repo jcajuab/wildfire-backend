@@ -55,7 +55,7 @@ const mapWithConcurrency = async <T, R>(
 
 const DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND = 24;
 
-type ManifestRenderableType = "IMAGE" | "VIDEO" | "PDF";
+type ManifestRenderableType = "IMAGE" | "VIDEO" | "PDF" | "TEXT";
 
 interface ManifestRenderableContent {
   id: string;
@@ -68,6 +68,7 @@ interface ManifestRenderableContent {
   height: number | null;
   duration: number | null;
   scrollPxPerSecond: number | null;
+  textHtmlContent: string | null;
 }
 
 interface ManifestFlashState {
@@ -102,7 +103,8 @@ const isRenderableEmergencyAsset = (content: {
 } =>
   (content.type === "IMAGE" ||
     content.type === "VIDEO" ||
-    content.type === "PDF") &&
+    content.type === "PDF" ||
+    content.type === "TEXT") &&
   content.kind === "ROOT" &&
   content.status === "READY";
 
@@ -295,6 +297,7 @@ export class GetDisplayManifestUseCase {
                   page.scrollPxPerSecond ??
                   emergencyAsset.scrollPxPerSecond ??
                   null,
+                textHtmlContent: null,
               },
             };
           });
@@ -499,17 +502,20 @@ export class GetDisplayManifestUseCase {
         if (
           item.content.type !== "IMAGE" &&
           item.content.type !== "VIDEO" &&
-          item.content.type !== "PDF"
+          item.content.type !== "PDF" &&
+          item.content.type !== "TEXT"
         ) {
           throw new ValidationError(
             `Unsupported content type in playlist: ${item.content.type}`,
           );
         }
         const downloadUrl =
-          await this.deps.contentStorage.getPresignedDownloadUrl({
-            key: item.content.fileKey,
-            expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-          });
+          item.content.type === "TEXT"
+            ? ""
+            : await this.deps.contentStorage.getPresignedDownloadUrl({
+                key: item.content.fileKey,
+                expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+              });
         const parentContent =
           item.content.kind === "PAGE" && item.content.parentContentId
             ? contentsById.get(item.content.parentContentId)
@@ -543,6 +549,7 @@ export class GetDisplayManifestUseCase {
                 ? (contentsById.get(item.content.parentContentId)
                     ?.scrollPxPerSecond ?? null)
                 : null),
+            textHtmlContent: item.content.textHtmlContent ?? null,
           },
         };
       },
@@ -637,6 +644,7 @@ export class GetDisplayManifestUseCase {
         height: emergencyAsset.height,
         duration: emergencyAsset.duration,
         scrollPxPerSecond: emergencyAsset.scrollPxPerSecond ?? null,
+        textHtmlContent: emergencyAsset.textHtmlContent ?? null,
       },
     };
   }

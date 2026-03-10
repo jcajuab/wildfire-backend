@@ -1,4 +1,5 @@
 export { CreateFlashContentUseCase } from "./create-flash-content.use-case";
+export { CreateTextContentUseCase } from "./create-text-content.use-case";
 export { DeleteContentUseCase } from "./delete-content.use-case";
 export {
   ContentInUseError,

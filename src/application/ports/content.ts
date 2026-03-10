@@ -25,6 +25,8 @@ export interface ContentRecord {
   scrollPxPerSecond?: number | null;
   flashMessage?: string | null;
   flashTone?: "INFO" | "WARNING" | "CRITICAL" | null;
+  textJsonContent?: string | null;
+  textHtmlContent?: string | null;
   ownerId: string;
   createdAt: string;
 }
@@ -100,6 +102,8 @@ export interface ContentRepository {
         | "scrollPxPerSecond"
         | "flashMessage"
         | "flashTone"
+        | "textJsonContent"
+        | "textHtmlContent"
         | "checksum"
       >
     >,
@@ -128,6 +132,8 @@ export interface ContentRepository {
         | "scrollPxPerSecond"
         | "flashMessage"
         | "flashTone"
+        | "textJsonContent"
+        | "textHtmlContent"
         | "checksum"
       >
     >,
