@@ -12,6 +12,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  mergedPlaylistQuerySchema,
+  mergedPlaylistResponseSchema,
   scheduleIdParamSchema,
   scheduleListQuerySchema,
   scheduleListResponseSchema,
@@ -105,6 +107,39 @@ export const registerScheduleQueryRoutes = (args: {
           from: query.from,
           to: query.to,
           displayIds: query.displayIds,
+        });
+        return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/merged",
+    setAction("schedules.schedule.merged", { route: "/schedules/merged" }),
+    ...authorize("schedules:read"),
+    validateQuery(mergedPlaylistQuerySchema),
+    describeRoute({
+      description:
+        "Get merged playlist for a display at a given time. Returns all playlist items from overlapping schedules.",
+      tags: scheduleTags,
+      responses: {
+        200: {
+          description: "Merged playlist items",
+          content: {
+            "application/json": {
+              schema: resolver(mergedPlaylistResponseSchema),
+            },
+          },
+        },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const query = c.req.valid("query");
+        const result = await useCases.getMergedPlaylist.execute({
+          displayId: query.displayId,
+          time: query.time ? new Date(query.time) : undefined,
         });
         return c.json(toApiResponse(result));
       },

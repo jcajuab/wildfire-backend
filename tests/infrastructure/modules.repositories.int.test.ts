@@ -85,7 +85,6 @@ const setup = async () => {
       start_time varchar(5) NOT NULL,
       end_time varchar(5) NOT NULL,
       day_of_week int NOT NULL,
-      priority int NOT NULL,
       is_active boolean NOT NULL DEFAULT true,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -195,7 +194,6 @@ describe("Module repositories (integration)", () => {
       displayId: "display-1",
       startTime: "08:00",
       endTime: "17:00",
-      priority: 10,
       isActive: true,
     });
 

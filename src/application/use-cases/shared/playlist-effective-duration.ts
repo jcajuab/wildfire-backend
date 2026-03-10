@@ -172,10 +172,13 @@ export const computePlaylistEffectiveDuration = async (input: {
               onlyReady: true,
             },
           )
-        : await input.contentRepository.findChildrenByParentIds!(rootPdfIds, {
-            includeExcluded: false,
-            onlyReady: true,
-          });
+        : ((await input.contentRepository.findChildrenByParentIds?.(
+            rootPdfIds,
+            {
+              includeExcluded: false,
+              onlyReady: true,
+            },
+          )) ?? []);
     for (const childPage of childPages) {
       if (!childPage.parentContentId) {
         continue;

@@ -175,7 +175,6 @@ const makeApp = async (
                     displayId: "display-1",
                     startTime: "08:00",
                     endTime: "18:00",
-                    priority: 10,
                     isActive: true,
                     createdAt: "2025-01-01T00:00:00.000Z",
                     updatedAt: "2025-01-01T00:00:00.000Z",

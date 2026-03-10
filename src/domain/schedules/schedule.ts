@@ -144,3 +144,68 @@ export const selectActiveScheduleByKind = <
     timeZone,
   );
 };
+
+/**
+ * Returns ALL active schedules matching the current time window.
+ * Used for virtual playlist merging when multiple PLAYLIST schedules overlap.
+ */
+export const selectActiveSchedules = <
+  T extends {
+    kind?: SchedulableKind;
+    isActive: boolean;
+    startDate?: string;
+    endDate?: string;
+    startTime: string;
+    endTime: string;
+    createdAt: string;
+  },
+>(
+  schedules: T[],
+  now: Date,
+  timeZone = "UTC",
+): T[] => {
+  const time = toZonedTimeString(now, timeZone);
+  const date = toZonedDateString(now, timeZone);
+
+  return schedules
+    .filter((schedule) => schedule.isActive)
+    .filter((schedule) => {
+      if (!schedule.startDate || !schedule.endDate) {
+        return true;
+      }
+      return isWithinDateWindow(date, schedule.startDate, schedule.endDate);
+    })
+    .filter((schedule) =>
+      isWithinTimeWindow(time, schedule.startTime, schedule.endTime),
+    )
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+};
+
+/**
+ * Returns ALL active schedules of a specific kind matching the current time window.
+ * For PLAYLIST kind, this supports virtual merging of overlapping schedules.
+ */
+export const selectActiveSchedulesByKind = <
+  T extends {
+    kind?: SchedulableKind;
+    isActive: boolean;
+    startDate?: string;
+    endDate?: string;
+    startTime: string;
+    endTime: string;
+    createdAt: string;
+  },
+>(
+  schedules: T[],
+  kind: SchedulableKind,
+  now: Date,
+  timeZone = "UTC",
+): T[] => {
+  return selectActiveSchedules(
+    schedules.filter(
+      (schedule) => normalizeScheduleKind(schedule.kind) === kind,
+    ),
+    now,
+    timeZone,
+  );
+};

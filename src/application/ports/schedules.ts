@@ -11,7 +11,6 @@ export interface ScheduleRecord {
   endDate?: string;
   startTime: string;
   endTime: string;
-  priority: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -39,7 +38,6 @@ export interface ScheduleRepository {
     endDate?: string;
     startTime: string;
     endTime: string;
-    priority: number;
     isActive: boolean;
   }): Promise<ScheduleRecord>;
   update(
@@ -54,7 +52,6 @@ export interface ScheduleRepository {
       endDate?: string;
       startTime?: string;
       endTime?: string;
-      priority?: number;
       isActive?: boolean;
     },
   ): Promise<ScheduleRecord | null>;

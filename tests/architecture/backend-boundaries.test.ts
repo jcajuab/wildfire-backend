@@ -89,7 +89,11 @@ describe("backend architecture boundaries", () => {
       [
         "src/bootstrap/http/index.ts",
         "src/bootstrap/workers/audit/index.ts",
+        "src/bootstrap/workers/content-ingestion/dlq-manager.ts",
+        "src/bootstrap/workers/content-ingestion/entry-processor.ts",
         "src/bootstrap/workers/content-ingestion/index.ts",
+        "src/bootstrap/workers/content-ingestion/runtime.ts",
+        "src/bootstrap/workers/content-ingestion/stream-transport.ts",
         "src/index.ts",
         "src/infrastructure/db/client.ts",
         "src/infrastructure/db/repositories/display-auth-nonce.repo.ts",

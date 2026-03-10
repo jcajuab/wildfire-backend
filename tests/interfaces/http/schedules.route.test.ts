@@ -34,7 +34,6 @@ const makeApp = async (
       endDate?: string;
       startTime: string;
       endTime: string;
-      priority: number;
       isActive: boolean;
       createdAt: string;
       updatedAt: string;
@@ -291,11 +290,10 @@ describe("Schedules routes", () => {
           playlistId,
           contentId: null,
           displayId,
-          startDate: "2026-01-02",
-          endDate: "2026-01-05",
+          startDate: "2027-01-02",
+          endDate: "2027-01-05",
           startTime: "08:00",
           endTime: "10:00",
-          priority: 1,
           isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
@@ -305,7 +303,7 @@ describe("Schedules routes", () => {
     const token = await issueToken();
 
     const response = await app.request(
-      `/schedules/window?from=2026-01-03&to=2026-01-03&displayIds=${displayId}`,
+      `/schedules/window?from=2027-01-03&to=2027-01-03&displayIds=${displayId}`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },
@@ -321,7 +319,7 @@ describe("Schedules routes", () => {
     const token = await issueToken();
 
     const response = await app.request(
-      `/schedules/window?from=2026-01-07&to=2026-01-03&displayIds=${displayId}`,
+      `/schedules/window?from=2027-01-07&to=2027-01-03&displayIds=${displayId}`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },
@@ -337,7 +335,7 @@ describe("Schedules routes", () => {
     const token = await issueToken();
 
     const response = await app.request(
-      `/schedules/window?from=2026-01-01&to=2026-01-07&displayIds=${displayId}`,
+      `/schedules/window?from=2027-01-01&to=2027-01-07&displayIds=${displayId}`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },
@@ -362,8 +360,8 @@ describe("Schedules routes", () => {
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "17:00",
         isActive: true,
@@ -395,8 +393,8 @@ describe("Schedules routes", () => {
         playlistId: "0e2c9b1e-7c1a-4b4d-8c2e-7b0a2f5f6d8c",
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "17:00",
         isActive: true,
@@ -422,8 +420,8 @@ describe("Schedules routes", () => {
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "99:00",
         endTime: "17:00",
         isActive: true,
@@ -451,8 +449,8 @@ describe("Schedules routes", () => {
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "17:00",
         isActive: true,
@@ -462,7 +460,7 @@ describe("Schedules routes", () => {
     expect(response.status).toBe(500);
   });
 
-  test("POST /schedules returns 409 when schedule overlaps on same display", async () => {
+  test("POST /schedules allows PLAYLIST overlaps on same display (virtual merge)", async () => {
     const { app, issueToken } = await makeApp(["schedules:create"]);
     const token = await issueToken();
 
@@ -478,8 +476,8 @@ describe("Schedules routes", () => {
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "10:00",
         isActive: true,
@@ -487,40 +485,31 @@ describe("Schedules routes", () => {
     });
     expect(first.status).toBe(201);
 
-    const conflict = await app.request("/schedules", {
+    const overlapping = await app.request("/schedules", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: "Conflict",
+        name: "Overlapping",
         kind: "PLAYLIST",
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "09:00",
         endTime: "11:00",
         isActive: true,
       }),
     });
 
-    expect(conflict.status).toBe(409);
-
-    const conflictBody = await parseJson<{
-      error: {
-        code: string;
-        message: string;
-      };
-    }>(conflict);
-
-    expect(conflictBody.error.code).toBe("schedule_conflict");
-    expect(conflictBody.error.message.length).toBeGreaterThan(0);
+    // PLAYLIST overlaps are now allowed - playlists merge at runtime
+    expect(overlapping.status).toBe(201);
   });
 
-  test("PATCH /schedules/:id returns 409 when update creates overlap", async () => {
+  test("PATCH /schedules/:id allows PLAYLIST overlap update (virtual merge)", async () => {
     const { app, issueToken } = await makeApp([
       "schedules:create",
       "schedules:update",
@@ -540,8 +529,8 @@ describe("Schedules routes", () => {
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "10:00",
         isActive: true,
@@ -561,8 +550,8 @@ describe("Schedules routes", () => {
         playlistId,
         contentId: null,
         displayId,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
+        startDate: "2027-01-01",
+        endDate: "2027-12-31",
         startTime: "11:00",
         endTime: "12:00",
         isActive: true,
@@ -576,19 +565,14 @@ describe("Schedules routes", () => {
     const schedules = await parseJson<{
       data: Array<{ id: string; name: string }>;
     }>(schedulesResponse);
-    const firstSchedule = schedules.data.find(
-      (item) => item.name === "Morning",
-    );
     const secondSchedule = schedules.data.find(
       (item) => item.name === "Midday",
     );
 
-    expect(firstSchedule).toBeDefined();
-    expect(firstSchedule?.id).toBeDefined();
     expect(secondSchedule).toBeDefined();
     expect(secondSchedule?.id).toBeDefined();
 
-    const conflict = await app.request(`/schedules/${secondSchedule?.id}`, {
+    const overlap = await app.request(`/schedules/${secondSchedule?.id}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -600,6 +584,7 @@ describe("Schedules routes", () => {
       }),
     });
 
-    expect(conflict.status).toBe(409);
+    // PLAYLIST overlaps are now allowed - playlists merge at runtime
+    expect(overlap.status).toBe(200);
   });
 });

@@ -10,6 +10,7 @@ import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   type CreateScheduleUseCase,
   type DeleteScheduleUseCase,
+  type GetMergedPlaylistUseCase,
   type GetScheduleUseCase,
   type ListSchedulesUseCase,
   type ListScheduleWindowUseCase,
@@ -40,6 +41,7 @@ export interface SchedulesRouterUseCases {
   getSchedule: GetScheduleUseCase;
   updateSchedule: UpdateScheduleUseCase;
   deleteSchedule: DeleteScheduleUseCase;
+  getMergedPlaylist: GetMergedPlaylistUseCase;
 }
 
 export type SchedulesRouter = Hono<{ Variables: JwtUserVariables }>;

@@ -1,7 +1,6 @@
 import {
   boolean,
   index,
-  int,
   mysqlTable,
   timestamp,
   varchar,
@@ -22,17 +21,12 @@ export const schedules = mysqlTable(
     endDate: varchar("end_date", { length: 10 }).notNull(),
     startTime: varchar("start_time", { length: 5 }).notNull(),
     endTime: varchar("end_time", { length: 5 }).notNull(),
-    priority: int("priority").notNull(),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
     displayIdIdx: index("schedules_display_id_idx").on(table.displayId),
-    displayPriorityIdx: index("schedules_display_priority_idx").on(
-      table.displayId,
-      table.priority,
-    ),
     displayActiveWindowIdx: index("schedules_display_active_window_idx").on(
       table.displayId,
       table.isActive,

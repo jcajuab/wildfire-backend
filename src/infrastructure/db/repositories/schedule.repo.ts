@@ -20,7 +20,6 @@ type ScheduleRow = {
   endDate: string;
   startTime: string;
   endTime: string;
-  priority: number;
   isActive: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -51,7 +50,6 @@ const toRecord = (row: ScheduleRow): ScheduleRecord => ({
   endDate: row.endDate,
   startTime: row.startTime,
   endTime: row.endTime,
-  priority: row.priority,
   isActive: row.isActive,
   createdAt:
     row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
@@ -69,7 +67,6 @@ const withTargets = () =>
       endDate: schedules.endDate,
       startTime: schedules.startTime,
       endTime: schedules.endTime,
-      priority: schedules.priority,
       isActive: schedules.isActive,
       createdAt: schedules.createdAt,
       updatedAt: schedules.updatedAt,
@@ -179,7 +176,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
     endDate?: string;
     startTime: string;
     endTime: string;
-    priority: number;
     isActive: boolean;
   }): Promise<ScheduleRecord> {
     const id = crypto.randomUUID();
@@ -202,7 +198,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
         endDate: input.endDate ?? "2099-12-31",
         startTime: input.startTime,
         endTime: input.endTime,
-        priority: input.priority,
         isActive: input.isActive,
         createdAt: now,
         updatedAt: now,
@@ -244,7 +239,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
       endDate?: string;
       startTime?: string;
       endTime?: string;
-      priority?: number;
       isActive?: boolean;
     },
   ): Promise<ScheduleRecord | null> {
@@ -278,7 +272,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
           endDate: input.endDate ?? existing.endDate,
           startTime: input.startTime ?? existing.startTime,
           endTime: input.endTime ?? existing.endTime,
-          priority: input.priority ?? existing.priority,
           isActive: input.isActive ?? existing.isActive,
           updatedAt: now,
         })

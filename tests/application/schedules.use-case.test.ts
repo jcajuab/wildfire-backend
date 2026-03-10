@@ -12,7 +12,6 @@ import {
   GetActiveScheduleForDisplayUseCase,
   ListSchedulesUseCase,
   NotFoundError,
-  ScheduleConflictError,
   UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 
@@ -28,7 +27,6 @@ const makeDeps = () => {
     endDate?: string;
     startTime: string;
     endTime: string;
-    priority: number;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -230,7 +228,6 @@ describe("Schedules use cases", () => {
             displayId: "display-1",
             startTime: "08:00",
             endTime: "17:00",
-            priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -507,7 +504,7 @@ describe("Schedules use cases", () => {
     expect(result.playlist?.id).toBe("playlist-1");
   });
 
-  test("CreateScheduleUseCase rejects overlapping schedules for the same display", async () => {
+  test("CreateScheduleUseCase allows PLAYLIST overlaps (virtual merge)", async () => {
     const deps = makeDeps();
     deps.schedules.push({
       id: "schedule-existing",
@@ -520,7 +517,6 @@ describe("Schedules use cases", () => {
       endDate: FUTURE_END_DATE,
       startTime: "10:00",
       endTime: "11:00",
-      priority: 1,
       isActive: true,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
@@ -532,9 +528,10 @@ describe("Schedules use cases", () => {
       contentRepository: deps.contentRepository,
     });
 
+    // PLAYLIST overlaps are now allowed - playlists merge at runtime
     await expect(
       useCase.execute({
-        name: "Conflict",
+        name: "Overlapping",
         kind: "PLAYLIST",
         playlistId: "playlist-1",
         contentId: null,
@@ -545,7 +542,7 @@ describe("Schedules use cases", () => {
         endTime: "11:30",
         isActive: true,
       }),
-    ).rejects.toBeInstanceOf(ScheduleConflictError);
+    ).resolves.toBeDefined();
   });
 
   test("CreateScheduleUseCase allows touching schedule boundaries", async () => {
@@ -561,7 +558,6 @@ describe("Schedules use cases", () => {
       endDate: FUTURE_END_DATE,
       startTime: "10:00",
       endTime: "11:00",
-      priority: 1,
       isActive: true,
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
@@ -589,7 +585,7 @@ describe("Schedules use cases", () => {
     ).resolves.toBeDefined();
   });
 
-  test("UpdateScheduleUseCase rejects overlapping schedules", async () => {
+  test("UpdateScheduleUseCase allows PLAYLIST overlaps (virtual merge)", async () => {
     const deps = makeDeps();
     deps.schedules.push(
       {
@@ -603,7 +599,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-12-31",
         startTime: "08:00",
         endTime: "09:00",
-        priority: 1,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -619,7 +614,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-12-31",
         startTime: "10:00",
         endTime: "11:00",
-        priority: 1,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -632,13 +626,14 @@ describe("Schedules use cases", () => {
       contentRepository: deps.contentRepository,
     });
 
+    // PLAYLIST overlaps are now allowed - playlists merge at runtime
     await expect(
       useCase.execute({
         id: "schedule-b",
         startTime: "08:30",
         endTime: "09:30",
       }),
-    ).rejects.toBeInstanceOf(ScheduleConflictError);
+    ).resolves.toBeDefined();
   });
 
   test("GetActiveScheduleForDisplayUseCase returns the first matching schedule", async () => {
@@ -653,7 +648,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
-        priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -667,7 +661,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
-        priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -695,7 +688,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "17:00",
         endTime: "18:00",
-        priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -709,7 +701,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "09:00",
         endTime: "10:00",
-        priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -740,7 +731,6 @@ describe("Schedules use cases", () => {
         endDate: "2025-01-01",
         startTime: "00:00",
         endTime: "23:59",
-        priority: 10,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -756,7 +746,6 @@ describe("Schedules use cases", () => {
         endDate: "2024-12-31",
         startTime: "00:00",
         endTime: "23:59",
-        priority: 5,
         isActive: true,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",

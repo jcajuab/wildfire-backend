@@ -12,7 +12,10 @@ import { type RuntimeControlRepository } from "#/application/ports/runtime-contr
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { splitPdfDocumentDurationAcrossPages } from "#/application/use-cases/shared/pdf-duration";
 import { sha256Hex } from "#/domain/content/checksum";
-import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
+import {
+  selectActiveScheduleByKind,
+  selectActiveSchedulesByKind,
+} from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
 
 const mapWithConcurrency = async <T, R>(
@@ -320,7 +323,7 @@ export class GetDisplayManifestUseCase {
       };
     }
 
-    const active = selectActiveScheduleByKind(
+    const activeSchedules = selectActiveSchedulesByKind(
       schedules,
       "PLAYLIST",
       input.now,
@@ -334,7 +337,7 @@ export class GetDisplayManifestUseCase {
       flash,
     };
 
-    if (!active) {
+    if (activeSchedules.length === 0) {
       return {
         playlistId: null,
         playlistVersion: await this.computePlaylistVersion({
@@ -351,14 +354,47 @@ export class GetDisplayManifestUseCase {
       };
     }
 
-    const playlistId = active.playlistId;
-    if (!playlistId) {
+    // Gather playlist IDs from all active schedules
+    const playlistIds = activeSchedules
+      .map((s) => s.playlistId)
+      .filter((id): id is string => id !== null);
+
+    if (playlistIds.length === 0) {
       throw new ValidationError("Playlist schedule is missing playlistId");
     }
-    const playlist = await this.deps.playlistRepository.findById(playlistId);
+
+    // Fetch all playlists
+    const playlists = await this.deps.playlistRepository.findByIds(playlistIds);
+    if (playlists.length === 0) throw new NotFoundError("Playlist not found");
+
+    // Use first playlist for manifest response (for backward compat)
+    const playlist = playlists[0];
     if (!playlist) throw new NotFoundError("Playlist not found");
 
-    const items = await this.deps.playlistRepository.listItems(playlist.id);
+    // Gather all items from all playlists, ordered by schedule createdAt then item sequence
+    const allItems: Array<{
+      playlistId: string;
+      contentId: string;
+      sequence: number;
+      duration: number;
+      id: string;
+    }> = [];
+
+    for (const schedule of activeSchedules) {
+      if (!schedule.playlistId) continue;
+      const playlistItems = await this.deps.playlistRepository.listItems(
+        schedule.playlistId,
+      );
+      for (const item of playlistItems) {
+        allItems.push({
+          ...item,
+          playlistId: schedule.playlistId,
+        });
+      }
+    }
+
+    // Sort by original sequence within each playlist (schedules already sorted by createdAt)
+    const items = allItems.sort((a, b) => a.sequence - b.sequence);
     const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
     const contents = await this.deps.contentRepository.findByIds(contentIds);
     const contentsById = new Map(

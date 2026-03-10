@@ -29,7 +29,6 @@ describe("schedule helpers", () => {
         endDate: "2025-01-06",
         startTime: "17:00",
         endTime: "18:00",
-        priority: 10,
       },
       {
         id: "utc-morning",
@@ -38,7 +37,6 @@ describe("schedule helpers", () => {
         endDate: "2025-01-06",
         startTime: "09:00",
         endTime: "10:00",
-        priority: 5,
       },
     ];
 
@@ -62,7 +60,6 @@ describe("schedule helpers", () => {
         endDate: "2025-01-01",
         startTime: "00:00",
         endTime: "23:59",
-        priority: 10,
       },
       {
         id: "utc-date-only",
@@ -71,7 +68,6 @@ describe("schedule helpers", () => {
         endDate: "2024-12-31",
         startTime: "00:00",
         endTime: "23:59",
-        priority: 5,
       },
     ];
 

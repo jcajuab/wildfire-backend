@@ -164,7 +164,10 @@ export const processContentIngestionJob = async (
     throw new Error("Unsupported content type for ingestion");
   }
 
-  const data = await contentStorage.download!(content.fileKey);
+  const data = await contentStorage.download?.(content.fileKey);
+  if (!data) {
+    throw new Error("Failed to download content file");
+  }
   const metadata = await metadataExtractor.extract({
     type: contentType,
     mimeType: content.mimeType,

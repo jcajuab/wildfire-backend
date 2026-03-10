@@ -93,3 +93,26 @@ export const updateScheduleSchema = z.object({
   endTime: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
 });
+
+export const mergedPlaylistQuerySchema = z.object({
+  displayId: z.string().uuid(),
+  time: z.string().datetime().optional(),
+});
+
+export const mergedPlaylistItemSchema = z.object({
+  scheduleId: z.string(),
+  scheduleName: z.string(),
+  playlistId: z.string(),
+  playlistName: z.string(),
+  contentId: z.string(),
+  sequence: z.number(),
+  duration: z.number(),
+});
+
+export const mergedPlaylistResponseSchema = apiResponseSchema(
+  z.object({
+    scheduleIds: z.array(z.string()),
+    items: z.array(mergedPlaylistItemSchema),
+    totalDuration: z.number(),
+  }),
+);

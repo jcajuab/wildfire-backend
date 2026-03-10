@@ -2,6 +2,7 @@ import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   CreateScheduleUseCase,
   DeleteScheduleUseCase,
+  GetMergedPlaylistUseCase,
   GetScheduleUseCase,
   ListSchedulesUseCase,
   ListScheduleWindowUseCase,
@@ -68,6 +69,11 @@ export const createSchedulesHttpModule = (
         playlistRepository: routerDeps.repositories.playlistRepository,
         contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
+      }),
+      getMergedPlaylist: new GetMergedPlaylistUseCase({
+        scheduleRepository: routerDeps.repositories.scheduleRepository,
+        playlistRepository: routerDeps.repositories.playlistRepository,
+        scheduleTimeZone: routerDeps.timezone,
       }),
     },
   };

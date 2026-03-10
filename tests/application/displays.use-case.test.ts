@@ -220,7 +220,6 @@ describe("Displays use cases", () => {
             displayId: "display-2",
             startTime: "00:00",
             endTime: "23:59",
-            priority: 100,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -746,11 +745,12 @@ describe("Displays use cases", () => {
           {
             id: "schedule-1",
             name: "Morning",
+            kind: "PLAYLIST" as const,
             playlistId: "playlist-1",
+            contentId: null,
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -771,7 +771,19 @@ describe("Displays use cases", () => {
       playlistRepository: {
         list: async () => [],
         listPage: async () => ({ items: [], total: 0 }),
-        findByIds: async () => [],
+        findByIds: async (ids: string[]) =>
+          ids.includes("playlist-1")
+            ? [
+                {
+                  id: "playlist-1",
+                  name: "Morning",
+                  description: null,
+                  ownerId: "user-1",
+                  createdAt: "2025-01-01T00:00:00.000Z",
+                  updatedAt: "2025-01-01T00:00:00.000Z",
+                },
+              ]
+            : [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -918,11 +930,12 @@ describe("Displays use cases", () => {
           {
             id: "schedule-1",
             name: "Morning",
+            kind: "PLAYLIST" as const,
             playlistId: "playlist-1",
+            contentId: null,
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -1029,11 +1042,12 @@ describe("Displays use cases", () => {
           {
             id: "schedule-1",
             name: "Morning",
+            kind: "PLAYLIST" as const,
             playlistId: "playlist-1",
+            contentId: null,
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -1367,11 +1381,12 @@ describe("Displays use cases", () => {
           {
             id: "schedule-1",
             name: "Morning",
+            kind: "PLAYLIST" as const,
             playlistId: "playlist-1",
+            contentId: null,
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            priority: 10,
             isActive: true,
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
