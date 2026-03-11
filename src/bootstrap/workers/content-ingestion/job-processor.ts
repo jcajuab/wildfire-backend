@@ -227,6 +227,13 @@ export const processContentIngestionJob = async (
 
   let pageCount: number | null = null;
   if (content.kind === "ROOT" && contentType === "PDF") {
+    const existingChildrenBeforeReplacement =
+      contentRepository.findChildrenByParentIds
+        ? await contentRepository.findChildrenByParentIds([content.id], {
+            includeExcluded: true,
+          })
+        : [];
+
     // Wrap PDF child processing + parent update in a transaction for atomicity
     await db.transaction(async (tx) => {
       // Delete existing children from database
@@ -378,12 +385,7 @@ export const processContentIngestionJob = async (
     });
 
     // Storage cleanup happens outside transaction (best effort)
-    const existingChildren = contentRepository.findChildrenByParentIds
-      ? await contentRepository.findChildrenByParentIds([content.id], {
-          includeExcluded: true,
-        })
-      : [];
-    for (const existingChild of existingChildren) {
+    for (const existingChild of existingChildrenBeforeReplacement) {
       await contentStorage.delete(existingChild.fileKey).catch((error) => {
         logger.warn(
           addErrorContext(
