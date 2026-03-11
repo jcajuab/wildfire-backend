@@ -600,7 +600,17 @@ app.use(
   cors({
     origin: env.CORS_ORIGINS,
     credentials: true,
-    allowHeaders: ["Content-Type", "Authorization", "X-AI-Provider-Key"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-AI-Provider-Key",
+      "X-Display-Slug",
+      "X-Display-Key-Id",
+      "X-Display-Timestamp",
+      "X-Display-Nonce",
+      "X-Display-Body-Sha256",
+      "X-Display-Signature",
+    ],
     exposeHeaders: ["X-Request-Id"],
   }),
 );
