@@ -96,13 +96,7 @@ export const env = createEnv({
     INVITE_ACCEPT_BASE_URL: z
       .string()
       .default("http://localhost:3000/accept-invite"),
-    RESET_PASSWORD_BASE_URL: z
-      .string()
-      .default("http://localhost:3000/reset-password"),
     EMAIL_CHANGE_TOKEN_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24),
-    EMAIL_CHANGE_VERIFY_BASE_URL: z
-      .string()
-      .default("http://localhost:3000/verify-email-change"),
     LOG_LEVEL: z.string().default("info"),
     LOG_PRETTY: z.string().default("true").pipe(z.stringbool()),
     AUDIT_QUEUE_ENABLED: z.string().default("true").pipe(z.stringbool()),
