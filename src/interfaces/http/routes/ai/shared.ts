@@ -1,0 +1,47 @@
+import { type Hono, type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
+import { type AuthorizationRepository } from "#/application/ports/rbac";
+import {
+  type AIChatUseCase,
+  type AIConfirmActionUseCase,
+  type CancelPendingActionUseCase,
+  type DeleteAICredentialUseCase,
+  type ListAICredentialsUseCase,
+  type ListPendingActionsUseCase,
+  type StoreAICredentialUseCase,
+} from "#/application/use-cases/ai";
+import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
+import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+
+export interface AIRouterDeps {
+  jwtSecret: string;
+  authSessionRepository: AuthSessionRepository;
+  authSessionCookieName: string;
+  repositories: {
+    authorizationRepository: AuthorizationRepository;
+  };
+  checkPermissionUseCase: CheckPermissionUseCase;
+  rateLimitWindowSeconds: number;
+  rateLimitMaxRequests: number;
+}
+
+export interface AIRouterUseCases {
+  aiChat: AIChatUseCase;
+  aiConfirmAction: AIConfirmActionUseCase;
+  cancelPendingAction: CancelPendingActionUseCase;
+  listPendingActions: ListPendingActionsUseCase;
+  storeCredential: StoreAICredentialUseCase;
+  listCredentials: ListAICredentialsUseCase;
+  deleteCredential: DeleteAICredentialUseCase;
+}
+
+export type AIRouter = Hono<{ Variables: JwtUserVariables }>;
+
+export type AuthorizePermission = (
+  permission: string,
+) => readonly [
+  MiddlewareHandler,
+  MiddlewareHandler<{ Variables: JwtUserVariables }>,
+];
+
+export const aiTags = ["AI"];

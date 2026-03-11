@@ -1,3 +1,4 @@
+export { createAIModule } from "./ai";
 export { createAuditHttpModule } from "./audit";
 export { createAuthHttpModule } from "./auth";
 export { createContentHttpModule } from "./content";

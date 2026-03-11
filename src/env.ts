@@ -126,6 +126,15 @@ export const env = createEnv({
     CONTENT_INGEST_QUEUE_ENQUEUE_BASE_DELAY_MS: z.coerce.number().default(250),
     CONTENT_INGEST_QUEUE_ENQUEUE_MAX_DELAY_MS: z.coerce.number().default(4_000),
     CONTENT_INGEST_QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().default(5_000),
+    // 32-byte hex-encoded AES-256 key for encrypting stored AI API keys
+    AI_ENCRYPTION_KEY: z
+      .string()
+      .length(64)
+      .regex(/^[0-9a-fA-F]+$/, "Must be a 64-character hex string")
+      .default(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    AI_ALLOWED_CORS_HEADERS: z.string().default("X-AI-Provider-Key"),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

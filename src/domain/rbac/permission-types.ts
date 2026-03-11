@@ -6,7 +6,8 @@ export type PermissionResource =
   | "schedules"
   | "users"
   | "roles"
-  | "audit";
+  | "audit"
+  | "ai";
 
 export type PermissionAction =
   | "access"

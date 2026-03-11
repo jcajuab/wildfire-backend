@@ -9,8 +9,8 @@ export interface SystemRoleTemplate {
   readonly permissionKeys: readonly string[];
 }
 
-const editorPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.filter(
-  (entry) => {
+const editorPermissionKeys = [
+  ...CANONICAL_STANDARD_RESOURCE_ACTIONS.filter((entry) => {
     if (entry.resource === "displays" && entry.action === "read") {
       return true;
     }
@@ -29,8 +29,9 @@ const editorPermissionKeys = CANONICAL_STANDARD_RESOURCE_ACTIONS.filter(
     }
 
     return false;
-  },
-).map((entry) => canonicalPermissionKey(entry));
+  }).map((entry) => canonicalPermissionKey(entry)),
+  "ai:access",
+] as const;
 
 export const PREDEFINED_SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = [
   {

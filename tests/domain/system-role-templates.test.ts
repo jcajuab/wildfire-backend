@@ -17,7 +17,7 @@ describe("predefined system role templates", () => {
     }
   });
 
-  test("defines editor permissions as displays:read + content/playlists/schedules CRUD", () => {
+  test("defines editor permissions as displays:read + content/playlists/schedules CRUD + ai:access", () => {
     const editor = PREDEFINED_SYSTEM_ROLE_TEMPLATES.find(
       (role) => role.name === "Editor",
     );
@@ -36,6 +36,7 @@ describe("predefined system role templates", () => {
       "schedules:read",
       "schedules:update",
       "schedules:delete",
+      "ai:access",
     ]);
   });
 

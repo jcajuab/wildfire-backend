@@ -6,6 +6,7 @@ import { type RequestIdVariables } from "hono/request-id";
 import { openAPIRouteHandler } from "hono-openapi";
 import { createDefaultHealthDependencyChecks } from "#/bootstrap/http/health-checks";
 import {
+  createAIModule,
   createAuditHttpModule,
   createAuthHttpModule,
   createContentHttpModule,
@@ -53,6 +54,7 @@ import {
   requestLogger,
 } from "#/interfaces/http/middleware/observability";
 import { internalServerError } from "#/interfaces/http/responses";
+import { createAIRouter } from "#/interfaces/http/routes/ai.route";
 import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
 import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
 import { createContentRouter } from "#/interfaces/http/routes/content.route";
@@ -622,6 +624,23 @@ const auditModule = createAuditHttpModule({
 });
 const auditRouter = createAuditRouter(auditModule);
 
+const aiModule = createAIModule({
+  jwtSecret: env.JWT_SECRET,
+  authSessionRepository: container.repositories.authSessionRepository,
+  authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  encryptionKey: env.AI_ENCRYPTION_KEY,
+  repositories: {
+    authorizationRepository: container.repositories.authorizationRepository,
+    contentRepository: container.repositories.contentRepository,
+    playlistRepository: container.repositories.playlistRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
+    displayRepository: container.repositories.displayRepository,
+    userRepository: container.repositories.userRepository,
+  },
+  storage: container.storage.contentStorage,
+});
+const aiRouter = createAIRouter(aiModule);
+
 const auditQueue = new RedisAuditQueue({
   enabled: env.AUDIT_QUEUE_ENABLED,
   maxStreamLength: env.AUDIT_QUEUE_CAPACITY,
@@ -637,8 +656,16 @@ app.use(
   cors({
     origin: env.CORS_ORIGINS,
     credentials: true,
+    allowHeaders: ["Content-Type", "Authorization", "X-AI-Provider-Key"],
+    exposeHeaders: ["X-Request-Id"],
   }),
 );
+
+// Security: Redact X-AI-Provider-Key from logs to prevent key leakage
+app.use("*", async (c, next) => {
+  await next();
+  c.res.headers.delete("X-AI-Provider-Key");
+});
 app.use("*", requestId());
 app.use(
   "*",
@@ -658,6 +685,7 @@ app.route("/api/v1/display-runtime", displayRouter);
 app.route("/api/v1/content", contentRouter);
 app.route("/api/v1/content-jobs", contentJobsRouter);
 app.route("/api/v1/audit", auditRouter);
+app.route("/api/v1/ai", aiRouter);
 app.route("/api/v1", rbacRouter);
 
 app.onError((err, c) => {

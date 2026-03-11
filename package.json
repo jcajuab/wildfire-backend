@@ -24,11 +24,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/google": "^3.0.43",
+    "@ai-sdk/openai": "^3.0.41",
     "@aws-sdk/client-s3": "^3.975.0",
     "@aws-sdk/s3-request-presigner": "^3.975.0",
     "@hono/standard-validator": "^0.2.2",
     "@scalar/hono-api-reference": "^0.9.40",
     "@t3-oss/env-core": "^0.13.10",
+    "ai": "^6.0.116",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.1",
     "ffprobe-static": "^3.1.0",

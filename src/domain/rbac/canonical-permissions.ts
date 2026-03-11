@@ -30,6 +30,7 @@ export const CANONICAL_STANDARD_RESOURCE_ACTIONS = [
   { resource: "roles", action: "update" },
   { resource: "roles", action: "delete" },
   { resource: "audit", action: "read" },
+  { resource: "ai", action: "access" },
 ] as const satisfies ReadonlyArray<{
   readonly resource: string;
   readonly action: string;
