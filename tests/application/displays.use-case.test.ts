@@ -1358,6 +1358,148 @@ describe("Displays use cases", () => {
     ]);
   });
 
+  test("GetDisplayManifestUseCase slices tall images and keeps full duration per slice", async () => {
+    const { repo } = makeRepository();
+    const created = await repo.createRegisteredDisplay({
+      slug: "AA:BB",
+      name: "Lobby",
+      fingerprint: "fingerprint",
+      screenWidth: 1000,
+      screenHeight: 1000,
+      output: "HDMI-1",
+      now: new Date("2025-01-01T00:00:00.000Z"),
+    });
+
+    const useCase = new GetDisplayManifestUseCase({
+      scheduleRepository: {
+        listByDisplay: async () => [
+          {
+            id: "schedule-1",
+            name: "Morning",
+            playlistId: "playlist-1",
+            displayId: created.id,
+            startTime: "00:00",
+            endTime: "23:59",
+            priority: 10,
+            isActive: true,
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        list: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
+        listByPlaylistId: async () => [],
+      },
+      playlistRepository: {
+        list: async () => [],
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [
+          {
+            id: "playlist-1",
+            name: "Morning",
+            description: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        findById: async () => ({
+          id: "playlist-1",
+          name: "Morning",
+          description: null,
+          ownerId: "user-1",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        listItems: async () => [
+          {
+            id: "item-1",
+            playlistId: "playlist-1",
+            contentId: "content-image-1",
+            sequence: 10,
+            duration: 7,
+          },
+        ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
+      },
+      contentRepository: {
+        findById: async () => null,
+        findByIds: async () => [
+          {
+            id: "content-image-1",
+            title: "Tall Image",
+            type: "IMAGE",
+            kind: "ROOT",
+            status: "READY",
+            fileKey: "content/images/tall.jpg",
+            checksum: "image-checksum",
+            mimeType: "image/jpeg",
+            fileSize: 100,
+            width: 1000,
+            height: 3000,
+            duration: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        list: async () => ({ items: [], total: 0 }),
+        findChildrenByParentIds: async () => [],
+        create: async () => {
+          throw new Error("not used");
+        },
+        delete: async () => false,
+        update: async () => null,
+      },
+      contentStorage: {
+        ensureBucketExists: async () => {},
+        upload: async () => {},
+        delete: async () => {},
+        getPresignedDownloadUrl: async ({ key }) =>
+          `https://example.com/${key}`,
+      },
+      displayRepository: repo,
+      downloadUrlExpiresInSeconds: 3600,
+    });
+
+    const result = await useCase.execute({
+      displayId: created.id,
+      now: new Date("2025-01-06T00:00:00.000Z"),
+    });
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.map((item) => item.duration)).toEqual([7, 7, 7]);
+    expect(result.items.map((item) => item.content.cropY)).toEqual([
+      0, 1000, 2000,
+    ]);
+    expect(result.items.map((item) => item.content.sliceIndex)).toEqual([
+      0, 1, 2,
+    ]);
+    expect(result.items.map((item) => item.content.sliceCount)).toEqual([
+      3, 3, 3,
+    ]);
+  });
+
   test("GetDisplayManifestUseCase presigns content URLs concurrently", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({

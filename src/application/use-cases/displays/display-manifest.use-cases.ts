@@ -69,7 +69,127 @@ interface ManifestRenderableContent {
   duration: number | null;
   scrollPxPerSecond: number | null;
   textHtmlContent: string | null;
+  cropY?: number | null;
+  cropHeight?: number | null;
+  scaledHeight?: number | null;
+  sliceIndex?: number | null;
+  sliceCount?: number | null;
 }
+
+interface ManifestRenderableItem {
+  id: string;
+  sequence: number;
+  duration: number;
+  content: ManifestRenderableContent;
+}
+
+interface CropSliceMeta {
+  cropY: number;
+  cropHeight: number;
+  scaledHeight: number;
+  sliceIndex: number;
+  sliceCount: number;
+}
+
+const toCropSliceMeta = (input: {
+  contentWidth: number | null;
+  contentHeight: number | null;
+  viewportWidth: number | null;
+  viewportHeight: number | null;
+}): CropSliceMeta[] => {
+  if (
+    typeof input.contentWidth !== "number" ||
+    typeof input.contentHeight !== "number" ||
+    typeof input.viewportWidth !== "number" ||
+    typeof input.viewportHeight !== "number" ||
+    input.contentWidth <= 0 ||
+    input.contentHeight <= 0 ||
+    input.viewportWidth <= 0 ||
+    input.viewportHeight <= 0
+  ) {
+    return [];
+  }
+  const viewportWidth = input.viewportWidth;
+  const viewportHeight = input.viewportHeight;
+
+  const scaledHeight = Math.ceil(
+    (viewportWidth / input.contentWidth) * input.contentHeight,
+  );
+  if (scaledHeight <= viewportHeight) {
+    return [];
+  }
+
+  const sliceCount = Math.max(1, Math.ceil(scaledHeight / viewportHeight));
+  return Array.from({ length: sliceCount }, (_unused, index) => {
+    const cropY = index * viewportHeight;
+    const remaining = Math.max(0, scaledHeight - cropY);
+    return {
+      cropY,
+      cropHeight: Math.min(viewportHeight, remaining),
+      scaledHeight,
+      sliceIndex: index,
+      sliceCount,
+    };
+  });
+};
+
+const withCropMeta = (
+  content: ManifestRenderableContent,
+  cropMeta: CropSliceMeta | null,
+): ManifestRenderableContent => ({
+  ...content,
+  cropY: cropMeta?.cropY ?? null,
+  cropHeight: cropMeta?.cropHeight ?? null,
+  scaledHeight: cropMeta?.scaledHeight ?? null,
+  sliceIndex: cropMeta?.sliceIndex ?? null,
+  sliceCount: cropMeta?.sliceCount ?? null,
+});
+
+const expandManifestItemsForViewportSlices = (input: {
+  items: readonly ManifestRenderableItem[];
+  viewportWidth: number | null;
+  viewportHeight: number | null;
+}): ManifestRenderableItem[] => {
+  const expanded: ManifestRenderableItem[] = [];
+
+  for (const item of input.items) {
+    if (item.content.type !== "IMAGE" && item.content.type !== "PDF") {
+      expanded.push({
+        ...item,
+        content: withCropMeta(item.content, null),
+      });
+      continue;
+    }
+
+    const cropSlices = toCropSliceMeta({
+      contentWidth: item.content.width,
+      contentHeight: item.content.height,
+      viewportWidth: input.viewportWidth,
+      viewportHeight: input.viewportHeight,
+    });
+
+    if (cropSlices.length === 0) {
+      expanded.push({
+        ...item,
+        content: withCropMeta(item.content, null),
+      });
+      continue;
+    }
+
+    for (const cropMeta of cropSlices) {
+      expanded.push({
+        ...item,
+        id: `${item.id}:slice-${cropMeta.sliceIndex + 1}`,
+        content: withCropMeta(item.content, cropMeta),
+      });
+    }
+  }
+
+  return expanded.map((item, index) => ({
+    ...item,
+    sequence: index + 1,
+  }));
+};
 
 interface ManifestFlashState {
   scheduleId: string;
@@ -229,7 +349,7 @@ export class GetDisplayManifestUseCase {
         emergency.content.type === "VIDEO"
           ? Math.max(1, emergency.content.duration ?? 1)
           : 86_400;
-      let items = [
+      let items: ManifestRenderableItem[] = [
         {
           id: `emergency:${emergency.content.id}`,
           sequence: 1,
@@ -309,6 +429,15 @@ export class GetDisplayManifestUseCase {
         emergency,
         flash: null,
       };
+      const runtimeItems = expandManifestItemsForViewportSlices({
+        items,
+        viewportWidth:
+          typeof display.screenWidth === "number" ? display.screenWidth : null,
+        viewportHeight:
+          typeof display.screenHeight === "number"
+            ? display.screenHeight
+            : null,
+      });
 
       return {
         playlistId: null,
@@ -317,12 +446,12 @@ export class GetDisplayManifestUseCase {
           refreshNonce: display.refreshNonce ?? 0,
           runtimeSettings,
           playback,
-          items,
+          items: runtimeItems,
         }),
         generatedAt: input.now.toISOString(),
         runtimeSettings,
         playback,
-        items,
+        items: runtimeItems,
       };
     }
 
@@ -495,7 +624,7 @@ export class GetDisplayManifestUseCase {
       expandedSequence += 1;
     }
 
-    const manifestItems = await mapWithConcurrency(
+    const manifestItems: ManifestRenderableItem[] = await mapWithConcurrency(
       expandedItems,
       8,
       async (item) => {
@@ -554,6 +683,13 @@ export class GetDisplayManifestUseCase {
         };
       },
     );
+    const runtimeItems = expandManifestItemsForViewportSlices({
+      items: manifestItems,
+      viewportWidth:
+        typeof display.screenWidth === "number" ? display.screenWidth : null,
+      viewportHeight:
+        typeof display.screenHeight === "number" ? display.screenHeight : null,
+    });
 
     return {
       playlistId: playlist.id,
@@ -562,12 +698,12 @@ export class GetDisplayManifestUseCase {
         refreshNonce: display.refreshNonce ?? 0,
         runtimeSettings,
         playback,
-        items: manifestItems,
+        items: runtimeItems,
       }),
       generatedAt: input.now.toISOString(),
       runtimeSettings,
       playback,
-      items: manifestItems,
+      items: runtimeItems,
     };
   }
 

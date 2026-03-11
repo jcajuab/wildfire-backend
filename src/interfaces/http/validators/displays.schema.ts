@@ -241,6 +241,11 @@ export const displayManifestItemSchema = z.object({
     duration: z.number().int().nullable(),
     scrollPxPerSecond: z.number().int().positive().nullable(),
     textHtmlContent: z.string().nullable(),
+    cropY: z.number().int().nonnegative().nullable().optional(),
+    cropHeight: z.number().int().positive().nullable().optional(),
+    scaledHeight: z.number().int().positive().nullable().optional(),
+    sliceIndex: z.number().int().nonnegative().nullable().optional(),
+    sliceCount: z.number().int().positive().nullable().optional(),
   }),
 });
 
@@ -269,6 +274,12 @@ export const displayManifestSchema = z.object({
           height: z.number().int().nullable(),
           duration: z.number().int().nullable(),
           scrollPxPerSecond: z.number().int().positive().nullable(),
+          textHtmlContent: z.string().nullable(),
+          cropY: z.number().int().nonnegative().nullable().optional(),
+          cropHeight: z.number().int().positive().nullable().optional(),
+          scaledHeight: z.number().int().positive().nullable().optional(),
+          sliceIndex: z.number().int().nonnegative().nullable().optional(),
+          sliceCount: z.number().int().positive().nullable().optional(),
         }),
       })
       .nullable(),
