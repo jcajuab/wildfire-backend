@@ -30,6 +30,7 @@ export interface AIChatDeps {
       toolCallId: string,
       args: Record<string, unknown>,
     ) => Promise<unknown>,
+    toolNames?: string[],
   ) => Promise<AsyncIterable<AIStreamChunk>>;
 }
 
@@ -44,6 +45,7 @@ export class AIChatUseCase {
     apiKey?: string;
     temperature?: number;
     maxTokens?: number;
+    toolNames?: string[];
     userId: string;
   }): Promise<AsyncIterable<AIStreamChunk>> {
     // Detect prompt injection attempts
@@ -123,6 +125,7 @@ export class AIChatUseCase {
       config,
       input.messages,
       onToolCall,
+      input.toolNames,
     );
 
     this.deps.auditLogger.log({

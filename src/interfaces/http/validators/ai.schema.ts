@@ -20,6 +20,7 @@ export const aiChatRequestSchema = z.object({
   model: z.string().min(1),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().positive().max(8192).optional(),
+  toolNames: z.array(z.string()).optional(),
 });
 
 export const aiConfirmRequestSchema = z.object({

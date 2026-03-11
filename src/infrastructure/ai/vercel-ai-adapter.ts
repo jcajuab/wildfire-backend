@@ -63,9 +63,29 @@ export const executeAIChat = async (
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<unknown>,
+  toolNames?: string[],
 ): Promise<AsyncIterable<AIStreamChunk>> => {
   const aiModel = createAIModel(config);
-  const tools = buildTools();
+  // biome-ignore lint/suspicious/noExplicitAny: tool() returns vary based on schema generics
+  let tools: Record<string, any> = buildTools();
+
+  if (toolNames?.length) {
+    // biome-ignore lint/suspicious/noExplicitAny: tool() returns vary based on schema generics
+    const filtered: Record<string, any> = {};
+    for (const name of toolNames) {
+      if (tools[name]) {
+        filtered[name] = tools[name];
+      }
+    }
+    tools = filtered;
+  }
+
+  let toolChoice: { type: "tool"; toolName: string } | "required" | undefined;
+  if (toolNames?.length === 1) {
+    toolChoice = { type: "tool", toolName: toolNames[0] as string };
+  } else if (toolNames && toolNames.length > 1) {
+    toolChoice = "required";
+  }
 
   const modelMessages: ModelMessage[] = messages.map((msg) => ({
     role: msg.role,
@@ -76,6 +96,7 @@ export const executeAIChat = async (
     model: aiModel,
     messages: modelMessages,
     tools,
+    toolChoice,
     temperature: config.temperature,
     maxOutputTokens: config.maxTokens,
   });
