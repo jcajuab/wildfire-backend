@@ -40,9 +40,9 @@ export interface ExtractedContentMetadata {
 export interface ContentRepository {
   create(input: Omit<ContentRecord, "createdAt">): Promise<ContentRecord>;
   findById(id: string): Promise<ContentRecord | null>;
-  findByIdForOwner?(id: string, ownerId: string): Promise<ContentRecord | null>;
+  findByIdForOwner(id: string, ownerId: string): Promise<ContentRecord | null>;
   findByIds(ids: string[]): Promise<ContentRecord[]>;
-  findByIdsForOwner?(ids: string[], ownerId: string): Promise<ContentRecord[]>;
+  findByIdsForOwner(ids: string[], ownerId: string): Promise<ContentRecord[]>;
   list(input: {
     offset: number;
     limit: number;
@@ -53,7 +53,7 @@ export interface ContentRepository {
     sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }>;
-  listForOwner?(input: {
+  listForOwner(input: {
     ownerId: string;
     offset: number;
     limit: number;
@@ -108,7 +108,7 @@ export interface ContentRepository {
       >
     >,
   ): Promise<ContentRecord | null>;
-  updateForOwner?(
+  updateForOwner(
     id: string,
     ownerId: string,
     input: Partial<
@@ -140,7 +140,7 @@ export interface ContentRepository {
   ): Promise<ContentRecord | null>;
   deleteByParentId?(parentId: string): Promise<ContentRecord[]>;
   delete(id: string): Promise<boolean>;
-  deleteForOwner?(id: string, ownerId: string): Promise<boolean>;
+  deleteForOwner(id: string, ownerId: string): Promise<boolean>;
 }
 
 export interface ContentStorage {

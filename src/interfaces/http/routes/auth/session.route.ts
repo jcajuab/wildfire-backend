@@ -1,11 +1,11 @@
-import { deleteCookie, setCookie } from "hono/cookie";
+import { deleteCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
+import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
-  errorResponseSchema,
   toApiResponse,
   unauthorized,
 } from "#/interfaces/http/responses";
@@ -14,6 +14,10 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import {
+  notFoundResponse,
+  unauthorizedResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   type AuthMiddleware,
   type AuthRouter,
@@ -52,14 +56,7 @@ export const registerAuthSessionRoutes = (args: {
             },
           },
         },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        401: { ...unauthorizedResponse },
       },
     }),
     withRouteErrorHandling(
@@ -71,13 +68,12 @@ export const registerAuthSessionRoutes = (args: {
           currentSessionId: c.get("sessionId"),
         });
         const body = await buildAuthResponse(deps, result);
-        setCookie(c, deps.authSessionCookieName, body.token, {
-          httpOnly: true,
-          secure: c.req.url.startsWith("https://"),
-          sameSite: "Lax",
-          path: "/",
-          expires: new Date(body.expiresAt),
-        });
+        setAuthSessionCookie(
+          c,
+          deps.authSessionCookieName,
+          body.token,
+          body.expiresAt,
+        );
         return c.json(toApiResponse(body));
       },
       ...applicationErrorMappers,
@@ -100,14 +96,7 @@ export const registerAuthSessionRoutes = (args: {
         204: {
           description: "Logged out",
         },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        401: { ...unauthorizedResponse },
       },
     }),
     withRouteErrorHandling(
@@ -147,22 +136,8 @@ export const registerAuthSessionRoutes = (args: {
         204: {
           description: "Account deleted",
         },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        404: {
-          description: "User not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        401: { ...unauthorizedResponse },
+        404: { ...notFoundResponse },
       },
     }),
     withRouteErrorHandling(

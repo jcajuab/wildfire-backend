@@ -8,6 +8,7 @@ import {
   type ContentType,
   resolveFileExtension,
 } from "#/domain/content/content";
+import { logger } from "#/infrastructure/observability/logger";
 
 type ThumbnailContentType = "IMAGE" | "VIDEO" | "PDF";
 
@@ -117,7 +118,8 @@ const generateJpegWithFfmpeg: GenerateJpegFn = async (input) => {
     });
     const output = await readFile(outputPath).catch(() => null);
     return output ? new Uint8Array(output) : null;
-  } catch {
+  } catch (error) {
+    logger.warn({ error }, "Failed to generate thumbnail with ffmpeg");
     return null;
   } finally {
     await unlink(sourcePath).catch(() => undefined);
@@ -147,7 +149,8 @@ const generatePdfWithPdftoppm: GeneratePdfFn = async (input) => {
     });
     const output = await readFile(outputPath).catch(() => null);
     return output ? new Uint8Array(output) : null;
-  } catch {
+  } catch (error) {
+    logger.warn({ error }, "Failed to generate PDF thumbnail with pdftoppm");
     return null;
   } finally {
     await unlink(sourcePath).catch(() => undefined);

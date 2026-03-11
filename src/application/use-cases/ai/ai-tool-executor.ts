@@ -5,8 +5,8 @@ import {
   type PendingActionStore,
 } from "#/application/ports/ai";
 import { type CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
-import { type CreatePlaylistUseCase } from "#/application/use-cases/playlists/playlist.use-cases";
-import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/schedule.use-cases";
+import { type CreatePlaylistUseCase } from "#/application/use-cases/playlists/create-playlist.use-case";
+import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/create-schedule.use-case";
 import { AI_TOOLS } from "./ai-tool-registry";
 
 export class AIToolExecutor {

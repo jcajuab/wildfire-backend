@@ -1,14 +1,13 @@
-import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { DuplicateEmailError } from "#/application/use-cases/rbac/errors";
+import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   conflict,
-  errorResponseSchema,
   toApiResponse,
   tooManyRequests,
   unauthorized,
@@ -18,6 +17,12 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import {
+  conflictResponse,
+  tooManyRequestsResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   postAuthProfileEmailChangeRequestSchema,
   postAuthProfileEmailChangeVerifySchema,
@@ -63,30 +68,9 @@ export const registerAuthEmailChangeRoutes = (args: {
             },
           },
         },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        409: {
-          description: "Email conflict",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        422: {
-          description: "Validation error",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        401: { ...unauthorizedResponse },
+        409: { ...conflictResponse },
+        422: { ...validationErrorResponse },
       },
     }),
     withRouteErrorHandling(
@@ -100,13 +84,12 @@ export const registerAuthEmailChangeRoutes = (args: {
         });
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);
-        setCookie(c, deps.authSessionCookieName, body.token, {
-          httpOnly: true,
-          secure: c.req.url.startsWith("https://"),
-          sameSite: "Lax",
-          path: "/",
-          expires: new Date(body.expiresAt),
-        });
+        setAuthSessionCookie(
+          c,
+          deps.authSessionCookieName,
+          body.token,
+          body.expiresAt,
+        );
         return c.json(toApiResponse(body));
       },
       ...applicationErrorMappers,
@@ -127,30 +110,9 @@ export const registerAuthEmailChangeRoutes = (args: {
       tags: authTags,
       responses: {
         204: { description: "Email updated" },
-        409: {
-          description: "Email conflict",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        422: {
-          description: "Invalid or expired token",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        429: {
-          description: "Too many requests",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        409: { ...conflictResponse },
+        422: { ...validationErrorResponse },
+        429: { ...tooManyRequestsResponse },
       },
     }),
     withRouteErrorHandling(

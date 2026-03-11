@@ -11,6 +11,7 @@ import {
   schedulePlaylistTargets,
   schedules,
 } from "#/infrastructure/db/schema/schedule.sql";
+import { toIsoString } from "./utils/date";
 
 type ScheduleRow = {
   id: string;
@@ -51,10 +52,8 @@ const toRecord = (row: ScheduleRow): ScheduleRecord => ({
   startTime: row.startTime,
   endTime: row.endTime,
   isActive: row.isActive,
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+  createdAt: toIsoString(row.createdAt),
+  updatedAt: toIsoString(row.updatedAt),
 });
 
 const withTargets = () =>
@@ -306,7 +305,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
 
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(schedules).where(eq(schedules.id, id));
-    return result[0]?.affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 
   async countByPlaylistId(playlistId: string): Promise<number> {

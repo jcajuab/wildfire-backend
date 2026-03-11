@@ -148,7 +148,7 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
     const result = await db
       .delete(displayGroups)
       .where(eq(displayGroups.id, id));
-    return result[0].affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 
   async setDisplayGroups(displayId: string, groupIds: string[]): Promise<void> {

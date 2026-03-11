@@ -70,25 +70,9 @@ const buildSafeAuditMetadata = (input: {
   denyErrorCode?: string;
   denyErrorType?: string;
 }): string | undefined => {
-  const metadata: Record<string, string> = {};
-  if (input.sessionId) {
-    metadata.sessionId = input.sessionId;
-  }
-  if (input.fileId) {
-    metadata.fileId = input.fileId;
-  }
-  if (input.rbacAssignmentCount) {
-    metadata.rbacAssignmentCount = input.rbacAssignmentCount;
-  }
-  if (input.deniedPermission) {
-    metadata.deniedPermission = input.deniedPermission;
-  }
-  if (input.denyErrorCode) {
-    metadata.denyErrorCode = input.denyErrorCode;
-  }
-  if (input.denyErrorType) {
-    metadata.denyErrorType = input.denyErrorType;
-  }
+  const metadata = Object.fromEntries(
+    Object.entries(input).filter(([, v]) => Boolean(v)),
+  ) as Record<string, string>;
   return Object.keys(metadata).length > 0
     ? JSON.stringify(metadata)
     : undefined;

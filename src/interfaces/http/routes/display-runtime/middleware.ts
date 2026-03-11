@@ -3,6 +3,12 @@ import {
   toSignedRequestBodyHash,
 } from "#/application/use-cases/displays";
 import { logger } from "#/infrastructure/observability/logger";
+import {
+  MAX_BODY_HASH_BYTES,
+  MAX_DISPLAY_TOKEN_FIELD_BYTES,
+  MAX_KEY_ID_BYTES,
+  MAX_SIGNED_SIGNATURE_BYTES,
+} from "#/interfaces/http/lib/constants";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import {
   type ResponseContext,
@@ -12,11 +18,6 @@ import {
 } from "#/interfaces/http/responses";
 import { slugParamSchema } from "./contracts";
 import { type DisplayRuntimeRouterDeps } from "./deps";
-
-const MAX_DISPLAY_TOKEN_FIELD_BYTES = 256;
-const MAX_KEY_ID_BYTES = 64;
-const MAX_SIGNED_SIGNATURE_BYTES = 2_048;
-const MAX_BODY_HASH_BYTES = 128;
 
 const isString = (value: unknown, maxBytes: number): value is string =>
   typeof value === "string" &&

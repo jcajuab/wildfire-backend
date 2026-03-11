@@ -79,6 +79,39 @@ const makeContentRepository = () => {
       }
       return children;
     },
+    findByIdForOwner: async (id, ownerId) =>
+      records.find((item) => item.id === id && item.ownerId === ownerId) ??
+      null,
+    findByIdsForOwner: async (ids, ownerId) =>
+      records.filter(
+        (item) => ids.includes(item.id) && item.ownerId === ownerId,
+      ),
+    listForOwner: async ({ ownerId, offset, limit }) => {
+      const owned = records.filter((item) => item.ownerId === ownerId);
+      return {
+        items: owned.slice(offset, offset + limit),
+        total: owned.length,
+      };
+    },
+    updateForOwner: async (id, ownerId, input) => {
+      const index = records.findIndex(
+        (item) => item.id === id && item.ownerId === ownerId,
+      );
+      if (index === -1) return null;
+      const current = records[index];
+      if (!current) return null;
+      const next: ContentRecord = { ...current, ...input };
+      records[index] = next;
+      return next;
+    },
+    deleteForOwner: async (id, ownerId) => {
+      const index = records.findIndex(
+        (item) => item.id === id && item.ownerId === ownerId,
+      );
+      if (index === -1) return false;
+      records.splice(index, 1);
+      return true;
+    },
     delete: async (id) => {
       const index = records.findIndex((item) => item.id === id);
       if (index === -1) return false;

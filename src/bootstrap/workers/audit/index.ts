@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { type CreateAuditLogInput } from "#/application/ports/audit";
 import { RecordAuditLogUseCase } from "#/application/use-cases/audit";
+import {
+  parseStreamEntries,
+  type StreamEntry,
+} from "#/bootstrap/workers/shared/stream-parsing";
 import { env } from "#/env";
 import { closeDbConnection } from "#/infrastructure/db/client";
 import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
@@ -13,11 +17,6 @@ import {
 } from "#/infrastructure/redis/client";
 import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
 
-interface StreamEntry {
-  id: string;
-  payload: string;
-}
-
 const streamName = env.REDIS_STREAM_AUDIT_NAME;
 const streamGroup = env.REDIS_STREAM_AUDIT_GROUP;
 const streamDlqName = `${env.REDIS_STREAM_AUDIT_NAME}:dlq`;
@@ -29,56 +28,6 @@ let isShuttingDown = false;
 const isReadTimeoutError = (error: unknown): boolean =>
   error instanceof Error &&
   error.message.startsWith("audit stream read timed out after");
-
-const parseStreamEntries = (reply: unknown): StreamEntry[] => {
-  if (!Array.isArray(reply)) {
-    return [];
-  }
-
-  const entries: StreamEntry[] = [];
-
-  for (const rawStream of reply) {
-    if (!Array.isArray(rawStream) || rawStream.length < 2) {
-      continue;
-    }
-
-    const rawEntries = rawStream[1];
-    if (!Array.isArray(rawEntries)) {
-      continue;
-    }
-
-    for (const rawEntry of rawEntries) {
-      if (!Array.isArray(rawEntry) || rawEntry.length < 2) {
-        continue;
-      }
-
-      const entryId = rawEntry[0];
-      const fields = rawEntry[1];
-      if (typeof entryId !== "string" || !Array.isArray(fields)) {
-        continue;
-      }
-
-      let payload: string | null = null;
-      for (let index = 0; index < fields.length; index += 2) {
-        const field = fields[index];
-        const value = fields[index + 1];
-        if (field === "payload" && typeof value === "string") {
-          payload = value;
-          break;
-        }
-      }
-
-      if (payload != null) {
-        entries.push({
-          id: entryId,
-          payload,
-        });
-      }
-    }
-  }
-
-  return entries;
-};
 
 const readStreamEntriesWithRetry = async (): Promise<StreamEntry[]> => {
   const maxAttempts = Math.max(1, Math.trunc(env.REDIS_STREAM_MAX_DELIVERIES));

@@ -20,9 +20,9 @@ import {
   StoreAICredentialUseCase,
 } from "#/application/use-cases/ai";
 import { CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
-import { CreatePlaylistUseCase } from "#/application/use-cases/playlists/playlist.use-cases";
+import { CreatePlaylistUseCase } from "#/application/use-cases/playlists";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
-import { CreateScheduleUseCase } from "#/application/use-cases/schedules/schedule.use-cases";
+import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
 import { RedisPendingActionStore } from "#/infrastructure/ai/redis-pending-action.store";
 import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
@@ -38,6 +38,8 @@ export interface AIHttpModuleConfig {
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
   encryptionKey: string;
+  rateLimitWindowSeconds: number;
+  rateLimitMaxRequests: number;
   repositories: {
     authorizationRepository: AuthorizationRepository;
     contentRepository: ContentRepository;
@@ -155,8 +157,8 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
       repositories: {
         authorizationRepository: config.repositories.authorizationRepository,
       },
-      rateLimitWindowSeconds: 60,
-      rateLimitMaxRequests: 20,
+      rateLimitWindowSeconds: config.rateLimitWindowSeconds,
+      rateLimitMaxRequests: config.rateLimitMaxRequests,
     },
     useCases: {
       aiChat,

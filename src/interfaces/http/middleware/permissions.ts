@@ -6,6 +6,7 @@ import {
   CANONICAL_STANDARD_RESOURCE_ACTIONS,
   canonicalPermissionKey,
 } from "#/domain/rbac/canonical-permissions";
+import { extractSessionId } from "#/interfaces/http/lib/session-id";
 import { createJwtMiddleware } from "#/interfaces/http/middleware/jwt-auth";
 import {
   type JwtUserVariables,
@@ -56,13 +57,9 @@ export const createPermissionMiddleware = (deps: {
       if (parsed.data.email) {
         c.set("userEmail", parsed.data.email);
       }
-      // Extract sessionId matching requireJwtUser pattern
-      if (parsed.data.sid) {
-        c.set("sessionId", parsed.data.sid);
-      } else if (parsed.data.jti) {
-        c.set("sessionId", parsed.data.jti);
-      } else if (parsed.data.iat) {
-        c.set("sessionId", `${parsed.data.sub}:${parsed.data.iat}`);
+      const sessionId = extractSessionId(parsed.data);
+      if (sessionId) {
+        c.set("sessionId", sessionId);
       }
 
       const allowed = await deps.checkPermissionUseCase.execute({

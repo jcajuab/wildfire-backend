@@ -83,6 +83,8 @@ const makeDeps = () => {
 
   const playlistRepository: PlaylistRepository = {
     list: async () => [],
+    listForOwner: async () => [],
+    listPageForOwner: async () => ({ items: [], total: 0 }),
     listPage: async () => ({ items: [], total: 0 }),
     findByIds: async (ids: string[]) =>
       ids
@@ -99,6 +101,7 @@ const makeDeps = () => {
             : null,
         )
         .filter((row): row is NonNullable<typeof row> => row !== null),
+    findByIdsForOwner: async () => [],
     findById: async (id: string) =>
       id === "playlist-1"
         ? {
@@ -110,12 +113,15 @@ const makeDeps = () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           }
         : null,
+    findByIdForOwner: async () => null,
     create: async () => {
       throw new Error("not used");
     },
     update: async () => null,
+    updateForOwner: async () => null,
     updateStatus: async () => undefined,
     delete: async () => false,
+    deleteForOwner: async () => false,
     listItems: async () => [],
     findItemById: async () => null,
     countItemsByContentId: async () => 0,
@@ -183,12 +189,17 @@ const makeDeps = () => {
       throw new Error("not used");
     },
     findById: async () => null,
+    findByIdForOwner: async () => null,
     findByIds: async () => [],
+    findByIdsForOwner: async () => [],
     list: async () => ({ items: [], total: 0 }),
+    listForOwner: async () => ({ items: [], total: 0 }),
     findChildrenByParentIds: async () => [],
     update: async () => null,
+    updateForOwner: async () => null,
     deleteByParentId: async () => [],
     delete: async () => false,
+    deleteForOwner: async () => false,
   };
 
   return {
@@ -250,6 +261,8 @@ describe("Schedules use cases", () => {
           playlistListCalls += 1;
           return [];
         },
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) => {
           playlistFindByIdsCalls += 1;
@@ -266,13 +279,17 @@ describe("Schedules use cases", () => {
               ]
             : [];
         },
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
         countItemsByContentId: async () => 0,

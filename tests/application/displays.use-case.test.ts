@@ -155,15 +155,21 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-live",
@@ -237,6 +243,8 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-live")
@@ -251,13 +259,17 @@ describe("Displays use cases", () => {
                 },
               ]
             : [],
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-live",
@@ -386,15 +398,21 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
         countItemsByContentId: async () => 0,
@@ -483,8 +501,11 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findById: async () => ({
           id: "playlist-live",
           name: "Live Playlist",
@@ -493,12 +514,15 @@ describe("Displays use cases", () => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-live",
@@ -611,15 +635,21 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
         countItemsByContentId: async () => 0,
@@ -632,13 +662,18 @@ describe("Displays use cases", () => {
       },
       contentRepository: {
         findById: async () => null,
+        findByIdForOwner: async () => null,
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         create: async () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},
@@ -685,15 +720,21 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
         countItemsByContentId: async () => 0,
@@ -706,13 +747,18 @@ describe("Displays use cases", () => {
       },
       contentRepository: {
         findById: async () => null,
+        findByIdForOwner: async () => null,
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         create: async () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},
@@ -770,6 +816,8 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-1")
@@ -784,6 +832,7 @@ describe("Displays use cases", () => {
                 },
               ]
             : [],
+        findByIdsForOwner: async () => [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -792,12 +841,15 @@ describe("Displays use cases", () => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-1",
@@ -818,6 +870,7 @@ describe("Displays use cases", () => {
       },
       contentRepository: {
         findById: async () => null,
+        findByIdForOwner: async () => null,
         findByIds: async () => [
           {
             id: "content-1",
@@ -835,12 +888,16 @@ describe("Displays use cases", () => {
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
+        findByIdsForOwner: async () => [],
         create: async () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},
@@ -955,6 +1012,8 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-1")
@@ -969,6 +1028,7 @@ describe("Displays use cases", () => {
                 },
               ]
             : [],
+        findByIdsForOwner: async () => [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -977,12 +1037,15 @@ describe("Displays use cases", () => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-1",
@@ -1067,6 +1130,8 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-1")
@@ -1081,6 +1146,7 @@ describe("Displays use cases", () => {
                 },
               ]
             : [],
+        findByIdsForOwner: async () => [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -1089,12 +1155,15 @@ describe("Displays use cases", () => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-1",
@@ -1115,6 +1184,7 @@ describe("Displays use cases", () => {
       },
       contentRepository: {
         findById: async () => null,
+        findByIdForOwner: async () => null,
         findByIds: async () => [
           {
             id: "content-pdf-root",
@@ -1133,7 +1203,9 @@ describe("Displays use cases", () => {
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
+        findByIdsForOwner: async () => [],
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
         findChildrenByParentIds: async () => [
           {
             id: "content-pdf-page-1",
@@ -1176,7 +1248,9 @@ describe("Displays use cases", () => {
           throw new Error("not used");
         },
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},
@@ -1228,15 +1302,21 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findById: async () => null,
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [],
         findItemById: async () => null,
         countItemsByContentId: async () => 0,
@@ -1269,7 +1349,9 @@ describe("Displays use cases", () => {
             createdAt: "2025-01-01T00:00:00.000Z",
           };
         },
+        findByIdForOwner: async () => null,
         findByIds: async () => [],
+        findByIdsForOwner: async () => [],
         findChildrenByParentIds: async () => [
           {
             id: "content-pdf-page-2",
@@ -1309,11 +1391,14 @@ describe("Displays use cases", () => {
           },
         ],
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
         create: async () => {
           throw new Error("not used");
         },
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},
@@ -1400,6 +1485,8 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async () => [
           {
@@ -1411,6 +1498,7 @@ describe("Displays use cases", () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
+        findByIdsForOwner: async () => [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -1419,12 +1507,15 @@ describe("Displays use cases", () => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-1",
@@ -1445,6 +1536,7 @@ describe("Displays use cases", () => {
       },
       contentRepository: {
         findById: async () => null,
+        findByIdForOwner: async () => null,
         findByIds: async () => [
           {
             id: "content-image-1",
@@ -1463,13 +1555,17 @@ describe("Displays use cases", () => {
             createdAt: "2025-01-01T00:00:00.000Z",
           },
         ],
+        findByIdsForOwner: async () => [],
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
         findChildrenByParentIds: async () => [],
         create: async () => {
           throw new Error("not used");
         },
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},
@@ -1548,6 +1644,8 @@ describe("Displays use cases", () => {
       },
       playlistRepository: {
         list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
         listPage: async () => ({ items: [], total: 0 }),
         findByIds: async (ids: string[]) =>
           ids.includes("playlist-1")
@@ -1562,6 +1660,7 @@ describe("Displays use cases", () => {
                 },
               ]
             : [],
+        findByIdsForOwner: async () => [],
         findById: async () => ({
           id: "playlist-1",
           name: "Morning",
@@ -1570,12 +1669,15 @@ describe("Displays use cases", () => {
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         }),
+        findByIdForOwner: async () => null,
         create: async () => {
           throw new Error("not used");
         },
         update: async () => null,
+        updateForOwner: async () => null,
         updateStatus: async () => undefined,
         delete: async () => false,
+        deleteForOwner: async () => false,
         listItems: async () => [
           {
             id: "item-1",
@@ -1639,8 +1741,13 @@ describe("Displays use cases", () => {
           throw new Error("not used");
         },
         list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
+        findByIdForOwner: async () => null,
+        findByIdsForOwner: async () => [],
         delete: async () => false,
+        deleteForOwner: async () => false,
         update: async () => null,
+        updateForOwner: async () => null,
       },
       contentStorage: {
         ensureBucketExists: async () => {},

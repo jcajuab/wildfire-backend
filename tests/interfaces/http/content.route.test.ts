@@ -26,8 +26,15 @@ const makeRepository = () => {
       },
       findById: async (id: string) =>
         records.find((item) => item.id === id) ?? null,
+      findByIdForOwner: async (id: string, ownerId: string) =>
+        records.find((item) => item.id === id && item.ownerId === ownerId) ??
+        null,
       findByIds: async (ids: string[]) =>
         records.filter((item) => ids.includes(item.id)),
+      findByIdsForOwner: async (ids: string[], ownerId: string) =>
+        records.filter(
+          (item) => ids.includes(item.id) && item.ownerId === ownerId,
+        ),
       list: async ({
         offset,
         limit,
@@ -50,10 +57,34 @@ const makeRepository = () => {
             : record.parentContentId === null,
         ).length,
       }),
+      listForOwner: async ({
+        ownerId,
+        offset,
+        limit,
+      }: {
+        ownerId: string;
+        offset: number;
+        limit: number;
+        parentId?: string;
+      }) => {
+        const owned = records.filter((r) => r.ownerId === ownerId);
+        return {
+          items: owned.slice(offset, offset + limit),
+          total: owned.length,
+        };
+      },
       findChildrenByParentIds: async () => [],
       deleteByParentId: async () => [],
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
+        if (index === -1) return false;
+        records.splice(index, 1);
+        return true;
+      },
+      deleteForOwner: async (id: string, ownerId: string) => {
+        const index = records.findIndex(
+          (item) => item.id === id && item.ownerId === ownerId,
+        );
         if (index === -1) return false;
         records.splice(index, 1);
         return true;
@@ -83,6 +114,18 @@ const makeRepository = () => {
         >,
       ) => {
         const record = records.find((item) => item.id === id);
+        if (!record) return null;
+        Object.assign(record, input);
+        return record;
+      },
+      updateForOwner: async (
+        id: string,
+        ownerId: string,
+        input: Partial<ContentRecord>,
+      ) => {
+        const record = records.find(
+          (item) => item.id === id && item.ownerId === ownerId,
+        );
         if (!record) return null;
         Object.assign(record, input);
         return record;

@@ -11,6 +11,7 @@ import {
   displays,
 } from "#/infrastructure/db/schema/displays.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
+import { toIsoString, toNullableIsoString } from "./utils/date";
 
 const parseDisplayStatus = (
   value: string | null | undefined,
@@ -23,7 +24,7 @@ const parseDisplayStatus = (
   ) {
     return value;
   }
-  return "PROCESSING";
+  throw new Error(`Invalid display status: ${String(value)}`);
 };
 
 type DisplayRow = {
@@ -46,16 +47,6 @@ type DisplayRow = {
   emergencyContentId: string | null;
 };
 
-const toIso = (value: Date | string): string =>
-  value instanceof Date ? value.toISOString() : value;
-
-const toNullableIso = (value: Date | string | null): string | null => {
-  if (value == null) {
-    return null;
-  }
-  return value instanceof Date ? value.toISOString() : value;
-};
-
 const toRecord = (row: DisplayRow): DisplayRecord => ({
   id: row.id,
   slug: row.slug,
@@ -70,10 +61,10 @@ const toRecord = (row: DisplayRow): DisplayRecord => ({
   output: row.output,
   orientation: row.runtimeOrientation,
   emergencyContentId: row.emergencyContentId,
-  lastSeenAt: toNullableIso(row.runtimeLastSeenAt),
+  lastSeenAt: toNullableIsoString(row.runtimeLastSeenAt),
   refreshNonce: row.runtimeRefreshNonce ?? 0,
-  createdAt: toIso(row.createdAt),
-  updatedAt: toIso(row.updatedAt),
+  createdAt: toIsoString(row.createdAt),
+  updatedAt: toIsoString(row.updatedAt),
 });
 
 const withJoins = () =>
@@ -409,6 +400,10 @@ export class DisplayDbRepository implements DisplayRepository {
               : (existing.output ?? "unknown"),
           location:
             input.location !== undefined ? input.location : existing.location,
+          emergencyContentId:
+            input.emergencyContentId !== undefined
+              ? input.emergencyContentId
+              : (existing.emergencyContentId ?? null),
           updatedAt: now,
         })
         .where(eq(displays.id, id));
@@ -457,17 +452,6 @@ export class DisplayDbRepository implements DisplayRepository {
         .onDuplicateKeyUpdate({
           set: runtimePatch,
         });
-
-      await tx
-        .update(displays)
-        .set({
-          emergencyContentId:
-            input.emergencyContentId !== undefined
-              ? input.emergencyContentId
-              : (existing.emergencyContentId ?? null),
-          updatedAt: now,
-        })
-        .where(eq(displays.id, id));
     });
 
     return this.findById(id);
@@ -517,6 +501,6 @@ export class DisplayDbRepository implements DisplayRepository {
 
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(displays).where(eq(displays.id, id));
-    return result[0]?.affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 }

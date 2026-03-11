@@ -41,14 +41,27 @@ const makeDeps = () => {
 
   const playlistRepository: PlaylistRepository = {
     list: async () => [...playlists],
+    listForOwner: async (ownerId: string) =>
+      playlists.filter((p) => p.ownerId === ownerId),
+    listPageForOwner: async ({ ownerId, offset, limit }) => {
+      const owned = playlists.filter((p) => p.ownerId === ownerId);
+      return {
+        items: owned.slice(offset, offset + limit),
+        total: owned.length,
+      };
+    },
     listPage: async ({ offset, limit }) => ({
       items: playlists.slice(offset, offset + limit),
       total: playlists.length,
     }),
     findByIds: async (ids: string[]) =>
       playlists.filter((playlist) => ids.includes(playlist.id)),
+    findByIdsForOwner: async (ids: string[], ownerId: string) =>
+      playlists.filter((p) => ids.includes(p.id) && p.ownerId === ownerId),
     findById: async (id: string) =>
       playlists.find((playlist) => playlist.id === id) ?? null,
+    findByIdForOwner: async (id: string, ownerId: string) =>
+      playlists.find((p) => p.id === id && p.ownerId === ownerId) ?? null,
     create: async (input) => {
       const record: PlaylistRecord = {
         id: `playlist-${playlists.length + 1}`,
@@ -63,8 +76,10 @@ const makeDeps = () => {
       return record;
     },
     update: async () => null,
+    updateForOwner: async () => null,
     updateStatus: async () => undefined,
     delete: async () => false,
+    deleteForOwner: async () => false,
     listItems: async (playlistId: string) =>
       items.filter((item) => item.playlistId === playlistId),
     listItemStatsByPlaylistIds: async (playlistIds: string[]) => {
@@ -108,14 +123,21 @@ const makeDeps = () => {
   const contentRepository = {
     findById: async (id: string) =>
       contents.find((content) => content.id === id) ?? null,
+    findByIdForOwner: async (id: string, ownerId: string) =>
+      contents.find((c) => c.id === id && c.ownerId === ownerId) ?? null,
     findByIds: async (ids: string[]) =>
       contents.filter((content) => ids.includes(content.id)),
+    findByIdsForOwner: async (ids: string[], ownerId: string) =>
+      contents.filter((c) => ids.includes(c.id) && c.ownerId === ownerId),
     create: async () => {
       throw new Error("not used");
     },
     list: async () => ({ items: [], total: 0 }),
+    listForOwner: async () => ({ items: [], total: 0 }),
     delete: async () => false,
+    deleteForOwner: async () => false,
     update: async () => null,
+    updateForOwner: async () => null,
   };
 
   const userRepository: UserRepository = {

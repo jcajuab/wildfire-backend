@@ -1,11 +1,10 @@
-import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
+import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
-  errorResponseSchema,
   toApiResponse,
   unauthorized,
 } from "#/interfaces/http/responses";
@@ -14,6 +13,11 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import {
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
 import { patchAuthMeSchema } from "#/interfaces/http/validators/auth.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -55,30 +59,9 @@ export const registerAuthProfileRoute = (args: {
             },
           },
         },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        404: {
-          description: "User not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        422: { ...validationErrorResponse },
+        401: { ...unauthorizedResponse },
+        404: { ...notFoundResponse },
       },
     }),
     withRouteErrorHandling(
@@ -93,13 +76,12 @@ export const registerAuthProfileRoute = (args: {
         });
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);
-        setCookie(c, deps.authSessionCookieName, body.token, {
-          httpOnly: true,
-          secure: c.req.url.startsWith("https://"),
-          sameSite: "Lax",
-          path: "/",
-          expires: new Date(body.expiresAt),
-        });
+        setAuthSessionCookie(
+          c,
+          deps.authSessionCookieName,
+          body.token,
+          body.expiresAt,
+        );
         return c.json(toApiResponse(body));
       },
       ...applicationErrorMappers,

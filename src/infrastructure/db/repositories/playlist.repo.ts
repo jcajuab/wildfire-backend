@@ -14,6 +14,7 @@ import { db } from "#/infrastructure/db/client";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
+import { toIsoString } from "./utils/date";
 
 const toPlaylistRecord = (
   row: typeof playlists.$inferSelect,
@@ -28,14 +29,8 @@ const toPlaylistRecord = (
     description: row.description ?? null,
     status: row.status,
     ownerId: row.ownerId,
-    createdAt:
-      row.createdAt instanceof Date
-        ? row.createdAt.toISOString()
-        : row.createdAt,
-    updatedAt:
-      row.updatedAt instanceof Date
-        ? row.updatedAt.toISOString()
-        : row.updatedAt,
+    createdAt: toIsoString(row.createdAt),
+    updatedAt: toIsoString(row.updatedAt),
   };
 };
 
@@ -312,7 +307,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
           ? and(eq(playlists.id, id), eq(playlists.ownerId, ownerId))
           : eq(playlists.id, id),
       );
-    return result[0]?.affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 
   async listItems(playlistId: string): Promise<PlaylistItemRecord[]> {
@@ -541,6 +536,6 @@ export class PlaylistDbRepository implements PlaylistRepository {
     const result = await db
       .delete(playlistItems)
       .where(eq(playlistItems.id, id));
-    return result[0]?.affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 }

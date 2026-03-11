@@ -173,31 +173,36 @@ const parseHeaderInt = (value: unknown): number | undefined => {
   return Number.isNaN(parsed) ? undefined : parsed;
 };
 
-const hasDataEnvelope = (payload: unknown): payload is UnknownPayload => {
-  return isObject(payload) && Object.hasOwn(payload, "data");
-};
+const hasDataEnvelope = (payload: unknown): payload is UnknownPayload =>
+  isObject(payload) && Object.hasOwn(payload, "data");
 
 const hasListPayloadWithoutMeta = (payload: UnknownPayload): boolean => {
-  if (!Object.hasOwn(payload, "data")) {
-    return false;
-  }
-  if (Object.hasOwn(payload, "meta")) {
-    return false;
-  }
+  if (!Object.hasOwn(payload, "data")) return false;
+  if (Object.hasOwn(payload, "meta")) return false;
   return Array.isArray((payload as { data: unknown }).data);
 };
 
 const isErrorEnvelope = (payload: unknown): payload is ErrorResponse => {
-  if (!isObject(payload)) {
-    return false;
-  }
-  if (!Object.hasOwn(payload, "error")) {
-    return false;
-  }
+  if (!isObject(payload)) return false;
+  if (!Object.hasOwn(payload, "error")) return false;
   const err = payload.error;
   return (
     isObject(err) && Object.hasOwn(err, "code") && Object.hasOwn(err, "message")
   );
+};
+
+export const normalizeApiPayload = (
+  payload: unknown,
+  _options: { requestUrl: string },
+): unknown => {
+  if (!isObject(payload)) return payload;
+  if (hasListPayloadWithoutMeta(payload)) {
+    throw new Error(
+      `Invalid list response contract from ${_options.requestUrl}: missing meta envelope.`,
+    );
+  }
+  if (hasDataEnvelope(payload) || isErrorEnvelope(payload)) return payload;
+  return { data: payload } as ApiResponse<unknown>;
 };
 
 const buildListLinks = (
@@ -246,32 +251,6 @@ export const toApiListResponse = <T>(input: {
     },
     links: buildListLinks(new URL(input.requestUrl), page, perPage, totalPages),
   };
-};
-
-export const normalizeApiPayload = (
-  payload: unknown,
-  _options: {
-    requestUrl: string;
-  },
-): unknown => {
-  if (!isObject(payload)) {
-    return payload;
-  }
-
-  if (hasListPayloadWithoutMeta(payload)) {
-    const requestUrl = _options.requestUrl;
-    throw new Error(
-      `Invalid list response contract from ${requestUrl}: missing meta envelope.`,
-    );
-  }
-
-  if (hasDataEnvelope(payload) || isErrorEnvelope(payload)) {
-    return payload;
-  }
-
-  return {
-    data: payload,
-  } as ApiResponse<unknown>;
 };
 
 const buildErrorPayload = (

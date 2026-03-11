@@ -18,7 +18,7 @@ export interface AIChatDeps {
   auditLogger: AuditLogger;
   executeAIChat: (
     config: {
-      provider: string;
+      provider: "openai" | "anthropic" | "google" | "azure" | "mistral";
       model: string;
       apiKey: string;
       temperature?: number;

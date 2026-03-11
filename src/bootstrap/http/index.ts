@@ -72,9 +72,9 @@ import { createHttpContainer } from "./container";
 
 export const app = new Hono<{ Variables: RequestIdVariables }>();
 
-const tokenTtlSeconds = 60 * 60;
-const avatarUrlExpiresInSeconds = 60 * 60;
-const contentThumbnailUrlExpiresInSeconds = 60 * 60;
+const tokenTtlSeconds = env.PRESIGNED_URL_TTL_SECONDS;
+const avatarUrlExpiresInSeconds = env.PRESIGNED_URL_TTL_SECONDS;
+const contentThumbnailUrlExpiresInSeconds = env.PRESIGNED_URL_TTL_SECONDS;
 
 type StartupMode = "failed" | "degraded";
 
@@ -118,72 +118,31 @@ const displayEventPublisher = {
 };
 
 const lifecycleEventPublisher = {
-  publish(
-    input:
-      | {
-          type: "display_registered" | "display_unregistered";
-          displayId: string;
-          slug: string;
-          occurredAt: string;
-        }
-      | {
-          type: "display_status_changed";
-          displayId: string;
-          slug: string;
-          previousStatus: "PROCESSING" | "READY" | "LIVE" | "DOWN";
-          status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
-          occurredAt: string;
-        },
-  ) {
-    publishAdminDisplayLifecycleEvent(input);
-  },
+  publish: publishAdminDisplayLifecycleEvent,
 };
 
 const contentJobEventPublisher = {
-  publish(event: Parameters<typeof publishContentJobEvent>[0]) {
-    publishContentJobEvent(event);
-  },
+  publish: publishContentJobEvent,
 };
 
 const contentJobEventSubscription = {
-  subscribe(
-    jobId: string,
-    handler: Parameters<typeof subscribeToContentJobEvents>[1],
-  ) {
-    return subscribeToContentJobEvents(jobId, handler);
-  },
+  subscribe: subscribeToContentJobEvents,
 };
 
 const displayEventSubscription = {
-  subscribe(
-    displayId: string,
-    handler: Parameters<typeof subscribeToDisplayStream>[1],
-  ) {
-    return subscribeToDisplayStream(displayId, handler);
-  },
+  subscribe: subscribeToDisplayStream,
 };
 
 const lifecycleEventSubscription = {
-  subscribe(
-    handler: Parameters<typeof subscribeToAdminDisplayLifecycleEvents>[0],
-  ) {
-    return subscribeToAdminDisplayLifecycleEvents(handler);
-  },
+  subscribe: subscribeToAdminDisplayLifecycleEvents,
 };
 
 const registrationAttemptEventPublisher = {
-  publish(event: Parameters<typeof publishRegistrationAttemptEvent>[0]) {
-    publishRegistrationAttemptEvent(event);
-  },
+  publish: publishRegistrationAttemptEvent,
 };
 
 const registrationAttemptEventSubscription = {
-  subscribe(
-    attemptId: string,
-    handler: Parameters<typeof subscribeToRegistrationAttemptEvents>[1],
-  ) {
-    return subscribeToRegistrationAttemptEvents(attemptId, handler);
-  },
+  subscribe: subscribeToRegistrationAttemptEvents,
 };
 
 const registrationAttemptStore = new RedisDisplayRegistrationAttemptStore();
@@ -229,7 +188,7 @@ const getStorageConfig = () => ({
   minioEndpoint: container.storage.minioEndpoint,
   bucket: env.MINIO_BUCKET,
 });
-let storageStartupState: HttpStorageStartupState = {
+const storageStartupState: HttpStorageStartupState = {
   ensureBucketOk: false,
   connectivityOk: false,
   lastCheckedAt: null,
@@ -266,11 +225,8 @@ export const runStorageBootstrapChecks = async (): Promise<void> => {
     runId: createStartupRunId("minio-bootstrap"),
   };
   const startedAtMs = Date.now();
-  storageStartupState = {
-    ...storageStartupState,
-    lastCheckedAt: startedAtMs,
-    status: "failed",
-  };
+  storageStartupState.lastCheckedAt = startedAtMs;
+  storageStartupState.status = "failed";
 
   logger.info(
     {
@@ -292,11 +248,8 @@ export const runStorageBootstrapChecks = async (): Promise<void> => {
 
   try {
     await container.storage.contentStorage.ensureBucketExists();
-    storageStartupState = {
-      ...storageStartupState,
-      ensureBucketOk: true,
-      lastError: undefined,
-    };
+    storageStartupState.ensureBucketOk = true;
+    storageStartupState.lastError = undefined;
     logStartupPhaseSucceeded(
       {
         ...startupContext,
@@ -307,13 +260,12 @@ export const runStorageBootstrapChecks = async (): Promise<void> => {
     );
   } catch (error) {
     const errorMessage = toStorageErrorMessage(error);
-    storageStartupState = {
-      ...storageStartupState,
-      ensureBucketOk: false,
-      connectivityOk: false,
-      lastError: errorMessage,
-      status: env.STARTUP_STRICT_STORAGE ? "failed" : "degraded",
-    };
+    storageStartupState.ensureBucketOk = false;
+    storageStartupState.connectivityOk = false;
+    storageStartupState.lastError = errorMessage;
+    storageStartupState.status = env.STARTUP_STRICT_STORAGE
+      ? "failed"
+      : "degraded";
     logStartupPhaseFailed(
       {
         ...startupContext,
@@ -340,18 +292,12 @@ export const runStorageBootstrapChecks = async (): Promise<void> => {
   );
   try {
     const result = await container.storage.contentStorage.checkConnectivity();
-    storageStartupState = {
-      ...storageStartupState,
-      connectivityOk: result.ok,
-    };
+    storageStartupState.connectivityOk = result.ok;
 
     const durationMs = Date.now() - connectivityStartedAt;
     if (result.ok) {
-      storageStartupState = {
-        ...storageStartupState,
-        status: "success",
-        lastError: undefined,
-      };
+      storageStartupState.status = "success";
+      storageStartupState.lastError = undefined;
       logStartupPhaseSucceeded(
         {
           ...startupContext,
@@ -363,12 +309,9 @@ export const runStorageBootstrapChecks = async (): Promise<void> => {
       return;
     }
 
-    storageStartupState = {
-      ...storageStartupState,
-      status: "degraded",
-      lastError:
-        result.error ?? "MinIO connectivity check failed without error detail",
-    };
+    storageStartupState.status = "degraded";
+    storageStartupState.lastError =
+      result.error ?? "MinIO connectivity check failed without error detail";
     logStartupPhaseDegraded(
       {
         ...startupContext,
@@ -385,12 +328,11 @@ export const runStorageBootstrapChecks = async (): Promise<void> => {
       throw new Error(storageStartupState.lastError);
     }
   } catch (error) {
-    storageStartupState = {
-      ...storageStartupState,
-      connectivityOk: false,
-      status: env.STARTUP_STRICT_STORAGE ? "failed" : "degraded",
-      lastError: toStorageErrorMessage(error),
-    };
+    storageStartupState.connectivityOk = false;
+    storageStartupState.status = env.STARTUP_STRICT_STORAGE
+      ? "failed"
+      : "degraded";
+    storageStartupState.lastError = toStorageErrorMessage(error);
     logStartupPhaseFailed(
       {
         ...startupContext,
@@ -507,7 +449,7 @@ const displaysModule = createDisplaysHttpModule({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  downloadUrlExpiresInSeconds: 60 * 60,
+  downloadUrlExpiresInSeconds: env.PRESIGNED_URL_TTL_SECONDS,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   defaultEmergencyContentId: env.DEFAULT_EMERGENCY_CONTENT_ID,
   repositories: {
@@ -537,7 +479,7 @@ const displaysRouter = createDisplaysRouter(displaysModule);
 
 const displayRuntimeModule = createDisplayRuntimeHttpModule({
   jwtSecret: env.JWT_SECRET,
-  downloadUrlExpiresInSeconds: 60 * 60,
+  downloadUrlExpiresInSeconds: env.PRESIGNED_URL_TTL_SECONDS,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   authSecurityStore,
   rateLimits: {
@@ -571,7 +513,7 @@ const contentModule = createContentHttpModule({
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   maxUploadBytes: env.CONTENT_MAX_UPLOAD_BYTES,
   videoMaxUploadBytes: env.VIDEO_MAX_UPLOAD_BYTES,
-  downloadUrlExpiresInSeconds: 60 * 60,
+  downloadUrlExpiresInSeconds: env.PRESIGNED_URL_TTL_SECONDS,
   thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
   repositories: {
     contentRepository: container.repositories.contentRepository,
@@ -629,6 +571,8 @@ const aiModule = createAIModule({
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   encryptionKey: env.AI_ENCRYPTION_KEY,
+  rateLimitWindowSeconds: env.AI_RATE_LIMIT_WINDOW_SECONDS,
+  rateLimitMaxRequests: env.AI_RATE_LIMIT_MAX_REQUESTS,
   repositories: {
     authorizationRepository: container.repositories.authorizationRepository,
     contentRepository: container.repositories.contentRepository,

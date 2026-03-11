@@ -1,5 +1,3 @@
-import { type EmailChangeTokenRepository } from "#/application/ports/auth";
-import { type EmailChangeVerificationEmailSender } from "#/application/ports/notifications";
 import {
   AcceptInvitationUseCase,
   AuthenticateUserUseCase,
@@ -61,22 +59,6 @@ export const createAuthHttpModule = (
       storage: deps.avatarStorage,
     }),
   };
-
-  const emailChangeTokenRepository =
-    routerDeps.emailChangeTokenRepository ??
-    ({
-      store: async () => {},
-      findByHashedToken: async () => null,
-      findPendingByUserId: async () => null,
-      consumeByHashedToken: async () => {},
-      deleteByUserId: async () => {},
-      deleteExpired: async () => {},
-    } satisfies EmailChangeTokenRepository);
-  const emailChangeVerificationEmailSender =
-    routerDeps.emailChangeVerificationEmailSender ??
-    ({
-      sendVerificationLink: async () => {},
-    } satisfies EmailChangeVerificationEmailSender);
 
   const createInvitation = new CreateInvitationUseCase({
     userRepository: routerDeps.userRepository,
@@ -140,8 +122,18 @@ export const createAuthHttpModule = (
       }),
       requestEmailChange: new RequestEmailChangeUseCase({
         userRepository: routerDeps.userRepository,
-        emailChangeTokenRepository,
-        emailChangeVerificationEmailSender,
+        emailChangeTokenRepository: routerDeps.emailChangeTokenRepository ?? {
+          store: async () => {},
+          findByHashedToken: async () => null,
+          findPendingByUserId: async () => null,
+          consumeByHashedToken: async () => {},
+          deleteByUserId: async () => {},
+          deleteExpired: async () => {},
+        },
+        emailChangeVerificationEmailSender:
+          routerDeps.emailChangeVerificationEmailSender ?? {
+            sendVerificationLink: async () => {},
+          },
         emailChangeTokenTtlSeconds:
           routerDeps.emailChangeTokenTtlSeconds ?? 60 * 60 * 24,
         emailChangeVerifyBaseUrl:
@@ -150,7 +142,14 @@ export const createAuthHttpModule = (
       }),
       verifyEmailChange: new VerifyEmailChangeUseCase({
         userRepository: routerDeps.userRepository,
-        emailChangeTokenRepository,
+        emailChangeTokenRepository: routerDeps.emailChangeTokenRepository ?? {
+          store: async () => {},
+          findByHashedToken: async () => null,
+          findPendingByUserId: async () => null,
+          consumeByHashedToken: async () => {},
+          deleteByUserId: async () => {},
+          deleteExpired: async () => {},
+        },
       }),
     },
   };

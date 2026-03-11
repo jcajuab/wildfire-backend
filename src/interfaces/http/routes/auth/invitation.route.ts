@@ -14,6 +14,12 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  forbiddenResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+  validationErrorResponse,
+} from "#/interfaces/http/routes/shared/openapi-responses";
+import {
   invitationIdParamSchema,
   invitationListQuerySchema,
   postAuthAcceptInvitationSchema,
@@ -142,30 +148,9 @@ export const registerAuthInvitationRoutes = (args: {
             },
           },
         },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        403: {
-          description: "Forbidden",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        422: {
-          description: "Validation failed",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        401: { ...unauthorizedResponse },
+        403: { ...forbiddenResponse },
+        422: { ...validationErrorResponse },
       },
     }),
     withRouteErrorHandling(
@@ -209,14 +194,7 @@ export const registerAuthInvitationRoutes = (args: {
             },
           },
         },
-        404: {
-          description: "Invitation not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        404: { ...notFoundResponse },
       },
     }),
     withRouteErrorHandling(

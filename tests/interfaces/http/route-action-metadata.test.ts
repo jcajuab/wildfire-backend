@@ -178,12 +178,17 @@ const buildContentActionApp = async () => {
             createdAt: new Date().toISOString(),
           }),
           findById: async () => null,
+          findByIdForOwner: async () => null,
           findByIds: async () => [],
+          findByIdsForOwner: async () => [],
           list: async () => ({ items: [], total: 0 }),
+          listForOwner: async () => ({ items: [], total: 0 }),
           findChildrenByParentIds: async () => [],
           deleteByParentId: async () => [],
           delete: async () => false,
+          deleteForOwner: async () => false,
           update: async () => null,
+          updateForOwner: async () => null,
         },
         contentIngestionJobRepository: {
           create: async (input: {

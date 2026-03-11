@@ -66,6 +66,6 @@ export class RoleDbRepository implements RoleRepository {
 
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(roles).where(eq(roles.id, id));
-    return result[0].affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 }

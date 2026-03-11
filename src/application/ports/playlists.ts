@@ -32,8 +32,8 @@ export type PlaylistItemAtomicWriteInput =
 
 export interface PlaylistRepository {
   list(): Promise<PlaylistRecord[]>;
-  listForOwner?(ownerId: string): Promise<PlaylistRecord[]>;
-  listPageForOwner?(input: {
+  listForOwner(ownerId: string): Promise<PlaylistRecord[]>;
+  listPageForOwner(input: {
     ownerId: string;
     offset: number;
     limit: number;
@@ -51,12 +51,9 @@ export interface PlaylistRepository {
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }>;
   findByIds(ids: string[]): Promise<PlaylistRecord[]>;
-  findByIdsForOwner?(ids: string[], ownerId: string): Promise<PlaylistRecord[]>;
+  findByIdsForOwner(ids: string[], ownerId: string): Promise<PlaylistRecord[]>;
   findById(id: string): Promise<PlaylistRecord | null>;
-  findByIdForOwner?(
-    id: string,
-    ownerId: string,
-  ): Promise<PlaylistRecord | null>;
+  findByIdForOwner(id: string, ownerId: string): Promise<PlaylistRecord | null>;
   create(input: {
     name: string;
     description: string | null;
@@ -66,14 +63,14 @@ export interface PlaylistRepository {
     id: string,
     input: { name?: string; description?: string | null },
   ): Promise<PlaylistRecord | null>;
-  updateForOwner?(
+  updateForOwner(
     id: string,
     ownerId: string,
     input: { name?: string; description?: string | null },
   ): Promise<PlaylistRecord | null>;
   updateStatus(id: string, status: PlaylistStatus): Promise<void>;
   delete(id: string): Promise<boolean>;
-  deleteForOwner?(id: string, ownerId: string): Promise<boolean>;
+  deleteForOwner(id: string, ownerId: string): Promise<boolean>;
   listItems(playlistId: string): Promise<PlaylistItemRecord[]>;
   listItemStatsByPlaylistIds?(
     playlistIds: string[],

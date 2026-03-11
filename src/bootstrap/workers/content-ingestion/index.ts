@@ -3,8 +3,6 @@ import { closeDbConnection } from "#/infrastructure/db/client";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { closeRedisClients } from "#/infrastructure/redis/client";
-import { createDlqManager } from "./dlq-manager";
-import { createEntryAcknowledger } from "./entry-acknowledger";
 import { createEntryProcessor } from "./entry-processor";
 import { processContentIngestionJob } from "./job-processor";
 import { contentIngestionWorkerConfig } from "./runtime";
@@ -17,21 +15,9 @@ const streamTransport = createContentIngestionStreamTransport({
   isShuttingDown: () => isShuttingDown,
 });
 
-const dlqManager = createDlqManager({
-  streamName: contentIngestionWorkerConfig.streamName,
-  streamDlqName: contentIngestionWorkerConfig.streamDlqName,
-});
-
-const entryAcknowledger = createEntryAcknowledger({
-  streamName: contentIngestionWorkerConfig.streamName,
-  streamGroup: contentIngestionWorkerConfig.streamGroup,
-});
-
 const entryProcessor = createEntryProcessor({
   config: contentIngestionWorkerConfig,
   processJob: processContentIngestionJob,
-  acknowledger: entryAcknowledger,
-  dlqManager,
 });
 
 const runWorker = async (): Promise<void> => {

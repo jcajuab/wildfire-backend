@@ -1,4 +1,5 @@
 import { type MiddlewareHandler } from "hono";
+import { extractSessionId } from "#/interfaces/http/lib/session-id";
 import { unauthorized } from "#/interfaces/http/responses";
 import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 
@@ -33,12 +34,9 @@ export const requireJwtUser: MiddlewareHandler<{
   if (parsed.data.email) {
     c.set("userEmail", parsed.data.email);
   }
-  if (parsed.data.sid) {
-    c.set("sessionId", parsed.data.sid);
-  } else if (parsed.data.jti) {
-    c.set("sessionId", parsed.data.jti);
-  } else if (parsed.data.iat) {
-    c.set("sessionId", `${parsed.data.sub}:${parsed.data.iat}`);
+  const sessionId = extractSessionId(parsed.data);
+  if (sessionId) {
+    c.set("sessionId", sessionId);
   }
 
   await next();

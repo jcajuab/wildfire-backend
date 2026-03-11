@@ -1,0 +1,6 @@
+export const MAX_LOGIN_ATTEMPTS = 10;
+export const RATE_LIMIT_WINDOW_SECONDS = 900;
+export const MAX_DISPLAY_TOKEN_FIELD_BYTES = 256;
+export const MAX_KEY_ID_BYTES = 64;
+export const MAX_SIGNED_SIGNATURE_BYTES = 2_048;
+export const MAX_BODY_HASH_BYTES = 128;

@@ -146,6 +146,6 @@ export class UserDbRepository implements UserRepository {
 
   async delete(id: string): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
-    return result[0].affectedRows > 0;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 }

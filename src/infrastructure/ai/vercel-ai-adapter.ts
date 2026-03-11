@@ -6,7 +6,7 @@ import { type AIMessage, type AIStreamChunk } from "#/application/ports/ai";
 import { AI_TOOLS } from "#/application/use-cases/ai/ai-tool-registry";
 
 export const createAIModel = (config: {
-  provider: string;
+  provider: "openai" | "anthropic" | "google" | "azure" | "mistral";
   model: string;
   apiKey: string;
 }) => {
@@ -51,7 +51,7 @@ const buildTools = (): Record<string, any> => {
 
 export const executeAIChat = async (
   config: {
-    provider: string;
+    provider: "openai" | "anthropic" | "google" | "azure" | "mistral";
     model: string;
     apiKey: string;
     temperature?: number;

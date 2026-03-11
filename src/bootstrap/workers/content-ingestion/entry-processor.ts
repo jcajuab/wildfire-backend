@@ -7,11 +7,11 @@ import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
 import {
+  addToDlq,
   DLQ_REASON_INVALID_PAYLOAD,
   DLQ_REASON_PROCESSING_FAILED,
-  type DlqManager,
 } from "./dlq-manager";
-import { type EntryAcknowledger } from "./entry-acknowledger";
+import { ackAndDeleteEntry } from "./entry-acknowledger";
 import {
   type ContentIngestionWorkerConfig,
   contentIngestionContainer,
@@ -101,26 +101,32 @@ export interface EntryProcessor {
 export const createEntryProcessor = (input: {
   config: ContentIngestionWorkerConfig;
   processJob: (jobId: string) => Promise<void>;
-  acknowledger: EntryAcknowledger;
-  dlqManager: DlqManager;
 }): EntryProcessor => {
   const processEntry = async (processInput: {
     entry: StreamEntry;
   }): Promise<void> => {
     const payload = parseJobPayload(processInput.entry.payload);
     if (!payload) {
-      await input.dlqManager.addToDlq({
+      await addToDlq(input.config.streamDlqName, {
         entry: processInput.entry,
         reason: DLQ_REASON_INVALID_PAYLOAD,
       });
-      await input.acknowledger.ackAndDeleteEntry(processInput.entry.id);
+      await ackAndDeleteEntry(
+        input.config.streamName,
+        input.config.streamGroup,
+        processInput.entry.id,
+      );
       return;
     }
 
     for (let attempt = 1; attempt <= input.config.maxDeliveries; attempt += 1) {
       try {
         await input.processJob(payload.jobId);
-        await input.acknowledger.ackAndDeleteEntry(processInput.entry.id);
+        await ackAndDeleteEntry(
+          input.config.streamName,
+          input.config.streamGroup,
+          processInput.entry.id,
+        );
         return;
       } catch (error) {
         const isLastAttempt = attempt >= input.config.maxDeliveries;
@@ -162,12 +168,16 @@ export const createEntryProcessor = (input: {
               .contentIngestionJobRepository,
         });
 
-        await input.dlqManager.addToDlq({
+        await addToDlq(input.config.streamDlqName, {
           entry: processInput.entry,
           reason: DLQ_REASON_PROCESSING_FAILED,
           error: errorMessage,
         });
-        await input.acknowledger.ackAndDeleteEntry(processInput.entry.id);
+        await ackAndDeleteEntry(
+          input.config.streamName,
+          input.config.streamGroup,
+          processInput.entry.id,
+        );
         logger.error(
           addErrorContext(
             {
