@@ -4,19 +4,12 @@ import {
   type AuthSessionRepository,
   type Clock,
   type CredentialsRepository,
-  type EmailChangeTokenRepository,
   type InvitationRepository,
   type PasswordHasher,
-  type PasswordResetTokenRepository,
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
-import {
-  type EmailChangeVerificationEmailSender,
-  type InvitationEmailSender,
-  type PasswordResetEmailSender,
-} from "#/application/ports/notifications";
 import {
   type AuthorizationRepository,
   type UserRepository,
@@ -26,15 +19,11 @@ import {
   type AuthenticateUserUseCase,
   type ChangeCurrentUserPasswordUseCase,
   type CreateInvitationUseCase,
-  type ForgotPasswordUseCase,
   type ListInvitationsUseCase,
   type RefreshSessionUseCase,
-  type RequestEmailChangeUseCase,
   type ResendInvitationUseCase,
-  type ResetPasswordUseCase,
   type SetCurrentUserAvatarUseCase,
   type UpdateCurrentUserProfileUseCase,
-  type VerifyEmailChangeUseCase,
 } from "#/application/use-cases/auth";
 import {
   type CheckPermissionUseCase,
@@ -62,18 +51,10 @@ export interface AuthRouterDeps {
   authLoginLockoutThreshold: number;
   authLoginLockoutSeconds: number;
   trustProxyHeaders: boolean;
-  passwordResetTokenRepository: PasswordResetTokenRepository;
-  emailChangeTokenRepository?: EmailChangeTokenRepository;
   invitationRepository: InvitationRepository;
-  invitationEmailSender: InvitationEmailSender;
   includeDevelopmentInviteUrls: boolean;
-  emailChangeVerificationEmailSender?: EmailChangeVerificationEmailSender;
-  passwordResetEmailSender?: PasswordResetEmailSender;
   inviteTokenTtlSeconds: number;
   inviteAcceptBaseUrl: string;
-  resetPasswordBaseUrl?: string;
-  emailChangeTokenTtlSeconds?: number;
-  emailChangeVerifyBaseUrl?: string;
   deleteCurrentUserUseCase: DeleteCurrentUserUseCase;
   updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   changeCurrentUserPasswordUseCase: ChangeCurrentUserPasswordUseCase;
@@ -86,14 +67,10 @@ export interface AuthRouterDeps {
 export interface AuthRouterUseCases {
   authenticateUser: AuthenticateUserUseCase;
   refreshSession: RefreshSessionUseCase;
-  forgotPassword: ForgotPasswordUseCase;
-  resetPassword: ResetPasswordUseCase;
   createInvitation: CreateInvitationUseCase;
   acceptInvitation: AcceptInvitationUseCase;
   listInvitations: ListInvitationsUseCase;
   resendInvitation: ResendInvitationUseCase;
-  requestEmailChange: RequestEmailChangeUseCase;
-  verifyEmailChange: VerifyEmailChangeUseCase;
 }
 
 export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;
@@ -185,18 +162,12 @@ export const buildAuthResponse = async (
     result.user.id,
   );
   const permissionStrings = permissions.map((p) => `${p.resource}:${p.action}`);
-  const pendingEmailRecord = deps.emailChangeTokenRepository
-    ? await deps.emailChangeTokenRepository.findPendingByUserId(
-        result.user.id,
-        new Date(),
-      )
-    : null;
   const user = await enrichUserWithAvatarUrl(
     result.user,
     deps.avatarStorage,
     deps.avatarUrlExpiresInSeconds,
     isAdmin,
-    pendingEmailRecord?.email ?? null,
+    null,
   );
 
   return {

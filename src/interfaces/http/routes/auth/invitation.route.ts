@@ -40,7 +40,7 @@ import {
 const inviteCreatedSchema = z.object({
   id: z.string().uuid(),
   expiresAt: z.string(),
-  inviteUrl: z.string().optional(),
+  inviteUrl: z.string(),
 });
 
 const inviteStatusSchema = z.enum([
@@ -117,9 +117,7 @@ export const registerAuthInvitationRoutes = (args: {
           toApiResponse({
             id: result.id,
             expiresAt: result.expiresAt,
-            ...(deps.includeDevelopmentInviteUrls
-              ? { inviteUrl: result.inviteUrl }
-              : {}),
+            inviteUrl: result.inviteUrl,
           }),
           201,
         );
@@ -211,9 +209,7 @@ export const registerAuthInvitationRoutes = (args: {
           toApiResponse({
             id: result.id,
             expiresAt: result.expiresAt,
-            ...(deps.includeDevelopmentInviteUrls
-              ? { inviteUrl: result.inviteUrl }
-              : {}),
+            inviteUrl: result.inviteUrl,
           }),
           201,
         );

@@ -75,6 +75,7 @@ export class AcceptInvitationUseCase {
         invitation.name ||
         deriveNameFromEmail(invitation.email),
       isActive: true,
+      invitedAt: now,
     });
 
     await this.deps.credentialsRepository.createPasswordHash(

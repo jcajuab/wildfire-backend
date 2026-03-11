@@ -116,12 +116,6 @@ const buildAuthActionApp = () => {
       authLoginLockoutThreshold: 10,
       authLoginLockoutSeconds: 60,
       trustProxyHeaders: true,
-      passwordResetTokenRepository: {
-        store: async () => {},
-        findByHashedToken: async () => null,
-        consumeByHashedToken: async () => {},
-        deleteExpired: async () => {},
-      },
       invitationRepository: {
         create: async () => {},
         findActiveByHashedToken: async () => null,
@@ -131,9 +125,6 @@ const buildAuthActionApp = () => {
         revokeActiveByEmail: async () => {},
         markAccepted: async () => {},
         deleteExpired: async () => {},
-      },
-      invitationEmailSender: {
-        sendInvite: async () => {},
       },
       includeDevelopmentInviteUrls: true,
       inviteTokenTtlSeconds: 3600,
@@ -315,6 +306,13 @@ const buildRbacActionApp = async () => {
         isOwnedByUser: async () => true,
       },
       authSessionCookieName: "wildfire_session_token",
+      credentialsRepository: {
+        findPasswordHash: async () => null,
+        updatePasswordHash: async () => {},
+      },
+      passwordHasher: {
+        hash: async (p: string) => p,
+      },
       repositories: {
         userRepository: {
           list: async () => [],

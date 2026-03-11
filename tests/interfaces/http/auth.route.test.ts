@@ -38,13 +38,6 @@ const buildApp = (opts?: {
   avatarStorage?: ContentStorage;
   credentialsRepository?: CredentialsRepository;
   permissions?: Permission[];
-  invitationEmailSender?: {
-    sendInvite: (input: {
-      email: string;
-      inviteUrl: string;
-      expiresAt: Date;
-    }) => Promise<void>;
-  };
 }) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const inactiveUsername = opts?.inactiveUsername;
@@ -64,6 +57,7 @@ const buildApp = (opts?: {
     isActive: boolean;
     timezone: string | null;
     avatarKey: string | null;
+    invitedAt: string | null;
   } | null = {
     id: "user-1",
     username: "test1",
@@ -72,6 +66,7 @@ const buildApp = (opts?: {
     isActive: inactiveUsername !== "test1",
     timezone: null,
     avatarKey: null,
+    invitedAt: new Date().toISOString(),
   };
   const invitedUsers = new Map<
     string,
@@ -312,16 +307,7 @@ const buildApp = (opts?: {
       authLoginLockoutThreshold: 10,
       authLoginLockoutSeconds: 60,
       trustProxyHeaders: true,
-      passwordResetTokenRepository: {
-        store: async () => {},
-        findByHashedToken: async () => null,
-        consumeByHashedToken: async () => {},
-        deleteExpired: async () => {},
-      },
       invitationRepository,
-      invitationEmailSender: opts?.invitationEmailSender ?? {
-        sendInvite: async () => {},
-      },
       includeDevelopmentInviteUrls: true,
       inviteTokenTtlSeconds: 3600,
       inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
@@ -679,14 +665,8 @@ describe("Auth routes", () => {
     });
 
     test("POST /auth/invitations returns 201 with metadata", async () => {
-      let inviteUrl: string | undefined;
       const { app } = buildApp({
         permissions: [new Permission("users", "create")],
-        invitationEmailSender: {
-          sendInvite: async (input) => {
-            inviteUrl = input.inviteUrl;
-          },
-        },
       });
       const token = await issueToken();
 
@@ -708,12 +688,12 @@ describe("Auth routes", () => {
           ApiData<{
             id: string;
             expiresAt: string;
-            inviteUrl?: string;
+            inviteUrl: string;
           }>
         >(response);
       expect(body.data.id).toEqual(expect.any(String));
       expect(body.data.expiresAt).toEqual(expect.any(String));
-      expect(inviteUrl).toContain("token=");
+      expect(body.data.inviteUrl).toContain("token=");
     });
 
     test("GET /auth/invitations returns invitation statuses", async () => {
@@ -765,14 +745,8 @@ describe("Auth routes", () => {
     });
 
     test("POST /auth/invitations/:id/resend creates new invite", async () => {
-      const inviteUrls: string[] = [];
       const { app } = buildApp({
         permissions: [new Permission("users", "create")],
-        invitationEmailSender: {
-          sendInvite: async (input) => {
-            inviteUrls.push(input.inviteUrl);
-          },
-        },
       });
       const token = await issueToken();
 
@@ -797,15 +771,16 @@ describe("Auth routes", () => {
       );
 
       expect(resendResponse.status).toBe(201);
-      const resent = await parseJson<ApiData<{ id: string }>>(resendResponse);
+      const resent =
+        await parseJson<ApiData<{ id: string; inviteUrl: string }>>(
+          resendResponse,
+        );
       expect(resent.data.id).not.toBe(created.data.id);
-      expect(inviteUrls).toHaveLength(2);
-      expect(inviteUrls.at(-1)).toContain("token=");
+      expect(resent.data.inviteUrl).toContain("token=");
     });
 
     test("POST /auth/invitations/accept accepts a valid invitation", async () => {
       const credentials = new Map<string, string>([["test1", "hash"]]);
-      let inviteUrl: string | undefined;
       const credentialsRepository: CredentialsRepository = {
         findPasswordHash: async (username) => credentials.get(username) ?? null,
         updatePasswordHash: async (username, newPasswordHash) => {
@@ -819,11 +794,6 @@ describe("Auth routes", () => {
       const { app } = buildApp({
         credentialsRepository,
         permissions: [new Permission("users", "create")],
-        invitationEmailSender: {
-          sendInvite: async (input) => {
-            inviteUrl = input.inviteUrl;
-          },
-        },
       });
       const token = await issueToken();
       const createResponse = await app.request("/auth/invitations", {
@@ -835,8 +805,10 @@ describe("Auth routes", () => {
         body: JSON.stringify({ email: "new.invite@example.com" }),
       });
       expect(createResponse.status).toBe(201);
-      expect(inviteUrl).toContain("token=");
-      const parsedUrl = new URL(inviteUrl ?? "http://localhost/invalid");
+      const created =
+        await parseJson<ApiData<{ inviteUrl: string }>>(createResponse);
+      expect(created.data.inviteUrl).toContain("token=");
+      const parsedUrl = new URL(created.data.inviteUrl);
       const inviteToken = parsedUrl.searchParams.get("token") ?? "";
 
       const acceptResponse = await app.request("/auth/invitations/accept", {

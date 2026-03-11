@@ -260,6 +260,13 @@ const buildApp = (grantedPermissions: string[]) => {
         jwtSecret: "test-secret",
         authSessionRepository,
         authSessionCookieName: "wildfire_session_token",
+        credentialsRepository: {
+          findPasswordHash: async () => null,
+          updatePasswordHash: async () => {},
+        },
+        passwordHasher: {
+          hash: async (p: string) => p,
+        },
         repositories,
       }),
     ),

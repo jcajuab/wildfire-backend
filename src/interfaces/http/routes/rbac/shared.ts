@@ -1,5 +1,9 @@
 import { type Hono, type MiddlewareHandler } from "hono";
-import { type AuthSessionRepository } from "#/application/ports/auth";
+import {
+  type AuthSessionRepository,
+  type CredentialsRepository,
+  type PasswordHasher,
+} from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
 import {
   type AuthorizationRepository,
@@ -31,6 +35,11 @@ import {
   type UpdateRoleUseCase,
   type UpdateUserUseCase,
 } from "#/application/use-cases/rbac";
+import { type AdminResetPasswordUseCase } from "#/application/use-cases/users/admin-reset-password.use-case";
+import {
+  type BanUserUseCase,
+  type UnbanUserUseCase,
+} from "#/application/use-cases/users/ban-user.use-case";
 import { addAvatarUrlToUser } from "#/interfaces/http/lib/avatar-url";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 
@@ -38,6 +47,8 @@ export interface RbacRouterDeps {
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
+  credentialsRepository: CredentialsRepository;
+  passwordHasher: PasswordHasher;
   repositories: {
     userRepository: UserRepository;
     roleRepository: RoleRepository;
@@ -71,6 +82,9 @@ export interface RbacRouterUseCases {
   setUserRoles: SetUserRolesUseCase;
   getUserRoles: GetUserRolesUseCase;
   getRoleUsers: GetRoleUsersUseCase;
+  banUser: BanUserUseCase;
+  unbanUser: UnbanUserUseCase;
+  adminResetPassword: AdminResetPasswordUseCase;
 }
 
 export type RbacRouter = Hono<{ Variables: JwtUserVariables }>;

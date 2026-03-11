@@ -17,6 +17,7 @@ export class JwtTokenIssuer implements TokenIssuer {
     username?: string;
     email?: string;
     sessionId?: string;
+    isInvitedUser?: boolean;
   }): Promise<string> {
     const payload = {
       sub: input.subject,
@@ -25,6 +26,7 @@ export class JwtTokenIssuer implements TokenIssuer {
       iat: input.issuedAt,
       exp: input.expiresAt,
       iss: input.issuer ?? this.deps.issuer,
+      isInvitedUser: input.isInvitedUser ?? false,
       ...(input.sessionId
         ? {
             sid: input.sessionId,

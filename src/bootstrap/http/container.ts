@@ -14,9 +14,7 @@ import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
 import { DisplayPreviewRedisRepository } from "#/infrastructure/db/repositories/display-preview.repo";
-import { EmailChangeTokenDbRepository } from "#/infrastructure/db/repositories/email-change-token.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
-import { PasswordResetTokenDbRepository } from "#/infrastructure/db/repositories/password-reset-token.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
@@ -27,9 +25,7 @@ import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
 import { DefaultContentThumbnailGenerator } from "#/infrastructure/media/content-thumbnail.generator";
-import { LogEmailChangeVerificationEmailSender } from "#/infrastructure/notifications/log-email-change-verification-email.sender";
-import { LogInvitationEmailSender } from "#/infrastructure/notifications/log-invitation-email.sender";
-import { LogPasswordResetEmailSender } from "#/infrastructure/notifications/log-password-reset-email.sender";
+
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { SystemClock } from "#/infrastructure/time/system.clock";
 
@@ -71,8 +67,6 @@ export interface HttpContainer {
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
     displayPreviewRepository: DisplayPreviewRedisRepository;
     runtimeControlRepository: RuntimeControlDbRepository;
-    passwordResetTokenRepository: PasswordResetTokenDbRepository;
-    emailChangeTokenRepository: EmailChangeTokenDbRepository;
     invitationRepository: InvitationDbRepository;
   };
   auth: {
@@ -81,9 +75,6 @@ export interface HttpContainer {
     passwordHasher: BcryptPasswordHasher;
     tokenIssuer: JwtTokenIssuer;
     clock: SystemClock;
-    emailChangeVerificationEmailSender: LogEmailChangeVerificationEmailSender;
-    invitationEmailSender: LogInvitationEmailSender;
-    passwordResetEmailSender: LogPasswordResetEmailSender;
   };
   storage: {
     contentStorage: S3ContentStorage;
@@ -119,8 +110,6 @@ export const createHttpContainer = (
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const displayPreviewRepository = new DisplayPreviewRedisRepository();
   const runtimeControlRepository = new RuntimeControlDbRepository();
-  const passwordResetTokenRepository = new PasswordResetTokenDbRepository();
-  const emailChangeTokenRepository = new EmailChangeTokenDbRepository();
   const invitationRepository = new InvitationDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
@@ -133,10 +122,6 @@ export const createHttpContainer = (
     issuer: config.jwtIssuer,
   });
   const clock = new SystemClock();
-  const emailChangeVerificationEmailSender =
-    new LogEmailChangeVerificationEmailSender();
-  const invitationEmailSender = new LogInvitationEmailSender();
-  const passwordResetEmailSender = new LogPasswordResetEmailSender();
 
   const contentStorage = new S3ContentStorage({
     bucket: config.minio.bucket,
@@ -171,8 +156,6 @@ export const createHttpContainer = (
       displayAuthNonceRepository,
       displayPreviewRepository,
       runtimeControlRepository,
-      passwordResetTokenRepository,
-      emailChangeTokenRepository,
       invitationRepository,
     },
     auth: {
@@ -181,9 +164,6 @@ export const createHttpContainer = (
       passwordHasher,
       tokenIssuer,
       clock,
-      emailChangeVerificationEmailSender,
-      invitationEmailSender,
-      passwordResetEmailSender,
     },
     storage: {
       contentStorage,

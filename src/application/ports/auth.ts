@@ -21,6 +21,7 @@ export interface TokenIssuer {
     username?: string;
     email?: string;
     sessionId?: string;
+    isInvitedUser?: boolean;
   }): Promise<string>;
 }
 

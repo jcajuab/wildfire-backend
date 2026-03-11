@@ -20,6 +20,11 @@ import {
   UpdateRoleUseCase,
   UpdateUserUseCase,
 } from "#/application/use-cases/rbac";
+import { AdminResetPasswordUseCase } from "#/application/use-cases/users/admin-reset-password.use-case";
+import {
+  BanUserUseCase,
+  UnbanUserUseCase,
+} from "#/application/use-cases/users/ban-user.use-case";
 import {
   type RbacRouterDeps,
   type RbacRouterUseCases,
@@ -121,6 +126,24 @@ export const createRbacHttpModule = (
         roleRepository: routerDeps.repositories.roleRepository,
         userRoleRepository: routerDeps.repositories.userRoleRepository,
         userRepository: routerDeps.repositories.userRepository,
+      }),
+      banUser: new BanUserUseCase({
+        userRepository: routerDeps.repositories.userRepository,
+        authSessionRepository: routerDeps.authSessionRepository,
+        authorizationRepository:
+          routerDeps.repositories.authorizationRepository,
+      }),
+      unbanUser: new UnbanUserUseCase({
+        userRepository: routerDeps.repositories.userRepository,
+        authorizationRepository:
+          routerDeps.repositories.authorizationRepository,
+      }),
+      adminResetPassword: new AdminResetPasswordUseCase({
+        userRepository: routerDeps.repositories.userRepository,
+        credentialsRepository: routerDeps.credentialsRepository,
+        passwordHasher: routerDeps.passwordHasher,
+        authorizationRepository:
+          routerDeps.repositories.authorizationRepository,
       }),
     },
   };

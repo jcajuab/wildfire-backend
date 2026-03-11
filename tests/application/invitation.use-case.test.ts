@@ -10,7 +10,6 @@ import {
 describe("Invitation use cases", () => {
   test("CreateInvitationUseCase creates invite and emits accept URL", async () => {
     const created: Array<{ email: string; invitedByUserId: string }> = [];
-    const sent: Array<{ email: string; inviteUrl: string }> = [];
     const useCase = new CreateInvitationUseCase({
       userRepository: {
         list: async () => [],
@@ -43,11 +42,6 @@ describe("Invitation use cases", () => {
         markAccepted: async () => {},
         deleteExpired: async () => {},
       },
-      invitationEmailSender: {
-        sendInvite: async (input) => {
-          sent.push({ email: input.email, inviteUrl: input.inviteUrl });
-        },
-      },
       inviteTokenTtlSeconds: 3600,
       inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
     });
@@ -61,12 +55,11 @@ describe("Invitation use cases", () => {
     expect(created).toEqual([
       { email: "invited.user@example.com", invitedByUserId: "admin-1" },
     ]);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.inviteUrl).toContain(
-      "http://localhost:3000/accept-invite?token=",
-    );
     expect(result.id).toEqual(expect.any(String));
     expect(result.expiresAt).toEqual(expect.any(String));
+    expect(result.inviteUrl).toContain(
+      "http://localhost:3000/accept-invite?token=",
+    );
   });
 
   test("CreateInvitationUseCase rejects when user already exists", async () => {
@@ -102,9 +95,6 @@ describe("Invitation use cases", () => {
         revokeActiveByEmail: async () => {},
         markAccepted: async () => {},
         deleteExpired: async () => {},
-      },
-      invitationEmailSender: {
-        sendInvite: async () => {},
       },
       inviteTokenTtlSeconds: 3600,
       inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
@@ -259,9 +249,6 @@ describe("Invitation use cases", () => {
           revokeActiveByEmail: async () => {},
           markAccepted: async () => {},
           deleteExpired: async () => {},
-        },
-        invitationEmailSender: {
-          sendInvite: async () => {},
         },
         inviteTokenTtlSeconds: 3600,
         inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",

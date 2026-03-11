@@ -394,20 +394,10 @@ const authModule = createAuthHttpModule({
   authLoginLockoutThreshold: env.AUTH_LOGIN_LOCKOUT_THRESHOLD,
   authLoginLockoutSeconds: env.AUTH_LOGIN_LOCKOUT_SECONDS,
   trustProxyHeaders: env.TRUST_PROXY_HEADERS,
-  passwordResetTokenRepository:
-    container.repositories.passwordResetTokenRepository,
-  emailChangeTokenRepository: container.repositories.emailChangeTokenRepository,
   invitationRepository: container.repositories.invitationRepository,
-  invitationEmailSender: container.auth.invitationEmailSender,
-  emailChangeVerificationEmailSender:
-    container.auth.emailChangeVerificationEmailSender,
-  passwordResetEmailSender: container.auth.passwordResetEmailSender,
   inviteTokenTtlSeconds: env.INVITE_TOKEN_TTL_SECONDS,
   inviteAcceptBaseUrl: env.INVITE_ACCEPT_BASE_URL,
   includeDevelopmentInviteUrls: env.NODE_ENV === "development",
-  resetPasswordBaseUrl: env.RESET_PASSWORD_BASE_URL,
-  emailChangeTokenTtlSeconds: env.EMAIL_CHANGE_TOKEN_TTL_SECONDS,
-  emailChangeVerifyBaseUrl: env.EMAIL_CHANGE_VERIFY_BASE_URL,
   avatarStorage: container.storage.contentStorage,
   avatarUrlExpiresInSeconds,
 });
@@ -539,6 +529,8 @@ const rbacModule = createRbacHttpModule({
   jwtSecret: env.JWT_SECRET,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  credentialsRepository: container.auth.credentialsRepository,
+  passwordHasher: container.auth.passwordHasher,
   repositories: {
     userRepository: container.repositories.userRepository,
     roleRepository: container.repositories.roleRepository,

@@ -1,3 +1,4 @@
+import { ForbiddenError } from "#/application/errors/forbidden";
 import {
   type CredentialsRepository,
   type PasswordHasher,
@@ -26,6 +27,12 @@ export class ChangeCurrentUserPasswordUseCase {
   async execute(input: ChangeCurrentUserPasswordInput): Promise<void> {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
+
+    if (user.invitedAt == null) {
+      throw new ForbiddenError(
+        "Password change is only available for invited users.",
+      );
+    }
 
     const currentHash = await this.deps.credentialsRepository.findPasswordHash(
       user.username,

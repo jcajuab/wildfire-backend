@@ -68,6 +68,11 @@ export class AuthenticateUserUseCase {
         "Your account is currently deactivated. Please contact your administrator.",
       );
     }
+    if (user.bannedAt != null) {
+      throw new InvalidCredentialsError(
+        "Your account has been suspended. Please contact your administrator.",
+      );
+    }
 
     const issuedAt = this.deps.clock.nowSeconds();
     const expiresAt = issuedAt + this.deps.tokenTtlSeconds;
@@ -85,6 +90,7 @@ export class AuthenticateUserUseCase {
       username: user.username,
       email: user.email ?? undefined,
       sessionId,
+      isInvitedUser: user.invitedAt != null,
     });
 
     return {

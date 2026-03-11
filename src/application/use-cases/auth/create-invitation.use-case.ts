@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
 import { type InvitationRepository } from "#/application/ports/auth";
-import { type InvitationEmailSender } from "#/application/ports/notifications";
 import { type UserRepository } from "#/application/ports/rbac";
 
 const DEFAULT_INVITE_NAME = "User";
@@ -19,7 +18,6 @@ export class CreateInvitationUseCase {
     private readonly deps: {
       userRepository: UserRepository;
       invitationRepository: InvitationRepository;
-      invitationEmailSender: InvitationEmailSender;
       inviteTokenTtlSeconds: number;
       inviteAcceptBaseUrl: string;
     },
@@ -58,12 +56,6 @@ export class CreateInvitationUseCase {
       email,
       name,
       invitedByUserId: input.invitedByUserId,
-      expiresAt,
-    });
-
-    await this.deps.invitationEmailSender.sendInvite({
-      email,
-      inviteUrl,
       expiresAt,
     });
 

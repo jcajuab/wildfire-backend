@@ -20,6 +20,18 @@ const toRecord = (row: typeof users.$inferSelect): UserRecord => ({
       : row.lastSeenAt instanceof Date
         ? row.lastSeenAt.toISOString()
         : row.lastSeenAt,
+  invitedAt:
+    row.invitedAt == null
+      ? null
+      : row.invitedAt instanceof Date
+        ? row.invitedAt.toISOString()
+        : row.invitedAt,
+  bannedAt:
+    row.bannedAt == null
+      ? null
+      : row.bannedAt instanceof Date
+        ? row.bannedAt.toISOString()
+        : row.bannedAt,
 });
 
 export class UserDbRepository implements UserRepository {
@@ -68,11 +80,13 @@ export class UserDbRepository implements UserRepository {
     email?: string | null;
     name: string;
     isActive?: boolean;
+    invitedAt?: Date | null;
   }): Promise<UserRecord> {
     const id = crypto.randomUUID();
     const isActive = input.isActive ?? true;
     const username = normalizeUsername(input.username);
     const email = input.email?.trim().toLowerCase() ?? null;
+    const invitedAt = input.invitedAt ?? null;
 
     await db.insert(users).values({
       id,
@@ -80,6 +94,7 @@ export class UserDbRepository implements UserRepository {
       email,
       name: input.name,
       isActive,
+      invitedAt,
     });
 
     return {
@@ -91,6 +106,8 @@ export class UserDbRepository implements UserRepository {
       timezone: null,
       avatarKey: null,
       lastSeenAt: null,
+      invitedAt: invitedAt?.toISOString() ?? null,
+      bannedAt: null,
     };
   }
 
@@ -104,6 +121,7 @@ export class UserDbRepository implements UserRepository {
       timezone?: string | null;
       avatarKey?: string | null;
       lastSeenAt?: string | null;
+      bannedAt?: Date | null;
     },
   ): Promise<UserRecord | null> {
     const existing = await this.findById(id);
@@ -126,6 +144,10 @@ export class UserDbRepository implements UserRepository {
         input.avatarKey !== undefined ? input.avatarKey : existing.avatarKey,
       lastSeenAt:
         input.lastSeenAt !== undefined ? input.lastSeenAt : existing.lastSeenAt,
+      bannedAt:
+        "bannedAt" in input
+          ? (input.bannedAt ?? null)
+          : (existing.bannedAt ?? null),
     };
 
     await db
@@ -138,10 +160,22 @@ export class UserDbRepository implements UserRepository {
         timezone: next.timezone,
         avatarKey: next.avatarKey,
         lastSeenAt: next.lastSeenAt ? new Date(next.lastSeenAt) : null,
+        bannedAt: next.bannedAt ? new Date(next.bannedAt) : null,
       })
       .where(eq(users.id, id));
 
-    return { id, ...next };
+    return {
+      id,
+      username: next.username,
+      email: next.email,
+      name: next.name,
+      isActive: next.isActive,
+      timezone: next.timezone,
+      avatarKey: next.avatarKey,
+      lastSeenAt: next.lastSeenAt,
+      invitedAt: existing.invitedAt ?? null,
+      bannedAt: next.bannedAt ? new Date(next.bannedAt).toISOString() : null,
+    };
   }
 
   async delete(id: string): Promise<boolean> {

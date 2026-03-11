@@ -9,6 +9,8 @@ export interface UserRecord {
   timezone?: string | null;
   avatarKey?: string | null;
   lastSeenAt?: string | null;
+  invitedAt?: string | null;
+  bannedAt?: string | null;
 }
 
 export interface RoleRecord {
@@ -39,6 +41,7 @@ export interface UserRepository {
     email?: string | null;
     name: string;
     isActive?: boolean;
+    invitedAt?: Date | null;
   }): Promise<UserRecord>;
   update(
     id: string,
@@ -50,6 +53,7 @@ export interface UserRepository {
       timezone?: string | null;
       avatarKey?: string | null;
       lastSeenAt?: string | null;
+      bannedAt?: Date | null;
     },
   ): Promise<UserRecord | null>;
   delete(id: string): Promise<boolean>;
