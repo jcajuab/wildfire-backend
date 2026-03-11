@@ -37,6 +37,7 @@ export const contentSchema = z.object({
   textJsonContent: z.string().nullable(),
   textHtmlContent: z.string().nullable(),
   createdAt: z.string(),
+  updatedAt: z.string(),
   owner: z.object({
     id: z.string(),
     name: z.string(),

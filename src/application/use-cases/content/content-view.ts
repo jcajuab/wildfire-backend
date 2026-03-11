@@ -24,6 +24,7 @@ export interface ContentView {
   textJsonContent: string | null;
   textHtmlContent: string | null;
   createdAt: string;
+  updatedAt: string;
   owner: {
     id: string;
     name: string;
@@ -59,6 +60,7 @@ export const toContentView = (
   textJsonContent: record.textJsonContent ?? null,
   textHtmlContent: record.textHtmlContent ?? null,
   createdAt: record.createdAt,
+  updatedAt: record.updatedAt,
   owner: {
     id: record.ownerId,
     name: ownerName ?? "Unknown",

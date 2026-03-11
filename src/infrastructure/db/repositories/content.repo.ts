@@ -30,6 +30,7 @@ type ContentRow = {
   isExcluded: boolean;
   ownerId: string;
   createdAt: Date | string;
+  updatedAt: Date | string;
   fileKey: string | null;
   thumbnailKey: string | null;
   checksum: string | null;
@@ -103,6 +104,7 @@ const buildBaseContentQuery = () =>
       isExcluded: content.isExcluded,
       ownerId: content.ownerId,
       createdAt: content.createdAt,
+      updatedAt: content.updatedAt,
       fileKey: contentAssets.fileKey,
       thumbnailKey: contentAssets.thumbnailKey,
       checksum: contentAssets.checksum,
@@ -173,6 +175,7 @@ const mapContentRowToRecord = (row: ContentRow): ContentRecord => {
     textHtmlContent: row.textHtmlContent,
     ownerId: row.ownerId,
     createdAt: toIsoString(row.createdAt),
+    updatedAt: toIsoString(row.updatedAt),
   };
 };
 
@@ -355,7 +358,7 @@ export class ContentDbRepository implements ContentRepository {
   }
 
   async create(
-    input: Omit<ContentRecord, "createdAt">,
+    input: Omit<ContentRecord, "createdAt" | "updatedAt">,
   ): Promise<ContentRecord> {
     const now = new Date();
 

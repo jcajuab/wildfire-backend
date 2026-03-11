@@ -29,6 +29,7 @@ export interface ContentRecord {
   textHtmlContent?: string | null;
   ownerId: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExtractedContentMetadata {
@@ -38,7 +39,9 @@ export interface ExtractedContentMetadata {
 }
 
 export interface ContentRepository {
-  create(input: Omit<ContentRecord, "createdAt">): Promise<ContentRecord>;
+  create(
+    input: Omit<ContentRecord, "createdAt" | "updatedAt">,
+  ): Promise<ContentRecord>;
   findById(id: string): Promise<ContentRecord | null>;
   findByIdForOwner(id: string, ownerId: string): Promise<ContentRecord | null>;
   findByIds(ids: string[]): Promise<ContentRecord[]>;
