@@ -837,6 +837,73 @@ describe("Content use cases", () => {
     expect(result.owner).toEqual({ id: "user-1", name: "Ada" });
   });
 
+  test("updates TEXT content, checksum, and stored payload", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    const useCase = new UpdateContentUseCase({
+      contentRepository: repository,
+      contentStorage: storage.storage,
+      userRepository,
+    });
+
+    const id = "11111111-1111-4111-8111-111111111111";
+    const nextTextJsonContent =
+      '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Updated text"}]}]}';
+    const nextTextHtmlContent = "<p>Updated text</p>";
+    const expectedFileSize = new TextEncoder().encode(
+      nextTextJsonContent,
+    ).byteLength;
+    const expectedChecksum = await sha256Hex(
+      new TextEncoder().encode(
+        JSON.stringify({
+          jsonContent: nextTextJsonContent,
+          htmlContent: nextTextHtmlContent,
+        }),
+      ).buffer,
+    );
+
+    records.push({
+      id,
+      title: "Rich Text",
+      type: "TEXT",
+      status: "READY",
+      fileKey: "content/text/11111111-1111-4111-8111-111111111111.json",
+      checksum: "old-checksum",
+      mimeType: "application/json",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      textJsonContent:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Old text"}]}]}',
+      textHtmlContent: "<p>Old text</p>",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const result = await useCase.execute({
+      id,
+      textJsonContent: nextTextJsonContent,
+      textHtmlContent: nextTextHtmlContent,
+    });
+
+    expect(result.textJsonContent).toBe(nextTextJsonContent);
+    expect(result.textHtmlContent).toBe(nextTextHtmlContent);
+    expect(result.fileSize).toBe(expectedFileSize);
+    expect(result.checksum).toBe(expectedChecksum);
+    expect(storage.lastUpload?.key).toBe(
+      "content/text/11111111-1111-4111-8111-111111111111.json",
+    );
+    expect(storage.lastUpload?.contentType).toBe(
+      "application/json; charset=utf-8",
+    );
+    expect(storage.lastUpload?.contentLength).toBe(expectedFileSize);
+    expect(new TextDecoder().decode(storage.lastUpload?.body)).toBe(
+      nextTextJsonContent,
+    );
+  });
+
   test("throws when updating non-existent content", async () => {
     const { repository } = makeContentRepository();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);

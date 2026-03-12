@@ -546,6 +546,63 @@ describe("Content routes", () => {
     expect(body.data.title).toBe("New Title");
   });
 
+  test("PATCH /content/:id updates text content fields", async () => {
+    const { app, issueToken, records } = await makeApp(["content:update"]);
+    const token = await issueToken();
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Rich Text",
+      type: "TEXT",
+      kind: "ROOT",
+      status: "READY",
+      fileKey: "content/text/11111111-1111-4111-8111-111111111111.json",
+      parentContentId: null,
+      pageNumber: null,
+      pageCount: null,
+      isExcluded: false,
+      checksum: "abc",
+      mimeType: "application/json",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      textJsonContent:
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Old text"}]}]}',
+      textHtmlContent: "<p>Old text</p>",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const nextTextJsonContent =
+      '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Updated text"}]}]}';
+    const nextTextHtmlContent = "<p>Updated text</p>";
+    const response = await app.request(
+      "/content/11111111-1111-4111-8111-111111111111",
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          textJsonContent: nextTextJsonContent,
+          textHtmlContent: nextTextHtmlContent,
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: {
+        id: string;
+        textJsonContent: string | null;
+        textHtmlContent: string | null;
+      };
+    }>(response);
+    expect(body.data.textJsonContent).toBe(nextTextJsonContent);
+    expect(body.data.textHtmlContent).toBe(nextTextHtmlContent);
+  });
+
   test("PATCH /content/:id rejects status-only updates", async () => {
     const { app, issueToken, records } = await makeApp(["content:update"]);
     const token = await issueToken();

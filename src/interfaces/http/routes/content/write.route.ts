@@ -330,6 +330,8 @@ export const registerContentWriteRoutes = (args: {
           flashMessage: body.flashMessage,
           flashTone: body.flashTone,
           scrollPxPerSecond: body.scrollPxPerSecond,
+          textJsonContent: body.textJsonContent,
+          textHtmlContent: body.textHtmlContent,
         });
         return c.json(toApiResponse(result), 200);
       },
