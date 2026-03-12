@@ -159,6 +159,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
 
   const listPlaylistsUseCase = new ListPlaylistsUseCase({
     playlistRepository: config.repositories.playlistRepository,
+    contentRepository: config.repositories.contentRepository,
     userRepository: config.repositories.userRepository,
   });
 

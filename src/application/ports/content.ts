@@ -29,7 +29,7 @@ export interface ContentRecord {
   textHtmlContent?: string | null;
   ownerId: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export interface ExtractedContentMetadata {

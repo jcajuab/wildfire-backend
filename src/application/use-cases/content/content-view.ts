@@ -60,7 +60,7 @@ export const toContentView = (
   textJsonContent: record.textJsonContent ?? null,
   textHtmlContent: record.textHtmlContent ?? null,
   createdAt: record.createdAt,
-  updatedAt: record.updatedAt,
+  updatedAt: record.updatedAt ?? record.createdAt,
   owner: {
     id: record.ownerId,
     name: ownerName ?? "Unknown",
