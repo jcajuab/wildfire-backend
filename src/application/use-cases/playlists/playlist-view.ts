@@ -8,6 +8,9 @@ export const toPlaylistView = (
   playlist: PlaylistRecord,
   ownerName: string | null,
   stats?: { itemsCount: number; totalDuration: number },
+  input?: {
+    previewItems?: ReturnType<typeof toPlaylistItemView>[];
+  },
 ) => ({
   id: playlist.id,
   name: playlist.name,
@@ -21,11 +24,17 @@ export const toPlaylistView = (
     id: playlist.ownerId,
     name: ownerName,
   },
+  ...(input && "previewItems" in input
+    ? { previewItems: input.previewItems ?? [] }
+    : {}),
 });
 
 export const toPlaylistItemView = (
   item: PlaylistItemRecord,
   content: ContentRecord,
+  input?: {
+    thumbnailUrl?: string | null;
+  },
 ) => ({
   id: item.id,
   sequence: item.sequence,
@@ -35,5 +44,6 @@ export const toPlaylistItemView = (
     title: content.title,
     type: content.type,
     checksum: content.checksum,
+    thumbnailUrl: input?.thumbnailUrl ?? null,
   },
 });

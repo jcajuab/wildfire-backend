@@ -1,6 +1,9 @@
 import { type Hono, type MiddlewareHandler } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
-import { type ContentRepository } from "#/application/ports/content";
+import {
+  type ContentRepository,
+  type ContentStorage,
+} from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
@@ -38,6 +41,8 @@ export interface PlaylistsRouterDeps {
     scheduleRepository: ScheduleRepository;
     displayRepository: DisplayRepository;
   };
+  storage: ContentStorage;
+  thumbnailUrlExpiresInSeconds: number;
   displayEventPublisher: DisplayStreamEventPublisher;
   checkPermissionUseCase: CheckPermissionUseCase;
 }

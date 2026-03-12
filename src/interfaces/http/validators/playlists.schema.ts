@@ -25,14 +25,21 @@ export const playlistItemSchema = z.object({
     title: z.string(),
     type: z.enum(["IMAGE", "VIDEO", "PDF", "TEXT"]),
     checksum: z.string(),
+    thumbnailUrl: z.string().url().nullable(),
   }),
+});
+
+export const playlistListItemSchema = playlistSchema.extend({
+  previewItems: z.array(playlistItemSchema).max(3),
 });
 
 export const playlistWithItemsSchema = playlistSchema.extend({
   items: z.array(playlistItemSchema),
 });
 
-export const playlistListResponseSchema = apiListResponseSchema(playlistSchema);
+export const playlistListResponseSchema = apiListResponseSchema(
+  playlistListItemSchema,
+);
 
 export const playlistListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
