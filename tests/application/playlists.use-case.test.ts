@@ -36,6 +36,7 @@ const makeDeps = () => {
       duration: null,
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
     },
   ];
 
@@ -193,6 +194,7 @@ describe("Playlists use cases", () => {
 
     const useCase = new ListPlaylistsUseCase({
       playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
       userRepository: deps.userRepository,
     });
 
@@ -200,7 +202,7 @@ describe("Playlists use cases", () => {
     expect(result.items[0]?.owner.name).toBe("User");
   });
 
-  test("ListPlaylistsUseCase uses batched playlist stats when available", async () => {
+  test("ListPlaylistsUseCase uses batched stats while loading preview items", async () => {
     const deps = makeDeps();
     await deps.playlistRepository.create({
       name: "Morning",
@@ -228,12 +230,13 @@ describe("Playlists use cases", () => {
 
     const useCase = new ListPlaylistsUseCase({
       playlistRepository,
+      contentRepository: deps.contentRepository,
       userRepository: deps.userRepository,
     });
     await useCase.execute();
 
     expect(listStatsCalls).toBe(1);
-    expect(listItemsCalls).toBe(0);
+    expect(listItemsCalls).toBe(1);
   });
 
   test("CreatePlaylistUseCase returns playlist", async () => {
@@ -462,6 +465,7 @@ describe("Playlists use cases", () => {
           duration: null,
           ownerId: "user-1",
           createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
         }),
         findByIds: async () => [
           {
@@ -478,6 +482,7 @@ describe("Playlists use cases", () => {
             duration: null,
             ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
       },
@@ -581,6 +586,7 @@ describe("Playlists use cases", () => {
           duration: null,
           ownerId: "user-1",
           createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
         }),
         findByIds: async () => [
           {
@@ -598,6 +604,7 @@ describe("Playlists use cases", () => {
             duration: null,
             ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
         findChildrenByParentIds: async () => [
@@ -618,6 +625,7 @@ describe("Playlists use cases", () => {
             duration: null,
             ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
           {
             id: "content-pdf-page-2",
@@ -636,6 +644,7 @@ describe("Playlists use cases", () => {
             duration: null,
             ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
         ],
       },

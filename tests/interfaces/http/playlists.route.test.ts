@@ -10,6 +10,10 @@ const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
 const playlistId = "b2c4a3f1-6b18-4f90-9d9b-9e1a2f0d9d45";
 const contentId = "9c7b2f9a-2f5d-4bd9-9c9e-1f0c1d9b8c7a";
+const contentId2 = "e2d6b6fc-f0f5-437f-8333-03f4ef8f7d6a";
+const contentId3 = "d9ca5e43-4c20-4f8f-b634-d9e35b7f208d";
+const contentId4 = "4b5633b2-4f4f-4f0b-a76d-f60c4af0f9bf";
+const contentId5 = "f28ed527-7e2b-4b66-928a-f8df441a32f3";
 const authSessionRepository = {
   create: async () => {},
   extendExpiry: async () => {},
@@ -57,10 +61,95 @@ const makeApp = async (
       width: 10,
       height: 10,
       duration: null,
+      thumbnailKey: "content/thumbs/a.png",
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    },
+    {
+      id: contentId2,
+      title: "Slides",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/b.png",
+      checksum: "def",
+      mimeType: "image/png",
+      fileSize: 100,
+      width: 10,
+      height: 10,
+      duration: null,
+      thumbnailKey: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    },
+    {
+      id: contentId3,
+      title: "Offer",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/c.png",
+      checksum: "ghi",
+      mimeType: "image/png",
+      fileSize: 100,
+      width: 10,
+      height: 10,
+      duration: null,
+      thumbnailKey: "content/thumbs/c.png",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    },
+    {
+      id: contentId4,
+      title: "Pricing",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/d.png",
+      checksum: "jkl",
+      mimeType: "image/png",
+      fileSize: 100,
+      width: 10,
+      height: 10,
+      duration: null,
+      thumbnailKey: "content/thumbs/d.png",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    },
+    {
+      id: contentId5,
+      title: "Goodbye",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/e.png",
+      checksum: "mno",
+      mimeType: "image/png",
+      fileSize: 100,
+      width: 10,
+      height: 10,
+      duration: null,
+      thumbnailKey: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
     },
   ];
+  const storage = {
+    ensureBucketExists: async () => {},
+    upload: async (_input: {
+      key: string;
+      body: Uint8Array;
+      contentType: string;
+      contentLength: number;
+    }) => {},
+    delete: async (_key: string) => {},
+    getPresignedDownloadUrl: async (input: {
+      key: string;
+      expiresInSeconds: number;
+      responseContentDisposition?: string;
+    }) => `https://cdn.example.com/${input.key}`,
+  };
 
   const router = createPlaylistsRouter(
     createPlaylistsHttpModule({
@@ -258,6 +347,8 @@ const makeApp = async (
           delete: async (_id: string) => false,
         },
       },
+      storage,
+      thumbnailUrlExpiresInSeconds: 3600,
       displayEventPublisher: {
         publish: () => {},
       },
@@ -278,7 +369,7 @@ const makeApp = async (
       issuer: undefined,
     });
 
-  return { app, issueToken, playlists };
+  return { app, issueToken, playlists, items, contents };
 };
 
 describe("Playlists routes", () => {
@@ -304,6 +395,244 @@ describe("Playlists routes", () => {
     expect(typeof body.meta.total).toBe("number");
     expect(body.meta.page).toBe(1);
     expect(body.meta.pageSize).toBe(20);
+  });
+
+  test("GET /playlists returns first 3 previewItems in sequence order", async () => {
+    const { app, issueToken, playlists, items } = await makeApp([
+      "playlists:read",
+    ]);
+    playlists.push({
+      id: playlistId,
+      name: "Morning Loop",
+      description: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    items.push(
+      {
+        id: "item-1",
+        playlistId,
+        contentId: contentId3,
+        sequence: 30,
+        duration: 10,
+      },
+      {
+        id: "item-2",
+        playlistId,
+        contentId: contentId,
+        sequence: 10,
+        duration: 10,
+      },
+      {
+        id: "item-3",
+        playlistId,
+        contentId: contentId2,
+        sequence: 20,
+        duration: 10,
+      },
+      {
+        id: "item-4",
+        playlistId,
+        contentId: contentId4,
+        sequence: 40,
+        duration: 10,
+      },
+      {
+        id: "item-5",
+        playlistId,
+        contentId: contentId5,
+        sequence: 50,
+        duration: 10,
+      },
+    );
+
+    const token = await issueToken();
+    const response = await app.request("/playlists", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        itemsCount: number;
+        previewItems: Array<{
+          id: string;
+          sequence: number;
+          content: { id: string; thumbnailUrl: string | null };
+        }>;
+        items?: unknown;
+      }>;
+    }>(response);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]?.items).toBeUndefined();
+    expect(body.data[0]?.itemsCount).toBe(5);
+    expect(body.data[0]?.previewItems).toHaveLength(3);
+    expect(body.data[0]?.previewItems.map((item) => item.sequence)).toEqual([
+      10, 20, 30,
+    ]);
+    expect(body.data[0]?.previewItems.map((item) => item.content.id)).toEqual([
+      contentId,
+      contentId2,
+      contentId3,
+    ]);
+    expect(body.data[0]?.previewItems[0]?.content.thumbnailUrl).toBe(
+      "https://cdn.example.com/content/thumbs/a.png",
+    );
+    expect(body.data[0]?.previewItems[1]?.content.thumbnailUrl).toBeNull();
+  });
+
+  test("GET /playlists returns empty previewItems for empty playlists", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:read"]);
+    playlists.push({
+      id: playlistId,
+      name: "Empty Loop",
+      description: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request("/playlists", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{ id: string; itemsCount: number; previewItems: unknown[] }>;
+    }>(response);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]?.itemsCount).toBe(0);
+    expect(body.data[0]?.previewItems).toEqual([]);
+  });
+
+  test("GET /playlists fills previewItems from first 3 resolvable sequenced items", async () => {
+    const { app, issueToken, playlists, items } = await makeApp([
+      "playlists:read",
+    ]);
+    playlists.push({
+      id: playlistId,
+      name: "Resolvable Loop",
+      description: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    items.push(
+      {
+        id: "item-1",
+        playlistId,
+        contentId: "missing-content-1",
+        sequence: 10,
+        duration: 10,
+      },
+      {
+        id: "item-2",
+        playlistId,
+        contentId: "missing-content-2",
+        sequence: 20,
+        duration: 10,
+      },
+      {
+        id: "item-3",
+        playlistId,
+        contentId,
+        sequence: 30,
+        duration: 10,
+      },
+      {
+        id: "item-4",
+        playlistId,
+        contentId: contentId2,
+        sequence: 40,
+        duration: 10,
+      },
+      {
+        id: "item-5",
+        playlistId,
+        contentId: contentId3,
+        sequence: 50,
+        duration: 10,
+      },
+    );
+
+    const token = await issueToken();
+    const response = await app.request("/playlists", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        itemsCount: number;
+        previewItems: Array<{
+          sequence: number;
+          content: { id: string };
+        }>;
+      }>;
+    }>(response);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]?.itemsCount).toBe(5);
+    expect(body.data[0]?.previewItems).toHaveLength(3);
+    expect(body.data[0]?.previewItems.map((item) => item.sequence)).toEqual([
+      30, 40, 50,
+    ]);
+    expect(body.data[0]?.previewItems.map((item) => item.content.id)).toEqual([
+      contentId,
+      contentId2,
+      contentId3,
+    ]);
+  });
+
+  test("GET /playlists/:id includes content.thumbnailUrl in items", async () => {
+    const { app, issueToken, playlists, items } = await makeApp([
+      "playlists:read",
+    ]);
+    playlists.push({
+      id: playlistId,
+      name: "Detail Loop",
+      description: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    items.push(
+      {
+        id: "item-1",
+        playlistId,
+        contentId,
+        sequence: 1,
+        duration: 10,
+      },
+      {
+        id: "item-2",
+        playlistId,
+        contentId: contentId2,
+        sequence: 2,
+        duration: 10,
+      },
+    );
+
+    const token = await issueToken();
+    const response = await app.request(`/playlists/${playlistId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: {
+        items: Array<{ content: { thumbnailUrl: string | null } }>;
+      };
+    }>(response);
+    expect(body.data.items[0]?.content.thumbnailUrl).toBe(
+      "https://cdn.example.com/content/thumbs/a.png",
+    );
+    expect(body.data.items[1]?.content.thumbnailUrl).toBeNull();
   });
 
   test("GET /playlists/options returns playlist options", async () => {
