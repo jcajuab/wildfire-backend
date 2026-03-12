@@ -11,6 +11,7 @@ import { type ListContentUseCase } from "#/application/use-cases/content/list-co
 import { type ListDisplaysUseCase } from "#/application/use-cases/displays/list-displays.use-case";
 import { type CreatePlaylistUseCase } from "#/application/use-cases/playlists/create-playlist.use-case";
 import { type ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
+import { type ReplacePlaylistItemsAtomicUseCase } from "#/application/use-cases/playlists/replace-playlist-items.use-case";
 import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/create-schedule.use-case";
 import { AI_TOOLS } from "./ai-tool-registry";
 import { convertPlainTextToTipTap } from "./tiptap-convert";
@@ -33,6 +34,7 @@ export class AIToolExecutor {
       createFlashContentUseCase: CreateFlashContentUseCase;
       createTextContentUseCase: CreateTextContentUseCase;
       createPlaylistUseCase: CreatePlaylistUseCase;
+      replacePlaylistItemsAtomicUseCase: ReplacePlaylistItemsAtomicUseCase;
       createScheduleUseCase: CreateScheduleUseCase;
       listDisplaysUseCase: ListDisplaysUseCase;
       listContentUseCase: ListContentUseCase;
@@ -136,6 +138,32 @@ export class AIToolExecutor {
           description: typedArgs.description,
           ownerId: context.userId,
         });
+
+        if (typedArgs.items?.length) {
+          const playlistItems =
+            await this.deps.replacePlaylistItemsAtomicUseCase.execute({
+              ownerId: context.userId,
+              playlistId: result.id,
+              items: typedArgs.items.map((item) => ({
+                kind: "new",
+                contentId: item.contentId,
+                duration: item.duration,
+              })),
+            });
+
+          return {
+            success: true,
+            data: {
+              ...result,
+              itemsCount: playlistItems.length,
+              totalDuration: playlistItems.reduce(
+                (sum, playlistItem) => sum + playlistItem.duration,
+                0,
+              ),
+            },
+          };
+        }
+
         return { success: true, data: result };
       }
 

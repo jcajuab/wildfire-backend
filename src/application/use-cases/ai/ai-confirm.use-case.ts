@@ -8,6 +8,7 @@ import {
 import { type ContentRepository } from "#/application/ports/content";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { type ReplacePlaylistItemsAtomicUseCase } from "#/application/use-cases/playlists/replace-playlist-items.use-case";
 import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 
 export interface AIConfirmDeps {
@@ -16,6 +17,7 @@ export interface AIConfirmDeps {
   encryptionService: AIKeyEncryptionService;
   contentRepository: ContentRepository;
   playlistRepository: PlaylistRepository;
+  replacePlaylistItemsAtomicUseCase: ReplacePlaylistItemsAtomicUseCase;
   scheduleRepository: ScheduleRepository;
   auditLogger: AuditLogger;
 }
@@ -74,7 +76,7 @@ export class AIConfirmActionUseCase {
 
   private async executeApprovedAction(
     action: PendingAction,
-    _userId: string,
+    userId: string,
   ): Promise<unknown> {
     switch (`${action.actionType}_${action.resourceType}`) {
       case "edit_content": {
@@ -103,6 +105,7 @@ export class AIConfirmActionUseCase {
         const payload = action.payload as {
           name?: string;
           description?: string | null;
+          items?: Array<{ contentId: string; duration: number }>;
         };
         const updated = await this.deps.playlistRepository.update(
           action.resourceId,
@@ -111,6 +114,19 @@ export class AIConfirmActionUseCase {
             description: payload.description,
           },
         );
+
+        if (payload.items?.length) {
+          await this.deps.replacePlaylistItemsAtomicUseCase.execute({
+            ownerId: userId,
+            playlistId: action.resourceId,
+            items: payload.items.map((item) => ({
+              kind: "new",
+              contentId: item.contentId,
+              duration: item.duration,
+            })),
+          });
+        }
+
         return updated;
       }
 

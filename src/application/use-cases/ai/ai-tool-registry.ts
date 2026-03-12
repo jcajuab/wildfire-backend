@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+const playlistItemInputSchema = z.object({
+  contentId: z
+    .string()
+    .uuid()
+    .describe("Content ID of the item to include in the playlist"),
+  duration: z
+    .number()
+    .int()
+    .positive()
+    .describe("Duration of this content item in seconds"),
+});
+
 export const AI_TOOLS = {
   create_text_content: {
     name: "create_text_content",
@@ -22,6 +34,13 @@ export const AI_TOOLS = {
     inputSchema: z.object({
       name: z.string().min(1).describe("Playlist name"),
       description: z.string().optional().describe("Playlist description"),
+      items: z
+        .array(playlistItemInputSchema)
+        .min(1)
+        .optional()
+        .describe(
+          "Optional initial playlist items in playback order. Each item needs contentId and duration.",
+        ),
     }),
     requiresConfirmation: false,
   },
@@ -106,6 +125,13 @@ export const AI_TOOLS = {
       playlistId: z.string().uuid(),
       name: z.string().optional(),
       description: z.string().optional(),
+      items: z
+        .array(playlistItemInputSchema)
+        .min(1)
+        .optional()
+        .describe(
+          "Optional playlist replacement items in playback order. Each item needs contentId and duration.",
+        ),
     }),
     requiresConfirmation: true,
   },

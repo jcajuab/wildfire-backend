@@ -24,7 +24,10 @@ import { CreateFlashContentUseCase } from "#/application/use-cases/content/creat
 import { CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
 import { ListContentUseCase } from "#/application/use-cases/content/list-content.use-case";
 import { ListDisplaysUseCase } from "#/application/use-cases/displays/list-displays.use-case";
-import { CreatePlaylistUseCase } from "#/application/use-cases/playlists";
+import {
+  CreatePlaylistUseCase,
+  ReplacePlaylistItemsAtomicUseCase,
+} from "#/application/use-cases/playlists";
 import { ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
@@ -125,6 +128,14 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     userRepository: config.repositories.userRepository,
   });
 
+  const replacePlaylistItemsAtomicUseCase =
+    new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: config.repositories.playlistRepository,
+      contentRepository: config.repositories.contentRepository,
+      scheduleRepository: config.repositories.scheduleRepository,
+      displayRepository: config.repositories.displayRepository,
+    });
+
   const createScheduleUseCase = new CreateScheduleUseCase({
     scheduleRepository: config.repositories.scheduleRepository,
     playlistRepository: config.repositories.playlistRepository,
@@ -155,6 +166,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     createFlashContentUseCase,
     createTextContentUseCase,
     createPlaylistUseCase,
+    replacePlaylistItemsAtomicUseCase,
     createScheduleUseCase,
     listDisplaysUseCase,
     listContentUseCase,
@@ -179,6 +191,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     encryptionService,
     contentRepository: config.repositories.contentRepository,
     playlistRepository: config.repositories.playlistRepository,
+    replacePlaylistItemsAtomicUseCase,
     scheduleRepository: config.repositories.scheduleRepository,
     auditLogger,
   });
