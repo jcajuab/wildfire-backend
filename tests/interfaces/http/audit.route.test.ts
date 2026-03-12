@@ -7,7 +7,7 @@ import {
 import { createAuditHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
+import { createAuditRouter } from "#/interfaces/http/routes/audit";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;

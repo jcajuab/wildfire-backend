@@ -54,17 +54,17 @@ import {
   requestLogger,
 } from "#/interfaces/http/middleware/observability";
 import { internalServerError } from "#/interfaces/http/responses";
-import { createAIRouter } from "#/interfaces/http/routes/ai.route";
-import { createAuditRouter } from "#/interfaces/http/routes/audit.route";
-import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
-import { createContentRouter } from "#/interfaces/http/routes/content.route";
+import { createAIRouter } from "#/interfaces/http/routes/ai";
+import { createAuditRouter } from "#/interfaces/http/routes/audit";
+import { createAuthRouter } from "#/interfaces/http/routes/auth";
+import { createContentRouter } from "#/interfaces/http/routes/content";
 import { createContentJobsRouter } from "#/interfaces/http/routes/content-jobs.route";
-import { createDisplayRouter } from "#/interfaces/http/routes/display.route";
-import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
+import { createDisplayRouter } from "#/interfaces/http/routes/display-runtime";
+import { createDisplaysRouter } from "#/interfaces/http/routes/displays";
 import { createHealthRouter } from "#/interfaces/http/routes/health.route";
-import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
-import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
-import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
+import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists";
+import { createRbacRouter } from "#/interfaces/http/routes/rbac";
+import { createSchedulesRouter } from "#/interfaces/http/routes/schedules";
 import { RedisAuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import { runStartupAuthIdentitySync } from "#/interfaces/http/startup/auth-identity.sync";
 import packageJSON from "#/package.json" with { type: "json" };
@@ -558,25 +558,6 @@ const auditModule = createAuditHttpModule({
 });
 const auditRouter = createAuditRouter(auditModule);
 
-const aiModule = createAIModule({
-  jwtSecret: env.JWT_SECRET,
-  authSessionRepository: container.repositories.authSessionRepository,
-  authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
-  encryptionKey: env.AI_ENCRYPTION_KEY,
-  rateLimitWindowSeconds: env.AI_RATE_LIMIT_WINDOW_SECONDS,
-  rateLimitMaxRequests: env.AI_RATE_LIMIT_MAX_REQUESTS,
-  repositories: {
-    authorizationRepository: container.repositories.authorizationRepository,
-    contentRepository: container.repositories.contentRepository,
-    playlistRepository: container.repositories.playlistRepository,
-    scheduleRepository: container.repositories.scheduleRepository,
-    displayRepository: container.repositories.displayRepository,
-    userRepository: container.repositories.userRepository,
-  },
-  storage: container.storage.contentStorage,
-});
-const aiRouter = createAIRouter(aiModule);
-
 const auditQueue = new RedisAuditQueue({
   enabled: env.AUDIT_QUEUE_ENABLED,
   maxStreamLength: env.AUDIT_QUEUE_CAPACITY,
@@ -586,6 +567,27 @@ const auditQueue = new RedisAuditQueue({
   enqueueMaxDelayMs: env.AUDIT_QUEUE_ENQUEUE_MAX_DELAY_MS,
   enqueueTimeoutMs: env.AUDIT_QUEUE_ENQUEUE_TIMEOUT_MS,
 });
+
+const aiModule = createAIModule({
+  jwtSecret: env.JWT_SECRET,
+  authSessionRepository: container.repositories.authSessionRepository,
+  authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  encryptionKey: env.AI_ENCRYPTION_KEY,
+  rateLimitWindowSeconds: env.AI_RATE_LIMIT_WINDOW_SECONDS,
+  rateLimitMaxRequests: env.AI_RATE_LIMIT_MAX_REQUESTS,
+  auditQueue,
+  repositories: {
+    authorizationRepository: container.repositories.authorizationRepository,
+    contentRepository: container.repositories.contentRepository,
+    playlistRepository: container.repositories.playlistRepository,
+    scheduleRepository: container.repositories.scheduleRepository,
+    displayRepository: container.repositories.displayRepository,
+    userRepository: container.repositories.userRepository,
+    displayGroupRepository: container.repositories.displayGroupRepository,
+  },
+  storage: container.storage.contentStorage,
+});
+const aiRouter = createAIRouter(aiModule);
 
 app.use(
   "*",

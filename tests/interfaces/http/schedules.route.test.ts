@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { createSchedulesHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { createSchedulesRouter } from "#/interfaces/http/routes/schedules.route";
+import { createSchedulesRouter } from "#/interfaces/http/routes/schedules";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;

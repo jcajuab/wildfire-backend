@@ -5,7 +5,7 @@ import { type ContentRecord } from "#/application/ports/content";
 import { createContentHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { createContentRouter } from "#/interfaces/http/routes/content.route";
+import { createContentRouter } from "#/interfaces/http/routes/content";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;

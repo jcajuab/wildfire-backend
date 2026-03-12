@@ -1,4 +1,3 @@
-import { stream } from "hono/streaming";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { tooManyRequests } from "#/interfaces/http/responses";
 import {
@@ -68,7 +67,7 @@ export const registerAIChatRoutes = (args: {
         // Prefer per-request API key from header (redacted in logs by security middleware)
         const apiKey = c.req.header("x-ai-provider-key");
 
-        const chunks = await useCases.aiChat.execute({
+        const result = await useCases.aiChat.execute({
           conversationId: body.conversationId,
           messages: body.messages,
           provider: body.provider,
@@ -80,21 +79,7 @@ export const registerAIChatRoutes = (args: {
           userId,
         });
 
-        c.header("Content-Type", "text/event-stream");
-        c.header("Cache-Control", "no-cache");
-        c.header("Connection", "keep-alive");
-
-        return stream(c, async (streamCtx) => {
-          try {
-            for await (const chunk of chunks) {
-              const line = `data: ${JSON.stringify(chunk)}\n\n`;
-              await streamCtx.write(line);
-            }
-          } catch (_err) {
-            const errorChunk = { type: "error", error: "Stream failed" };
-            await streamCtx.write(`data: ${JSON.stringify(errorChunk)}\n\n`);
-          }
-        });
+        return result.toUIMessageStreamResponse();
       },
       ...applicationErrorMappers,
     ),

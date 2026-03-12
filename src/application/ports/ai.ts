@@ -26,17 +26,11 @@ export interface AIToolResult {
   confirmationSummary?: string;
 }
 
-// Port returns async iterable, not ReadableStream
-export interface AIStreamChunk {
-  type: "text" | "tool-call" | "tool-result" | "error" | "done";
-  content?: string;
-  toolCall?: AIToolCall;
-  toolResult?: AIToolResult;
-  error?: string;
-}
-
-export interface AIChatResult {
-  chunks: AsyncIterable<AIStreamChunk>;
+/** Minimal interface for the streamText result used by the chat route. */
+export interface AIStreamResponse {
+  toUIMessageStreamResponse(options?: {
+    headers?: Record<string, string>;
+  }): Response;
 }
 
 export interface PendingAction {

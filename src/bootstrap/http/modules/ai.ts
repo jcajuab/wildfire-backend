@@ -3,6 +3,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type DisplayGroupRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
   type AuthorizationRepository,
@@ -19,8 +20,12 @@ import {
   ListPendingActionsUseCase,
   StoreAICredentialUseCase,
 } from "#/application/use-cases/ai";
+import { CreateFlashContentUseCase } from "#/application/use-cases/content/create-flash-content.use-case";
 import { CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
+import { ListContentUseCase } from "#/application/use-cases/content/list-content.use-case";
+import { ListDisplaysUseCase } from "#/application/use-cases/displays/list-displays.use-case";
 import { CreatePlaylistUseCase } from "#/application/use-cases/playlists";
+import { ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
 import { RedisPendingActionStore } from "#/infrastructure/ai/redis-pending-action.store";
@@ -28,6 +33,8 @@ import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import { AICredentialsRepo } from "#/infrastructure/db/repositories/ai-credentials.repo";
 import { type DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
+import { logger } from "#/infrastructure/observability/logger";
+import { type AuditLogQueue } from "#/interfaces/http/audit/audit-queue";
 import {
   type AIRouterDeps,
   type AIRouterUseCases,
@@ -40,12 +47,14 @@ export interface AIHttpModuleConfig {
   encryptionKey: string;
   rateLimitWindowSeconds: number;
   rateLimitMaxRequests: number;
+  auditQueue: AuditLogQueue;
   repositories: {
     authorizationRepository: AuthorizationRepository;
     contentRepository: ContentRepository;
     playlistRepository: PlaylistRepository;
     scheduleRepository: ScheduleRepository;
     displayRepository: DisplayDbRepository;
+    displayGroupRepository: DisplayGroupRepository;
     userRepository: UserRepository;
   };
   storage: ContentStorage;
@@ -66,19 +75,46 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     authorizationRepository: config.repositories.authorizationRepository,
   });
 
-  // Noop audit logger - real auditing happens via the request-level audit trail middleware
   const auditLogger = {
-    log(_input: {
+    log(input: {
       event: string;
       userId: string;
       metadata?: Record<string, unknown>;
     }) {
-      // Audit trail is handled by the request-level middleware
+      config.auditQueue
+        .enqueue({
+          action: input.event,
+          actorId: input.userId,
+          actorType: "user",
+          method: "INTERNAL",
+          path: "/internal/ai",
+          status: 200,
+          metadataJson: input.metadata
+            ? JSON.stringify(input.metadata)
+            : undefined,
+        })
+        .catch((error: unknown) => {
+          logger.warn(
+            {
+              component: "ai",
+              event: "audit.event.dropped",
+              action: input.event,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            "AI audit event dropped",
+          );
+        });
     },
   };
 
   // Tool dependencies
   const createTextContentUseCase = new CreateTextContentUseCase({
+    contentRepository: config.repositories.contentRepository,
+    contentStorage: config.storage,
+    userRepository: config.repositories.userRepository,
+  });
+
+  const createFlashContentUseCase = new CreateFlashContentUseCase({
     contentRepository: config.repositories.contentRepository,
     contentStorage: config.storage,
     userRepository: config.repositories.userRepository,
@@ -96,10 +132,33 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     contentRepository: config.repositories.contentRepository,
   });
 
+  const listDisplaysUseCase = new ListDisplaysUseCase({
+    displayRepository: config.repositories.displayRepository,
+    displayGroupRepository: config.repositories.displayGroupRepository,
+    scheduleRepository: config.repositories.scheduleRepository,
+    playlistRepository: config.repositories.playlistRepository,
+  });
+
+  const listContentUseCase = new ListContentUseCase({
+    contentRepository: config.repositories.contentRepository,
+    userRepository: config.repositories.userRepository,
+    contentStorage: config.storage,
+    thumbnailUrlExpiresInSeconds: 3600,
+  });
+
+  const listPlaylistsUseCase = new ListPlaylistsUseCase({
+    playlistRepository: config.repositories.playlistRepository,
+    userRepository: config.repositories.userRepository,
+  });
+
   const toolExecutor = new AIToolExecutor({
+    createFlashContentUseCase,
     createTextContentUseCase,
     createPlaylistUseCase,
     createScheduleUseCase,
+    listDisplaysUseCase,
+    listContentUseCase,
+    listPlaylistsUseCase,
     pendingActionStore,
     auditLogger,
   });

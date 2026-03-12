@@ -3,14 +3,15 @@ import { z } from "zod";
 export const AI_TOOLS = {
   create_text_content: {
     name: "create_text_content",
-    description: "Create text-based content with rich text formatting",
-    parameters: z.object({
+    description: "Create text-based content from plain text",
+    inputSchema: z.object({
       title: z.string().min(1).describe("Content title"),
-      jsonContent: z.string().min(1).describe("TipTap JSON content structure"),
-      htmlContent: z
+      text: z
         .string()
         .min(1)
-        .describe("HTML representation of the content"),
+        .describe(
+          "Plain text content to display. The system handles formatting automatically.",
+        ),
     }),
     requiresConfirmation: false,
   },
@@ -18,7 +19,7 @@ export const AI_TOOLS = {
   create_playlist: {
     name: "create_playlist",
     description: "Create a new playlist for organizing content",
-    parameters: z.object({
+    inputSchema: z.object({
       name: z.string().min(1).describe("Playlist name"),
       description: z.string().optional().describe("Playlist description"),
     }),
@@ -28,7 +29,7 @@ export const AI_TOOLS = {
   create_schedule: {
     name: "create_schedule",
     description: "Create a schedule to display content on a specific display",
-    parameters: z.object({
+    inputSchema: z.object({
       name: z.string().min(1).describe("Schedule name"),
       kind: z.enum(["PLAYLIST", "FLASH"]).describe("Schedule type"),
       playlistId: z
@@ -54,10 +55,33 @@ export const AI_TOOLS = {
     requiresConfirmation: false,
   },
 
+  create_flash_content: {
+    name: "create_flash_content",
+    description:
+      "Create a flash alert message for digital signage displays. Flash messages are short, attention-grabbing alerts.",
+    inputSchema: z.object({
+      title: z.string().min(1).describe("Content title"),
+      text: z
+        .string()
+        .min(1)
+        .max(240)
+        .describe(
+          "Flash message text (max 240 characters). Keep it short and impactful.",
+        ),
+      tone: z
+        .enum(["INFO", "WARNING", "CRITICAL"])
+        .default("INFO")
+        .describe(
+          "Alert tone: INFO for general notices, WARNING for caution, CRITICAL for urgent alerts",
+        ),
+    }),
+    requiresConfirmation: false,
+  },
+
   edit_content: {
     name: "edit_content",
     description: "Edit existing content (requires user confirmation)",
-    parameters: z.object({
+    inputSchema: z.object({
       contentId: z.string().uuid(),
       title: z.string().optional(),
       jsonContent: z.string().optional(),
@@ -69,7 +93,7 @@ export const AI_TOOLS = {
   delete_content: {
     name: "delete_content",
     description: "Delete content (requires user confirmation)",
-    parameters: z.object({
+    inputSchema: z.object({
       contentId: z.string().uuid(),
     }),
     requiresConfirmation: true,
@@ -78,7 +102,7 @@ export const AI_TOOLS = {
   edit_playlist: {
     name: "edit_playlist",
     description: "Edit existing playlist (requires user confirmation)",
-    parameters: z.object({
+    inputSchema: z.object({
       playlistId: z.string().uuid(),
       name: z.string().optional(),
       description: z.string().optional(),
@@ -89,7 +113,7 @@ export const AI_TOOLS = {
   delete_playlist: {
     name: "delete_playlist",
     description: "Delete playlist (requires user confirmation)",
-    parameters: z.object({
+    inputSchema: z.object({
       playlistId: z.string().uuid(),
     }),
     requiresConfirmation: true,
@@ -98,7 +122,7 @@ export const AI_TOOLS = {
   edit_schedule: {
     name: "edit_schedule",
     description: "Edit existing schedule (requires user confirmation)",
-    parameters: z.object({
+    inputSchema: z.object({
       scheduleId: z.string().uuid(),
       name: z.string().optional(),
       startTime: z.string().optional(),
@@ -111,9 +135,48 @@ export const AI_TOOLS = {
   delete_schedule: {
     name: "delete_schedule",
     description: "Delete schedule (requires user confirmation)",
-    parameters: z.object({
+    inputSchema: z.object({
       scheduleId: z.string().uuid(),
     }),
     requiresConfirmation: true,
+  },
+
+  list_displays: {
+    name: "list_displays",
+    description:
+      "List all available displays with their details (id, name, status, groups, location). Use this to find display IDs before scheduling content.",
+    inputSchema: z.object({
+      search: z
+        .string()
+        .optional()
+        .describe("Optional search term to filter displays by name"),
+    }),
+    requiresConfirmation: false,
+  },
+
+  list_content: {
+    name: "list_content",
+    description:
+      "List content owned by the current user with full details. Use this to find existing content before adding to playlists or scheduling.",
+    inputSchema: z.object({
+      search: z
+        .string()
+        .optional()
+        .describe("Optional search term to filter content by title"),
+    }),
+    requiresConfirmation: false,
+  },
+
+  list_playlists: {
+    name: "list_playlists",
+    description:
+      "List playlists owned by the current user with full details. Use this to find existing playlists before scheduling or adding content.",
+    inputSchema: z.object({
+      search: z
+        .string()
+        .optional()
+        .describe("Optional search term to filter playlists by name"),
+    }),
+    requiresConfirmation: false,
   },
 } as const;

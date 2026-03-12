@@ -7,7 +7,7 @@ import { type RuntimeControlRepository } from "#/application/ports/runtime-contr
 import { createDisplaysHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { createDisplaysRouter } from "#/interfaces/http/routes/displays.route";
+import { createDisplaysRouter } from "#/interfaces/http/routes/displays";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;

@@ -11,7 +11,7 @@ import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import {
   createRbacRouter,
   type RbacRouterDeps,
-} from "#/interfaces/http/routes/rbac.route";
+} from "#/interfaces/http/routes/rbac";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;

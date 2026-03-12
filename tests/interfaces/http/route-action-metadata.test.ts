@@ -14,9 +14,9 @@ import {
   requestId,
   requestLogger,
 } from "#/interfaces/http/middleware/observability";
-import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
-import { createContentRouter } from "#/interfaces/http/routes/content.route";
-import { createRbacRouter } from "#/interfaces/http/routes/rbac.route";
+import { createAuthRouter } from "#/interfaces/http/routes/auth";
+import { createContentRouter } from "#/interfaces/http/routes/content";
+import { createRbacRouter } from "#/interfaces/http/routes/rbac";
 import { InMemoryAuthSecurityStore } from "../../helpers/in-memory-auth-security.store";
 
 const parseJson = async <T>(response: Response) => (await response.json()) as T;

@@ -1,20 +1,42 @@
+import { type z } from "zod";
 import {
   type AIToolCall,
   type AIToolResult,
   type AuditLogger,
   type PendingActionStore,
 } from "#/application/ports/ai";
+import { type CreateFlashContentUseCase } from "#/application/use-cases/content/create-flash-content.use-case";
 import { type CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
+import { type ListContentUseCase } from "#/application/use-cases/content/list-content.use-case";
+import { type ListDisplaysUseCase } from "#/application/use-cases/displays/list-displays.use-case";
 import { type CreatePlaylistUseCase } from "#/application/use-cases/playlists/create-playlist.use-case";
+import { type ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
 import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/create-schedule.use-case";
 import { AI_TOOLS } from "./ai-tool-registry";
+import { convertPlainTextToTipTap } from "./tiptap-convert";
+
+type CreateTextContentArgs = z.infer<
+  typeof AI_TOOLS.create_text_content.inputSchema
+>;
+type CreatePlaylistArgs = z.infer<typeof AI_TOOLS.create_playlist.inputSchema>;
+type CreateScheduleArgs = z.infer<typeof AI_TOOLS.create_schedule.inputSchema>;
+type ListDisplaysArgs = z.infer<typeof AI_TOOLS.list_displays.inputSchema>;
+type ListContentArgs = z.infer<typeof AI_TOOLS.list_content.inputSchema>;
+type CreateFlashContentArgs = z.infer<
+  typeof AI_TOOLS.create_flash_content.inputSchema
+>;
+type ListPlaylistsArgs = z.infer<typeof AI_TOOLS.list_playlists.inputSchema>;
 
 export class AIToolExecutor {
   constructor(
     private readonly deps: {
+      createFlashContentUseCase: CreateFlashContentUseCase;
       createTextContentUseCase: CreateTextContentUseCase;
       createPlaylistUseCase: CreatePlaylistUseCase;
       createScheduleUseCase: CreateScheduleUseCase;
+      listDisplaysUseCase: ListDisplaysUseCase;
+      listContentUseCase: ListContentUseCase;
+      listPlaylistsUseCase: ListPlaylistsUseCase;
       pendingActionStore: PendingActionStore;
       auditLogger: AuditLogger;
     },
@@ -30,7 +52,7 @@ export class AIToolExecutor {
     }
 
     try {
-      const parseResult = toolDef.parameters.safeParse(toolCall.args);
+      const parseResult = toolDef.inputSchema.safeParse(toolCall.args);
       if (!parseResult.success) {
         return {
           success: false,
@@ -83,39 +105,85 @@ export class AIToolExecutor {
   ): Promise<AIToolResult> {
     switch (toolName) {
       case "create_text_content": {
+        const typedArgs = args as CreateTextContentArgs;
+        const { jsonContent, htmlContent } = convertPlainTextToTipTap(
+          typedArgs.text,
+        );
         const result = await this.deps.createTextContentUseCase.execute({
-          title: args.title as string,
-          jsonContent: args.jsonContent as string,
-          htmlContent: args.htmlContent as string,
+          title: typedArgs.title,
+          jsonContent,
+          htmlContent,
+          ownerId: context.userId,
+        });
+        return { success: true, data: result };
+      }
+
+      case "create_flash_content": {
+        const typedArgs = args as CreateFlashContentArgs;
+        const result = await this.deps.createFlashContentUseCase.execute({
+          title: typedArgs.title,
+          message: typedArgs.text,
+          tone: typedArgs.tone,
           ownerId: context.userId,
         });
         return { success: true, data: result };
       }
 
       case "create_playlist": {
+        const typedArgs = args as CreatePlaylistArgs;
         const result = await this.deps.createPlaylistUseCase.execute({
-          name: args.name as string,
-          description: args.description as string | undefined,
+          name: typedArgs.name,
+          description: typedArgs.description,
           ownerId: context.userId,
         });
         return { success: true, data: result };
       }
 
       case "create_schedule": {
+        const typedArgs = args as CreateScheduleArgs;
         const result = await this.deps.createScheduleUseCase.execute({
-          name: args.name as string,
-          kind: args.kind as "PLAYLIST" | "FLASH",
-          playlistId: (args.playlistId as string | undefined) ?? null,
-          contentId: (args.contentId as string | undefined) ?? null,
-          displayId: args.displayId as string,
-          startDate: args.startDate as string | undefined,
-          endDate: args.endDate as string | undefined,
-          startTime: args.startTime as string,
-          endTime: args.endTime as string,
-          isActive: args.isActive as boolean,
+          name: typedArgs.name,
+          kind: typedArgs.kind,
+          playlistId: typedArgs.playlistId ?? null,
+          contentId: typedArgs.contentId ?? null,
+          displayId: typedArgs.displayId,
+          startDate: typedArgs.startDate,
+          endDate: typedArgs.endDate,
+          startTime: typedArgs.startTime,
+          endTime: typedArgs.endTime,
+          isActive: typedArgs.isActive,
           ownerId: context.userId,
         });
         return { success: true, data: result };
+      }
+
+      case "list_displays": {
+        const typedArgs = args as ListDisplaysArgs;
+        const result = await this.deps.listDisplaysUseCase.execute({
+          q: typedArgs.search,
+          pageSize: 100,
+        });
+        return { success: true, data: result.items };
+      }
+
+      case "list_content": {
+        const typedArgs = args as ListContentArgs;
+        const result = await this.deps.listContentUseCase.execute({
+          ownerId: context.userId,
+          search: typedArgs.search,
+          pageSize: 100,
+        });
+        return { success: true, data: result.items };
+      }
+
+      case "list_playlists": {
+        const typedArgs = args as ListPlaylistsArgs;
+        const result = await this.deps.listPlaylistsUseCase.execute({
+          ownerId: context.userId,
+          search: typedArgs.search,
+          pageSize: 100,
+        });
+        return { success: true, data: result.items };
       }
 
       default:

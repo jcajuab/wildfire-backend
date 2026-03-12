@@ -19,7 +19,7 @@ import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.ve
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { normalizeApiPayload } from "#/interfaces/http/responses";
-import { createAuthRouter } from "#/interfaces/http/routes/auth.route";
+import { createAuthRouter } from "#/interfaces/http/routes/auth";
 import { InMemoryAuthSecurityStore } from "../../helpers/in-memory-auth-security.store";
 
 const fixturePath = path.join(

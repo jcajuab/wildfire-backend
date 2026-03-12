@@ -1,8 +1,14 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import { type ModelMessage, streamText, tool } from "ai";
-import { type AIMessage, type AIStreamChunk } from "#/application/ports/ai";
+import {
+  type ModelMessage,
+  stepCountIs,
+  streamText,
+  type ToolSet,
+  tool,
+} from "ai";
+import { type AIMessage, type AIStreamResponse } from "#/application/ports/ai";
 import { AI_TOOLS } from "#/application/use-cases/ai/ai-tool-registry";
 
 export const createAIModel = (config: {
@@ -34,22 +40,30 @@ export const createAIModel = (config: {
   }
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: tool() returns vary based on schema generics
-const buildTools = (): Record<string, any> => {
-  const tools: Record<string, unknown> = {};
+const buildTools = (
+  onToolCall: (
+    toolName: string,
+    toolCallId: string,
+    args: Record<string, unknown>,
+  ) => Promise<unknown>,
+): ToolSet => {
+  const tools: ToolSet = {};
 
   for (const [name, toolDef] of Object.entries(AI_TOOLS)) {
     tools[name] = tool({
       description: toolDef.description,
-      // biome-ignore lint/suspicious/noExplicitAny: schema type varies per tool
-      inputSchema: toolDef.parameters as any,
+      // biome-ignore lint/suspicious/noExplicitAny: union of specific Zod schemas cannot be narrowed without per-tool overloads
+      inputSchema: toolDef.inputSchema as any,
+      execute: async (args, { toolCallId }: { toolCallId: string }) => {
+        return onToolCall(name, toolCallId, args as Record<string, unknown>);
+      },
     });
   }
 
   return tools;
 };
 
-export const executeAIChat = async (
+export const executeAIChat = (
   config: {
     provider: "openai" | "anthropic" | "google" | "azure" | "mistral";
     model: string;
@@ -64,15 +78,16 @@ export const executeAIChat = async (
     args: Record<string, unknown>,
   ) => Promise<unknown>,
   toolNames?: string[],
-): Promise<AsyncIterable<AIStreamChunk>> => {
+  systemPrompt?: string,
+): AIStreamResponse => {
   const aiModel = createAIModel(config);
-  // biome-ignore lint/suspicious/noExplicitAny: tool() returns vary based on schema generics
-  let tools: Record<string, any> = buildTools();
+  let tools: ToolSet = buildTools(onToolCall);
 
   if (toolNames?.length) {
-    // biome-ignore lint/suspicious/noExplicitAny: tool() returns vary based on schema generics
-    const filtered: Record<string, any> = {};
-    for (const name of toolNames) {
+    const filtered: ToolSet = {};
+    // Query tools are always available regardless of slash command selection
+    const alwaysAvailable = ["list_displays", "list_content", "list_playlists"];
+    for (const name of [...toolNames, ...alwaysAvailable]) {
       if (tools[name]) {
         filtered[name] = tools[name];
       }
@@ -80,99 +95,23 @@ export const executeAIChat = async (
     tools = filtered;
   }
 
-  let toolChoice: { type: "tool"; toolName: string } | "required" | undefined;
-  if (toolNames?.length === 1) {
-    toolChoice = { type: "tool", toolName: toolNames[0] as string };
-  } else if (toolNames && toolNames.length > 1) {
-    toolChoice = "required";
-  }
-
   const modelMessages: ModelMessage[] = messages.map((msg) => ({
     role: msg.role,
     content: msg.content,
   }));
 
-  const { fullStream } = streamText({
+  // toolChoice is intentionally left as "auto" (the default). The filtered
+  // `tools` object already limits which tools the model can call. Forcing
+  // toolChoice to a specific tool or "required" causes the model to repeat
+  // the same tool call on every step, resulting in duplicate side-effects.
+  return streamText({
     model: aiModel,
+    system: systemPrompt,
     messages: modelMessages,
     tools,
-    toolChoice,
     temperature: config.temperature,
     maxOutputTokens: config.maxTokens,
+    maxRetries: 0,
+    stopWhen: stepCountIs(6),
   });
-
-  return (async function* (): AsyncGenerator<AIStreamChunk> {
-    for await (const part of fullStream) {
-      switch (part.type) {
-        case "text-delta": {
-          yield {
-            type: "text",
-            content: part.text,
-          };
-          break;
-        }
-
-        case "tool-call": {
-          const toolCallChunk: AIStreamChunk = {
-            type: "tool-call",
-            toolCall: {
-              id: part.toolCallId,
-              toolName: part.toolName,
-              args: part.input as Record<string, unknown>,
-            },
-          };
-          yield toolCallChunk;
-
-          // Execute the tool and yield result
-          try {
-            const result = await onToolCall(
-              part.toolName,
-              part.toolCallId,
-              part.input as Record<string, unknown>,
-            );
-
-            yield {
-              type: "tool-result",
-              toolResult: {
-                success: true,
-                data: result,
-              },
-            };
-          } catch (error) {
-            yield {
-              type: "tool-result",
-              toolResult: {
-                success: false,
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Tool execution failed",
-              },
-            };
-          }
-          break;
-        }
-
-        case "error": {
-          yield {
-            type: "error",
-            error:
-              part.error instanceof Error
-                ? part.error.message
-                : "AI stream error",
-          };
-          break;
-        }
-
-        case "finish": {
-          yield { type: "done" };
-          break;
-        }
-
-        default:
-          // Skip other event types (step-start, step-finish, etc.)
-          break;
-      }
-    }
-  })();
 };

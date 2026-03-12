@@ -3,12 +3,17 @@ import { NotFoundError } from "#/application/errors/not-found";
 import {
   type AICredentialsRepository,
   type AIMessage,
-  type AIStreamChunk,
+  type AIStreamResponse,
   type AuditLogger,
   type PendingActionStore,
 } from "#/application/ports/ai";
 import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import { type AIToolExecutor } from "./ai-tool-executor";
+import {
+  AI_SYSTEM_PROMPT,
+  detectPromptInjection,
+  sanitizeUserMessage,
+} from "./system-prompt";
 
 export interface AIChatDeps {
   credentialsRepository: AICredentialsRepository;
@@ -31,7 +36,8 @@ export interface AIChatDeps {
       args: Record<string, unknown>,
     ) => Promise<unknown>,
     toolNames?: string[],
-  ) => Promise<AsyncIterable<AIStreamChunk>>;
+    systemPrompt?: string,
+  ) => AIStreamResponse;
 }
 
 export class AIChatUseCase {
@@ -47,13 +53,12 @@ export class AIChatUseCase {
     maxTokens?: number;
     toolNames?: string[];
     userId: string;
-  }): Promise<AsyncIterable<AIStreamChunk>> {
+  }): Promise<AIStreamResponse> {
     // Detect prompt injection attempts
-    const injectionPattern = /ignore (previous|all) instructions/i;
     const lastUserMessage = [...input.messages]
       .reverse()
       .find((m) => m.role === "user");
-    if (lastUserMessage && injectionPattern.test(lastUserMessage.content)) {
+    if (lastUserMessage && detectPromptInjection(lastUserMessage.content)) {
       this.deps.auditLogger.log({
         event: "ai.injection.detected",
         userId: input.userId,
@@ -121,15 +126,20 @@ export class AIChatUseCase {
       return result;
     };
 
-    const stream = await this.deps.executeAIChat(
+    const sanitizedMessages = input.messages.map((m) =>
+      m.role === "user" ? { ...m, content: sanitizeUserMessage(m.content) } : m,
+    );
+
+    const result = this.deps.executeAIChat(
       config,
-      input.messages,
+      sanitizedMessages,
       onToolCall,
       input.toolNames,
+      AI_SYSTEM_PROMPT,
     );
 
     this.deps.auditLogger.log({
-      event: "ai.chat.completed",
+      event: "ai.chat.started.streaming",
       userId: input.userId,
       metadata: {
         conversationId: input.conversationId,
@@ -137,6 +147,6 @@ export class AIChatUseCase {
       },
     });
 
-    return stream;
+    return result;
   }
 }

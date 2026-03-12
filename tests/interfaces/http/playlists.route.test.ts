@@ -4,7 +4,7 @@ import { type ContentRecord } from "#/application/ports/content";
 import { createPlaylistsHttpModule } from "#/bootstrap/http/modules";
 import { Permission } from "#/domain/rbac/permission";
 import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
-import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists.route";
+import { createPlaylistsRouter } from "#/interfaces/http/routes/playlists";
 
 const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
 const parseJson = async <T>(response: Response) => (await response.json()) as T;
