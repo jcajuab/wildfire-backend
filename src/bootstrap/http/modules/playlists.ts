@@ -38,7 +38,10 @@ export const createPlaylistsHttpModule = (
     useCases: {
       listPlaylists: new ListPlaylistsUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
+        contentRepository: routerDeps.repositories.contentRepository,
         userRepository: routerDeps.repositories.userRepository,
+        contentStorage: routerDeps.storage,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
       listPlaylistOptions: new ListPlaylistOptionsUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
@@ -51,6 +54,8 @@ export const createPlaylistsHttpModule = (
         playlistRepository: routerDeps.repositories.playlistRepository,
         contentRepository: routerDeps.repositories.contentRepository,
         userRepository: routerDeps.repositories.userRepository,
+        contentStorage: routerDeps.storage,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
       updatePlaylist: new UpdatePlaylistUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,

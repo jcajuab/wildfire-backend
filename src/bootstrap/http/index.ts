@@ -415,6 +415,8 @@ const playlistsModule = createPlaylistsHttpModule({
     scheduleRepository: container.repositories.scheduleRepository,
     displayRepository: container.repositories.displayRepository,
   },
+  storage: container.storage.contentStorage,
+  thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
   displayEventPublisher,
 });
 const playlistsRouter = createPlaylistsRouter(playlistsModule);

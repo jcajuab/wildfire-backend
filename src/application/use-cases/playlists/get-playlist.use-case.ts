@@ -1,4 +1,8 @@
-import { type ContentRepository } from "#/application/ports/content";
+import {
+  type ContentRecord,
+  type ContentRepository,
+  type ContentStorage,
+} from "#/application/ports/content";
 import {
   type PlaylistItemRecord,
   type PlaylistRepository,
@@ -14,8 +18,27 @@ export class GetPlaylistUseCase {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
       userRepository: UserRepository;
+      contentStorage?: ContentStorage;
+      thumbnailUrlExpiresInSeconds?: number;
     },
   ) {}
+
+  private async buildThumbnailUrl(
+    content: ContentRecord,
+  ): Promise<string | undefined> {
+    if (!content.thumbnailKey || !this.deps.contentStorage) {
+      return undefined;
+    }
+
+    try {
+      return await this.deps.contentStorage.getPresignedDownloadUrl({
+        key: content.thumbnailKey,
+        expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds ?? 3600,
+      });
+    } catch {
+      return undefined;
+    }
+  }
 
   async execute(input: { id: string; ownerId?: string }) {
     const playlist = await findPlaylistByIdForOwner(
@@ -57,7 +80,12 @@ export class GetPlaylistUseCase {
       if (!content) {
         throw new NotFoundError("Content not found");
       }
-      views.push(toPlaylistItemView(item, content));
+      const thumbnailUrl = await this.buildThumbnailUrl(content);
+      views.push(
+        toPlaylistItemView(item, content, {
+          thumbnailUrl: thumbnailUrl ?? null,
+        }),
+      );
     }
     return views;
   }
