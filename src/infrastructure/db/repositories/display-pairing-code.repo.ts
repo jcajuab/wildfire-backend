@@ -76,7 +76,9 @@ const parseStoredPairingCode = (
   };
 };
 
-const toRecord = (value: StoredPairingCode): DisplayPairingCodeRecord => ({
+const mapStoredCodeToRecord = (
+  value: StoredPairingCode,
+): DisplayPairingCodeRecord => ({
   id: value.id,
   codeHash: value.codeHash,
   expiresAt: new Date(value.expiresAtMs).toISOString(),
@@ -132,7 +134,7 @@ export class DisplayPairingCodeRedisRepository
       throw new DisplayPairingCodeCollisionError();
     }
 
-    return toRecord({
+    return mapStoredCodeToRecord({
       id,
       codeHash: input.codeHash,
       expiresAtMs,
@@ -183,7 +185,7 @@ export class DisplayPairingCodeRedisRepository
       String(nowMs),
     ]);
 
-    return toRecord({
+    return mapStoredCodeToRecord({
       ...stored,
       usedAtMs: nowMs,
       updatedAtMs: nowMs,

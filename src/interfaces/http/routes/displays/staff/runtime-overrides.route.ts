@@ -6,9 +6,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
+  authErrorResponses,
+  authValidationErrorResponses,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   displayRuntimeOverridesSchema,
@@ -51,8 +50,7 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -87,9 +85,7 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
       },
       responses: {
         204: { description: "Global emergency mode activated" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -125,9 +121,7 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
       },
       responses: {
         204: { description: "Global emergency mode deactivated" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

@@ -21,7 +21,7 @@ export interface StartupPhaseEventContext extends StartupPhaseContext {
 }
 
 export const createStartupRunId = (prefix: string): string =>
-  `${prefix}-${crypto.randomUUID?.() ?? `fallback-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`}`;
+  `${prefix}-${crypto.randomUUID()}`;
 
 export const buildStartupPhasePayload = (
   context: StartupPhaseContext,

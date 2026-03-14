@@ -16,7 +16,7 @@ import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 import { toIsoString } from "./utils/date";
 
-const toPlaylistRecord = (
+const mapPlaylistRowToRecord = (
   row: typeof playlists.$inferSelect,
 ): PlaylistRecord => {
   if (!isPlaylistStatus(row.status)) {
@@ -34,7 +34,7 @@ const toPlaylistRecord = (
   };
 };
 
-const toItemRecord = (
+const mapPlaylistItemRowToRecord = (
   row: typeof playlistItems.$inferSelect,
 ): PlaylistItemRecord => ({
   id: row.id,
@@ -78,7 +78,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .select()
       .from(playlists)
       .orderBy(desc(playlists.updatedAt));
-    return rows.map(toPlaylistRecord);
+    return rows.map(mapPlaylistRowToRecord);
   }
 
   async listForOwner(ownerId: string): Promise<PlaylistRecord[]> {
@@ -87,7 +87,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .from(playlists)
       .where(eq(playlists.ownerId, ownerId))
       .orderBy(desc(playlists.updatedAt));
-    return rows.map(toPlaylistRecord);
+    return rows.map(mapPlaylistRowToRecord);
   }
 
   async listPage(input: {
@@ -153,7 +153,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
         : await totalQuery.where(whereClause);
 
     return {
-      items: rows.map(toPlaylistRecord),
+      items: rows.map(mapPlaylistRowToRecord),
       total: totalResult[0]?.value ?? 0,
     };
   }
@@ -180,7 +180,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       ? and(inArray(playlists.id, ids), eq(playlists.ownerId, ownerId))
       : inArray(playlists.id, ids);
     const rows = await db.select().from(playlists).where(whereClause);
-    return rows.map(toPlaylistRecord);
+    return rows.map(mapPlaylistRowToRecord);
   }
 
   async findById(id: string): Promise<PlaylistRecord | null> {
@@ -202,7 +202,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       ? and(eq(playlists.id, id), eq(playlists.ownerId, ownerId))
       : eq(playlists.id, id);
     const rows = await db.select().from(playlists).where(whereClause).limit(1);
-    return rows[0] ? toPlaylistRecord(rows[0]) : null;
+    return rows[0] ? mapPlaylistRowToRecord(rows[0]) : null;
   }
 
   async create(input: {
@@ -316,7 +316,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .from(playlistItems)
       .where(eq(playlistItems.playlistId, playlistId))
       .orderBy(asc(playlistItems.sequence));
-    return rows.map(toItemRecord);
+    return rows.map(mapPlaylistItemRowToRecord);
   }
 
   async listItemStatsByPlaylistIds(
@@ -355,7 +355,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .from(playlistItems)
       .where(eq(playlistItems.id, id))
       .limit(1);
-    return rows[0] ? toItemRecord(rows[0]) : null;
+    return rows[0] ? mapPlaylistItemRowToRecord(rows[0]) : null;
   }
 
   async countItemsByContentId(contentId: string): Promise<number> {

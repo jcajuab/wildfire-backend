@@ -53,7 +53,7 @@ export const invitationIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 const AVATAR_IMAGE_MIMES = [
   "image/jpeg",
   "image/png",

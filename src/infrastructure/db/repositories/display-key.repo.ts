@@ -8,9 +8,7 @@ import {
   displayActiveKeys,
   displayKeyPairs,
 } from "#/infrastructure/db/schema/display-key.sql";
-
-const toIso = (value: Date | string): string =>
-  value instanceof Date ? value.toISOString() : value;
+import { toIsoString, toNullableIsoString } from "./utils/date";
 
 type DisplayKeyRow = {
   id: string;
@@ -23,24 +21,19 @@ type DisplayKeyRow = {
   activeDisplayId: string | null;
 };
 
-const toRecord = (row: DisplayKeyRow): DisplayKeyRecord => ({
+const mapDisplayKeyRowToRecord = (row: DisplayKeyRow): DisplayKeyRecord => ({
   id: row.id,
   displayId: row.displayId,
   algorithm: row.algorithm,
   publicKey: row.publicKey,
   status:
     row.activeDisplayId != null && row.revokedAt == null ? "active" : "revoked",
-  revokedAt:
-    row.revokedAt == null
-      ? null
-      : row.revokedAt instanceof Date
-        ? row.revokedAt.toISOString()
-        : row.revokedAt,
-  createdAt: toIso(row.createdAt),
-  updatedAt: toIso(row.updatedAt),
+  revokedAt: toNullableIsoString(row.revokedAt),
+  createdAt: toIsoString(row.createdAt),
+  updatedAt: toIsoString(row.updatedAt),
 });
 
-const baseQuery = () =>
+const buildDisplayKeyQuery = () =>
   db
     .select({
       id: displayKeyPairs.id,
@@ -121,7 +114,7 @@ export class DisplayKeyDbRepository implements DisplayKeyRepository {
   }
 
   async findActiveByKeyId(keyId: string): Promise<DisplayKeyRecord | null> {
-    const rows = await baseQuery()
+    const rows = await buildDisplayKeyQuery()
       .where(
         and(
           eq(displayKeyPairs.id, keyId),
@@ -131,18 +124,18 @@ export class DisplayKeyDbRepository implements DisplayKeyRepository {
       .limit(1);
 
     const row = rows[0];
-    return row ? toRecord(row) : null;
+    return row ? mapDisplayKeyRowToRecord(row) : null;
   }
 
   async findActiveByDisplayId(
     displayId: string,
   ): Promise<DisplayKeyRecord | null> {
-    const rows = await baseQuery()
+    const rows = await buildDisplayKeyQuery()
       .where(eq(displayActiveKeys.displayId, displayId))
       .limit(1);
 
     const row = rows[0];
-    return row ? toRecord(row) : null;
+    return row ? mapDisplayKeyRowToRecord(row) : null;
   }
 
   async revokeByDisplayId(displayId: string, at: Date): Promise<void> {

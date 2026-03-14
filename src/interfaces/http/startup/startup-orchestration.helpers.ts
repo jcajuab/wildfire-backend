@@ -14,9 +14,6 @@ export interface StartupAdminIdentity {
   password: string;
 }
 
-/**
- * Builds a startup context object for logging.
- */
 export const buildStartupContext = (input: {
   runId: string;
   operation: string;
@@ -27,10 +24,6 @@ export const buildStartupContext = (input: {
   runId: input.runId,
 });
 
-/**
- * Wraps a startup phase action with logging.
- * Logs start, success, or failure with duration.
- */
 export const runStartupPhase = async <T>(input: {
   context: StartupPhaseContext;
   action: () => Promise<T>;
@@ -57,9 +50,6 @@ export const runStartupPhase = async <T>(input: {
   }
 };
 
-/**
- * Normalizes admin identity input by trimming and lowercasing.
- */
 export const normalizeAdminIdentity = (input: {
   htshadowPath: string;
   adminUsername: string;
@@ -72,10 +62,6 @@ export const normalizeAdminIdentity = (input: {
   password: input.adminPassword.trim(),
 });
 
-/**
- * Validates admin identity input.
- * Throws if username/password is empty or email is invalid.
- */
 export const validateAdminIdentity = (
   adminIdentity: StartupAdminIdentity,
 ): void => {

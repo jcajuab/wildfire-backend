@@ -5,22 +5,18 @@ import {
 } from "#/application/ports/runtime-controls";
 import { db } from "#/infrastructure/db/client";
 import { runtimeControl } from "#/infrastructure/db/schema/runtime-control.sql";
+import { toIsoString, toNullableIsoString } from "./utils/date";
 
 const GLOBAL_ID = "global" as const;
 
-const toRecord = (
+const mapRuntimeControlRowToRecord = (
   row: typeof runtimeControl.$inferSelect,
 ): RuntimeControlRecord => ({
   id: GLOBAL_ID,
   globalEmergencyActive: row.globalEmergencyActive,
-  globalEmergencyStartedAt:
-    row.globalEmergencyStartedAt instanceof Date
-      ? row.globalEmergencyStartedAt.toISOString()
-      : (row.globalEmergencyStartedAt ?? null),
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+  globalEmergencyStartedAt: toNullableIsoString(row.globalEmergencyStartedAt),
+  createdAt: toIsoString(row.createdAt),
+  updatedAt: toIsoString(row.updatedAt),
 });
 
 export class RuntimeControlDbRepository implements RuntimeControlRepository {
@@ -33,7 +29,7 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
 
     const existing = rows[0];
     if (existing) {
-      return toRecord(existing);
+      return mapRuntimeControlRowToRecord(existing);
     }
 
     const now = new Date();

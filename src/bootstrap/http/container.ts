@@ -47,27 +47,33 @@ export interface HttpContainerConfig {
 
 export interface HttpContainer {
   repositories: {
+    // Auth & sessions
+    authSessionRepository: AuthSessionDbRepository;
+    invitationRepository: InvitationDbRepository;
+    // RBAC
     userRepository: UserDbRepository;
     roleRepository: RoleDbRepository;
     permissionRepository: PermissionDbRepository;
     userRoleRepository: UserRoleDbRepository;
     rolePermissionRepository: RolePermissionDbRepository;
     authorizationRepository: AuthorizationDbRepository;
-    authSessionRepository: AuthSessionDbRepository;
-    auditLogRepository: AuditLogDbRepository;
-    contentIngestionJobRepository: ContentIngestionJobDbRepository;
+    // Content
     contentRepository: ContentDbRepository;
+    contentIngestionJobRepository: ContentIngestionJobDbRepository;
+    // Playlists & schedules
     playlistRepository: PlaylistDbRepository;
     scheduleRepository: ScheduleDbRepository;
+    // Displays
     displayRepository: DisplayDbRepository;
     displayGroupRepository: DisplayGroupDbRepository;
-    displayPairingCodeRepository: DisplayPairingCodeRedisRepository;
     displayKeyRepository: DisplayKeyDbRepository;
+    displayPairingCodeRepository: DisplayPairingCodeRedisRepository;
     displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
     displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
     displayPreviewRepository: DisplayPreviewRedisRepository;
     runtimeControlRepository: RuntimeControlDbRepository;
-    invitationRepository: InvitationDbRepository;
+    // Audit
+    auditLogRepository: AuditLogDbRepository;
   };
   auth: {
     credentialsRepository: HtshadowCredentialsRepository;
@@ -89,28 +95,39 @@ export const createHttpContainer = (
 ): HttpContainer => {
   const minioEndpoint = `${config.minio.useSsl ? "https" : "http"}://${config.minio.endpoint}:${config.minio.port}`;
 
+  // Auth & sessions
+  const authSessionRepository = new AuthSessionDbRepository();
+  const invitationRepository = new InvitationDbRepository();
+
+  // RBAC
   const userRepository = new UserDbRepository();
   const roleRepository = new RoleDbRepository();
   const permissionRepository = new PermissionDbRepository();
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
   const authorizationRepository = new AuthorizationDbRepository();
-  const authSessionRepository = new AuthSessionDbRepository();
-  const auditLogRepository = new AuditLogDbRepository();
-  const contentIngestionJobRepository = new ContentIngestionJobDbRepository();
+
+  // Content
   const contentRepository = new ContentDbRepository();
+  const contentIngestionJobRepository = new ContentIngestionJobDbRepository();
+
+  // Playlists & schedules
   const playlistRepository = new PlaylistDbRepository();
   const scheduleRepository = new ScheduleDbRepository();
+
+  // Displays
   const displayRepository = new DisplayDbRepository();
   const displayGroupRepository = new DisplayGroupDbRepository();
-  const displayPairingCodeRepository = new DisplayPairingCodeRedisRepository();
   const displayKeyRepository = new DisplayKeyDbRepository();
+  const displayPairingCodeRepository = new DisplayPairingCodeRedisRepository();
   const displayPairingSessionRepository =
     new DisplayPairingSessionRedisRepository();
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const displayPreviewRepository = new DisplayPreviewRedisRepository();
   const runtimeControlRepository = new RuntimeControlDbRepository();
-  const invitationRepository = new InvitationDbRepository();
+
+  // Audit
+  const auditLogRepository = new AuditLogDbRepository();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
@@ -136,27 +153,27 @@ export const createHttpContainer = (
 
   return {
     repositories: {
+      authSessionRepository,
+      invitationRepository,
       userRepository,
       roleRepository,
       permissionRepository,
       userRoleRepository,
       rolePermissionRepository,
       authorizationRepository,
-      authSessionRepository,
-      auditLogRepository,
-      contentIngestionJobRepository,
       contentRepository,
+      contentIngestionJobRepository,
       playlistRepository,
       scheduleRepository,
       displayRepository,
       displayGroupRepository,
-      displayPairingCodeRepository,
       displayKeyRepository,
+      displayPairingCodeRepository,
       displayPairingSessionRepository,
       displayAuthNonceRepository,
       displayPreviewRepository,
       runtimeControlRepository,
-      invitationRepository,
+      auditLogRepository,
     },
     auth: {
       credentialsRepository,

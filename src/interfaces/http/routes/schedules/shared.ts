@@ -1,4 +1,4 @@
-import { type Hono, type MiddlewareHandler } from "hono";
+import { type Hono } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
@@ -17,6 +17,7 @@ import {
   type UpdateScheduleUseCase,
 } from "#/application/use-cases/schedules";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
 
 export interface SchedulesRouterDeps {
   jwtSecret: string;
@@ -46,11 +47,6 @@ export interface SchedulesRouterUseCases {
 
 export type SchedulesRouter = Hono<{ Variables: JwtUserVariables }>;
 
-export type AuthorizePermission = (
-  permission: string,
-) => readonly [
-  MiddlewareHandler,
-  MiddlewareHandler<{ Variables: JwtUserVariables }>,
-];
+export type { AuthorizePermission };
 
 export const scheduleTags = ["Schedules"];

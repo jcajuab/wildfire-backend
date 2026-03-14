@@ -10,10 +10,9 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
+  authErrorResponses,
+  authValidationErrorResponses,
   notFoundResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   displayIdParamSchema,
@@ -61,8 +60,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -111,8 +109,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -137,9 +134,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       tags: displayTags,
       responses: {
         200: { description: "Display options" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -176,9 +171,8 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           },
         },
         204: { description: "No preview available" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -265,10 +259,8 @@ export const registerDisplayStaffDisplayRoutes = (input: {
             },
           },
         },
-        422: { ...validationErrorResponse },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -308,9 +300,8 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       tags: displayTags,
       responses: {
         204: { description: "Refresh queued" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -337,9 +328,8 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       tags: displayTags,
       responses: {
         204: { description: "Display unregistered" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(

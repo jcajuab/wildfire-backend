@@ -47,7 +47,7 @@ type DisplayRow = {
   emergencyContentId: string | null;
 };
 
-const toRecord = (row: DisplayRow): DisplayRecord => ({
+const mapDisplayRowToRecord = (row: DisplayRow): DisplayRecord => ({
   id: row.id,
   slug: row.slug,
   name: row.name,
@@ -67,7 +67,7 @@ const toRecord = (row: DisplayRow): DisplayRecord => ({
   updatedAt: toIsoString(row.updatedAt),
 });
 
-const withJoins = () =>
+const buildDisplayQuery = () =>
   db
     .select({
       id: displays.id,
@@ -112,8 +112,8 @@ const ensureRuntimeState = async (displayId: string, at: Date) => {
 
 export class DisplayDbRepository implements DisplayRepository {
   async list(): Promise<DisplayRecord[]> {
-    const rows = await withJoins().orderBy(desc(displays.createdAt));
-    return rows.map(toRecord);
+    const rows = await buildDisplayQuery().orderBy(desc(displays.createdAt));
+    return rows.map(mapDisplayRowToRecord);
   }
 
   async listPage(input: { page: number; pageSize: number }): Promise<{
@@ -129,7 +129,7 @@ export class DisplayDbRepository implements DisplayRepository {
     const offset = (page - 1) * pageSize;
 
     const [rows, totalRows] = await Promise.all([
-      withJoins()
+      buildDisplayQuery()
         .orderBy(desc(displays.createdAt))
         .limit(pageSize)
         .offset(offset),
@@ -137,7 +137,7 @@ export class DisplayDbRepository implements DisplayRepository {
     ]);
 
     return {
-      items: rows.map(toRecord),
+      items: rows.map(mapDisplayRowToRecord),
       total: Number(totalRows[0]?.count ?? 0),
       page,
       pageSize,
@@ -214,7 +214,7 @@ export class DisplayDbRepository implements DisplayRepository {
           : asc(displays.name);
 
     const [rows, totalRows] = await Promise.all([
-      withJoins()
+      buildDisplayQuery()
         .where(whereClause)
         .orderBy(primaryOrder, secondaryOrder)
         .limit(pageSize)
@@ -230,7 +230,7 @@ export class DisplayDbRepository implements DisplayRepository {
     ]);
 
     return {
-      items: rows.map(toRecord),
+      items: rows.map(mapDisplayRowToRecord),
       total: Number(totalRows[0]?.count ?? 0),
       page,
       pageSize,
@@ -242,37 +242,39 @@ export class DisplayDbRepository implements DisplayRepository {
       return [];
     }
 
-    const rows = await withJoins().where(inArray(displays.id, ids));
-    return rows.map(toRecord);
+    const rows = await buildDisplayQuery().where(inArray(displays.id, ids));
+    return rows.map(mapDisplayRowToRecord);
   }
 
   async findById(id: string): Promise<DisplayRecord | null> {
-    const rows = await withJoins().where(eq(displays.id, id)).limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+    const rows = await buildDisplayQuery().where(eq(displays.id, id)).limit(1);
+    return rows[0] ? mapDisplayRowToRecord(rows[0]) : null;
   }
 
   async findBySlug(slug: string): Promise<DisplayRecord | null> {
-    const rows = await withJoins().where(eq(displays.slug, slug)).limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+    const rows = await buildDisplayQuery()
+      .where(eq(displays.slug, slug))
+      .limit(1);
+    return rows[0] ? mapDisplayRowToRecord(rows[0]) : null;
   }
 
   async findByFingerprint(fingerprint: string): Promise<DisplayRecord | null> {
-    const rows = await withJoins()
+    const rows = await buildDisplayQuery()
       .where(eq(displays.fingerprint, fingerprint))
       .limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+    return rows[0] ? mapDisplayRowToRecord(rows[0]) : null;
   }
 
   async findByFingerprintAndOutput(
     fingerprint: string,
     output: string,
   ): Promise<DisplayRecord | null> {
-    const rows = await withJoins()
+    const rows = await buildDisplayQuery()
       .where(
         and(eq(displays.fingerprint, fingerprint), eq(displays.output, output)),
       )
       .limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+    return rows[0] ? mapDisplayRowToRecord(rows[0]) : null;
   }
 
   async create(input: {

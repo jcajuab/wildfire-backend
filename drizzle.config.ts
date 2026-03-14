@@ -1,9 +1,5 @@
 import { defineConfig } from "drizzle-kit";
-import { env } from "#/env";
-
-const databaseUrl = `mysql://${encodeURIComponent(env.MYSQL_USER)}:${encodeURIComponent(
-  env.MYSQL_PASSWORD,
-)}@${env.MYSQL_HOST}:${env.MYSQL_PORT}/${env.MYSQL_DATABASE}`;
+import { DATABASE_URL, env } from "#/env";
 
 export default defineConfig({
   dialect: "mysql",
@@ -15,6 +11,6 @@ export default defineConfig({
     database: env.MYSQL_DATABASE,
     user: env.MYSQL_USER,
     password: env.MYSQL_PASSWORD,
-    url: databaseUrl,
+    url: DATABASE_URL,
   },
 });

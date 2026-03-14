@@ -5,16 +5,17 @@ import {
 } from "#/application/ports/ai";
 import { db } from "#/infrastructure/db/client";
 import { aiCredentials } from "#/infrastructure/db/schema/ai-credentials.sql";
+import { toIsoString } from "./utils/date";
 
-const toRecord = (row: typeof aiCredentials.$inferSelect): AICredential => ({
+const mapAICredentialRowToRecord = (
+  row: typeof aiCredentials.$inferSelect,
+): AICredential => ({
   id: row.id,
   userId: row.userId,
   provider: row.provider as AICredential["provider"],
   keyHint: row.keyHint,
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+  createdAt: toIsoString(row.createdAt),
+  updatedAt: toIsoString(row.updatedAt),
 });
 
 export class AICredentialsRepo implements AICredentialsRepository {
@@ -58,7 +59,7 @@ export class AICredentialsRepo implements AICredentialsRepository {
       throw new Error("Credential was created but could not be loaded");
     }
 
-    return toRecord(row[0]);
+    return mapAICredentialRowToRecord(row[0]);
   }
 
   async findByUserAndProvider(
@@ -89,7 +90,7 @@ export class AICredentialsRepo implements AICredentialsRepository {
       .from(aiCredentials)
       .where(eq(aiCredentials.userId, userId));
 
-    return rows.map(toRecord);
+    return rows.map(mapAICredentialRowToRecord);
   }
 
   async delete(userId: string, provider: string): Promise<boolean> {

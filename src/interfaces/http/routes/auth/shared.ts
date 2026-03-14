@@ -31,6 +31,7 @@ import {
 } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
+import { AVATAR_MAX_BYTES } from "#/interfaces/http/validators/auth.schema";
 
 export interface AuthRouterDeps {
   credentialsRepository: CredentialsRepository;
@@ -78,7 +79,7 @@ export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;
 export type AuthMiddleware = MiddlewareHandler<{ Variables: JwtUserVariables }>;
 
 export const authTags = ["Auth"];
-export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+export { AVATAR_MAX_BYTES };
 
 export const authResponseSchema = z.object({
   type: z.literal("bearer"),

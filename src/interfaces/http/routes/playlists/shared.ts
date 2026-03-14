@@ -1,4 +1,4 @@
-import { type Hono, type MiddlewareHandler } from "hono";
+import { type Hono } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import {
   type ContentRepository,
@@ -28,6 +28,7 @@ import {
 } from "#/application/use-cases/playlists";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
 
 export interface PlaylistsRouterDeps {
   jwtSecret: string;
@@ -64,11 +65,6 @@ export interface PlaylistsRouterUseCases {
 
 export type PlaylistsRouter = Hono<{ Variables: JwtUserVariables }>;
 
-export type AuthorizePermission = (
-  permission: string,
-) => readonly [
-  MiddlewareHandler,
-  MiddlewareHandler<{ Variables: JwtUserVariables }>,
-];
+export type { AuthorizePermission };
 
 export const playlistTags = ["Playlists"];

@@ -459,36 +459,6 @@ export class ContentDbRepository implements ContentRepository {
       id: existing.id,
       createdAt: existing.createdAt,
       ownerId: existing.ownerId,
-      fileKey: input.fileKey ?? existing.fileKey,
-      thumbnailKey:
-        input.thumbnailKey !== undefined
-          ? input.thumbnailKey
-          : existing.thumbnailKey,
-      checksum: input.checksum ?? existing.checksum,
-      mimeType: input.mimeType ?? existing.mimeType,
-      fileSize: input.fileSize ?? existing.fileSize,
-      width: input.width !== undefined ? input.width : existing.width,
-      height: input.height !== undefined ? input.height : existing.height,
-      duration:
-        input.duration !== undefined ? input.duration : existing.duration,
-      scrollPxPerSecond:
-        input.scrollPxPerSecond !== undefined
-          ? input.scrollPxPerSecond
-          : existing.scrollPxPerSecond,
-      flashMessage:
-        input.flashMessage !== undefined
-          ? input.flashMessage
-          : existing.flashMessage,
-      flashTone:
-        input.flashTone !== undefined ? input.flashTone : existing.flashTone,
-      textJsonContent:
-        input.textJsonContent !== undefined
-          ? input.textJsonContent
-          : existing.textJsonContent,
-      textHtmlContent:
-        input.textHtmlContent !== undefined
-          ? input.textHtmlContent
-          : existing.textHtmlContent,
     };
 
     const now = new Date();

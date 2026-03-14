@@ -4,9 +4,8 @@ import { createSseResponse, createSseStream } from "#/interfaces/http/lib/sse";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { notFound } from "#/interfaces/http/responses";
 import {
-  forbiddenResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
+  authErrorResponses,
+  authValidationErrorResponses,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import { validateParams } from "#/interfaces/http/validators/standard-validator";
 import { displayTags } from "../contracts";
@@ -50,8 +49,7 @@ export const registerDisplayStaffEventRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
+        ...authErrorResponses,
       },
     }),
     async () => {
@@ -93,10 +91,8 @@ export const registerDisplayStaffEventRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { description: "Registration attempt not found" },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     async (c) => {

@@ -89,7 +89,7 @@ const parseStoredPairingSession = (
   };
 };
 
-const toRecord = (
+const mapStoredSessionToRecord = (
   value: StoredPairingSession,
 ): DisplayPairingSessionRecord => ({
   id: value.id,
@@ -144,7 +144,7 @@ export class DisplayPairingSessionRedisRepository
       toUnixSeconds(input.challengeExpiresAt),
     ]);
 
-    return toRecord({
+    return mapStoredSessionToRecord({
       id,
       pairingCodeId: input.pairingCodeId,
       state: "open",
@@ -181,7 +181,7 @@ export class DisplayPairingSessionRedisRepository
       return null;
     }
 
-    return toRecord(stored);
+    return mapStoredSessionToRecord(stored);
   }
 
   async complete(id: string, completedAt: Date): Promise<boolean> {

@@ -41,3 +41,14 @@ export const tooManyRequestsResponse = {
   description: "Too many requests",
   content: jsonErrorContent,
 } as const;
+
+export const authErrorResponses = {
+  401: unauthorizedResponse,
+  403: forbiddenResponse,
+} as const;
+
+export const authValidationErrorResponses = {
+  401: unauthorizedResponse,
+  403: forbiddenResponse,
+  422: validationErrorResponse,
+} as const;

@@ -1,4 +1,4 @@
-import { type Hono, type MiddlewareHandler } from "hono";
+import { type Hono } from "hono";
 import { type AuditLogRepository } from "#/application/ports/audit";
 import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type DisplayRepository } from "#/application/ports/displays";
@@ -12,6 +12,7 @@ import {
 } from "#/application/use-cases/audit";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
 
 export interface AuditRouterDeps {
   jwtSecret: string;
@@ -34,11 +35,6 @@ export interface AuditRouterUseCases {
 
 export type AuditRouter = Hono<{ Variables: JwtUserVariables }>;
 
-export type AuthorizePermission = (
-  permission: string,
-) => readonly [
-  MiddlewareHandler,
-  MiddlewareHandler<{ Variables: JwtUserVariables }>,
-];
+export type { AuthorizePermission };
 
 export const auditTags = ["Audit"];

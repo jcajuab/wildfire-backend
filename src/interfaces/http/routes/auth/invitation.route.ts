@@ -14,10 +14,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
+  authValidationErrorResponses,
   notFoundResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   invitationIdParamSchema,
@@ -146,9 +144,7 @@ export const registerAuthInvitationRoutes = (args: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

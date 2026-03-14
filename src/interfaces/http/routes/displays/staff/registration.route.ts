@@ -12,9 +12,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
+  authErrorResponses,
+  authValidationErrorResponses,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import { displayTags } from "../contracts";
@@ -97,8 +96,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(async (c) => {
@@ -128,9 +126,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -180,8 +176,6 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         409: {
           description: "Display registration conflict",
           content: {
@@ -190,7 +184,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
             },
           },
         },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

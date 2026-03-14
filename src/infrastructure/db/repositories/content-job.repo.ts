@@ -6,8 +6,9 @@ import {
 } from "#/application/ports/content-jobs";
 import { db } from "#/infrastructure/db/client";
 import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql";
+import { toIsoString, toNullableIsoString } from "./utils/date";
 
-const toRecord = (
+const mapContentJobRowToRecord = (
   row: typeof contentIngestionJobs.$inferSelect,
 ): ContentIngestionJobRecord => ({
   id: row.id,
@@ -16,18 +17,10 @@ const toRecord = (
   status: toStatus(row.status),
   errorMessage: row.errorMessage ?? null,
   ownerId: row.ownerId,
-  createdAt:
-    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  updatedAt:
-    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
-  startedAt:
-    row.startedAt instanceof Date
-      ? row.startedAt.toISOString()
-      : (row.startedAt ?? null),
-  completedAt:
-    row.completedAt instanceof Date
-      ? row.completedAt.toISOString()
-      : (row.completedAt ?? null),
+  createdAt: toIsoString(row.createdAt),
+  updatedAt: toIsoString(row.updatedAt),
+  startedAt: toNullableIsoString(row.startedAt),
+  completedAt: toNullableIsoString(row.completedAt),
 });
 
 const toOperation = (value: string): "UPLOAD" | "REPLACE" => {
@@ -109,7 +102,7 @@ export class ContentIngestionJobDbRepository
       )
       .limit(1);
     const row = rows[0];
-    return row ? toRecord(row) : null;
+    return row ? mapContentJobRowToRecord(row) : null;
   }
 
   async update(

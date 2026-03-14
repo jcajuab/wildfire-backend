@@ -3,12 +3,20 @@ import { AppError } from "#/application/errors/app-error";
 import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
 import { ValidationError } from "#/application/errors/validation";
+import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import {
   forbidden,
   notFound,
   type ResponseContext,
   validationError,
 } from "#/interfaces/http/responses";
+
+export type AuthorizePermission = (
+  permission: string,
+) => readonly [
+  MiddlewareHandler,
+  MiddlewareHandler<{ Variables: JwtUserVariables }>,
+];
 
 type ErrorMapper = (c: ResponseContext, error: unknown) => Response | null;
 type ErrorClass<T extends Error = Error> = new (

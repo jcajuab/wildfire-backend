@@ -18,6 +18,7 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { authValidationErrorResponses } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   contentExclusionRequestBodySchema,
   contentExclusionSchema,
@@ -101,30 +102,7 @@ export const registerContentWriteRoutes = (args: {
             },
           },
         },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        401: {
-          description: "Unauthorized",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        403: {
-          description: "Forbidden",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

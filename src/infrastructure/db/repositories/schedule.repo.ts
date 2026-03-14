@@ -40,7 +40,7 @@ const resolveKind = (row: ScheduleRow): ScheduleKind => {
   );
 };
 
-const toRecord = (row: ScheduleRow): ScheduleRecord => ({
+const mapScheduleRowToRecord = (row: ScheduleRow): ScheduleRecord => ({
   id: row.id,
   name: row.name,
   kind: resolveKind(row),
@@ -56,7 +56,7 @@ const toRecord = (row: ScheduleRow): ScheduleRecord => ({
   updatedAt: toIsoString(row.updatedAt),
 });
 
-const withTargets = () =>
+const buildScheduleQuery = () =>
   db
     .select({
       id: schedules.id,
@@ -101,15 +101,15 @@ const assertValidTarget = (input: {
 
 export class ScheduleDbRepository implements ScheduleRepository {
   async list(): Promise<ScheduleRecord[]> {
-    const rows = await withTargets().orderBy(desc(schedules.createdAt));
-    return rows.map(toRecord);
+    const rows = await buildScheduleQuery().orderBy(desc(schedules.createdAt));
+    return rows.map(mapScheduleRowToRecord);
   }
 
   async listByDisplay(displayId: string): Promise<ScheduleRecord[]> {
-    const rows = await withTargets()
+    const rows = await buildScheduleQuery()
       .where(eq(schedules.displayId, displayId))
       .orderBy(desc(schedules.createdAt));
-    return rows.map(toRecord);
+    return rows.map(mapScheduleRowToRecord);
   }
 
   async listByDisplayIds(displayIds: string[]): Promise<ScheduleRecord[]> {
@@ -117,24 +117,24 @@ export class ScheduleDbRepository implements ScheduleRepository {
       return [];
     }
 
-    const rows = await withTargets()
+    const rows = await buildScheduleQuery()
       .where(inArray(schedules.displayId, displayIds))
       .orderBy(desc(schedules.createdAt));
-    return rows.map(toRecord);
+    return rows.map(mapScheduleRowToRecord);
   }
 
   async listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]> {
-    const rows = await withTargets().where(
+    const rows = await buildScheduleQuery().where(
       eq(schedulePlaylistTargets.playlistId, playlistId),
     );
-    return rows.map(toRecord);
+    return rows.map(mapScheduleRowToRecord);
   }
 
   async listByContentId(contentId: string): Promise<ScheduleRecord[]> {
-    const rows = await withTargets().where(
+    const rows = await buildScheduleQuery().where(
       eq(scheduleContentTargets.contentId, contentId),
     );
-    return rows.map(toRecord);
+    return rows.map(mapScheduleRowToRecord);
   }
 
   async listWindow(input: {
@@ -150,19 +150,21 @@ export class ScheduleDbRepository implements ScheduleRepository {
         : undefined,
     ].filter((value) => value !== undefined);
 
-    const rows = await withTargets()
+    const rows = await buildScheduleQuery()
       .where(and(...conditions))
       .orderBy(
         asc(schedules.startDate),
         asc(schedules.startTime),
         asc(schedules.name),
       );
-    return rows.map(toRecord);
+    return rows.map(mapScheduleRowToRecord);
   }
 
   async findById(id: string): Promise<ScheduleRecord | null> {
-    const rows = await withTargets().where(eq(schedules.id, id)).limit(1);
-    return rows[0] ? toRecord(rows[0]) : null;
+    const rows = await buildScheduleQuery()
+      .where(eq(schedules.id, id))
+      .limit(1);
+    return rows[0] ? mapScheduleRowToRecord(rows[0]) : null;
   }
 
   async create(input: {

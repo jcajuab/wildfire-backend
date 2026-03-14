@@ -1,4 +1,4 @@
-import { type Hono, type MiddlewareHandler } from "hono";
+import { type Hono } from "hono";
 import {
   type AuthSessionRepository,
   type CredentialsRepository,
@@ -42,6 +42,7 @@ import {
 } from "#/application/use-cases/users/ban-user.use-case";
 import { addAvatarUrlToUser } from "#/interfaces/http/lib/avatar-url";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
+import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
 
 export interface RbacRouterDeps {
   jwtSecret: string;
@@ -89,12 +90,7 @@ export interface RbacRouterUseCases {
 
 export type RbacRouter = Hono<{ Variables: JwtUserVariables }>;
 
-export type AuthorizePermission = (
-  permission: string,
-) => readonly [
-  MiddlewareHandler,
-  MiddlewareHandler<{ Variables: JwtUserVariables }>,
-];
+export type { AuthorizePermission };
 
 export const roleTags = ["Roles"];
 export const permissionTags = ["Permissions"];

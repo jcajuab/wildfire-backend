@@ -7,10 +7,9 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
+  authErrorResponses,
+  authValidationErrorResponses,
   notFoundResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import { validateParams } from "#/interfaces/http/validators/standard-validator";
 import { displayTags } from "../contracts";
@@ -63,8 +62,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -105,10 +103,8 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
             },
           },
         },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -137,10 +133,8 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
       tags: displayTags,
       responses: {
         204: { description: "Registration attempt closed" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

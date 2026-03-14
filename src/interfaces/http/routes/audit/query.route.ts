@@ -5,11 +5,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
-import {
-  forbiddenResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
-} from "#/interfaces/http/routes/shared/openapi-responses";
+import { authValidationErrorResponses } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   auditLogListQuerySchema,
   auditLogListResponseSchema,
@@ -49,15 +45,7 @@ export const registerAuditQueryRoutes = (args: {
             },
           },
         },
-        422: {
-          ...validationErrorResponse,
-        },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

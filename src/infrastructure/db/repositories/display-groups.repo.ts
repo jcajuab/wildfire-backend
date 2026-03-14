@@ -8,11 +8,9 @@ import {
   displayGroupMembers,
   displayGroups,
 } from "#/infrastructure/db/schema/displays.sql";
+import { toIsoString } from "./utils/date";
 
-const toIso = (value: Date | string): string =>
-  value instanceof Date ? value.toISOString() : value;
-
-const mapRowsToGroups = (
+const mapRowsToGroupRecords = (
   rows: Array<{
     id: string;
     name: string;
@@ -30,8 +28,8 @@ const mapRowsToGroups = (
         id: row.id,
         name: row.name,
         colorIndex: row.colorIndex,
-        createdAt: toIso(row.createdAt),
-        updatedAt: toIso(row.updatedAt),
+        createdAt: toIsoString(row.createdAt),
+        updatedAt: toIsoString(row.updatedAt),
         displayIds: row.displayId ? [row.displayId] : [],
       });
       continue;
@@ -57,7 +55,7 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         displayGroupMembers,
         eq(displayGroupMembers.groupId, displayGroups.id),
       );
-    return mapRowsToGroups(rows);
+    return mapRowsToGroupRecords(rows);
   }
 
   async findById(id: string): Promise<DisplayGroupRecord | null> {
@@ -76,7 +74,7 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         eq(displayGroupMembers.groupId, displayGroups.id),
       )
       .where(eq(displayGroups.id, id));
-    const mapped = mapRowsToGroups(rows);
+    const mapped = mapRowsToGroupRecords(rows);
     return mapped[0] ?? null;
   }
 
@@ -96,7 +94,7 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         eq(displayGroupMembers.groupId, displayGroups.id),
       )
       .where(eq(displayGroups.name, name));
-    const mapped = mapRowsToGroups(rows);
+    const mapped = mapRowsToGroupRecords(rows);
     return mapped[0] ?? null;
   }
 

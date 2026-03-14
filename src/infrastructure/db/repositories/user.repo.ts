@@ -2,11 +2,12 @@ import { eq, inArray } from "drizzle-orm";
 import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
+import { toNullableIsoString } from "./utils/date";
 
 const normalizeUsername = (username: string): string =>
   username.trim().toLowerCase();
 
-const toRecord = (row: typeof users.$inferSelect): UserRecord => ({
+const mapUserRowToRecord = (row: typeof users.$inferSelect): UserRecord => ({
   id: row.id,
   username: row.username,
   email: row.email,
@@ -14,30 +15,15 @@ const toRecord = (row: typeof users.$inferSelect): UserRecord => ({
   isActive: row.isActive,
   timezone: row.timezone ?? null,
   avatarKey: row.avatarKey ?? null,
-  lastSeenAt:
-    row.lastSeenAt == null
-      ? null
-      : row.lastSeenAt instanceof Date
-        ? row.lastSeenAt.toISOString()
-        : row.lastSeenAt,
-  invitedAt:
-    row.invitedAt == null
-      ? null
-      : row.invitedAt instanceof Date
-        ? row.invitedAt.toISOString()
-        : row.invitedAt,
-  bannedAt:
-    row.bannedAt == null
-      ? null
-      : row.bannedAt instanceof Date
-        ? row.bannedAt.toISOString()
-        : row.bannedAt,
+  lastSeenAt: toNullableIsoString(row.lastSeenAt),
+  invitedAt: toNullableIsoString(row.invitedAt),
+  bannedAt: toNullableIsoString(row.bannedAt),
 });
 
 export class UserDbRepository implements UserRepository {
   async list(): Promise<UserRecord[]> {
     const rows = await db.select().from(users);
-    return rows.map(toRecord);
+    return rows.map(mapUserRowToRecord);
   }
 
   async findById(id: string): Promise<UserRecord | null> {
@@ -46,13 +32,13 @@ export class UserDbRepository implements UserRepository {
       .from(users)
       .where(eq(users.id, id))
       .limit(1);
-    return result[0] ? toRecord(result[0]) : null;
+    return result[0] ? mapUserRowToRecord(result[0]) : null;
   }
 
   async findByIds(ids: string[]): Promise<UserRecord[]> {
     if (ids.length === 0) return [];
     const rows = await db.select().from(users).where(inArray(users.id, ids));
-    return rows.map(toRecord);
+    return rows.map(mapUserRowToRecord);
   }
 
   async findByUsername(username: string): Promise<UserRecord | null> {
@@ -62,7 +48,7 @@ export class UserDbRepository implements UserRepository {
       .from(users)
       .where(eq(users.username, normalized))
       .limit(1);
-    return result[0] ? toRecord(result[0]) : null;
+    return result[0] ? mapUserRowToRecord(result[0]) : null;
   }
 
   async findByEmail(email: string): Promise<UserRecord | null> {
@@ -72,7 +58,7 @@ export class UserDbRepository implements UserRepository {
       .from(users)
       .where(eq(users.email, normalized))
       .limit(1);
-    return result[0] ? toRecord(result[0]) : null;
+    return result[0] ? mapUserRowToRecord(result[0]) : null;
   }
 
   async create(input: {

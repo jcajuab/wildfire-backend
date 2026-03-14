@@ -11,7 +11,7 @@ import { displays } from "#/infrastructure/db/schema/displays.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
-const toRecord = (
+const mapAuditLogRowToRecord = (
   row: typeof auditLogs.$inferSelect & {
     actorName?: string | null;
     actorEmail?: string | null;
@@ -114,7 +114,7 @@ export class AuditLogDbRepository implements AuditLogRepository {
       throw new Error("Failed to load created audit event");
     }
 
-    return toRecord(record);
+    return mapAuditLogRowToRecord(record);
   }
 
   async list(query: ListAuditLogsQuery): Promise<AuditLogRecord[]> {
@@ -150,7 +150,7 @@ export class AuditLogDbRepository implements AuditLogRepository {
       .offset(query.offset);
 
     return rows.map((row) =>
-      toRecord({
+      mapAuditLogRowToRecord({
         ...row,
         actorName:
           row.actorType === "user"

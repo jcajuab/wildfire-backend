@@ -11,9 +11,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
+  authValidationErrorResponses,
   notFoundResponse,
-  unauthorizedResponse,
   validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
@@ -99,15 +98,7 @@ export const registerContentReadRoutes = (args: {
             },
           },
         },
-        422: {
-          ...validationErrorResponse,
-        },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(

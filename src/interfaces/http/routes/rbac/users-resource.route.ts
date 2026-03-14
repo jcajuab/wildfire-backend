@@ -15,11 +15,10 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
+  authErrorResponses,
+  authValidationErrorResponses,
   conflictResponse,
-  forbiddenResponse,
   notFoundResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   createUserSchema,
@@ -61,15 +60,7 @@ export const registerRbacUserResourceRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "Users" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -110,9 +101,7 @@ export const registerRbacUserResourceRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User options" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
-        422: { ...validationErrorResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -147,18 +136,8 @@ export const registerRbacUserResourceRoutes = (args: {
       tags: userTags,
       responses: {
         201: { description: "User created" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        409: {
-          ...conflictResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
+        409: { ...conflictResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -188,18 +167,8 @@ export const registerRbacUserResourceRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        404: {
-          ...notFoundResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
+        404: { ...notFoundResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -230,18 +199,8 @@ export const registerRbacUserResourceRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        404: {
-          ...notFoundResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
+        404: { ...notFoundResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -273,15 +232,8 @@ export const registerRbacUserResourceRoutes = (args: {
       tags: userTags,
       responses: {
         204: { description: "Deleted" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        404: {
-          ...notFoundResponse,
-        },
+        404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(

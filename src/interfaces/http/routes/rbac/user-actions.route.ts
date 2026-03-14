@@ -6,9 +6,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
+  authErrorResponses,
   notFoundResponse,
-  unauthorizedResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import { userIdParamSchema } from "#/interfaces/http/validators/rbac.schema";
 import { validateParams } from "#/interfaces/http/validators/standard-validator";
@@ -41,9 +40,8 @@ export const registerRbacUserActionRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User banned" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -73,9 +71,8 @@ export const registerRbacUserActionRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "User unbanned" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -105,9 +102,8 @@ export const registerRbacUserActionRoutes = (args: {
       tags: userTags,
       responses: {
         200: { description: "Password reset; returns plaintext password" },
-        401: { ...unauthorizedResponse },
-        403: { ...forbiddenResponse },
         404: { ...notFoundResponse },
+        ...authErrorResponses,
       },
     }),
     withRouteErrorHandling(

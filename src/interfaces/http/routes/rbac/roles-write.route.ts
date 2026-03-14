@@ -6,10 +6,8 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
-  forbiddenResponse,
+  authValidationErrorResponses,
   notFoundResponse,
-  unauthorizedResponse,
-  validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
   createRoleSchema,
@@ -44,15 +42,7 @@ export const registerRbacRoleWriteRoutes = (args: {
       tags: roleTags,
       responses: {
         201: { description: "Role created" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -81,18 +71,8 @@ export const registerRbacRoleWriteRoutes = (args: {
       tags: roleTags,
       responses: {
         200: { description: "Role" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
-        404: {
-          ...notFoundResponse,
-        },
+        404: { ...notFoundResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
@@ -123,18 +103,8 @@ export const registerRbacRoleWriteRoutes = (args: {
       tags: roleTags,
       responses: {
         204: { description: "Deleted" },
-        401: {
-          ...unauthorizedResponse,
-        },
-        403: {
-          ...forbiddenResponse,
-        },
-        404: {
-          ...notFoundResponse,
-        },
-        422: {
-          ...validationErrorResponse,
-        },
+        404: { ...notFoundResponse },
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
