@@ -35,9 +35,8 @@ export const AI_TOOLS = {
       items: z
         .array(playlistItemInputSchema)
         .min(1)
-        .optional()
         .describe(
-          "Optional initial playlist items in playback order. Each item needs contentId and duration.",
+          "Playlist items in playback order. Each item needs contentId and duration.",
         ),
     }),
     requiresConfirmation: false,
@@ -45,29 +44,36 @@ export const AI_TOOLS = {
 
   create_schedule: {
     description: "Create a schedule to display content on a specific display",
-    inputSchema: z.object({
-      name: z.string().min(1).describe("Schedule name"),
-      kind: z.enum(["PLAYLIST", "FLASH"]).describe("Schedule type"),
-      playlistId: z
-        .string()
-        .uuid()
-        .optional()
-        .describe("Playlist ID (required for PLAYLIST kind)"),
-      contentId: z
-        .string()
-        .uuid()
-        .optional()
-        .describe("Content ID (required for FLASH kind)"),
-      displayId: z.string().uuid().describe("Target display ID"),
-      startDate: z.string().optional().describe("Start date (YYYY-MM-DD)"),
-      endDate: z.string().optional().describe("End date (YYYY-MM-DD)"),
-      startTime: z.string().describe("Start time (HH:MM)"),
-      endTime: z.string().describe("End time (HH:MM)"),
-      isActive: z
-        .boolean()
-        .default(true)
-        .describe("Whether schedule is active"),
-    }),
+    inputSchema: z.discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("PLAYLIST").describe("Schedule a playlist"),
+        playlistId: z.string().uuid().describe("Playlist ID to schedule"),
+        name: z.string().min(1).describe("Schedule name"),
+        displayId: z.string().uuid().describe("Target display ID"),
+        startDate: z.string().describe("Start date (YYYY-MM-DD)"),
+        endDate: z.string().describe("End date (YYYY-MM-DD)"),
+        startTime: z.string().describe("Start time (HH:MM)"),
+        endTime: z.string().describe("End time (HH:MM)"),
+        isActive: z
+          .boolean()
+          .default(true)
+          .describe("Whether schedule is active"),
+      }),
+      z.object({
+        kind: z.literal("FLASH").describe("Schedule flash content"),
+        contentId: z.string().uuid().describe("Flash content ID to schedule"),
+        name: z.string().min(1).describe("Schedule name"),
+        displayId: z.string().uuid().describe("Target display ID"),
+        startDate: z.string().describe("Start date (YYYY-MM-DD)"),
+        endDate: z.string().describe("End date (YYYY-MM-DD)"),
+        startTime: z.string().describe("Start time (HH:MM)"),
+        endTime: z.string().describe("End time (HH:MM)"),
+        isActive: z
+          .boolean()
+          .default(true)
+          .describe("Whether schedule is active"),
+      }),
+    ]),
     requiresConfirmation: false,
   },
 
@@ -96,10 +102,14 @@ export const AI_TOOLS = {
   edit_content: {
     description: "Edit existing content (requires user confirmation)",
     inputSchema: z.object({
-      contentId: z.string().uuid(),
-      title: z.string().optional(),
-      jsonContent: z.string().optional(),
-      htmlContent: z.string().optional(),
+      contentId: z.string().uuid().describe("Content ID to edit"),
+      title: z.string().optional().describe("New content title"),
+      text: z
+        .string()
+        .optional()
+        .describe(
+          "New plain text content. The system handles formatting automatically.",
+        ),
     }),
     requiresConfirmation: true,
   },
@@ -107,7 +117,7 @@ export const AI_TOOLS = {
   delete_content: {
     description: "Delete content (requires user confirmation)",
     inputSchema: z.object({
-      contentId: z.string().uuid(),
+      contentId: z.string().uuid().describe("Content ID to delete"),
     }),
     requiresConfirmation: true,
   },
@@ -115,9 +125,9 @@ export const AI_TOOLS = {
   edit_playlist: {
     description: "Edit existing playlist (requires user confirmation)",
     inputSchema: z.object({
-      playlistId: z.string().uuid(),
-      name: z.string().optional(),
-      description: z.string().optional(),
+      playlistId: z.string().uuid().describe("Playlist ID to edit"),
+      name: z.string().optional().describe("New playlist name"),
+      description: z.string().optional().describe("New playlist description"),
       items: z
         .array(playlistItemInputSchema)
         .min(1)
@@ -132,7 +142,7 @@ export const AI_TOOLS = {
   delete_playlist: {
     description: "Delete playlist (requires user confirmation)",
     inputSchema: z.object({
-      playlistId: z.string().uuid(),
+      playlistId: z.string().uuid().describe("Playlist ID to delete"),
     }),
     requiresConfirmation: true,
   },
@@ -140,11 +150,28 @@ export const AI_TOOLS = {
   edit_schedule: {
     description: "Edit existing schedule (requires user confirmation)",
     inputSchema: z.object({
-      scheduleId: z.string().uuid(),
-      name: z.string().optional(),
-      startTime: z.string().optional(),
-      endTime: z.string().optional(),
-      isActive: z.boolean().optional(),
+      scheduleId: z.string().uuid().describe("Schedule ID to edit"),
+      name: z.string().optional().describe("New schedule name"),
+      kind: z
+        .enum(["PLAYLIST", "FLASH"])
+        .optional()
+        .describe("New schedule type"),
+      playlistId: z
+        .string()
+        .uuid()
+        .optional()
+        .describe("New playlist ID (when kind is PLAYLIST)"),
+      contentId: z
+        .string()
+        .uuid()
+        .optional()
+        .describe("New flash content ID (when kind is FLASH)"),
+      displayId: z.string().uuid().optional().describe("New target display ID"),
+      startDate: z.string().optional().describe("New start date (YYYY-MM-DD)"),
+      endDate: z.string().optional().describe("New end date (YYYY-MM-DD)"),
+      startTime: z.string().optional().describe("New start time (HH:MM)"),
+      endTime: z.string().optional().describe("New end time (HH:MM)"),
+      isActive: z.boolean().optional().describe("Whether schedule is active"),
     }),
     requiresConfirmation: true,
   },
@@ -152,7 +179,7 @@ export const AI_TOOLS = {
   delete_schedule: {
     description: "Delete schedule (requires user confirmation)",
     inputSchema: z.object({
-      scheduleId: z.string().uuid(),
+      scheduleId: z.string().uuid().describe("Schedule ID to delete"),
     }),
     requiresConfirmation: true,
   },

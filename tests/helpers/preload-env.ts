@@ -34,7 +34,7 @@ const defaults: Record<string, string> = {
   RESET_PASSWORD_BASE_URL: "http://localhost:3000/reset-password",
   EMAIL_CHANGE_TOKEN_TTL_SECONDS: "86400",
   EMAIL_CHANGE_VERIFY_BASE_URL: "http://localhost:3000/verify-email-change",
-  LOG_LEVEL: "info",
+  LOG_LEVEL: "silent",
   LOG_PRETTY: "false",
   AUDIT_QUEUE_ENABLED: "true",
   AUDIT_QUEUE_CAPACITY: "5000",

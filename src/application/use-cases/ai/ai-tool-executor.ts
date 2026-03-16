@@ -172,8 +172,8 @@ export class AIToolExecutor {
         const result = await this.deps.createScheduleUseCase.execute({
           name: typedArgs.name,
           kind: typedArgs.kind,
-          playlistId: typedArgs.playlistId ?? null,
-          contentId: typedArgs.contentId ?? null,
+          playlistId: "playlistId" in typedArgs ? typedArgs.playlistId : null,
+          contentId: "contentId" in typedArgs ? typedArgs.contentId : null,
           displayId: typedArgs.displayId,
           startDate: typedArgs.startDate,
           endDate: typedArgs.endDate,

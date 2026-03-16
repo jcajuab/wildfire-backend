@@ -10,6 +10,7 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type ReplacePlaylistItemsAtomicUseCase } from "#/application/use-cases/playlists/replace-playlist-items.use-case";
 import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
+import { convertPlainTextToTipTap } from "./tiptap-convert";
 
 export interface AIConfirmDeps {
   pendingActionStore: PendingActionStore;
@@ -82,15 +83,17 @@ export class AIConfirmActionUseCase {
       case "edit_content": {
         const payload = action.payload as {
           title?: string;
-          textJsonContent?: string;
-          textHtmlContent?: string;
+          text?: string;
         };
+        const converted = payload.text
+          ? convertPlainTextToTipTap(payload.text)
+          : undefined;
         const updated = await this.deps.contentRepository.update(
           action.resourceId,
           {
             title: payload.title,
-            textJsonContent: payload.textJsonContent,
-            textHtmlContent: payload.textHtmlContent,
+            textJsonContent: converted?.jsonContent,
+            textHtmlContent: converted?.htmlContent,
           },
         );
         return updated;
@@ -138,6 +141,12 @@ export class AIConfirmActionUseCase {
       case "edit_schedule": {
         const payload = action.payload as {
           name?: string;
+          kind?: "PLAYLIST" | "FLASH";
+          playlistId?: string;
+          contentId?: string;
+          displayId?: string;
+          startDate?: string;
+          endDate?: string;
           startTime?: string;
           endTime?: string;
           isActive?: boolean;
@@ -146,6 +155,12 @@ export class AIConfirmActionUseCase {
           action.resourceId,
           {
             name: payload.name,
+            kind: payload.kind,
+            playlistId: payload.playlistId,
+            contentId: payload.contentId,
+            displayId: payload.displayId,
+            startDate: payload.startDate,
+            endDate: payload.endDate,
             startTime: payload.startTime,
             endTime: payload.endTime,
             isActive: payload.isActive,
