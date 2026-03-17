@@ -64,16 +64,17 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
     ),
   );
 
-  router.post(
-    "/runtime-overrides/emergency/activate",
-    setAction("displays.runtime-overrides.emergency.activate", {
-      route: "/displays/runtime-overrides/emergency/activate",
+  router.put(
+    "/runtime-overrides/emergency",
+    setAction("displays.runtime-overrides.emergency.update", {
+      route: "/displays/runtime-overrides/emergency",
       resourceType: "display",
     }),
     ...authorize("displays:update"),
     validateJson(runtimeOverrideEmergencyActionSchema),
     describeRoute({
-      description: "Activate global emergency mode",
+      description:
+        "Update global emergency mode. Set active: true to activate, false to deactivate.",
       tags: displayTags,
       requestBody: {
         content: {
@@ -84,52 +85,22 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
         required: true,
       },
       responses: {
-        204: { description: "Global emergency mode activated" },
+        204: { description: "Global emergency mode updated" },
         ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
       async (c) => {
         const payload = c.req.valid("json");
-        await useCases.activateGlobalEmergency.execute({
-          reason: payload.reason,
-        });
-        return c.body(null, 204);
-      },
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.post(
-    "/runtime-overrides/emergency/deactivate",
-    setAction("displays.runtime-overrides.emergency.deactivate", {
-      route: "/displays/runtime-overrides/emergency/deactivate",
-      resourceType: "display",
-    }),
-    ...authorize("displays:update"),
-    validateJson(runtimeOverrideEmergencyActionSchema),
-    describeRoute({
-      description: "Deactivate global emergency mode",
-      tags: displayTags,
-      requestBody: {
-        content: {
-          "application/json": {
-            schema: runtimeOverrideEmergencyActionBodySchema,
-          },
-        },
-        required: true,
-      },
-      responses: {
-        204: { description: "Global emergency mode deactivated" },
-        ...authValidationErrorResponses,
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const payload = c.req.valid("json");
-        await useCases.deactivateGlobalEmergency.execute({
-          reason: payload.reason,
-        });
+        if (payload.active) {
+          await useCases.activateGlobalEmergency.execute({
+            reason: payload.reason,
+          });
+        } else {
+          await useCases.deactivateGlobalEmergency.execute({
+            reason: payload.reason,
+          });
+        }
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

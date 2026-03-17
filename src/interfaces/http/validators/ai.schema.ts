@@ -24,7 +24,6 @@ export const aiChatRequestSchema = z.object({
 });
 
 export const aiConfirmRequestSchema = z.object({
-  token: z.string().uuid(),
   conversationId: z.string().uuid(),
   approved: z.boolean(),
 });

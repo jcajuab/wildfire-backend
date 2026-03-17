@@ -201,8 +201,8 @@ export const cropRegionSchema = z.object({
 });
 
 export const submitPdfCropSchema = z.object({
-  uploadId: z.string().uuid(),
   crops: z.array(cropRegionSchema).min(1).max(50),
+  contentName: z.string().trim().min(1).max(255).optional(),
 });
 
 export const pdfCropPageInfoSchema = z.object({

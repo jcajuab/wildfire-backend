@@ -25,22 +25,24 @@ export const registerAIConfirmRoutes = (args: {
 }) => {
   const { router, useCases, authorize } = args;
 
-  // POST /ai/confirm - confirm or reject a pending action
+  // POST /ai/pending-actions/:token/confirm - confirm or reject a pending action
   router.post(
-    "/confirm",
+    "/pending-actions/:token",
     setAction("ai.action.confirm", {
-      route: "/ai/confirm",
+      route: "/ai/pending-actions/:token",
       resourceType: "ai",
     }),
     ...authorize("ai:access"),
+    validateParams(aiCancelPendingSchema),
     validateJson(aiConfirmRequestSchema),
     withRouteErrorHandling(
       async (c) => {
         const userId = c.get("userId");
+        const params = c.req.valid("param");
         const body = c.req.valid("json");
 
         const result = await useCases.aiConfirmAction.execute({
-          token: body.token,
+          token: params.token,
           conversationId: body.conversationId,
           userId,
           approved: body.approved,

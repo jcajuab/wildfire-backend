@@ -39,6 +39,7 @@ export class SubmitPdfCropUseCase {
   async execute(input: {
     uploadId: string;
     crops: CropRegion[];
+    contentName?: string;
     ownerId: string;
   }) {
     const user = await this.deps.userRepository.findById(input.ownerId);
@@ -65,7 +66,10 @@ export class SubmitPdfCropUseCase {
 
     for (const crop of input.crops) {
       cropIndex += 1;
-      const title = `${session.filename} - Page ${crop.pageNumber} Crop ${cropIndex}`;
+      const baseName = input.contentName || session.filename;
+      const title = input.contentName
+        ? `${baseName} - ${cropIndex}`
+        : `${baseName} - Page ${crop.pageNumber} Crop ${cropIndex}`;
 
       const croppedPng = await this.deps.pdfCropRenderer.renderCrop({
         pdfData,

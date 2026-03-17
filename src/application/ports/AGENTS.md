@@ -9,24 +9,26 @@ TypeScript interfaces (types) defining contracts between application use cases a
 
 ## Key Files
 
-| File                              | Description                                                      |
-| --------------------------------- | ---------------------------------------------------------------- |
-| `ai.ts`                           | AI credential and pending action store interfaces                |
-| `audit.ts`                        | Audit log repository interface                                   |
-| `auth.ts`                         | Auth session, invitation, password, and identity sync interfaces |
-| `content.ts`                      | Content repository and storage interfaces                        |
-| `content-jobs.ts`                 | Content ingestion job queue interface                            |
-| `displays.ts`                     | Display repository interface                                     |
-| `display-auth.ts`                 | Display authentication nonce and key interfaces                  |
-| `display-pairing.ts`              | Display pairing code and session interfaces                      |
-| `display-registration-attempt.ts` | Registration attempt store interface                             |
-| `display-stream-events.ts`        | Display SSE event emitter interface                              |
-| `notifications.ts`                | Notification service interface                                   |
-| `observability.ts`                | Logger interface                                                 |
-| `playlists.ts`                    | Playlist repository interface                                    |
-| `rbac.ts`                         | User, role, permission, and authorization repository interfaces  |
-| `runtime-controls.ts`             | Runtime control repository interface (emergency mode)            |
-| `schedules.ts`                    | Schedule repository interface                                    |
+| File                              | Description                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `ai.ts`                           | AI credential and pending action store interfaces                            |
+| `audit.ts`                        | Audit log repository interface                                               |
+| `auth.ts`                         | Auth session, invitation, password, and identity sync interfaces             |
+| `content.ts`                      | Content repository and storage interfaces                                    |
+| `content-jobs.ts`                 | Content ingestion job queue interface                                        |
+| `content-playlist-reporting.ts`   | Repository interface for querying playlist references to content             |
+| `pdf-crop.ts`                     | Session store, renderer, and page extractor interfaces for PDF crop workflow |
+| `displays.ts`                     | Display repository interface                                                 |
+| `display-auth.ts`                 | Display authentication nonce and key interfaces                              |
+| `display-pairing.ts`              | Display pairing code and session interfaces                                  |
+| `display-registration-attempt.ts` | Registration attempt store interface                                         |
+| `display-stream-events.ts`        | Display SSE event emitter interface                                          |
+| `notifications.ts`                | Notification service interface                                               |
+| `observability.ts`                | Logger interface                                                             |
+| `playlists.ts`                    | Playlist repository interface                                                |
+| `rbac.ts`                         | User, role, permission, and authorization repository interfaces              |
+| `runtime-controls.ts`             | Runtime control repository interface (emergency mode)                        |
+| `schedules.ts`                    | Schedule repository interface                                                |
 
 ## For AI Agents
 

@@ -8,16 +8,17 @@ Digital signage management system backend. Serves an HTTP API for managing displ
 
 ## Key Files
 
-| File                | Description                                                    |
-| ------------------- | -------------------------------------------------------------- |
-| `src/index.ts`      | HTTP server entrypoint — bootstraps app, starts Bun.serve()    |
-| `src/env.ts`        | Environment variable validation via @t3-oss/env-core           |
-| `package.json`      | Dependencies and scripts (bun runtime, hono, drizzle, ai SDK)  |
-| `tsconfig.json`     | TypeScript config — strict mode, `#/*` path alias to `./src/*` |
-| `biome.json`        | Linter/formatter config (Biome)                                |
-| `drizzle.config.ts` | Drizzle ORM config for MySQL schema push                       |
-| `compose.yaml`      | Docker Compose for local dev (MySQL, Redis, MinIO)             |
-| `bunfig.toml`       | Bun config — test preload, module resolution                   |
+| File                | Description                                                                  |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `htshadow`          | Shadow-style password file with bcrypt-hashed credentials for dev/test users |
+| `src/index.ts`      | HTTP server entrypoint — bootstraps app, starts Bun.serve()                  |
+| `src/env.ts`        | Environment variable validation via @t3-oss/env-core                         |
+| `package.json`      | Dependencies and scripts (bun runtime, hono, drizzle, ai SDK)                |
+| `tsconfig.json`     | TypeScript config — strict mode, `#/*` path alias to `./src/*`               |
+| `biome.json`        | Linter/formatter config (Biome)                                              |
+| `drizzle.config.ts` | Drizzle ORM config for MySQL schema push                                     |
+| `compose.yaml`      | Docker Compose for local dev (MySQL, Redis, MinIO)                           |
+| `bunfig.toml`       | Bun config — test preload, module resolution                                 |
 
 ## Subdirectories
 

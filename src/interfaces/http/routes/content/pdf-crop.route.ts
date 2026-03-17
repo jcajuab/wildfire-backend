@@ -45,9 +45,9 @@ export const registerPdfCropRoutes = (args: {
   const { router, useCases, requirePermission, maxUploadBytes } = args;
 
   router.post(
-    "/pdf-crop",
+    "/pdf-crops",
     setAction("content.pdf-crop.init", {
-      route: "/content/pdf-crop",
+      route: "/content/pdf-crops",
       resourceType: "content",
     }),
     requirePermission("content:create"),
@@ -109,12 +109,13 @@ export const registerPdfCropRoutes = (args: {
   );
 
   router.post(
-    "/pdf-crop/submit",
+    "/pdf-crops/:uploadId{[0-9a-fA-F-]{36}}/submit",
     setAction("content.pdf-crop.submit", {
-      route: "/content/pdf-crop/submit",
+      route: "/content/pdf-crops/:uploadId/submit",
       resourceType: "content",
     }),
     requirePermission("content:create"),
+    validateParams(pdfCropUploadIdParamSchema),
     validateJson(submitPdfCropSchema),
     describeRoute({
       description:
@@ -142,10 +143,12 @@ export const registerPdfCropRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const params = c.req.valid("param");
         const body = c.req.valid("json");
         const result = await useCases.submitPdfCrop.execute({
-          uploadId: body.uploadId,
+          uploadId: params.uploadId,
           crops: body.crops,
+          contentName: body.contentName,
           ownerId: c.get("userId"),
         });
         return c.json(toApiResponse(result), 201);
@@ -155,9 +158,9 @@ export const registerPdfCropRoutes = (args: {
   );
 
   router.delete(
-    "/pdf-crop/:uploadId{[0-9a-fA-F-]{36}}",
+    "/pdf-crops/:uploadId{[0-9a-fA-F-]{36}}",
     setAction("content.pdf-crop.cancel", {
-      route: "/content/pdf-crop/:uploadId",
+      route: "/content/pdf-crops/:uploadId",
       resourceType: "content",
     }),
     requirePermission("content:create"),

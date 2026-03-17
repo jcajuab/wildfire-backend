@@ -20,6 +20,12 @@ Test suites organized by architecture layer. Uses Bun's built-in test runner (`b
 | `fixtures/`       | Test fixture files                                           |
 | `scripts/`        | Script tests                                                 |
 
+## Key Files
+
+| File          | Description                                            |
+| ------------- | ------------------------------------------------------ |
+| `env.test.ts` | Unit tests for `parseCorsOrigins` env utility function |
+
 ## For AI Agents
 
 ### Working In This Directory

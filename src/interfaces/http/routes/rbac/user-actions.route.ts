@@ -27,19 +27,19 @@ export const registerRbacUserActionRoutes = (args: {
 }) => {
   const { router, useCases, authorize } = args;
 
-  router.post(
-    "/users/:id/ban",
-    setAction("rbac.user.ban", {
-      route: "/users/:id/ban",
+  router.put(
+    "/users/:id/status",
+    setAction("rbac.user.status", {
+      route: "/users/:id/status",
       resourceType: "user",
     }),
     ...authorize("users:update"),
     validateParams(userIdParamSchema),
     describeRoute({
-      description: "Ban a user",
+      description: "Update user status (ban or unban)",
       tags: userTags,
       responses: {
-        200: { description: "User banned" },
+        200: { description: "User status updated" },
         404: { ...notFoundResponse },
         ...authErrorResponses,
       },
@@ -48,41 +48,18 @@ export const registerRbacUserActionRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        await useCases.banUser.execute({
-          id: params.id,
-          callerUserId: c.get("userId"),
-        });
-        return c.json(toApiResponse({ success: true }));
-      },
-      ...applicationErrorMappers,
-    ),
-  );
-
-  router.post(
-    "/users/:id/unban",
-    setAction("rbac.user.unban", {
-      route: "/users/:id/unban",
-      resourceType: "user",
-    }),
-    ...authorize("users:update"),
-    validateParams(userIdParamSchema),
-    describeRoute({
-      description: "Unban a user",
-      tags: userTags,
-      responses: {
-        200: { description: "User unbanned" },
-        404: { ...notFoundResponse },
-        ...authErrorResponses,
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const params = c.req.valid("param");
-        c.set("resourceId", params.id);
-        await useCases.unbanUser.execute({
-          id: params.id,
-          callerUserId: c.get("userId"),
-        });
+        const body = await c.req.json<{ banned: boolean }>();
+        if (body.banned) {
+          await useCases.banUser.execute({
+            id: params.id,
+            callerUserId: c.get("userId"),
+          });
+        } else {
+          await useCases.unbanUser.execute({
+            id: params.id,
+            callerUserId: c.get("userId"),
+          });
+        }
         return c.json(toApiResponse({ success: true }));
       },
       ...applicationErrorMappers,
