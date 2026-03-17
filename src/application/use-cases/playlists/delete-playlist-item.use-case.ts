@@ -1,6 +1,5 @@
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
-import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { NotFoundError } from "./errors";
@@ -15,7 +14,6 @@ export class DeletePlaylistItemUseCase {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
       scheduleRepository?: ScheduleRepository;
-      displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}

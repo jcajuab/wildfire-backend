@@ -1,7 +1,6 @@
 import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
-import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
@@ -22,7 +21,6 @@ export class AddPlaylistItemUseCase {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
       scheduleRepository?: ScheduleRepository;
-      displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
@@ -61,11 +59,6 @@ export class AddPlaylistItemUseCase {
         "Only ready content can be added to playlists.",
       );
     }
-    if (content.kind === "PAGE" && content.isExcluded) {
-      throw new ValidationError(
-        "Excluded PDF pages cannot be added to playlists.",
-      );
-    }
 
     const existingItems = await this.deps.playlistRepository.listItems(
       input.playlistId,
@@ -83,38 +76,6 @@ export class AddPlaylistItemUseCase {
       );
     }
 
-    const existingContentIds = Array.from(
-      new Set(existingItems.map((item) => item.contentId)),
-    );
-    const existingContents =
-      existingContentIds.length > 0
-        ? input.ownerId && this.deps.contentRepository.findByIdsForOwner
-          ? await this.deps.contentRepository.findByIdsForOwner(
-              existingContentIds,
-              input.ownerId,
-            )
-          : await this.deps.contentRepository.findByIds(existingContentIds)
-        : [];
-    const hasParentPdfRefs = existingContents.some(
-      (existingContent) =>
-        existingContent.type === "PDF" && existingContent.kind === "ROOT",
-    );
-    const hasChildPdfRefs = existingContents.some(
-      (existingContent) =>
-        existingContent.type === "PDF" && existingContent.kind === "PAGE",
-    );
-    const incomingIsParentPdf =
-      content.type === "PDF" && content.kind === "ROOT";
-    const incomingIsChildPdf =
-      content.type === "PDF" && content.kind === "PAGE";
-    if (
-      (incomingIsParentPdf && hasChildPdfRefs) ||
-      (incomingIsChildPdf && hasParentPdfRefs)
-    ) {
-      throw new ValidationError(
-        "Cannot mix PDF documents and PDF pages in the same playlist.",
-      );
-    }
     if (existingItems.some((item) => item.sequence === input.sequence)) {
       throw new ValidationError("Sequence already exists in playlist");
     }

@@ -4,11 +4,11 @@ import { join } from "node:path";
 import ffprobeStatic from "ffprobe-static";
 import ffmpeg from "fluent-ffmpeg";
 import { imageSize } from "image-size";
-import { PDFDocument } from "pdf-lib";
 import {
   type ContentMetadataExtractor,
   type ExtractedContentMetadata,
 } from "#/application/ports/content";
+import { type ContentType } from "#/domain/content/content";
 
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
@@ -68,7 +68,7 @@ export class DefaultContentMetadataExtractor
   implements ContentMetadataExtractor
 {
   async extract(input: {
-    type: "IMAGE" | "VIDEO" | "PDF";
+    type: ContentType;
     mimeType: string;
     data: Uint8Array;
   }): Promise<ExtractedContentMetadata> {
@@ -83,20 +83,6 @@ export class DefaultContentMetadataExtractor
       return {
         width: toPositiveInt(dimensions.width, "image width"),
         height: toPositiveInt(dimensions.height, "image height"),
-        duration: null,
-      };
-    }
-
-    if (input.type === "PDF") {
-      const pdf = await PDFDocument.load(input.data);
-      const firstPage = pdf.getPages()[0];
-      if (!firstPage) {
-        throw new Error("PDF contains no pages");
-      }
-      const size = firstPage.getSize();
-      return {
-        width: toPositiveInt(size.width, "pdf width"),
-        height: toPositiveInt(size.height, "pdf height"),
         duration: null,
       };
     }

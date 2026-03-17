@@ -6,9 +6,6 @@ export const computeRequiredMinPlaylistDurationSeconds = async (input: {
   playlistRepository: PlaylistRepository;
   contentRepository: ContentRepository;
   playlistId: string;
-  displayWidth: number;
-  displayHeight: number;
-  scrollPxPerSecond: number;
 }) => {
   const items = await input.playlistRepository.listItems(input.playlistId);
   const result = await computePlaylistEffectiveDuration({
@@ -17,9 +14,6 @@ export const computeRequiredMinPlaylistDurationSeconds = async (input: {
       duration: item.duration,
     })),
     contentRepository: input.contentRepository,
-    displayWidth: input.displayWidth,
-    displayHeight: input.displayHeight,
-    defaultScrollPxPerSecond: input.scrollPxPerSecond,
   });
   return result.effectiveDurationSeconds;
 };

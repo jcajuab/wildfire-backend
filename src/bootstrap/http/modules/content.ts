@@ -1,15 +1,17 @@
 import { ContentPlaylistReportingService } from "#/application/reporting/content-playlist-reporting";
 import {
+  CancelPdfCropUseCase,
   CreateFlashContentUseCase,
   CreateTextContentUseCase,
   DeleteContentUseCase,
   GetContentDownloadUrlUseCase,
   GetContentJobUseCase,
   GetContentUseCase,
+  InitPdfCropUseCase,
   ListContentOptionsUseCase,
   ListContentUseCase,
   ReplaceContentFileUseCase,
-  SetContentExclusionUseCase,
+  SubmitPdfCropUseCase,
   UpdateContentUseCase,
   UploadContentUseCase,
 } from "#/application/use-cases/content";
@@ -125,10 +127,6 @@ export const createContentHttpModule = (
         displayEventPublisher: routerDeps.displayEventPublisher,
         userRepository: routerDeps.repositories.userRepository,
       }),
-      setContentExclusion: new SetContentExclusionUseCase({
-        contentRepository: routerDeps.repositories.contentRepository,
-        userRepository: routerDeps.repositories.userRepository,
-      }),
       deleteContent: new DeleteContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
         contentStorage: routerDeps.storage,
@@ -140,6 +138,24 @@ export const createContentHttpModule = (
         contentRepository: routerDeps.repositories.contentRepository,
         contentStorage: routerDeps.storage,
         expiresInSeconds: routerDeps.downloadUrlExpiresInSeconds,
+      }),
+      initPdfCrop: new InitPdfCropUseCase({
+        contentStorage: routerDeps.storage,
+        pdfCropSessionStore: routerDeps.pdfCropSessionStore,
+        pdfPageExtractor: routerDeps.pdfPageExtractor,
+        userRepository: routerDeps.repositories.userRepository,
+      }),
+      submitPdfCrop: new SubmitPdfCropUseCase({
+        contentStorage: routerDeps.storage,
+        contentRepository: routerDeps.repositories.contentRepository,
+        pdfCropSessionStore: routerDeps.pdfCropSessionStore,
+        pdfCropRenderer: routerDeps.pdfCropRenderer,
+        contentThumbnailGenerator: routerDeps.contentThumbnailGenerator,
+        userRepository: routerDeps.repositories.userRepository,
+      }),
+      cancelPdfCrop: new CancelPdfCropUseCase({
+        contentStorage: routerDeps.storage,
+        pdfCropSessionStore: routerDeps.pdfCropSessionStore,
       }),
     },
   };

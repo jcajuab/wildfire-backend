@@ -25,7 +25,9 @@ import { UserDbRepository } from "#/infrastructure/db/repositories/user.repo";
 import { UserRoleDbRepository } from "#/infrastructure/db/repositories/user-role.repo";
 import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
 import { DefaultContentThumbnailGenerator } from "#/infrastructure/media/content-thumbnail.generator";
-
+import { PdftoppmCropRenderer } from "#/infrastructure/media/pdf-crop.renderer";
+import { RedisPdfCropSessionStore } from "#/infrastructure/media/pdf-crop-session.store";
+import { PdfLibPageExtractor } from "#/infrastructure/media/pdf-page.extractor";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { SystemClock } from "#/infrastructure/time/system.clock";
 
@@ -86,6 +88,9 @@ export interface HttpContainer {
     contentStorage: S3ContentStorage;
     contentMetadataExtractor: DefaultContentMetadataExtractor;
     contentThumbnailGenerator: DefaultContentThumbnailGenerator;
+    pdfCropSessionStore: RedisPdfCropSessionStore;
+    pdfPageExtractor: PdfLibPageExtractor;
+    pdfCropRenderer: PdftoppmCropRenderer;
     minioEndpoint: string;
   };
 }
@@ -150,6 +155,9 @@ export const createHttpContainer = (
   });
   const contentMetadataExtractor = new DefaultContentMetadataExtractor();
   const contentThumbnailGenerator = new DefaultContentThumbnailGenerator();
+  const pdfCropSessionStore = new RedisPdfCropSessionStore();
+  const pdfPageExtractor = new PdfLibPageExtractor();
+  const pdfCropRenderer = new PdftoppmCropRenderer();
 
   return {
     repositories: {
@@ -186,6 +194,9 @@ export const createHttpContainer = (
       contentStorage,
       contentMetadataExtractor,
       contentThumbnailGenerator,
+      pdfCropSessionStore,
+      pdfPageExtractor,
+      pdfCropRenderer,
       minioEndpoint,
     },
   };

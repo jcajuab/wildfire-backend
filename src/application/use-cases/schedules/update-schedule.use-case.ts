@@ -1,7 +1,6 @@
 import { ValidationError } from "#/application/errors/validation";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type ScheduleKind } from "#/application/ports/schedules";
-import { DEFAULT_SCROLL_PX_PER_SECOND } from "#/application/use-cases/shared/playlist-effective-duration";
 import { computeRequiredMinPlaylistDurationSeconds } from "#/application/use-cases/shared/playlist-required-duration";
 import { NotFoundError } from "./errors";
 import { toScheduleView } from "./schedule-view";
@@ -93,9 +92,6 @@ export class UpdateScheduleUseCase {
           playlistRepository: this.deps.playlistRepository,
           contentRepository: this.deps.contentRepository,
           playlistId: nextPlaylistId,
-          displayWidth: display.screenWidth,
-          displayHeight: display.screenHeight,
-          scrollPxPerSecond: DEFAULT_SCROLL_PX_PER_SECOND,
         });
       const windowDurationSeconds = computeWindowDurationSeconds(
         input.startTime ?? existing.startTime,

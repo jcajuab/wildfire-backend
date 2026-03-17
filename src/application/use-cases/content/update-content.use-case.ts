@@ -29,7 +29,6 @@ export class UpdateContentUseCase {
     status?: ContentStatus;
     flashMessage?: string;
     flashTone?: "INFO" | "WARNING" | "CRITICAL";
-    scrollPxPerSecond?: number | null;
     textJsonContent?: string;
     textHtmlContent?: string;
   }) {
@@ -38,7 +37,6 @@ export class UpdateContentUseCase {
       input.status === undefined &&
       input.flashMessage === undefined &&
       input.flashTone === undefined &&
-      input.scrollPxPerSecond === undefined &&
       input.textJsonContent === undefined &&
       input.textHtmlContent === undefined
     ) {
@@ -73,21 +71,6 @@ export class UpdateContentUseCase {
         );
       }
     }
-    if (input.scrollPxPerSecond !== undefined) {
-      if (existing.type !== "IMAGE" && existing.type !== "PDF") {
-        throw new ValidationError(
-          "Scroll speed can only be updated on IMAGE or PDF content",
-        );
-      }
-      if (
-        input.scrollPxPerSecond !== null &&
-        (!Number.isInteger(input.scrollPxPerSecond) ||
-          input.scrollPxPerSecond <= 0)
-      ) {
-        throw new ValidationError("Scroll speed must be a positive integer");
-      }
-    }
-
     let checksum = existing.checksum;
     let fileSize = existing.fileSize;
     let flashMessage = existing.flashMessage ?? null;
@@ -165,9 +148,6 @@ export class UpdateContentUseCase {
               flashTone,
               textJsonContent,
               textHtmlContent,
-              ...(input.scrollPxPerSecond !== undefined
-                ? { scrollPxPerSecond: input.scrollPxPerSecond }
-                : {}),
               checksum,
               fileSize,
             },
@@ -179,9 +159,6 @@ export class UpdateContentUseCase {
             flashTone,
             textJsonContent,
             textHtmlContent,
-            ...(input.scrollPxPerSecond !== undefined
-              ? { scrollPxPerSecond: input.scrollPxPerSecond }
-              : {}),
             checksum,
             fileSize,
           });

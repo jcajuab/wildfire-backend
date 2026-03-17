@@ -12,7 +12,6 @@ describe("Content domain", () => {
   test("resolves content type from mime type", () => {
     expect(resolveContentType("image/png")).toBe("IMAGE");
     expect(resolveContentType("video/mp4")).toBe("VIDEO");
-    expect(resolveContentType("application/pdf")).toBe("PDF");
   });
 
   test("returns null for unsupported mime types", () => {
@@ -22,13 +21,12 @@ describe("Content domain", () => {
   test("resolves file extensions", () => {
     expect(resolveFileExtension("image/jpeg")).toBe("jpg");
     expect(resolveFileExtension("video/mp4")).toBe("mp4");
-    expect(resolveFileExtension("application/pdf")).toBe("pdf");
   });
 
   test("parses content type values", () => {
     expect(parseContentType("IMAGE")).toBe("IMAGE");
     expect(parseContentType("VIDEO")).toBe("VIDEO");
-    expect(parseContentType("PDF")).toBe("PDF");
+    expect(parseContentType("PDF")).toBeNull();
     expect(parseContentType("OTHER")).toBeNull();
   });
 
@@ -55,14 +53,6 @@ describe("Content domain", () => {
         mimeType: "video/mp4",
       }),
     ).toBe("content/videos/content-2.mp4");
-
-    expect(
-      buildContentFileKey({
-        id: "content-3",
-        type: "PDF",
-        mimeType: "application/pdf",
-      }),
-    ).toBe("content/documents/content-3.pdf");
   });
 
   test("builds content thumbnail key", () => {

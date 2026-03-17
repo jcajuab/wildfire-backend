@@ -56,26 +56,6 @@ export class DeleteContentUseCase {
       }
     }
 
-    const children =
-      record.kind === "ROOT" &&
-      this.deps.contentRepository.findChildrenByParentIds
-        ? input.ownerId &&
-          this.deps.contentRepository.findChildrenByParentIdsForOwner
-          ? await this.deps.contentRepository.findChildrenByParentIdsForOwner(
-              [record.id],
-              input.ownerId,
-              {
-                includeExcluded: true,
-              },
-            )
-          : await this.deps.contentRepository.findChildrenByParentIds(
-              [record.id],
-              {
-                includeExcluded: true,
-              },
-            )
-        : [];
-
     const deleted =
       input.ownerId && this.deps.contentRepository.deleteForOwner
         ? await this.deps.contentRepository.deleteForOwner(
@@ -92,10 +72,6 @@ export class DeleteContentUseCase {
     const keysToDelete = [
       record.fileKey,
       ...(record.thumbnailKey ? [record.thumbnailKey] : []),
-      ...children.map((child) => child.fileKey),
-      ...children
-        .map((child) => child.thumbnailKey)
-        .filter((key): key is string => key != null),
     ];
     for (const key of keysToDelete) {
       try {

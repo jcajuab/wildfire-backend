@@ -174,8 +174,6 @@ const buildContentActionApp = async () => {
           findByIdsForOwner: async () => [],
           list: async () => ({ items: [], total: 0 }),
           listForOwner: async () => ({ items: [], total: 0 }),
-          findChildrenByParentIds: async () => [],
-          deleteByParentId: async () => [],
           delete: async () => false,
           deleteForOwner: async () => false,
           update: async () => null,
@@ -260,6 +258,17 @@ const buildContentActionApp = async () => {
       },
       displayEventPublisher: {
         publish: () => {},
+      },
+      pdfCropSessionStore: {
+        save: async () => {},
+        findById: async () => null,
+        delete: async () => {},
+      },
+      pdfPageExtractor: {
+        extract: async () => ({ pageCount: 1, pages: [] }),
+      },
+      pdfCropRenderer: {
+        renderCrop: async () => new Uint8Array(),
       },
     }),
   );

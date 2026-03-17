@@ -43,11 +43,10 @@ export class ListContentUseCase {
     ownerId?: string;
     page?: number;
     pageSize?: number;
-    parentId?: string;
     status?: ContentStatus;
     type?: ContentType;
     search?: string;
-    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+    sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
   }) {
     const page = clamp(Math.trunc(input.page ?? 1), 1, Number.MAX_SAFE_INTEGER);
@@ -60,7 +59,6 @@ export class ListContentUseCase {
             ownerId: input.ownerId,
             offset,
             limit: pageSize,
-            parentId: input.parentId,
             status: input.status,
             type: input.type,
             search: input.search,
@@ -70,7 +68,6 @@ export class ListContentUseCase {
         : await this.deps.contentRepository.list({
             offset,
             limit: pageSize,
-            parentId: input.parentId,
             status: input.status,
             type: input.type,
             search: input.search,

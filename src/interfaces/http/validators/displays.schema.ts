@@ -231,7 +231,7 @@ export const displayManifestItemSchema = z.object({
   duration: z.number().int(),
   content: z.object({
     id: z.string(),
-    type: z.enum(["IMAGE", "VIDEO", "PDF", "TEXT"]),
+    type: z.enum(["IMAGE", "VIDEO", "TEXT"]),
     checksum: z.string(),
     downloadUrl: z.string().url().or(z.literal("")),
     thumbnailUrl: z.string().url().nullable().optional(),
@@ -239,13 +239,7 @@ export const displayManifestItemSchema = z.object({
     width: z.number().int().nullable(),
     height: z.number().int().nullable(),
     duration: z.number().int().nullable(),
-    scrollPxPerSecond: z.number().int().positive().nullable(),
     textHtmlContent: z.string().nullable(),
-    cropY: z.number().int().nonnegative().nullable().optional(),
-    cropHeight: z.number().int().positive().nullable().optional(),
-    scaledHeight: z.number().int().positive().nullable().optional(),
-    sliceIndex: z.number().int().nonnegative().nullable().optional(),
-    sliceCount: z.number().int().positive().nullable().optional(),
   }),
 });
 
@@ -253,9 +247,7 @@ export const displayManifestSchema = z.object({
   playlistId: z.string().nullable(),
   playlistVersion: z.string(),
   generatedAt: z.string(),
-  runtimeSettings: z.object({
-    scrollPxPerSecond: z.number().int().positive(),
-  }),
+  runtimeSettings: z.object({}),
   playback: z.object({
     mode: z.enum(["SCHEDULE", "EMERGENCY"]),
     emergency: z
@@ -265,7 +257,7 @@ export const displayManifestSchema = z.object({
         isGlobal: z.boolean(),
         content: z.object({
           id: z.string(),
-          type: z.enum(["IMAGE", "VIDEO", "PDF"]),
+          type: z.enum(["IMAGE", "VIDEO"]),
           checksum: z.string(),
           downloadUrl: z.string().url(),
           thumbnailUrl: z.string().url().nullable().optional(),
@@ -273,13 +265,7 @@ export const displayManifestSchema = z.object({
           width: z.number().int().nullable(),
           height: z.number().int().nullable(),
           duration: z.number().int().nullable(),
-          scrollPxPerSecond: z.number().int().positive().nullable(),
           textHtmlContent: z.string().nullable(),
-          cropY: z.number().int().nonnegative().nullable().optional(),
-          cropHeight: z.number().int().positive().nullable().optional(),
-          scaledHeight: z.number().int().positive().nullable().optional(),
-          sliceIndex: z.number().int().nonnegative().nullable().optional(),
-          sliceCount: z.number().int().positive().nullable().optional(),
         }),
       })
       .nullable(),

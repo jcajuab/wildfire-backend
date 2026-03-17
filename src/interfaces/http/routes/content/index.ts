@@ -3,6 +3,7 @@ import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerContentCrudRoutes } from "./crud.route";
 import { registerContentFileRoutes } from "./file.route";
+import { registerPdfCropRoutes } from "./pdf-crop.route";
 import { type ContentRouterDeps, type ContentRouterUseCases } from "./shared";
 
 export type { ContentRouterDeps } from "./shared";
@@ -37,6 +38,17 @@ export const createContentRouter = ({
     router,
     useCases,
     requirePermission,
+  });
+
+  registerPdfCropRoutes({
+    router,
+    useCases: {
+      initPdfCrop: useCases.initPdfCrop,
+      submitPdfCrop: useCases.submitPdfCrop,
+      cancelPdfCrop: useCases.cancelPdfCrop,
+    },
+    requirePermission,
+    maxUploadBytes: deps.maxUploadBytes,
   });
 
   return router;

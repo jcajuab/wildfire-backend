@@ -194,10 +194,8 @@ const makeDeps = () => {
     findByIdsForOwner: async () => [],
     list: async () => ({ items: [], total: 0 }),
     listForOwner: async () => ({ items: [], total: 0 }),
-    findChildrenByParentIds: async () => [],
     update: async () => null,
     updateForOwner: async () => null,
-    deleteByParentId: async () => [],
     delete: async () => false,
     deleteForOwner: async () => false,
   };
@@ -388,7 +386,7 @@ describe("Schedules use cases", () => {
             playlistId: "playlist-1",
             contentId: "content-1",
             sequence: 10,
-            duration: 5,
+            duration: 30,
           },
         ],
       },
@@ -406,7 +404,7 @@ describe("Schedules use cases", () => {
             mimeType: "image/png",
             fileSize: 100,
             width: 100,
-            height: 3000,
+            height: 100,
             duration: null,
             ownerId: "user-1",
             createdAt: "2025-01-01T00:00:00.000Z",
@@ -423,102 +421,10 @@ describe("Schedules use cases", () => {
         contentId: null,
         displayId: "display-1",
         startTime: "08:00",
-        endTime: "08:01",
+        endTime: "08:00",
         isActive: true,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
-  });
-
-  test("CreateScheduleUseCase treats root PDF duration as document-level across pages", async () => {
-    const deps = makeDeps();
-    const useCase = new CreateScheduleUseCase({
-      scheduleRepository: deps.scheduleRepository,
-      playlistRepository: {
-        ...deps.playlistRepository,
-        listItems: async () => [
-          {
-            id: "item-1",
-            playlistId: "playlist-1",
-            contentId: "content-pdf-root",
-            sequence: 10,
-            duration: 40,
-          },
-        ],
-      },
-      displayRepository: deps.displayRepository,
-      contentRepository: {
-        ...deps.contentRepository,
-        findByIds: async () => [
-          {
-            id: "content-pdf-root",
-            title: "Manual",
-            type: "PDF",
-            kind: "ROOT",
-            status: "READY",
-            fileKey: "content/documents/manual.pdf",
-            checksum: "root-checksum",
-            mimeType: "application/pdf",
-            fileSize: 100,
-            width: null,
-            height: null,
-            duration: null,
-            ownerId: "user-1",
-            createdAt: "2025-01-01T00:00:00.000Z",
-          },
-        ],
-        findChildrenByParentIds: async () => [
-          {
-            id: "content-pdf-page-1",
-            title: "Manual Page 1",
-            type: "PDF",
-            kind: "PAGE",
-            parentContentId: "content-pdf-root",
-            pageNumber: 1,
-            status: "READY",
-            fileKey: "content/documents/manual-page-1.pdf",
-            checksum: "page-1-checksum",
-            mimeType: "application/pdf",
-            fileSize: 50,
-            width: null,
-            height: null,
-            duration: null,
-            ownerId: "user-1",
-            createdAt: "2025-01-01T00:00:00.000Z",
-          },
-          {
-            id: "content-pdf-page-2",
-            title: "Manual Page 2",
-            type: "PDF",
-            kind: "PAGE",
-            parentContentId: "content-pdf-root",
-            pageNumber: 2,
-            status: "READY",
-            fileKey: "content/documents/manual-page-2.pdf",
-            checksum: "page-2-checksum",
-            mimeType: "application/pdf",
-            fileSize: 50,
-            width: null,
-            height: null,
-            duration: null,
-            ownerId: "user-1",
-            createdAt: "2025-01-01T00:00:00.000Z",
-          },
-        ],
-      },
-    });
-
-    const result = await useCase.execute({
-      name: "PDF Window",
-      kind: "PLAYLIST",
-      playlistId: "playlist-1",
-      contentId: null,
-      displayId: "display-1",
-      startTime: "08:00",
-      endTime: "08:01",
-      isActive: true,
-    });
-
-    expect(result.playlist?.id).toBe("playlist-1");
   });
 
   test("CreateScheduleUseCase allows PLAYLIST overlaps (virtual merge)", async () => {

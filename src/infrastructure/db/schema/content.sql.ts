@@ -1,6 +1,4 @@
 import {
-  type AnyMySqlColumn,
-  boolean,
   index,
   int,
   mysqlEnum,
@@ -17,24 +15,10 @@ export const content = mysqlTable(
   {
     id: varchar("id", { length: 36 }).primaryKey(),
     title: varchar("title", { length: 255 }).notNull(),
-    type: mysqlEnum("type", [
-      "IMAGE",
-      "VIDEO",
-      "PDF",
-      "FLASH",
-      "TEXT",
-    ]).notNull(),
-    kind: mysqlEnum("kind", ["ROOT", "PAGE"]).notNull().default("ROOT"),
+    type: mysqlEnum("type", ["IMAGE", "VIDEO", "FLASH", "TEXT"]).notNull(),
     status: mysqlEnum("status", ["PROCESSING", "READY", "FAILED"])
       .notNull()
       .default("PROCESSING"),
-    parentContentId: varchar("parent_content_id", { length: 36 }).references(
-      (): AnyMySqlColumn => content.id,
-      { onDelete: "cascade" },
-    ),
-    pageNumber: int("page_number"),
-    pageCount: int("page_count"),
-    isExcluded: boolean("is_excluded").notNull().default(false),
     ownerId: varchar("owner_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -44,11 +28,6 @@ export const content = mysqlTable(
   (table) => ({
     statusIndex: index("content_status_idx").on(table.status),
     typeIndex: index("content_type_idx").on(table.type),
-    kindIndex: index("content_kind_idx").on(table.kind),
-    parentContentIdIndex: index("content_parent_content_id_idx").on(
-      table.parentContentId,
-    ),
-    isExcludedIndex: index("content_is_excluded_idx").on(table.isExcluded),
     createdAtIndex: index("content_created_at_idx").on(table.createdAt),
     statusTypeCreatedAtIndex: index("content_status_type_created_at_idx").on(
       table.status,
@@ -72,7 +51,6 @@ export const contentAssets = mysqlTable(
     width: int("width"),
     height: int("height"),
     duration: int("duration"),
-    scrollPxPerSecond: int("scroll_px_per_second"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

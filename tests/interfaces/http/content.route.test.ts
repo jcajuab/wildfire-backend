@@ -35,27 +35,9 @@ const makeRepository = () => {
         records.filter(
           (item) => ids.includes(item.id) && item.ownerId === ownerId,
         ),
-      list: async ({
-        offset,
-        limit,
-        parentId,
-      }: {
-        offset: number;
-        limit: number;
-        parentId?: string;
-      }) => ({
-        items: records
-          .filter((record) =>
-            parentId
-              ? record.parentContentId === parentId
-              : record.parentContentId === null,
-          )
-          .slice(offset, offset + limit),
-        total: records.filter((record) =>
-          parentId
-            ? record.parentContentId === parentId
-            : record.parentContentId === null,
-        ).length,
+      list: async ({ offset, limit }: { offset: number; limit: number }) => ({
+        items: records.slice(offset, offset + limit),
+        total: records.length,
       }),
       listForOwner: async ({
         ownerId,
@@ -65,7 +47,6 @@ const makeRepository = () => {
         ownerId: string;
         offset: number;
         limit: number;
-        parentId?: string;
       }) => {
         const owned = records.filter((r) => r.ownerId === ownerId);
         return {
@@ -73,8 +54,6 @@ const makeRepository = () => {
           total: owned.length,
         };
       },
-      findChildrenByParentIds: async () => [],
-      deleteByParentId: async () => [],
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
         if (index === -1) return false;
@@ -95,14 +74,9 @@ const makeRepository = () => {
           Pick<
             ContentRecord,
             | "title"
-            | "kind"
             | "status"
             | "fileKey"
             | "thumbnailKey"
-            | "parentContentId"
-            | "pageNumber"
-            | "pageCount"
-            | "isExcluded"
             | "type"
             | "mimeType"
             | "fileSize"
@@ -267,6 +241,17 @@ const makeApp = async (permissions: string[]) => {
       displayEventPublisher: {
         publish: () => {},
       },
+      pdfCropSessionStore: {
+        save: async () => {},
+        findById: async () => null,
+        delete: async () => {},
+      },
+      pdfPageExtractor: {
+        extract: async () => ({ pageCount: 1, pages: [] }),
+      },
+      pdfCropRenderer: {
+        renderCrop: async () => new Uint8Array(),
+      },
     }),
   );
   app.route("/content", router);
@@ -322,13 +307,8 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -363,13 +343,8 @@ describe("Content routes", () => {
       id: "flash-1",
       title: "Critical Alert",
       type: "FLASH",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/flash/flash-1",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "flash-1",
       mimeType: "text/plain",
       fileSize: 1,
@@ -409,13 +384,8 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -448,13 +418,8 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Poster",
       type: "IMAGE",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -510,13 +475,8 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Old Title",
       type: "IMAGE",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -553,13 +513,8 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Rich Text",
       type: "TEXT",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/text/11111111-1111-4111-8111-111111111111.json",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "abc",
       mimeType: "application/json",
       fileSize: 10,
@@ -610,13 +565,8 @@ describe("Content routes", () => {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Status Test",
       type: "IMAGE",
-      kind: "ROOT",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "abc",
       mimeType: "image/png",
       fileSize: 10,
@@ -686,17 +636,12 @@ describe("Content routes", () => {
     const id = "11111111-1111-4111-8111-111111111111";
     records.push({
       id,
-      title: "Old PDF",
-      type: "PDF",
-      kind: "ROOT",
+      title: "Old Image",
+      type: "IMAGE",
       status: "READY",
-      fileKey: `content/documents/${id}.pdf`,
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
+      fileKey: `content/images/${id}.png`,
       checksum: "old",
-      mimeType: "application/pdf",
+      mimeType: "image/png",
       fileSize: 10,
       width: null,
       height: null,
@@ -749,13 +694,8 @@ describe("Content routes", () => {
       id,
       title: "In Use",
       type: "IMAGE",
-      kind: "ROOT",
       status: "PROCESSING",
       fileKey: `content/images/${id}.png`,
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum: "old",
       mimeType: "image/png",
       fileSize: 10,

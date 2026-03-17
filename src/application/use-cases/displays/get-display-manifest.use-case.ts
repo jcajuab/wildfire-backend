@@ -10,7 +10,6 @@ import {
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { splitPdfDocumentDurationAcrossPages } from "#/application/use-cases/shared/pdf-duration";
 import { sha256Hex } from "#/domain/content/checksum";
 import {
   selectActiveScheduleByKind,
@@ -53,9 +52,7 @@ const mapWithConcurrency = async <T, R>(
   return result;
 };
 
-const DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND = 24;
-
-type ManifestRenderableType = "IMAGE" | "VIDEO" | "PDF" | "TEXT";
+type ManifestRenderableType = "IMAGE" | "VIDEO" | "TEXT";
 
 interface ManifestRenderableContent {
   id: string;
@@ -67,13 +64,7 @@ interface ManifestRenderableContent {
   width: number | null;
   height: number | null;
   duration: number | null;
-  scrollPxPerSecond: number | null;
   textHtmlContent: string | null;
-  cropY?: number | null;
-  cropHeight?: number | null;
-  scaledHeight?: number | null;
-  sliceIndex?: number | null;
-  sliceCount?: number | null;
 }
 
 interface ManifestRenderableItem {
@@ -82,114 +73,6 @@ interface ManifestRenderableItem {
   duration: number;
   content: ManifestRenderableContent;
 }
-
-interface CropSliceMeta {
-  cropY: number;
-  cropHeight: number;
-  scaledHeight: number;
-  sliceIndex: number;
-  sliceCount: number;
-}
-
-const toCropSliceMeta = (input: {
-  contentWidth: number | null;
-  contentHeight: number | null;
-  viewportWidth: number | null;
-  viewportHeight: number | null;
-}): CropSliceMeta[] => {
-  if (
-    typeof input.contentWidth !== "number" ||
-    typeof input.contentHeight !== "number" ||
-    typeof input.viewportWidth !== "number" ||
-    typeof input.viewportHeight !== "number" ||
-    input.contentWidth <= 0 ||
-    input.contentHeight <= 0 ||
-    input.viewportWidth <= 0 ||
-    input.viewportHeight <= 0
-  ) {
-    return [];
-  }
-  const viewportWidth = input.viewportWidth;
-  const viewportHeight = input.viewportHeight;
-
-  const scaledHeight = Math.ceil(
-    (viewportWidth / input.contentWidth) * input.contentHeight,
-  );
-  if (scaledHeight <= viewportHeight) {
-    return [];
-  }
-
-  const sliceCount = Math.max(1, Math.ceil(scaledHeight / viewportHeight));
-  return Array.from({ length: sliceCount }, (_unused, index) => {
-    const cropY = index * viewportHeight;
-    const remaining = Math.max(0, scaledHeight - cropY);
-    return {
-      cropY,
-      cropHeight: Math.min(viewportHeight, remaining),
-      scaledHeight,
-      sliceIndex: index,
-      sliceCount,
-    };
-  });
-};
-
-const withCropMeta = (
-  content: ManifestRenderableContent,
-  cropMeta: CropSliceMeta | null,
-): ManifestRenderableContent => ({
-  ...content,
-  cropY: cropMeta?.cropY ?? null,
-  cropHeight: cropMeta?.cropHeight ?? null,
-  scaledHeight: cropMeta?.scaledHeight ?? null,
-  sliceIndex: cropMeta?.sliceIndex ?? null,
-  sliceCount: cropMeta?.sliceCount ?? null,
-});
-
-const expandManifestItemsForViewportSlices = (input: {
-  items: readonly ManifestRenderableItem[];
-  viewportWidth: number | null;
-  viewportHeight: number | null;
-}): ManifestRenderableItem[] => {
-  const expanded: ManifestRenderableItem[] = [];
-
-  for (const item of input.items) {
-    if (item.content.type !== "IMAGE" && item.content.type !== "PDF") {
-      expanded.push({
-        ...item,
-        content: withCropMeta(item.content, null),
-      });
-      continue;
-    }
-
-    const cropSlices = toCropSliceMeta({
-      contentWidth: item.content.width,
-      contentHeight: item.content.height,
-      viewportWidth: input.viewportWidth,
-      viewportHeight: input.viewportHeight,
-    });
-
-    if (cropSlices.length === 0) {
-      expanded.push({
-        ...item,
-        content: withCropMeta(item.content, null),
-      });
-      continue;
-    }
-
-    for (const cropMeta of cropSlices) {
-      expanded.push({
-        ...item,
-        id: `${item.id}:slice-${cropMeta.sliceIndex + 1}`,
-        content: withCropMeta(item.content, cropMeta),
-      });
-    }
-  }
-
-  return expanded.map((item, index) => ({
-    ...item,
-    sequence: index + 1,
-  }));
-};
 
 interface ManifestFlashState {
   scheduleId: string;
@@ -214,18 +97,14 @@ interface ManifestPlaybackState {
 
 const isRenderableEmergencyAsset = (content: {
   type: string;
-  kind?: string;
   status: string;
 }): content is {
   type: ManifestRenderableType;
-  kind: "ROOT" | "PAGE";
   status: "READY";
 } =>
   (content.type === "IMAGE" ||
     content.type === "VIDEO" ||
-    content.type === "PDF" ||
     content.type === "TEXT") &&
-  content.kind === "ROOT" &&
   content.status === "READY";
 
 const pickDisplayEmergencyAssetId = (input: {
@@ -273,7 +152,6 @@ export class GetDisplayManifestUseCase {
       activeFlashSchedule &&
       flashContent &&
       flashContent.type === "FLASH" &&
-      flashContent.kind === "ROOT" &&
       flashContent.status === "READY" &&
       flashContent.flashMessage
         ? {
@@ -295,12 +173,11 @@ export class GetDisplayManifestUseCase {
         runtimeOverrides.global.globalEmergencyStartedAt,
     });
     if (emergency) {
-      const runtimeSettings = await this.getRuntimeSettings();
       const emergencyDuration =
         emergency.content.type === "VIDEO"
           ? Math.max(1, emergency.content.duration ?? 1)
           : 86_400;
-      let items: ManifestRenderableItem[] = [
+      const items: ManifestRenderableItem[] = [
         {
           id: `emergency:${emergency.content.id}`,
           sequence: 1,
@@ -309,100 +186,23 @@ export class GetDisplayManifestUseCase {
         },
       ];
 
-      if (emergency.content.type === "PDF") {
-        const emergencyAsset = await this.deps.contentRepository.findById(
-          emergency.content.id,
-        );
-        if (emergencyAsset?.kind === "ROOT" && emergencyAsset.type === "PDF") {
-          const childPages = this.deps.contentRepository.findChildrenByParentIds
-            ? await this.deps.contentRepository.findChildrenByParentIds(
-                [emergencyAsset.id],
-                {
-                  includeExcluded: false,
-                  onlyReady: true,
-                },
-              )
-            : [];
-          const pages =
-            childPages.length > 0
-              ? [...childPages].sort(
-                  (left, right) =>
-                    (left.pageNumber ?? 0) - (right.pageNumber ?? 0),
-                )
-              : [emergencyAsset];
-          const pageDurations = splitPdfDocumentDurationAcrossPages({
-            totalDurationSeconds: emergencyDuration,
-            pageCount: pages.length,
-          });
-
-          items = await mapWithConcurrency(pages, 8, async (page, index) => {
-            const downloadUrl =
-              await this.deps.contentStorage.getPresignedDownloadUrl({
-                key: page.fileKey,
-                expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-              });
-            const thumbnailKey =
-              page.thumbnailKey ?? emergencyAsset.thumbnailKey ?? null;
-            const thumbnailUrl = thumbnailKey
-              ? await this.deps.contentStorage.getPresignedDownloadUrl({
-                  key: thumbnailKey,
-                  expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-                })
-              : null;
-
-            return {
-              id: `emergency:${emergencyAsset.id}:${page.id}`,
-              sequence: index + 1,
-              duration: pageDurations[index] ?? 1,
-              content: {
-                id: page.id,
-                type: "PDF",
-                checksum: page.checksum,
-                downloadUrl,
-                thumbnailUrl,
-                mimeType: page.mimeType,
-                width: page.width,
-                height: page.height,
-                duration: page.duration,
-                scrollPxPerSecond:
-                  page.scrollPxPerSecond ??
-                  emergencyAsset.scrollPxPerSecond ??
-                  null,
-                textHtmlContent: null,
-              },
-            };
-          });
-        }
-      }
-
       const playback: ManifestPlaybackState = {
         mode: "EMERGENCY",
         emergency,
         flash: null,
       };
-      const runtimeItems = expandManifestItemsForViewportSlices({
-        items,
-        viewportWidth:
-          typeof display.screenWidth === "number" ? display.screenWidth : null,
-        viewportHeight:
-          typeof display.screenHeight === "number"
-            ? display.screenHeight
-            : null,
-      });
 
       return {
         playlistId: null,
         playlistVersion: await this.computePlaylistVersion({
           playlistId: null,
           refreshNonce: display.refreshNonce ?? 0,
-          runtimeSettings,
           playback,
-          items: runtimeItems,
+          items,
         }),
         generatedAt: input.now.toISOString(),
-        runtimeSettings,
         playback,
-        items: runtimeItems,
+        items,
       };
     }
 
@@ -413,7 +213,6 @@ export class GetDisplayManifestUseCase {
       this.deps.scheduleTimeZone ?? "UTC",
     );
 
-    const runtimeSettings = await this.getRuntimeSettings();
     const playback: ManifestPlaybackState = {
       mode: "SCHEDULE",
       emergency: null,
@@ -426,12 +225,10 @@ export class GetDisplayManifestUseCase {
         playlistVersion: await this.computePlaylistVersion({
           playlistId: null,
           refreshNonce: display.refreshNonce ?? 0,
-          runtimeSettings,
           playback,
           items: [],
         }),
         generatedAt: input.now.toISOString(),
-        runtimeSettings,
         playback,
         items: [],
       };
@@ -478,183 +275,74 @@ export class GetDisplayManifestUseCase {
     const contentsById = new Map(
       contents.map((content) => [content.id, content]),
     );
-    const missingParentIds = Array.from(
-      new Set(
-        contents
-          .filter(
-            (content) => content.kind === "PAGE" && content.parentContentId,
-          )
-          .map((content) => content.parentContentId as string),
-      ),
-    ).filter((id) => !contentsById.has(id));
-    if (missingParentIds.length > 0) {
-      const parentContents =
-        await this.deps.contentRepository.findByIds(missingParentIds);
-      for (const parentContent of parentContents) {
-        contentsById.set(parentContent.id, parentContent);
-      }
-    }
-    const parentPdfContentIds = contents
-      .filter((content) => content.kind === "ROOT" && content.type === "PDF")
-      .map((content) => content.id);
-    const childPagesByParentId = new Map<string, typeof contents>();
-    if (
-      parentPdfContentIds.length > 0 &&
-      this.deps.contentRepository.findChildrenByParentIds
-    ) {
-      const childPages =
-        await this.deps.contentRepository.findChildrenByParentIds(
-          parentPdfContentIds,
-          {
-            includeExcluded: false,
-            onlyReady: true,
-          },
-        );
-      for (const childPage of childPages) {
-        if (!childPage.parentContentId) {
-          continue;
-        }
-        const current =
-          childPagesByParentId.get(childPage.parentContentId) ?? [];
-        childPagesByParentId.set(childPage.parentContentId, [
-          ...current,
-          childPage,
-        ]);
-      }
-      for (const [parentId, pages] of childPagesByParentId) {
-        childPagesByParentId.set(
-          parentId,
-          [...pages].sort(
-            (left, right) => (left.pageNumber ?? 0) - (right.pageNumber ?? 0),
-          ),
-        );
-      }
-    }
 
-    const expandedItems: Array<{
-      id: string;
-      sequence: number;
-      duration: number;
-      content: (typeof contents)[number];
-    }> = [];
-    let expandedSequence = 1;
     const sortedPlaylistItems = [...items].sort(
       (left, right) => left.sequence - right.sequence,
     );
-    for (const item of sortedPlaylistItems) {
-      const content = contentsById.get(item.contentId);
-      if (!content) {
-        throw new NotFoundError("Content not found");
-      }
-
-      if (content.kind === "ROOT" && content.type === "PDF") {
-        const childPages = childPagesByParentId.get(content.id) ?? [];
-        const pages = childPages.length > 0 ? childPages : [content];
-        const pageDurations = splitPdfDocumentDurationAcrossPages({
-          totalDurationSeconds: item.duration,
-          pageCount: pages.length,
-        });
-        for (const [index, page] of pages.entries()) {
-          expandedItems.push({
-            id: `${item.id}:${page.id}`,
-            sequence: expandedSequence,
-            duration: pageDurations[index] ?? 1,
-            content: page,
-          });
-          expandedSequence += 1;
-        }
-        continue;
-      }
-
-      expandedItems.push({
-        id: item.id,
-        sequence: expandedSequence,
-        duration: item.duration,
-        content,
-      });
-      expandedSequence += 1;
-    }
 
     const manifestItems: ManifestRenderableItem[] = await mapWithConcurrency(
-      expandedItems,
+      sortedPlaylistItems,
       8,
-      async (item) => {
+      async (item, index) => {
+        const content = contentsById.get(item.contentId);
+        if (!content) {
+          throw new NotFoundError("Content not found");
+        }
+
         if (
-          item.content.type !== "IMAGE" &&
-          item.content.type !== "VIDEO" &&
-          item.content.type !== "PDF" &&
-          item.content.type !== "TEXT"
+          content.type !== "IMAGE" &&
+          content.type !== "VIDEO" &&
+          content.type !== "TEXT"
         ) {
           throw new ValidationError(
-            `Unsupported content type in playlist: ${item.content.type}`,
+            `Unsupported content type in playlist: ${content.type}`,
           );
         }
         const downloadUrl =
-          item.content.type === "TEXT"
+          content.type === "TEXT"
             ? ""
             : await this.deps.contentStorage.getPresignedDownloadUrl({
-                key: item.content.fileKey,
+                key: content.fileKey,
                 expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
               });
-        const parentContent =
-          item.content.kind === "PAGE" && item.content.parentContentId
-            ? contentsById.get(item.content.parentContentId)
-            : null;
-        const thumbnailKey =
-          item.content.thumbnailKey ?? parentContent?.thumbnailKey ?? null;
-        const thumbnailUrl = thumbnailKey
+        const thumbnailUrl = content.thumbnailKey
           ? await this.deps.contentStorage.getPresignedDownloadUrl({
-              key: thumbnailKey,
+              key: content.thumbnailKey,
               expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
             })
           : null;
 
         return {
           id: item.id,
-          sequence: item.sequence,
+          sequence: index + 1,
           duration: item.duration,
           content: {
-            id: item.content.id,
-            type: item.content.type,
-            checksum: item.content.checksum,
+            id: content.id,
+            type: content.type,
+            checksum: content.checksum,
             downloadUrl,
             thumbnailUrl,
-            mimeType: item.content.mimeType,
-            width: item.content.width,
-            height: item.content.height,
-            duration: item.content.duration,
-            scrollPxPerSecond:
-              item.content.scrollPxPerSecond ??
-              (item.content.kind === "PAGE" && item.content.parentContentId
-                ? (contentsById.get(item.content.parentContentId)
-                    ?.scrollPxPerSecond ?? null)
-                : null),
-            textHtmlContent: item.content.textHtmlContent ?? null,
+            mimeType: content.mimeType,
+            width: content.width,
+            height: content.height,
+            duration: content.duration,
+            textHtmlContent: content.textHtmlContent ?? null,
           },
         };
       },
     );
-    const runtimeItems = expandManifestItemsForViewportSlices({
-      items: manifestItems,
-      viewportWidth:
-        typeof display.screenWidth === "number" ? display.screenWidth : null,
-      viewportHeight:
-        typeof display.screenHeight === "number" ? display.screenHeight : null,
-    });
 
     return {
       playlistId: playlist.id,
       playlistVersion: await this.computePlaylistVersion({
         playlistId: playlist.id,
         refreshNonce: display.refreshNonce ?? 0,
-        runtimeSettings,
         playback,
-        items: runtimeItems,
+        items: manifestItems,
       }),
       generatedAt: input.now.toISOString(),
-      runtimeSettings,
       playback,
-      items: runtimeItems,
+      items: manifestItems,
     };
   }
 
@@ -730,7 +418,6 @@ export class GetDisplayManifestUseCase {
         width: emergencyAsset.width,
         height: emergencyAsset.height,
         duration: emergencyAsset.duration,
-        scrollPxPerSecond: emergencyAsset.scrollPxPerSecond ?? null,
         textHtmlContent: emergencyAsset.textHtmlContent ?? null,
       },
     };
@@ -739,7 +426,6 @@ export class GetDisplayManifestUseCase {
   private async computePlaylistVersion(input: {
     playlistId: string | null;
     refreshNonce: number;
-    runtimeSettings: { scrollPxPerSecond: number };
     playback: ManifestPlaybackState;
     items: Array<{
       id: string;
@@ -748,14 +434,12 @@ export class GetDisplayManifestUseCase {
       content: {
         id: string;
         checksum: string;
-        scrollPxPerSecond?: number | null;
       };
     }>;
   }): Promise<string> {
     const versionPayload = JSON.stringify({
       playlistId: input.playlistId,
       refreshNonce: input.refreshNonce,
-      scrollPxPerSecond: input.runtimeSettings.scrollPxPerSecond,
       playback: {
         mode: input.playback.mode,
         emergency: input.playback.emergency
@@ -783,15 +467,8 @@ export class GetDisplayManifestUseCase {
         duration: item.duration,
         contentId: item.content.id,
         checksum: item.content.checksum,
-        scrollPxPerSecond: item.content.scrollPxPerSecond ?? null,
       })),
     });
     return sha256Hex(new TextEncoder().encode(versionPayload).buffer);
-  }
-
-  private async getRuntimeSettings(): Promise<{ scrollPxPerSecond: number }> {
-    return {
-      scrollPxPerSecond: DEFAULT_RUNTIME_SCROLL_PX_PER_SECOND,
-    };
   }
 }

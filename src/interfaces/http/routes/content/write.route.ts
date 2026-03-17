@@ -20,8 +20,6 @@ import {
 } from "#/interfaces/http/routes/shared/error-handling";
 import { authValidationErrorResponses } from "#/interfaces/http/routes/shared/openapi-responses";
 import {
-  contentExclusionRequestBodySchema,
-  contentExclusionSchema,
   contentIdParamSchema,
   contentIngestionAcceptedSchema,
   contentSchema,
@@ -112,7 +110,6 @@ export const registerContentWriteRoutes = (args: {
           title: payload.title,
           file: payload.file,
           ownerId: c.get("userId"),
-          scrollPxPerSecond: payload.scrollPxPerSecond,
         });
         c.set("resourceId", result.content.id);
         c.set("fileId", result.content.id);
@@ -307,7 +304,6 @@ export const registerContentWriteRoutes = (args: {
           title: body.title,
           flashMessage: body.flashMessage,
           flashTone: body.flashTone,
-          scrollPxPerSecond: body.scrollPxPerSecond,
           textJsonContent: body.textJsonContent,
           textHtmlContent: body.textHtmlContent,
         });
@@ -412,70 +408,6 @@ export const registerContentWriteRoutes = (args: {
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
       mapErrorToResponse(InvalidContentTypeError, validationError),
-    ),
-  );
-
-  router.patch(
-    "/:id{[0-9a-fA-F-]{36}}/exclusion",
-    setAction("content.content.set-exclusion", {
-      route: "/content/:id/exclusion",
-      resourceType: "content",
-    }),
-    requirePermission("content:update"),
-    validateParams(contentIdParamSchema),
-    validateJson(contentExclusionSchema),
-    describeRoute({
-      description: "Set global exclusion flag for a PDF page content item",
-      tags: contentTags,
-      requestBody: {
-        content: {
-          "application/json": {
-            schema: contentExclusionRequestBodySchema,
-          },
-        },
-        required: true,
-      },
-      responses: {
-        200: {
-          description: "Content exclusion updated",
-          content: {
-            "application/json": {
-              schema: resolver(apiResponseSchema(contentSchema)),
-            },
-          },
-        },
-        422: {
-          description: "Invalid request",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-        404: {
-          description: "Not found",
-          content: {
-            "application/json": {
-              schema: resolver(errorResponseSchema),
-            },
-          },
-        },
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const params = c.req.valid("param");
-        const body = c.req.valid("json");
-        c.set("resourceId", params.id);
-        c.set("fileId", params.id);
-        const result = await useCases.setContentExclusion.execute({
-          id: params.id,
-          ownerId: c.get("userId"),
-          isExcluded: body.isExcluded,
-        });
-        return c.json(toApiResponse(result), 200);
-      },
-      ...applicationErrorMappers,
     ),
   );
 

@@ -1,4 +1,3 @@
-import { ValidationError } from "#/application/errors/validation";
 import {
   type ContentRepository,
   type ContentStorage,
@@ -112,12 +111,6 @@ export class ReplaceContentFileUseCase {
     if (!type) {
       throw new InvalidContentTypeError("Unsupported content type");
     }
-    if (existing.kind === "PAGE" && type !== "PDF") {
-      throw new ValidationError(
-        "PDF page content can only be replaced with PDF",
-      );
-    }
-
     const fileKey = buildContentFileKey({ id: input.id, type, mimeType });
     const buffer = await input.file.arrayBuffer();
     const checksum = await sha256Hex(buffer);
@@ -146,7 +139,6 @@ export class ReplaceContentFileUseCase {
               height: null,
               duration: null,
               checksum,
-              ...(existing.kind === "ROOT" ? { pageCount: null } : {}),
             },
           )
         : await this.deps.contentRepository.update(input.id, {
@@ -161,7 +153,6 @@ export class ReplaceContentFileUseCase {
             height: null,
             duration: null,
             checksum,
-            ...(existing.kind === "ROOT" ? { pageCount: null } : {}),
           });
     if (!updated) {
       throw new NotFoundError("Content not found");

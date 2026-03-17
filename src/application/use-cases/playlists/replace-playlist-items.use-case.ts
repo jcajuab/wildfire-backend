@@ -1,7 +1,6 @@
 import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
-import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
@@ -21,7 +20,6 @@ export class ReplacePlaylistItemsAtomicUseCase {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
       scheduleRepository?: ScheduleRepository;
-      displayRepository?: DisplayRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
     },
   ) {}
@@ -126,23 +124,6 @@ export class ReplacePlaylistItemsAtomicUseCase {
           "Only ready content can be added to playlists.",
         );
       }
-      if (content.kind === "PAGE" && content.isExcluded) {
-        throw new ValidationError(
-          "Excluded PDF pages cannot be added to playlists.",
-        );
-      }
-    }
-
-    const hasParentPdfRefs = contents.some(
-      (content) => content.type === "PDF" && content.kind === "ROOT",
-    );
-    const hasChildPdfRefs = contents.some(
-      (content) => content.type === "PDF" && content.kind === "PAGE",
-    );
-    if (hasParentPdfRefs && hasChildPdfRefs) {
-      throw new ValidationError(
-        "Cannot mix PDF documents and PDF pages in the same playlist.",
-      );
     }
 
     const replaced = await this.deps.playlistRepository.replaceItemsAtomic({

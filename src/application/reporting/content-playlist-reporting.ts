@@ -1,6 +1,5 @@
-import { eq, or, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "#/infrastructure/db/client";
-import { content } from "#/infrastructure/db/schema/content.sql";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 
@@ -23,13 +22,7 @@ export class ContentPlaylistReportingService {
       const result = await db
         .select({ value: sql<number>`count(*)` })
         .from(playlistItems)
-        .leftJoin(content, eq(content.id, playlistItems.contentId))
-        .where(
-          or(
-            eq(playlistItems.contentId, contentId),
-            eq(content.parentContentId, contentId),
-          ),
-        );
+        .where(eq(playlistItems.contentId, contentId));
       return result[0]?.value ?? 0;
     } catch (error) {
       if (hasMissingPlaylistItemsTable(error)) {
@@ -47,13 +40,7 @@ export class ContentPlaylistReportingService {
         .selectDistinct({ id: playlists.id, name: playlists.name })
         .from(playlistItems)
         .innerJoin(playlists, eq(playlistItems.playlistId, playlists.id))
-        .leftJoin(content, eq(content.id, playlistItems.contentId))
-        .where(
-          or(
-            eq(playlistItems.contentId, contentId),
-            eq(content.parentContentId, contentId),
-          ),
-        )
+        .where(eq(playlistItems.contentId, contentId))
         .limit(10);
       return result;
     } catch (error) {

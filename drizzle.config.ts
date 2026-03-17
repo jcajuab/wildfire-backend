@@ -3,7 +3,7 @@ import { DATABASE_URL, env } from "#/env";
 
 export default defineConfig({
   dialect: "mysql",
-  schema: "./src/infrastructure/db/schema",
+  schema: "./src/infrastructure/db/schema/*.sql.ts",
   casing: "snake_case",
   dbCredentials: {
     host: env.MYSQL_HOST,

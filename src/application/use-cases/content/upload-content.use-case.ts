@@ -32,12 +32,7 @@ export class UploadContentUseCase {
     },
   ) {}
 
-  async execute(input: {
-    title: string;
-    file: File;
-    ownerId: string;
-    scrollPxPerSecond?: number;
-  }) {
+  async execute(input: { title: string; file: File; ownerId: string }) {
     const contentIngestionJobRepository = this.deps
       .contentIngestionJobRepository ?? {
       create: async (jobInput: {
@@ -75,13 +70,17 @@ export class UploadContentUseCase {
     }
 
     const mimeType = input.file.type;
+    if (mimeType === "application/pdf") {
+      throw new InvalidContentTypeError(
+        "PDF files must be uploaded via the crop endpoint (POST /content/pdf-crop)",
+      );
+    }
     const type = resolveContentType(mimeType);
     if (!type) {
       throw new InvalidContentTypeError("Unsupported content type");
     }
 
     const id = crypto.randomUUID();
-    const supportsScrollOverride = type === "IMAGE" || type === "PDF";
     const fileKey = buildContentFileKey({ id, type, mimeType });
     const buffer = await input.file.arrayBuffer();
     const checksum = await sha256Hex(buffer);
@@ -90,23 +89,15 @@ export class UploadContentUseCase {
       id,
       title: input.title,
       type,
-      kind: "ROOT",
       status: "PROCESSING",
       fileKey,
       thumbnailKey: null,
-      parentContentId: null,
-      pageNumber: null,
-      pageCount: null,
-      isExcluded: false,
       checksum,
       mimeType,
       fileSize: input.file.size,
       width: null,
       height: null,
       duration: null,
-      scrollPxPerSecond: supportsScrollOverride
-        ? (input.scrollPxPerSecond ?? null)
-        : null,
       ownerId: user.id,
     });
 

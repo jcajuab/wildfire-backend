@@ -8,7 +8,7 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 
-export type ManifestRenderableType = "IMAGE" | "VIDEO" | "PDF";
+export type ManifestRenderableType = "IMAGE" | "VIDEO";
 
 export function withTelemetry(display: DisplayRecord) {
   const lastSeenAt = display.lastSeenAt ?? null;
@@ -234,15 +234,10 @@ export const listDisplaysWithFallback = async (input: {
 
 export const isRenderableEmergencyAsset = (content: {
   type: string;
-  kind?: string;
   status: string;
 }): content is {
   type: ManifestRenderableType;
-  kind: "ROOT" | "PAGE";
   status: "READY";
 } =>
-  (content.type === "IMAGE" ||
-    content.type === "VIDEO" ||
-    content.type === "PDF") &&
-  content.kind === "ROOT" &&
+  (content.type === "IMAGE" || content.type === "VIDEO") &&
   content.status === "READY";

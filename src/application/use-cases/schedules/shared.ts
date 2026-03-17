@@ -238,13 +238,10 @@ export const getValidatedWindow = (input: {
 
 export const ensureFlashContentIsSchedulable = (content: {
   type: string;
-  kind?: string;
   status: string;
 }) => {
-  if (content.type !== "FLASH" || content.kind !== "ROOT") {
-    throw new ValidationError(
-      "Flash schedules require a root FLASH content item",
-    );
+  if (content.type !== "FLASH") {
+    throw new ValidationError("Flash schedules require a FLASH content item");
   }
   if (content.status !== "READY") {
     throw new ValidationError("Only ready flash content can be scheduled");

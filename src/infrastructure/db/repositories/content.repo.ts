@@ -1,13 +1,9 @@
-import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import {
   type ContentRecord,
   type ContentRepository,
 } from "#/application/ports/content";
-import {
-  parseContentKind,
-  parseContentStatus,
-  parseContentType,
-} from "#/domain/content/content";
+import { parseContentStatus, parseContentType } from "#/domain/content/content";
 import { db } from "#/infrastructure/db/client";
 import {
   content,
@@ -22,12 +18,7 @@ type ContentRow = {
   id: string;
   title: string;
   type: string;
-  kind: string;
   status: string;
-  parentContentId: string | null;
-  pageNumber: number | null;
-  pageCount: number | null;
-  isExcluded: boolean;
   ownerId: string;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -39,7 +30,6 @@ type ContentRow = {
   width: number | null;
   height: number | null;
   duration: number | null;
-  scrollPxPerSecond: number | null;
   flashMessage: string | null;
   flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
   textJsonContent: string | null;
@@ -50,38 +40,26 @@ type ContentListInput = {
   ownerId?: string;
   offset: number;
   limit: number;
-  parentId?: string;
   status?: ContentRecord["status"];
   type?: ContentRecord["type"];
   search?: string;
-  sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+  sortBy?: "createdAt" | "title" | "fileSize" | "type";
   sortDirection?: "asc" | "desc";
-};
-
-type ContentChildrenInput = {
-  includeExcluded?: boolean;
-  onlyReady?: boolean;
 };
 
 export type ContentUpdateInput = Partial<
   Pick<
     ContentRecord,
     | "title"
-    | "kind"
     | "status"
     | "fileKey"
     | "thumbnailKey"
-    | "parentContentId"
-    | "pageNumber"
-    | "pageCount"
-    | "isExcluded"
     | "type"
     | "mimeType"
     | "fileSize"
     | "width"
     | "height"
     | "duration"
-    | "scrollPxPerSecond"
     | "flashMessage"
     | "flashTone"
     | "textJsonContent"
@@ -96,12 +74,7 @@ const buildBaseContentQuery = () =>
       id: content.id,
       title: content.title,
       type: content.type,
-      kind: content.kind,
       status: content.status,
-      parentContentId: content.parentContentId,
-      pageNumber: content.pageNumber,
-      pageCount: content.pageCount,
-      isExcluded: content.isExcluded,
       ownerId: content.ownerId,
       createdAt: content.createdAt,
       updatedAt: content.updatedAt,
@@ -113,7 +86,6 @@ const buildBaseContentQuery = () =>
       width: contentAssets.width,
       height: contentAssets.height,
       duration: contentAssets.duration,
-      scrollPxPerSecond: contentAssets.scrollPxPerSecond,
       flashMessage: contentFlashMessages.message,
       flashTone: contentFlashMessages.tone,
       textJsonContent: contentTextContent.jsonContent,
@@ -131,10 +103,6 @@ const mapContentRowToRecord = (row: ContentRow): ContentRecord => {
   const parsedType = parseContentType(row.type);
   if (!parsedType) {
     throw new Error(`Invalid content type: ${row.type}`);
-  }
-  const parsedKind = parseContentKind(row.kind);
-  if (!parsedKind) {
-    throw new Error(`Invalid content kind: ${row.kind}`);
   }
   const parsedStatus = parseContentStatus(row.status);
   if (!parsedStatus) {
@@ -154,21 +122,15 @@ const mapContentRowToRecord = (row: ContentRow): ContentRecord => {
     id: row.id,
     title: row.title,
     type: parsedType,
-    kind: parsedKind,
     status: parsedStatus,
     fileKey: row.fileKey,
     thumbnailKey: row.thumbnailKey,
-    parentContentId: row.parentContentId,
-    pageNumber: row.pageNumber,
-    pageCount: row.pageCount,
-    isExcluded: row.isExcluded,
     checksum: row.checksum,
     mimeType: row.mimeType,
     fileSize: row.fileSize,
     width: row.width,
     height: row.height,
     duration: row.duration,
-    scrollPxPerSecond: row.scrollPxPerSecond,
     flashMessage: row.flashMessage,
     flashTone: row.flashTone,
     textJsonContent: row.textJsonContent,
@@ -231,11 +193,10 @@ export class ContentDbRepository implements ContentRepository {
   async list(input: {
     offset: number;
     limit: number;
-    parentId?: string;
     status?: ContentRecord["status"];
     type?: ContentRecord["type"];
     search?: string;
-    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+    sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }> {
     return this.listInternal(input);
@@ -245,11 +206,10 @@ export class ContentDbRepository implements ContentRepository {
     ownerId: string;
     offset: number;
     limit: number;
-    parentId?: string;
     status?: ContentRecord["status"];
     type?: ContentRecord["type"];
     search?: string;
-    sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+    sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: ContentRecord[]; total: number }> {
     return this.listInternal(input);
@@ -259,7 +219,6 @@ export class ContentDbRepository implements ContentRepository {
     ownerId,
     offset,
     limit,
-    parentId,
     status,
     type,
     search,
@@ -268,9 +227,6 @@ export class ContentDbRepository implements ContentRepository {
   }: ContentListInput): Promise<{ items: ContentRecord[]; total: number }> {
     const conditions = [
       ownerId ? eq(content.ownerId, ownerId) : undefined,
-      parentId
-        ? eq(content.parentContentId, parentId)
-        : isNull(content.parentContentId),
       status ? eq(content.status, status) : undefined,
       type ? eq(content.type, type) : undefined,
       search && search.length > 0
@@ -286,9 +242,7 @@ export class ContentDbRepository implements ContentRepository {
           ? contentAssets.fileSize
           : sortBy === "type"
             ? content.type
-            : sortBy === "pageNumber"
-              ? content.pageNumber
-              : content.createdAt;
+            : content.createdAt;
 
     const orderBy =
       sortDirection === "asc"
@@ -315,48 +269,6 @@ export class ContentDbRepository implements ContentRepository {
     };
   }
 
-  async findChildrenByParentIds(
-    parentIds: string[],
-    input?: ContentChildrenInput,
-  ): Promise<ContentRecord[]> {
-    return this.findChildrenByParentIdsInternal(parentIds, input);
-  }
-
-  async findChildrenByParentIdsForOwner(
-    parentIds: string[],
-    ownerId: string,
-    input?: ContentChildrenInput,
-  ): Promise<ContentRecord[]> {
-    return this.findChildrenByParentIdsInternal(parentIds, input, ownerId);
-  }
-
-  private async findChildrenByParentIdsInternal(
-    parentIds: string[],
-    input?: ContentChildrenInput,
-    ownerId?: string,
-  ): Promise<ContentRecord[]> {
-    if (parentIds.length === 0) {
-      return [];
-    }
-
-    const conditions = [
-      ownerId ? eq(content.ownerId, ownerId) : undefined,
-      inArray(content.parentContentId, parentIds),
-      input?.onlyReady ? eq(content.status, "READY") : undefined,
-      input?.includeExcluded ? undefined : eq(content.isExcluded, false),
-    ].filter((value) => value !== undefined);
-
-    const rows = await buildBaseContentQuery()
-      .where(and(...conditions))
-      .orderBy(
-        asc(content.parentContentId),
-        asc(content.pageNumber),
-        asc(content.createdAt),
-      );
-
-    return rows.map(mapContentRowToRecord);
-  }
-
   async create(
     input: Omit<ContentRecord, "createdAt" | "updatedAt">,
   ): Promise<ContentRecord> {
@@ -367,12 +279,7 @@ export class ContentDbRepository implements ContentRepository {
         id: input.id,
         title: input.title,
         type: input.type,
-        kind: input.kind,
         status: input.status,
-        parentContentId: input.parentContentId,
-        pageNumber: input.pageNumber,
-        pageCount: input.pageCount,
-        isExcluded: input.isExcluded,
         ownerId: input.ownerId,
         createdAt: now,
         updatedAt: now,
@@ -388,7 +295,6 @@ export class ContentDbRepository implements ContentRepository {
         width: input.width,
         height: input.height,
         duration: input.duration,
-        scrollPxPerSecond: input.scrollPxPerSecond,
         createdAt: now,
         updatedAt: now,
       });
@@ -469,12 +375,7 @@ export class ContentDbRepository implements ContentRepository {
         .set({
           title: next.title,
           type: next.type,
-          kind: next.kind,
           status: next.status,
-          parentContentId: next.parentContentId,
-          pageNumber: next.pageNumber,
-          pageCount: next.pageCount,
-          isExcluded: next.isExcluded,
           updatedAt: now,
         })
         .where(
@@ -495,7 +396,6 @@ export class ContentDbRepository implements ContentRepository {
           width: next.width,
           height: next.height,
           duration: next.duration,
-          scrollPxPerSecond: next.scrollPxPerSecond,
           createdAt: now,
           updatedAt: now,
         })
@@ -509,7 +409,6 @@ export class ContentDbRepository implements ContentRepository {
             width: next.width,
             height: next.height,
             duration: next.duration,
-            scrollPxPerSecond: next.scrollPxPerSecond,
             updatedAt: now,
           },
         });
@@ -566,17 +465,6 @@ export class ContentDbRepository implements ContentRepository {
     });
 
     return ownerId ? this.findByIdForOwner(id, ownerId) : this.findById(id);
-  }
-
-  async deleteByParentId(parentId: string): Promise<ContentRecord[]> {
-    const rows = await buildBaseContentQuery().where(
-      eq(content.parentContentId, parentId),
-    );
-    if (rows.length === 0) {
-      return [];
-    }
-    await db.delete(content).where(eq(content.parentContentId, parentId));
-    return rows.map(mapContentRowToRecord);
   }
 
   async delete(id: string): Promise<boolean> {

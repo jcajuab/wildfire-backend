@@ -133,7 +133,6 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
       playlistRepository: config.repositories.playlistRepository,
       contentRepository: config.repositories.contentRepository,
       scheduleRepository: config.repositories.scheduleRepository,
-      displayRepository: config.repositories.displayRepository,
     });
 
   const createScheduleUseCase = new CreateScheduleUseCase({

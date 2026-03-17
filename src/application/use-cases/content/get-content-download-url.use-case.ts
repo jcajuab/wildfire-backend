@@ -34,12 +34,7 @@ export class GetContentDownloadUrlUseCase {
     }
 
     const extension = resolveFileExtension(record.mimeType) ?? "bin";
-    const baseName =
-      toSafeFilename(
-        record.pageNumber != null
-          ? `${record.title}_page_${record.pageNumber}`
-          : record.title,
-      ) || "content";
+    const baseName = toSafeFilename(record.title) || "content";
     const filename = `${baseName}.${extension}`;
     const downloadUrl = await this.deps.contentStorage.getPresignedDownloadUrl({
       key: record.fileKey,

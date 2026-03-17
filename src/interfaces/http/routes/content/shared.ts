@@ -14,21 +14,28 @@ import {
 } from "#/application/ports/content-jobs";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
+  type PdfCropRenderer,
+  type PdfCropSessionStore,
+  type PdfPageExtractor,
+} from "#/application/ports/pdf-crop";
+import {
   type AuthorizationRepository,
   type UserRepository,
 } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
+  type CancelPdfCropUseCase,
   type CreateFlashContentUseCase,
   type CreateTextContentUseCase,
   type DeleteContentUseCase,
   type GetContentDownloadUrlUseCase,
   type GetContentJobUseCase,
   type GetContentUseCase,
+  type InitPdfCropUseCase,
   type ListContentOptionsUseCase,
   type ListContentUseCase,
   type ReplaceContentFileUseCase,
-  type SetContentExclusionUseCase,
+  type SubmitPdfCropUseCase,
   type UpdateContentUseCase,
   type UploadContentUseCase,
 } from "#/application/use-cases/content";
@@ -57,6 +64,9 @@ export interface ContentRouterDeps {
   contentJobEventPublisher: ContentJobEventPublisher;
   contentJobEventSubscription: ContentJobEventSubscription;
   displayEventPublisher: DisplayStreamEventPublisher;
+  pdfCropSessionStore: PdfCropSessionStore;
+  pdfPageExtractor: PdfPageExtractor;
+  pdfCropRenderer: PdfCropRenderer;
   checkPermissionUseCase: CheckPermissionUseCase;
 }
 
@@ -70,9 +80,11 @@ export interface ContentRouterUseCases {
   createFlashContent: CreateFlashContentUseCase;
   createTextContent: CreateTextContentUseCase;
   updateContent: UpdateContentUseCase;
-  setContentExclusion: SetContentExclusionUseCase;
   deleteContent: DeleteContentUseCase;
   getDownloadUrl: GetContentDownloadUrlUseCase;
+  initPdfCrop: InitPdfCropUseCase;
+  submitPdfCrop: SubmitPdfCropUseCase;
+  cancelPdfCrop: CancelPdfCropUseCase;
 }
 
 export type ContentRouter = Hono<{ Variables: JwtUserVariables }>;

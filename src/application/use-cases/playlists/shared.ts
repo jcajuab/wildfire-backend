@@ -1,9 +1,7 @@
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
-import { type DisplayRepository } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { DEFAULT_SCROLL_PX_PER_SECOND } from "#/application/use-cases/shared/playlist-effective-duration";
 import { computeRequiredMinPlaylistDurationSeconds } from "#/application/use-cases/shared/playlist-required-duration";
 
 export const publishPlaylistUpdateEvents = async (
@@ -57,37 +55,22 @@ const invalidateImpactedSchedules = async (
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     scheduleRepository?: ScheduleRepository;
-    displayRepository?: DisplayRepository;
     displayEventPublisher?: DisplayStreamEventPublisher;
   },
   playlistId: string,
 ): Promise<void> => {
-  if (!deps.scheduleRepository || !deps.displayRepository) {
+  if (!deps.scheduleRepository) {
     return;
   }
-  const scrollPxPerSecond = DEFAULT_SCROLL_PX_PER_SECOND;
   const schedules = await deps.scheduleRepository.list();
   const impacted = schedules.filter(
     (schedule) => schedule.playlistId === playlistId && schedule.isActive,
   );
   for (const schedule of impacted) {
-    const display = await deps.displayRepository.findById(schedule.displayId);
-    if (
-      !display ||
-      typeof display.screenWidth !== "number" ||
-      typeof display.screenHeight !== "number"
-    ) {
-      continue;
-    }
-    const displayWidth = display.screenWidth;
-    const displayHeight = display.screenHeight;
     const required = await computeRequiredMinPlaylistDurationSeconds({
       playlistRepository: deps.playlistRepository,
       contentRepository: deps.contentRepository,
       playlistId,
-      displayWidth,
-      displayHeight,
-      scrollPxPerSecond,
     });
     const windowSeconds = scheduleWindowDurationSeconds(
       schedule.startTime,
@@ -109,7 +92,6 @@ export const runPlaylistPostMutationEffects = async (
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     scheduleRepository?: ScheduleRepository;
-    displayRepository?: DisplayRepository;
     displayEventPublisher?: DisplayStreamEventPublisher;
   },
   playlistId: string,

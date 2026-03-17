@@ -48,37 +48,6 @@ const makeContentRepository = () => {
       items: records.slice(offset, offset + limit),
       total: records.length,
     }),
-    findChildrenByParentIds: async (parentIds, input) =>
-      records.filter((item) => {
-        if (
-          !item.parentContentId ||
-          !parentIds.includes(item.parentContentId)
-        ) {
-          return false;
-        }
-        if (input?.onlyReady && item.status !== "READY") {
-          return false;
-        }
-        if (!input?.includeExcluded && item.isExcluded) {
-          return false;
-        }
-        return true;
-      }),
-    deleteByParentId: async (parentId) => {
-      const children = records.filter(
-        (item) => item.parentContentId === parentId,
-      );
-      if (children.length === 0) {
-        return [];
-      }
-      for (const child of children) {
-        const index = records.findIndex((item) => item.id === child.id);
-        if (index >= 0) {
-          records.splice(index, 1);
-        }
-      }
-      return children;
-    },
     findByIdForOwner: async (id, ownerId) =>
       records.find((item) => item.id === id && item.ownerId === ownerId) ??
       null,
@@ -472,11 +441,11 @@ describe("Content use cases", () => {
       {
         id: "22222222-2222-4222-8222-222222222222",
         title: "Two",
-        type: "PDF",
+        type: "IMAGE",
         status: "READY",
-        fileKey: "content/documents/22222222-2222-4222-8222-222222222222.pdf",
+        fileKey: "content/images/22222222-2222-4222-8222-222222222222.png",
         checksum: "def",
-        mimeType: "application/pdf",
+        mimeType: "image/png",
         fileSize: 20,
         width: null,
         height: null,
@@ -506,7 +475,7 @@ describe("Content use cases", () => {
     );
   });
 
-  test("passes pageNumber sorting to repository for list queries", async () => {
+  test("passes sortBy to repository for list queries", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();
     const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
@@ -517,11 +486,10 @@ describe("Content use cases", () => {
       list: async (input: {
         offset: number;
         limit: number;
-        parentId?: string;
         status?: "PROCESSING" | "READY" | "FAILED";
-        type?: "IMAGE" | "VIDEO" | "PDF";
+        type?: "IMAGE" | "VIDEO" | "FLASH" | "TEXT";
         search?: string;
-        sortBy?: "createdAt" | "title" | "fileSize" | "type" | "pageNumber";
+        sortBy?: "createdAt" | "title" | "fileSize" | "type";
         sortDirection?: "asc" | "desc";
       }) => {
         observedSortBy = input.sortBy;
@@ -535,7 +503,7 @@ describe("Content use cases", () => {
 
     records.push({
       id: "11111111-1111-4111-8111-111111111111",
-      title: "Page 2",
+      title: "Item 1",
       type: "IMAGE",
       status: "READY",
       fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
@@ -557,12 +525,11 @@ describe("Content use cases", () => {
     });
 
     await useCase.execute({
-      parentId: "00000000-0000-0000-0000-000000000001",
-      sortBy: "pageNumber",
+      sortBy: "title",
       sortDirection: "asc",
     });
 
-    expect(observedSortBy).toBe("pageNumber");
+    expect(observedSortBy).toBe("title");
     expect(observedSortDirection).toBe("asc");
   });
 
@@ -949,13 +916,13 @@ describe("Content use cases", () => {
     records.push({
       id,
       title: "Before",
-      type: "PDF",
+      type: "IMAGE",
       status: "READY",
-      fileKey: "content/documents/11111111-1111-4111-8111-111111111111.pdf",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
       thumbnailKey:
         "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
       checksum: "old",
-      mimeType: "application/pdf",
+      mimeType: "image/png",
       fileSize: 10,
       width: null,
       height: null,
@@ -987,7 +954,7 @@ describe("Content use cases", () => {
     expect(storage.uploads).toHaveLength(1);
     expect(storage.uploads[0]?.key).toBe(`content/videos/${id}.mp4`);
     expect(storage.deletedKeys).toEqual([
-      "content/documents/11111111-1111-4111-8111-111111111111.pdf",
+      "content/images/11111111-1111-4111-8111-111111111111.png",
       "content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
     ]);
     expect(result.job.operation).toBe("REPLACE");

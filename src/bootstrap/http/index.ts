@@ -522,6 +522,9 @@ const contentModule = createContentHttpModule({
   contentJobEventPublisher,
   contentJobEventSubscription,
   displayEventPublisher,
+  pdfCropSessionStore: container.storage.pdfCropSessionStore,
+  pdfPageExtractor: container.storage.pdfPageExtractor,
+  pdfCropRenderer: container.storage.pdfCropRenderer,
 });
 const contentRouter = createContentRouter(contentModule);
 
