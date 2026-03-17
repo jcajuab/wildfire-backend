@@ -1,4 +1,3 @@
-import { createPublicKey, verify } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
 import {
   type DisplayKeyRepository,
@@ -10,6 +9,7 @@ import {
 } from "#/application/ports/display-registration-attempt";
 import { type AdminDisplayLifecycleEventPublisher } from "#/application/ports/display-stream-events";
 import { type DisplayRepository } from "#/application/ports/displays";
+import { verifyEd25519Signature } from "./display-crypto";
 import { DisplayRegistrationConflictError } from "./errors";
 
 const DISPLAY_REGISTRATION_SLUG_PATTERN = "^[a-z0-9]+(?:-[a-z0-9]+)*$";
@@ -22,32 +22,6 @@ export const DISPLAY_REGISTRATION_CONSTRAINTS = {
   minSlugLength: 3,
   maxSlugLength: 120,
 } as const;
-
-const fromBase64Url = (value: string): Buffer => {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const pad =
-    normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
-  return Buffer.from(`${normalized}${pad}`, "base64");
-};
-
-const verifyEd25519Signature = (input: {
-  publicKeyPem: string;
-  payload: string;
-  signatureBase64Url: string;
-}): boolean => {
-  try {
-    const keyObject = createPublicKey(input.publicKeyPem);
-    const signature = fromBase64Url(input.signatureBase64Url);
-    return verify(
-      null,
-      Buffer.from(input.payload, "utf8"),
-      keyObject,
-      signature,
-    );
-  } catch {
-    return false;
-  }
-};
 
 const buildRegistrationPayload = (input: {
   registrationSessionId: string;

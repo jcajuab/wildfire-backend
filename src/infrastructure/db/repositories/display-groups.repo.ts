@@ -39,61 +39,38 @@ const mapRowsToGroupRecords = (
   return [...byId.values()];
 };
 
+const buildDisplayGroupQuery = () =>
+  db
+    .select({
+      id: displayGroups.id,
+      name: displayGroups.name,
+      colorIndex: displayGroups.colorIndex,
+      createdAt: displayGroups.createdAt,
+      updatedAt: displayGroups.updatedAt,
+      displayId: displayGroupMembers.displayId,
+    })
+    .from(displayGroups)
+    .leftJoin(
+      displayGroupMembers,
+      eq(displayGroupMembers.groupId, displayGroups.id),
+    );
+
 export class DisplayGroupDbRepository implements DisplayGroupRepository {
   async list(): Promise<DisplayGroupRecord[]> {
-    const rows = await db
-      .select({
-        id: displayGroups.id,
-        name: displayGroups.name,
-        colorIndex: displayGroups.colorIndex,
-        createdAt: displayGroups.createdAt,
-        updatedAt: displayGroups.updatedAt,
-        displayId: displayGroupMembers.displayId,
-      })
-      .from(displayGroups)
-      .leftJoin(
-        displayGroupMembers,
-        eq(displayGroupMembers.groupId, displayGroups.id),
-      );
+    const rows = await buildDisplayGroupQuery();
     return mapRowsToGroupRecords(rows);
   }
 
   async findById(id: string): Promise<DisplayGroupRecord | null> {
-    const rows = await db
-      .select({
-        id: displayGroups.id,
-        name: displayGroups.name,
-        colorIndex: displayGroups.colorIndex,
-        createdAt: displayGroups.createdAt,
-        updatedAt: displayGroups.updatedAt,
-        displayId: displayGroupMembers.displayId,
-      })
-      .from(displayGroups)
-      .leftJoin(
-        displayGroupMembers,
-        eq(displayGroupMembers.groupId, displayGroups.id),
-      )
-      .where(eq(displayGroups.id, id));
+    const rows = await buildDisplayGroupQuery().where(eq(displayGroups.id, id));
     const mapped = mapRowsToGroupRecords(rows);
     return mapped[0] ?? null;
   }
 
   async findByName(name: string): Promise<DisplayGroupRecord | null> {
-    const rows = await db
-      .select({
-        id: displayGroups.id,
-        name: displayGroups.name,
-        colorIndex: displayGroups.colorIndex,
-        createdAt: displayGroups.createdAt,
-        updatedAt: displayGroups.updatedAt,
-        displayId: displayGroupMembers.displayId,
-      })
-      .from(displayGroups)
-      .leftJoin(
-        displayGroupMembers,
-        eq(displayGroupMembers.groupId, displayGroups.id),
-      )
-      .where(eq(displayGroups.name, name));
+    const rows = await buildDisplayGroupQuery().where(
+      eq(displayGroups.name, name),
+    );
     const mapped = mapRowsToGroupRecords(rows);
     return mapped[0] ?? null;
   }
@@ -150,19 +127,20 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
   }
 
   async setDisplayGroups(displayId: string, groupIds: string[]): Promise<void> {
-    await db
-      .delete(displayGroupMembers)
-      .where(eq(displayGroupMembers.displayId, displayId));
-    if (groupIds.length === 0) return;
-    await db.insert(displayGroupMembers).values(
-      groupIds.map((groupId) => ({
-        groupId,
-        displayId,
-      })),
-    );
-    await db
-      .update(displayGroups)
-      .set({ updatedAt: new Date() })
-      .where(inArray(displayGroups.id, groupIds));
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(displayGroupMembers)
+        .where(eq(displayGroupMembers.displayId, displayId));
+      if (groupIds.length > 0) {
+        await tx
+          .insert(displayGroupMembers)
+          .values(groupIds.map((groupId) => ({ groupId, displayId })));
+        await tx
+          .update(displayGroups)
+          .set({ updatedAt: now })
+          .where(inArray(displayGroups.id, groupIds));
+      }
+    });
   }
 }

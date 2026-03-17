@@ -34,7 +34,7 @@ import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
 import { RedisPendingActionStore } from "#/infrastructure/ai/redis-pending-action.store";
 import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
-import { AICredentialsRepo } from "#/infrastructure/db/repositories/ai-credentials.repo";
+import { AICredentialsDbRepository } from "#/infrastructure/db/repositories/ai-credentials.repo";
 import { type DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
 import { logger } from "#/infrastructure/observability/logger";
 import { type AuditLogQueue } from "#/interfaces/http/audit/audit-queue";
@@ -72,7 +72,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
   // Infrastructure
   const masterKey = Buffer.from(config.encryptionKey, "hex");
   const encryptionService = new AIKeyEncryptionService(masterKey);
-  const credentialsRepository = new AICredentialsRepo();
+  const credentialsRepository = new AICredentialsDbRepository();
   const pendingActionStore = new RedisPendingActionStore();
   const checkPermissionUseCase = new CheckPermissionUseCase({
     authorizationRepository: config.repositories.authorizationRepository,

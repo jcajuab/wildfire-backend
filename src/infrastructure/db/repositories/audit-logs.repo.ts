@@ -85,10 +85,11 @@ const buildWhere = (query: ListAuditLogsQuery): SQL | undefined => {
 export class AuditLogDbRepository implements AuditLogRepository {
   async create(input: CreateAuditLogInput): Promise<AuditLogRecord> {
     const id = crypto.randomUUID();
+    const occurredAt: Date = input.occurredAt ?? new Date();
 
     await db.insert(auditLogs).values({
       id,
-      occurredAt: input.occurredAt,
+      occurredAt,
       requestId: input.requestId ?? null,
       action: input.action,
       route: input.route ?? null,
@@ -104,17 +105,23 @@ export class AuditLogDbRepository implements AuditLogRepository {
       metadataJson: input.metadataJson ?? null,
     });
 
-    const row = await db
-      .select()
-      .from(auditLogs)
-      .where(eq(auditLogs.id, id))
-      .limit(1);
-    const record = row[0];
-    if (!record) {
-      throw new Error("Failed to load created audit event");
-    }
-
-    return mapAuditLogRowToRecord(record);
+    return mapAuditLogRowToRecord({
+      id,
+      occurredAt,
+      requestId: input.requestId ?? null,
+      action: input.action,
+      route: input.route ?? null,
+      method: input.method,
+      path: input.path,
+      status: input.status,
+      actorId: input.actorId ?? null,
+      actorType: input.actorType ?? null,
+      resourceId: input.resourceId ?? null,
+      resourceType: input.resourceType ?? null,
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+      metadataJson: input.metadataJson ?? null,
+    });
   }
 
   async list(query: ListAuditLogsQuery): Promise<AuditLogRecord[]> {
@@ -174,9 +181,10 @@ export class AuditLogDbRepository implements AuditLogRepository {
   }
 
   async deleteByRequestIdPrefix(prefix: string): Promise<number> {
+    const escaped = prefix.replace(/[%_\\]/g, (ch) => `\\${ch}`);
     const result = await db
       .delete(auditLogs)
-      .where(like(auditLogs.requestId, buildLikeContainsPattern(prefix)));
+      .where(like(auditLogs.requestId, `${escaped}%`));
     return Number(result[0]?.affectedRows ?? 0);
   }
 }

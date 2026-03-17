@@ -1,6 +1,6 @@
+import { NotFoundError } from "#/application/errors/not-found";
 import { type ContentStorage } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
 
 const AVATAR_KEY_PREFIX = "avatars/";
 

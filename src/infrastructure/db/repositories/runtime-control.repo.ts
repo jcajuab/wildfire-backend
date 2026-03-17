@@ -55,7 +55,7 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
     startedAt: Date | null;
     at: Date;
   }): Promise<RuntimeControlRecord> {
-    await this.getGlobal();
+    const existing = await this.getGlobal();
 
     await db
       .update(runtimeControl)
@@ -66,6 +66,11 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
       })
       .where(eq(runtimeControl.id, GLOBAL_ID));
 
-    return this.getGlobal();
+    return {
+      ...existing,
+      globalEmergencyActive: input.active,
+      globalEmergencyStartedAt: input.startedAt?.toISOString() ?? null,
+      updatedAt: input.at.toISOString(),
+    };
   }
 }

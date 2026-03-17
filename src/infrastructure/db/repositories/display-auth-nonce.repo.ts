@@ -4,13 +4,12 @@ import {
   executeRedisCommand,
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
+import { toUnixSeconds } from "#/infrastructure/redis/utils";
 
 const noncePrefix = `${env.REDIS_KEY_PREFIX}:display-auth-nonce`;
 
 const nonceKey = (displayId: string, nonce: string): string =>
   `${noncePrefix}:${displayId}:${nonce}`;
-const toUnixSeconds = (value: Date): string =>
-  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
 
 export class DisplayAuthNonceRedisRepository
   implements DisplayAuthNonceRepository

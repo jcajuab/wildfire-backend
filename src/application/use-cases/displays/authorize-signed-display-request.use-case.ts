@@ -1,50 +1,14 @@
-import { createHash, createPublicKey, verify } from "node:crypto";
-import { AppError } from "#/application/errors/app-error";
+import { createHash } from "node:crypto";
 import {
   type DisplayAuthNonceRepository,
   type DisplayKeyRepository,
 } from "#/application/ports/display-auth";
 import { type DisplayRepository } from "#/application/ports/displays";
-import { NotFoundError } from "./errors";
+import { verifyEd25519Signature } from "./display-crypto";
+import { DisplayAuthenticationError, NotFoundError } from "./errors";
 
 const SIGNED_REQUEST_SKEW_MS = 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
-
-class DisplayAuthenticationError extends AppError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, {
-      ...options,
-      code: "display_authentication_failed",
-      httpStatus: 401,
-    });
-  }
-}
-
-const fromBase64Url = (value: string): Buffer => {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const pad =
-    normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
-  return Buffer.from(`${normalized}${pad}`, "base64");
-};
-
-const verifyEd25519Signature = (input: {
-  publicKeyPem: string;
-  payload: string;
-  signatureBase64Url: string;
-}): boolean => {
-  try {
-    const keyObject = createPublicKey(input.publicKeyPem);
-    const signature = fromBase64Url(input.signatureBase64Url);
-    return verify(
-      null,
-      Buffer.from(input.payload, "utf8"),
-      keyObject,
-      signature,
-    );
-  } catch {
-    return false;
-  }
-};
 
 const buildSignedRequestPayload = (input: {
   method: string;

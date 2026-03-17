@@ -1,5 +1,5 @@
+import { NotFoundError } from "#/application/errors/not-found";
 import { type UserRepository } from "#/application/ports/rbac";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
 
 export interface UpdateCurrentUserProfileInput {
   userId: string;

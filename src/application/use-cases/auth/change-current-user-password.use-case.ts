@@ -1,4 +1,5 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
+import { NotFoundError } from "#/application/errors/not-found";
 import {
   type CredentialsRepository,
   type PasswordHasher,
@@ -6,7 +7,6 @@ import {
 } from "#/application/ports/auth";
 import { type UserRepository } from "#/application/ports/rbac";
 import { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
-import { NotFoundError } from "#/application/use-cases/rbac/errors";
 
 export interface ChangeCurrentUserPasswordInput {
   userId: string;

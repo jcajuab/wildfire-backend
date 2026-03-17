@@ -9,6 +9,7 @@ import {
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
 import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
+import { parseMilliseconds, toUnixSeconds } from "#/infrastructure/redis/utils";
 
 const pairingCodePrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code`;
 const pairingCodeLookupPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code-lookup`;
@@ -17,8 +18,6 @@ const pairingCodeKey = (id: string): string => `${pairingCodePrefix}:${id}`;
 const pairingCodeLookupKey = (codeHash: string): string =>
   `${pairingCodeLookupPrefix}:${codeHash}`;
 
-const toUnixSeconds = (value: Date): string =>
-  String(Math.max(1, Math.ceil(value.getTime() / 1000)));
 const toScriptString = (value: unknown): string =>
   typeof value === "string" ? value : value == null ? "" : String(value);
 
@@ -31,15 +30,6 @@ interface StoredPairingCode {
   createdAtMs: number;
   updatedAtMs: number;
 }
-
-const parseMilliseconds = (value: string | undefined): number | null => {
-  if (typeof value !== "string" || value.length === 0) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 const parseStoredPairingCode = (
   value: Record<string, string>,

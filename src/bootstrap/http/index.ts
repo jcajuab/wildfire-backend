@@ -19,24 +19,20 @@ import {
 import { startDisplayStatusReconciler } from "#/bootstrap/http/runtime/display-status-reconciler";
 import { env } from "#/env";
 import {
-  publishContentJobEvent,
-  subscribeToContentJobEvents,
-} from "#/infrastructure/content-jobs/content-job-events";
+  contentJobEventPublisher,
+  contentJobEventSubscription,
+} from "#/infrastructure/content-jobs/event-publishers";
 import { RedisContentIngestionQueue } from "#/infrastructure/content-jobs/redis-content-ingestion-queue";
 import { closeDbConnection } from "#/infrastructure/db/client";
 import {
-  publishAdminDisplayLifecycleEvent,
-  subscribeToAdminDisplayLifecycleEvents,
-} from "#/infrastructure/displays/admin-lifecycle-events";
-import {
-  publishDisplayStreamEvent,
-  subscribeToDisplayStream,
-} from "#/infrastructure/displays/display-stream";
+  displayEventPublisher,
+  displayEventSubscription,
+  lifecycleEventPublisher,
+  lifecycleEventSubscription,
+  registrationAttemptEventPublisher,
+  registrationAttemptEventSubscription,
+} from "#/infrastructure/displays/event-publishers";
 import { RedisDisplayRegistrationAttemptStore } from "#/infrastructure/displays/registration-attempt.store";
-import {
-  publishRegistrationAttemptEvent,
-  subscribeToRegistrationAttemptEvents,
-} from "#/infrastructure/displays/registration-attempt-events";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -96,54 +92,6 @@ const contentIngestionQueue = new RedisContentIngestionQueue({
   enqueueMaxDelayMs: env.CONTENT_INGEST_QUEUE_ENQUEUE_MAX_DELAY_MS,
   enqueueTimeoutMs: env.CONTENT_INGEST_QUEUE_ENQUEUE_TIMEOUT_MS,
 });
-
-const displayEventPublisher = {
-  publish(input: {
-    type:
-      | "manifest_updated"
-      | "schedule_updated"
-      | "playlist_updated"
-      | "display_refresh_requested";
-    displayId: string;
-    reason?: string;
-    timestamp?: string;
-  }) {
-    publishDisplayStreamEvent({
-      type: input.type,
-      displayId: input.displayId,
-      reason: input.reason,
-      timestamp: input.timestamp ?? new Date().toISOString(),
-    });
-  },
-};
-
-const lifecycleEventPublisher = {
-  publish: publishAdminDisplayLifecycleEvent,
-};
-
-const contentJobEventPublisher = {
-  publish: publishContentJobEvent,
-};
-
-const contentJobEventSubscription = {
-  subscribe: subscribeToContentJobEvents,
-};
-
-const displayEventSubscription = {
-  subscribe: subscribeToDisplayStream,
-};
-
-const lifecycleEventSubscription = {
-  subscribe: subscribeToAdminDisplayLifecycleEvents,
-};
-
-const registrationAttemptEventPublisher = {
-  publish: publishRegistrationAttemptEvent,
-};
-
-const registrationAttemptEventSubscription = {
-  subscribe: subscribeToRegistrationAttemptEvents,
-};
 
 const registrationAttemptStore = new RedisDisplayRegistrationAttemptStore();
 

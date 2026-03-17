@@ -1,27 +1,10 @@
 import { createHmac, randomUUID } from "node:crypto";
-import { AppError } from "#/application/errors/app-error";
 import { type DisplayKeyRepository } from "#/application/ports/display-auth";
 import { type DisplayRepository } from "#/application/ports/displays";
-import { NotFoundError } from "./errors";
+import { toBase64Url } from "./display-crypto";
+import { DisplayAuthenticationError, NotFoundError } from "./errors";
 
 const CHALLENGE_TTL_MS = 2 * 60 * 1000;
-
-class DisplayAuthenticationError extends AppError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, {
-      ...options,
-      code: "display_authentication_failed",
-      httpStatus: 401,
-    });
-  }
-}
-
-const toBase64Url = (value: string | Uint8Array): string =>
-  Buffer.from(value)
-    .toString("base64")
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/g, "");
 
 const signChallengeToken = (payload: string, secret: string): string =>
   toBase64Url(createHmac("sha256", secret).update(payload).digest());

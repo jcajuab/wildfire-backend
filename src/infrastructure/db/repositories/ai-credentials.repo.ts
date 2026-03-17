@@ -18,7 +18,7 @@ const mapAICredentialRowToRecord = (
   updatedAt: toIsoString(row.updatedAt),
 });
 
-export class AICredentialsRepo implements AICredentialsRepository {
+export class AICredentialsDbRepository implements AICredentialsRepository {
   async create(input: {
     userId: string;
     provider: string;
@@ -28,38 +28,39 @@ export class AICredentialsRepo implements AICredentialsRepository {
     authTag: string;
   }): Promise<AICredential> {
     const id = crypto.randomUUID();
+    const now = new Date();
 
-    // Upsert - delete existing if present then insert
-    await db
-      .delete(aiCredentials)
-      .where(
-        and(
-          eq(aiCredentials.userId, input.userId),
-          eq(aiCredentials.provider, input.provider),
-        ),
-      );
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(aiCredentials)
+        .where(
+          and(
+            eq(aiCredentials.userId, input.userId),
+            eq(aiCredentials.provider, input.provider),
+          ),
+        );
 
-    await db.insert(aiCredentials).values({
-      id,
-      userId: input.userId,
-      provider: input.provider,
-      encryptedKey: input.encryptedKey,
-      keyHint: input.keyHint,
-      iv: input.iv,
-      authTag: input.authTag,
+      await tx.insert(aiCredentials).values({
+        id,
+        userId: input.userId,
+        provider: input.provider,
+        encryptedKey: input.encryptedKey,
+        keyHint: input.keyHint,
+        iv: input.iv,
+        authTag: input.authTag,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
 
-    const row = await db
-      .select()
-      .from(aiCredentials)
-      .where(eq(aiCredentials.id, id))
-      .limit(1);
-
-    if (!row[0]) {
-      throw new Error("Credential was created but could not be loaded");
-    }
-
-    return mapAICredentialRowToRecord(row[0]);
+    return {
+      id,
+      userId: input.userId,
+      provider: input.provider as AICredential["provider"],
+      keyHint: input.keyHint,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
   }
 
   async findByUserAndProvider(

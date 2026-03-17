@@ -1,6 +1,16 @@
+import { AppError } from "#/application/errors/app-error";
+
 export { NotFoundError } from "#/application/errors/not-found";
 
-import { AppError } from "#/application/errors/app-error";
+export class DisplayAuthenticationError extends AppError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, {
+      ...options,
+      code: "display_authentication_failed",
+      httpStatus: 401,
+    });
+  }
+}
 
 export class DisplayGroupConflictError extends AppError {
   constructor(message: string, options?: ErrorOptions) {

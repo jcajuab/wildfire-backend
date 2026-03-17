@@ -29,7 +29,8 @@ type ValidationHookResult =
 
 const validationHook = (
   result: ValidationHookResult,
-  c: Context,
+  // biome-ignore lint/suspicious/noExplicitAny: hono 4.12+ requires looser Context generic for hook compatibility
+  c: Context<any, any, any>,
 ): HookResult => {
   if (!result.success) {
     const issues = result.error;

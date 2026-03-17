@@ -1,10 +1,6 @@
 import { type PermissionRepository } from "#/application/ports/rbac";
 import { paginate } from "#/application/use-cases/shared/pagination";
-
-const normalizeQuery = (value: string | undefined): string | null => {
-  const normalized = value?.trim().toLowerCase();
-  return normalized ? normalized : null;
-};
+import { normalizeQuery } from "./shared";
 
 export class ListPermissionsUseCase {
   constructor(
