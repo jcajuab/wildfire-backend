@@ -8,30 +8,16 @@ const collapseWhitespace = (value: string): string =>
 const normalizeName = (value: string): string =>
   collapseWhitespace(value).toLowerCase();
 
-const GROUP_PALETTE_SIZE = 12;
-
-const normalizeColorIndex = (value: number): number =>
-  ((value % GROUP_PALETTE_SIZE) + GROUP_PALETTE_SIZE) % GROUP_PALETTE_SIZE;
-
 export class UpdateDisplayGroupUseCase {
   constructor(
     private readonly deps: { displayGroupRepository: DisplayGroupRepository },
   ) {}
 
-  async execute(input: { id: string; name?: string; colorIndex?: number }) {
+  async execute(input: { id: string; name?: string }) {
     const name =
       input.name === undefined ? undefined : collapseWhitespace(input.name);
     if (name !== undefined && name.length === 0) {
       throw new ValidationError("Group name is required");
-    }
-    const colorIndex =
-      input.colorIndex === undefined
-        ? undefined
-        : Number.isInteger(input.colorIndex)
-          ? normalizeColorIndex(input.colorIndex)
-          : null;
-    if (colorIndex === null) {
-      throw new ValidationError("Group color index must be an integer");
     }
 
     if (name !== undefined) {
@@ -54,7 +40,6 @@ export class UpdateDisplayGroupUseCase {
 
     const updated = await this.deps.displayGroupRepository.update(input.id, {
       name,
-      colorIndex: colorIndex ?? undefined,
     });
     if (!updated) throw new NotFoundError("Display group not found");
     return updated;

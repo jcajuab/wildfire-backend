@@ -107,7 +107,6 @@ export const registerDisplayStaffGroupRoutes = (input: {
         const payload = c.req.valid("json");
         const result = await useCases.createDisplayGroup.execute({
           name: payload.name,
-          colorIndex: payload.colorIndex,
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
@@ -157,7 +156,6 @@ export const registerDisplayStaffGroupRoutes = (input: {
         const result = await useCases.updateDisplayGroup.execute({
           id: params.groupId,
           name: payload.name,
-          colorIndex: payload.colorIndex,
         });
         c.set("resourceId", result.id);
         return c.json(toApiResponse(result));

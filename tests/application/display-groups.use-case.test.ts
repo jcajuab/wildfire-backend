@@ -72,11 +72,10 @@ const makeDisplayGroupRepository = (
       groups.find((group) => group.id === id) ?? null,
     findByName: async (name: string) =>
       groups.find((group) => group.name === name) ?? null,
-    create: async (input: { name: string; colorIndex: number }) => {
+    create: async (input: { name: string }) => {
       const created: DisplayGroupRecord = {
         id: crypto.randomUUID(),
         name: input.name,
-        colorIndex: input.colorIndex,
         displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -84,17 +83,11 @@ const makeDisplayGroupRepository = (
       groups.push(created);
       return created;
     },
-    update: async (
-      id: string,
-      input: { name?: string; colorIndex?: number },
-    ) => {
+    update: async (id: string, input: { name?: string }) => {
       const group = groups.find((item) => item.id === id);
       if (!group) return null;
       if (input.name !== undefined) {
         group.name = input.name;
-      }
-      if (input.colorIndex !== undefined) {
-        group.colorIndex = input.colorIndex;
       }
       group.updatedAt = "2025-01-02T00:00:00.000Z";
       return group;
@@ -112,7 +105,6 @@ describe("Display group use cases", () => {
       {
         id: "group-1",
         name: "Lobby",
-        colorIndex: 2,
         displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -126,35 +118,17 @@ describe("Display group use cases", () => {
 
     expect(result.id).toBe("group-1");
     expect(result.name).toBe("Lobby");
-    expect(result.colorIndex).toBe(2);
   });
 
-  test("CreateDisplayGroupUseCase assigns next cycled color index when omitted", async () => {
-    const groupRepository = makeDisplayGroupRepository([
-      {
-        id: "group-1",
-        name: "Lobby",
-        colorIndex: 10,
-        displayIds: [],
-        createdAt: "2025-01-01T00:00:00.000Z",
-        updatedAt: "2025-01-01T00:00:00.000Z",
-      },
-      {
-        id: "group-2",
-        name: "Office",
-        colorIndex: 11,
-        displayIds: [],
-        createdAt: "2025-01-01T00:00:00.000Z",
-        updatedAt: "2025-01-01T00:00:00.000Z",
-      },
-    ]);
+  test("CreateDisplayGroupUseCase creates a new group with the given name", async () => {
+    const groupRepository = makeDisplayGroupRepository([]);
     const useCase = new CreateDisplayGroupUseCase({
       displayGroupRepository: groupRepository,
     });
 
     const created = await useCase.execute({ name: "Cafeteria" });
 
-    expect(created.colorIndex).toBe(0);
+    expect(created.name).toBe("Cafeteria");
   });
 
   test("UpdateDisplayGroupUseCase rejects case-insensitive rename conflicts", async () => {
@@ -162,7 +136,6 @@ describe("Display group use cases", () => {
       {
         id: "group-1",
         name: "Lobby",
-        colorIndex: 0,
         displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -170,7 +143,6 @@ describe("Display group use cases", () => {
       {
         id: "group-2",
         name: "Office",
-        colorIndex: 1,
         displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -190,7 +162,6 @@ describe("Display group use cases", () => {
       {
         id: "group-1",
         name: "Lobby",
-        colorIndex: 0,
         displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -198,7 +169,6 @@ describe("Display group use cases", () => {
       {
         id: "group-2",
         name: "Office",
-        colorIndex: 1,
         displayIds: [],
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",

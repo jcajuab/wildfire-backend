@@ -99,7 +99,6 @@ export interface DisplayRepository {
 export interface DisplayGroupRecord {
   id: string;
   name: string;
-  colorIndex: number;
   displayIds: string[];
   createdAt: string;
   updatedAt: string;
@@ -109,13 +108,10 @@ export interface DisplayGroupRepository {
   list(): Promise<DisplayGroupRecord[]>;
   findById(id: string): Promise<DisplayGroupRecord | null>;
   findByName(name: string): Promise<DisplayGroupRecord | null>;
-  create(input: {
-    name: string;
-    colorIndex: number;
-  }): Promise<DisplayGroupRecord>;
+  create(input: { name: string }): Promise<DisplayGroupRecord>;
   update(
     id: string,
-    input: { name?: string; colorIndex?: number },
+    input: { name?: string },
   ): Promise<DisplayGroupRecord | null>;
   delete(id: string): Promise<boolean>;
   setDisplayGroups(displayId: string, groupIds: string[]): Promise<void>;

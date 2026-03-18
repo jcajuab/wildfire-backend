@@ -92,12 +92,10 @@ export const patchDisplaySchema = z.object({
 
 export const createDisplayGroupSchema = z.object({
   name: z.string().min(1).max(120),
-  colorIndex: z.number().int().min(0).optional(),
 });
 
 export const updateDisplayGroupSchema = z.object({
   name: z.string().min(1).max(120).optional(),
-  colorIndex: z.number().int().min(0).optional(),
 });
 
 export const setDisplayGroupsSchema = z.object({
@@ -107,7 +105,6 @@ export const setDisplayGroupsSchema = z.object({
 export const displayGroupSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  colorIndex: z.number().int().nonnegative(),
   displayIds: z.array(z.string().uuid()),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -120,7 +117,6 @@ export const createDisplayGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
-    colorIndex: { type: "integer", minimum: 0 },
   },
   required: ["name"],
 };
@@ -129,7 +125,6 @@ export const updateDisplayGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
-    colorIndex: { type: "integer", minimum: 0 },
   },
 };
 
