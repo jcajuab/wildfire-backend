@@ -6,7 +6,6 @@ describe("normalizeApiPayload", () => {
     const normalized = normalizeApiPayload(
       {
         playlistId: null,
-        runtimeSettings: { scrollPxPerSecond: 24 },
       },
       { requestUrl: "http://localhost/api/v1/display-runtime/lobby/manifest" },
     ) as { data: unknown };

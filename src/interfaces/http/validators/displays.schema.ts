@@ -245,7 +245,6 @@ export const displayManifestSchema = z.object({
   playlistId: z.string().nullable(),
   playlistVersion: z.string(),
   generatedAt: z.string(),
-  runtimeSettings: z.object({}),
   playback: z.object({
     mode: z.enum(["SCHEDULE", "EMERGENCY"]),
     emergency: z
