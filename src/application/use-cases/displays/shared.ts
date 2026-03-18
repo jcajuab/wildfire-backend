@@ -39,7 +39,6 @@ export const buildNowPlayingMap = async (input: {
     readonly displayId: string;
     readonly kind?: "PLAYLIST" | "FLASH";
     readonly playlistId: string | null;
-    readonly isActive: boolean;
     readonly startDate?: string;
     readonly endDate?: string;
     readonly startTime: string;

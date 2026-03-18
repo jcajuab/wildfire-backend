@@ -149,7 +149,6 @@ export class AIConfirmActionUseCase {
           endDate?: string;
           startTime?: string;
           endTime?: string;
-          isActive?: boolean;
         };
         const updated = await this.deps.scheduleRepository.update(
           action.resourceId,
@@ -163,7 +162,6 @@ export class AIConfirmActionUseCase {
             endDate: payload.endDate,
             startTime: payload.startTime,
             endTime: payload.endTime,
-            isActive: payload.isActive,
           },
         );
         return updated;

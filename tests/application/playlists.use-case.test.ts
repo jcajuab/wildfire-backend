@@ -408,96 +408,6 @@ describe("Playlists use cases", () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
-  test("AddPlaylistItemUseCase disables impacted schedules when playlist exceeds window", async () => {
-    const deps = makeDeps();
-    const playlist = await deps.playlistRepository.create({
-      name: "Morning",
-      description: null,
-      ownerId: "user-1",
-    });
-    const updates: Array<{ id: string; isActive?: boolean }> = [];
-    const scheduleRepository: ScheduleRepository = {
-      list: async () => [
-        {
-          id: "schedule-1",
-          name: "Morning",
-          kind: "PLAYLIST" as const,
-          playlistId: playlist.id,
-          contentId: null,
-          displayId: "display-1",
-          startTime: "08:00",
-          endTime: "08:00",
-          isActive: true,
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        },
-      ],
-      listByDisplay: async () => [],
-      findById: async () => null,
-      create: async () => {
-        throw new Error("not used");
-      },
-      update: async (id: string, input: { isActive?: boolean }) => {
-        updates.push({ id, isActive: input.isActive });
-        return null;
-      },
-      delete: async () => false,
-      countByPlaylistId: async () => 0,
-      countByContentId: async () => 0,
-      listByContentId: async () => [],
-      listByPlaylistId: async () => [],
-    };
-    const useCase = new AddPlaylistItemUseCase({
-      playlistRepository: deps.playlistRepository,
-      contentRepository: {
-        ...deps.contentRepository,
-        findById: async () => ({
-          id: "content-1",
-          title: "Tall Content",
-          type: "IMAGE",
-          status: "READY",
-          fileKey: "content/images/a.png",
-          checksum: "abc",
-          mimeType: "image/png",
-          fileSize: 100,
-          width: 100,
-          height: 100,
-          duration: null,
-          ownerId: "user-1",
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        }),
-        findByIds: async () => [
-          {
-            id: "content-1",
-            title: "Tall Content",
-            type: "IMAGE",
-            status: "READY",
-            fileKey: "content/images/a.png",
-            checksum: "abc",
-            mimeType: "image/png",
-            fileSize: 100,
-            width: 100,
-            height: 100,
-            duration: null,
-            ownerId: "user-1",
-            createdAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        ],
-      },
-      scheduleRepository,
-    });
-
-    await useCase.execute({
-      playlistId: playlist.id,
-      contentId: "content-1",
-      sequence: 10,
-      duration: 30,
-    });
-    expect(updates.some((entry) => entry.id === "schedule-1")).toBe(true);
-  });
-
   test("DeletePlaylistUseCase throws PlaylistInUseError when playlist is in use by one display", async () => {
     const deps = makeDeps();
     const playlist = await deps.playlistRepository.create({
@@ -519,7 +429,6 @@ describe("Playlists use cases", () => {
           displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
-          isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         },
@@ -599,7 +508,6 @@ describe("Playlists use cases", () => {
           displayId: "display-1",
           startTime: "08:00",
           endTime: "18:00",
-          isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         },
@@ -610,7 +518,6 @@ describe("Playlists use cases", () => {
           displayId: "display-2",
           startTime: "18:00",
           endTime: "22:00",
-          isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         },

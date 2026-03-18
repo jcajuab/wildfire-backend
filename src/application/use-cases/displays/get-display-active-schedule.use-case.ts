@@ -39,7 +39,6 @@ export class GetDisplayActiveScheduleUseCase {
       endDate: active.endDate,
       startTime: active.startTime,
       endTime: active.endTime,
-      isActive: active.isActive,
       createdAt: active.createdAt,
       updatedAt: active.updatedAt,
       playlist: {

@@ -54,10 +54,6 @@ export const AI_TOOLS = {
         endDate: z.string().describe("End date (YYYY-MM-DD)"),
         startTime: z.string().describe("Start time (HH:MM)"),
         endTime: z.string().describe("End time (HH:MM)"),
-        isActive: z
-          .boolean()
-          .default(true)
-          .describe("Whether schedule is active"),
       }),
       z.object({
         kind: z.literal("FLASH").describe("Schedule flash content"),
@@ -68,10 +64,6 @@ export const AI_TOOLS = {
         endDate: z.string().describe("End date (YYYY-MM-DD)"),
         startTime: z.string().describe("Start time (HH:MM)"),
         endTime: z.string().describe("End time (HH:MM)"),
-        isActive: z
-          .boolean()
-          .default(true)
-          .describe("Whether schedule is active"),
       }),
     ]),
     requiresConfirmation: false,
@@ -171,7 +163,6 @@ export const AI_TOOLS = {
       endDate: z.string().optional().describe("New end date (YYYY-MM-DD)"),
       startTime: z.string().optional().describe("New start time (HH:MM)"),
       endTime: z.string().optional().describe("New end time (HH:MM)"),
-      isActive: z.boolean().optional().describe("Whether schedule is active"),
     }),
     requiresConfirmation: true,
   },

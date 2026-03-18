@@ -32,7 +32,6 @@ export class CreateScheduleUseCase {
     endDate?: string;
     startTime: string;
     endTime: string;
-    isActive: boolean;
   }) {
     const { startDate, endDate } = getValidatedWindow(input);
 
@@ -138,7 +137,6 @@ export class CreateScheduleUseCase {
       endDate: candidate.endDate,
       startTime: candidate.startTime,
       endTime: candidate.endTime,
-      isActive: input.isActive,
     });
 
     if (playlist) {

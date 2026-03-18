@@ -92,7 +92,6 @@ export const isWithinDateWindow = (
 export const selectActiveSchedule = <
   T extends {
     kind?: SchedulableKind;
-    isActive: boolean;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -108,7 +107,6 @@ export const selectActiveSchedule = <
 
   return (
     schedules
-      .filter((schedule) => schedule.isActive)
       .filter((schedule) => {
         if (!schedule.startDate || !schedule.endDate) {
           return true;
@@ -124,7 +122,6 @@ export const selectActiveSchedule = <
 export const selectActiveScheduleByKind = <
   T extends {
     kind?: SchedulableKind;
-    isActive: boolean;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -152,7 +149,6 @@ export const selectActiveScheduleByKind = <
 export const selectActiveSchedules = <
   T extends {
     kind?: SchedulableKind;
-    isActive: boolean;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -168,7 +164,6 @@ export const selectActiveSchedules = <
   const date = toZonedDateString(now, timeZone);
 
   return schedules
-    .filter((schedule) => schedule.isActive)
     .filter((schedule) => {
       if (!schedule.startDate || !schedule.endDate) {
         return true;
@@ -188,7 +183,6 @@ export const selectActiveSchedules = <
 export const selectActiveSchedulesByKind = <
   T extends {
     kind?: SchedulableKind;
-    isActive: boolean;
     startDate?: string;
     endDate?: string;
     startTime: string;

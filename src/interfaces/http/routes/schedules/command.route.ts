@@ -88,7 +88,6 @@ export const registerScheduleCommandRoutes = (args: {
           endDate: payload.endDate,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          isActive: payload.isActive ?? true,
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
@@ -141,7 +140,6 @@ export const registerScheduleCommandRoutes = (args: {
           endDate: payload.endDate,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          isActive: payload.isActive,
         });
         return c.json(toApiResponse(result));
       },

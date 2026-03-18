@@ -226,7 +226,7 @@ describe("Displays use cases", () => {
             displayId: "display-2",
             startTime: "00:00",
             endTime: "23:59",
-            isActive: true,
+
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -797,7 +797,7 @@ describe("Displays use cases", () => {
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            isActive: true,
+
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -993,7 +993,7 @@ describe("Displays use cases", () => {
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            isActive: true,
+
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -1120,7 +1120,7 @@ describe("Displays use cases", () => {
             displayId: created.id,
             startTime: "00:00",
             endTime: "23:59",
-            isActive: true,
+
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },

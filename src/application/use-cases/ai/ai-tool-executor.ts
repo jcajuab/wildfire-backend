@@ -179,7 +179,6 @@ export class AIToolExecutor {
           endDate: typedArgs.endDate,
           startTime: typedArgs.startTime,
           endTime: typedArgs.endTime,
-          isActive: typedArgs.isActive,
           ownerId: context.userId,
         });
         return { success: true, data: result };

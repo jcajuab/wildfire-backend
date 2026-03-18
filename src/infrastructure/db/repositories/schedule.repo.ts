@@ -21,7 +21,6 @@ type ScheduleRow = {
   endDate: string;
   startTime: string;
   endTime: string;
-  isActive: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
   playlistId: string | null;
@@ -51,7 +50,6 @@ const mapScheduleRowToRecord = (row: ScheduleRow): ScheduleRecord => ({
   endDate: row.endDate,
   startTime: row.startTime,
   endTime: row.endTime,
-  isActive: row.isActive,
   createdAt: toIsoString(row.createdAt),
   updatedAt: toIsoString(row.updatedAt),
 });
@@ -66,7 +64,6 @@ const buildScheduleQuery = () =>
       endDate: schedules.endDate,
       startTime: schedules.startTime,
       endTime: schedules.endTime,
-      isActive: schedules.isActive,
       createdAt: schedules.createdAt,
       updatedAt: schedules.updatedAt,
       playlistId: schedulePlaylistTargets.playlistId,
@@ -177,7 +174,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
     endDate?: string;
     startTime: string;
     endTime: string;
-    isActive: boolean;
   }): Promise<ScheduleRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -199,7 +195,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
         endDate: input.endDate ?? "2099-12-31",
         startTime: input.startTime,
         endTime: input.endTime,
-        isActive: input.isActive,
         createdAt: now,
         updatedAt: now,
       });
@@ -240,7 +235,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
       endDate?: string;
       startTime?: string;
       endTime?: string;
-      isActive?: boolean;
     },
   ): Promise<ScheduleRecord | null> {
     const existing = await this.findById(id);
@@ -273,7 +267,6 @@ export class ScheduleDbRepository implements ScheduleRepository {
           endDate: input.endDate ?? existing.endDate,
           startTime: input.startTime ?? existing.startTime,
           endTime: input.endTime ?? existing.endTime,
-          isActive: input.isActive ?? existing.isActive,
           updatedAt: now,
         })
         .where(eq(schedules.id, id));

@@ -24,7 +24,7 @@ describe("schedule helpers", () => {
     const schedules = [
       {
         id: "manila-evening",
-        isActive: true,
+
         startDate: "2025-01-06",
         endDate: "2025-01-06",
         startTime: "17:00",
@@ -32,7 +32,7 @@ describe("schedule helpers", () => {
       },
       {
         id: "utc-morning",
-        isActive: true,
+
         startDate: "2025-01-06",
         endDate: "2025-01-06",
         startTime: "09:00",
@@ -55,7 +55,7 @@ describe("schedule helpers", () => {
     const schedules = [
       {
         id: "should-match-local-date",
-        isActive: true,
+
         startDate: "2025-01-01",
         endDate: "2025-01-01",
         startTime: "00:00",
@@ -63,7 +63,7 @@ describe("schedule helpers", () => {
       },
       {
         id: "utc-date-only",
-        isActive: true,
+
         startDate: "2024-12-31",
         endDate: "2024-12-31",
         startTime: "00:00",

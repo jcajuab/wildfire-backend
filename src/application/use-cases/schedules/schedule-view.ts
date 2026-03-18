@@ -19,7 +19,6 @@ export const toScheduleView = (
   endDate: schedule.endDate ?? "",
   startTime: schedule.startTime,
   endTime: schedule.endTime,
-  isActive: schedule.isActive,
   createdAt: schedule.createdAt,
   updatedAt: schedule.updatedAt,
   playlist: playlist ? { id: playlist.id, name: playlist.name } : null,

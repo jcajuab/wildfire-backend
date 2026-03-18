@@ -34,7 +34,6 @@ const makeApp = async (
       endDate?: string;
       startTime: string;
       endTime: string;
-      isActive: boolean;
       createdAt: string;
       updatedAt: string;
     }>;
@@ -324,7 +323,7 @@ describe("Schedules routes", () => {
           endDate: "2027-01-05",
           startTime: "08:00",
           endTime: "10:00",
-          isActive: true,
+
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         },
@@ -394,7 +393,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        isActive: true,
       }),
     });
 
@@ -427,7 +425,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        isActive: true,
       }),
     });
 
@@ -454,7 +451,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "99:00",
         endTime: "17:00",
-        isActive: true,
       }),
     });
 
@@ -483,7 +479,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "17:00",
-        isActive: true,
       }),
     });
 
@@ -510,7 +505,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "10:00",
-        isActive: true,
       }),
     });
     expect(first.status).toBe(201);
@@ -531,7 +525,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "09:00",
         endTime: "11:00",
-        isActive: true,
       }),
     });
 
@@ -563,7 +556,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "08:00",
         endTime: "10:00",
-        isActive: true,
       }),
     });
     expect(first.status).toBe(201);
@@ -584,7 +576,6 @@ describe("Schedules routes", () => {
         endDate: "2027-12-31",
         startTime: "11:00",
         endTime: "12:00",
-        isActive: true,
       }),
     });
     expect(second.status).toBe(201);

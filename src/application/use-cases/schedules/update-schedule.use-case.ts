@@ -33,7 +33,6 @@ export class UpdateScheduleUseCase {
     endDate?: string;
     startTime?: string;
     endTime?: string;
-    isActive?: boolean;
   }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
@@ -149,7 +148,6 @@ export class UpdateScheduleUseCase {
       endDate: candidate.endDate,
       startTime: candidate.startTime,
       endTime: candidate.endTime,
-      isActive: input.isActive,
     });
     if (!schedule) {
       throw new NotFoundError("Schedule not found");

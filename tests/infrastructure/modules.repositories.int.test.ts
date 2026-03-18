@@ -194,7 +194,6 @@ describe("Module repositories (integration)", () => {
       displayId: "display-1",
       startTime: "08:00",
       endTime: "17:00",
-      isActive: true,
     });
 
     expect(created.id).toBeDefined();

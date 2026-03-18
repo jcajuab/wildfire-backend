@@ -2,8 +2,6 @@ import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { computeRequiredMinPlaylistDurationSeconds } from "#/application/use-cases/shared/playlist-required-duration";
-
 export const publishPlaylistUpdateEvents = async (
   deps: {
     scheduleRepository?: ScheduleRepository;
@@ -32,59 +30,17 @@ export const publishPlaylistUpdateEvents = async (
   }
 };
 
-const parseTimeToSeconds = (value: string): number => {
-  const [hourRaw, minuteRaw] = value.split(":");
-  const hour = Number.parseInt(hourRaw ?? "", 10);
-  const minute = Number.parseInt(minuteRaw ?? "", 10);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
-    return 0;
-  }
-  return hour * 3600 + minute * 60;
-};
-
-const scheduleWindowDurationSeconds = (startTime: string, endTime: string) => {
-  const startSeconds = parseTimeToSeconds(startTime);
-  const endSeconds = parseTimeToSeconds(endTime);
-  if (endSeconds > startSeconds) return endSeconds - startSeconds;
-  if (endSeconds < startSeconds) return 24 * 3600 - startSeconds + endSeconds;
-  return 0;
-};
-
 const invalidateImpactedSchedules = async (
-  deps: {
+  _deps: {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     scheduleRepository?: ScheduleRepository;
     displayEventPublisher?: DisplayStreamEventPublisher;
   },
-  playlistId: string,
+  _playlistId: string,
 ): Promise<void> => {
-  if (!deps.scheduleRepository) {
-    return;
-  }
-  const schedules = await deps.scheduleRepository.list();
-  const impacted = schedules.filter(
-    (schedule) => schedule.playlistId === playlistId && schedule.isActive,
-  );
-  for (const schedule of impacted) {
-    const required = await computeRequiredMinPlaylistDurationSeconds({
-      playlistRepository: deps.playlistRepository,
-      contentRepository: deps.contentRepository,
-      playlistId,
-    });
-    const windowSeconds = scheduleWindowDurationSeconds(
-      schedule.startTime,
-      schedule.endTime,
-    );
-    if (windowSeconds < required) {
-      await deps.scheduleRepository.update(schedule.id, { isActive: false });
-      deps.displayEventPublisher?.publish({
-        type: "schedule_updated",
-        displayId: schedule.displayId,
-        reason: "schedule_auto_disabled_due_to_playlist_duration",
-      });
-    }
-  }
+  // Auto-disable behavior removed: playlists loop naturally on displays,
+  // so short playlists no longer cause schedule deactivation.
 };
 
 export const runPlaylistPostMutationEffects = async (

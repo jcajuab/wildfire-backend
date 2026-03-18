@@ -1,10 +1,4 @@
-import {
-  boolean,
-  index,
-  mysqlTable,
-  timestamp,
-  varchar,
-} from "drizzle-orm/mysql-core";
+import { index, mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";
 import { content } from "./content.sql";
 import { displays } from "./displays.sql";
 import { playlists } from "./playlist.sql";
@@ -21,15 +15,13 @@ export const schedules = mysqlTable(
     endDate: varchar("end_date", { length: 10 }).notNull(),
     startTime: varchar("start_time", { length: 5 }).notNull(),
     endTime: varchar("end_time", { length: 5 }).notNull(),
-    isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
     displayIdIdx: index("schedules_display_id_idx").on(table.displayId),
-    displayActiveWindowIdx: index("schedules_display_active_window_idx").on(
+    displayWindowIdx: index("schedules_display_window_idx").on(
       table.displayId,
-      table.isActive,
       table.startDate,
       table.endDate,
     ),

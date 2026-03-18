@@ -11,7 +11,6 @@ export interface ScheduleRecord {
   endDate?: string;
   startTime: string;
   endTime: string;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,7 +37,6 @@ export interface ScheduleRepository {
     endDate?: string;
     startTime: string;
     endTime: string;
-    isActive: boolean;
   }): Promise<ScheduleRecord>;
   update(
     id: string,
@@ -52,7 +50,6 @@ export interface ScheduleRepository {
       endDate?: string;
       startTime?: string;
       endTime?: string;
-      isActive?: boolean;
     },
   ): Promise<ScheduleRecord | null>;
   delete(id: string): Promise<boolean>;

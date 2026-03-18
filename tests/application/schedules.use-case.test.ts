@@ -27,7 +27,6 @@ const makeDeps = () => {
     endDate?: string;
     startTime: string;
     endTime: string;
-    isActive: boolean;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -237,7 +236,7 @@ describe("Schedules use cases", () => {
             displayId: "display-1",
             startTime: "08:00",
             endTime: "17:00",
-            isActive: true,
+
             createdAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
@@ -369,7 +368,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "17:00",
-        isActive: true,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -422,7 +420,6 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "08:00",
-        isActive: true,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
@@ -440,7 +437,7 @@ describe("Schedules use cases", () => {
       endDate: FUTURE_END_DATE,
       startTime: "10:00",
       endTime: "11:00",
-      isActive: true,
+
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -463,7 +460,6 @@ describe("Schedules use cases", () => {
         endDate: futureDate(330),
         startTime: "10:30",
         endTime: "11:30",
-        isActive: true,
       }),
     ).resolves.toBeDefined();
   });
@@ -481,7 +477,7 @@ describe("Schedules use cases", () => {
       endDate: FUTURE_END_DATE,
       startTime: "10:00",
       endTime: "11:00",
-      isActive: true,
+
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
@@ -503,7 +499,6 @@ describe("Schedules use cases", () => {
         endDate: futureDate(330),
         startTime: "11:00",
         endTime: "12:00",
-        isActive: true,
       }),
     ).resolves.toBeDefined();
   });
@@ -522,7 +517,7 @@ describe("Schedules use cases", () => {
         endDate: "2025-12-31",
         startTime: "08:00",
         endTime: "09:00",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -537,7 +532,7 @@ describe("Schedules use cases", () => {
         endDate: "2025-12-31",
         startTime: "10:00",
         endTime: "11:00",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -571,7 +566,7 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -584,7 +579,7 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "08:00",
         endTime: "12:00",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -611,7 +606,7 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "17:00",
         endTime: "18:00",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -624,7 +619,7 @@ describe("Schedules use cases", () => {
         displayId: "display-1",
         startTime: "09:00",
         endTime: "10:00",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -654,7 +649,7 @@ describe("Schedules use cases", () => {
         endDate: "2025-01-01",
         startTime: "00:00",
         endTime: "23:59",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
@@ -669,7 +664,7 @@ describe("Schedules use cases", () => {
         endDate: "2024-12-31",
         startTime: "00:00",
         endTime: "23:59",
-        isActive: true,
+
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },

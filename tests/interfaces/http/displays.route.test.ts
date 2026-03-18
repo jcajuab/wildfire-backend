@@ -45,7 +45,6 @@ const makeApp = async (
       displayId: string;
       startTime: string;
       endTime: string;
-      isActive: boolean;
       createdAt: string;
       updatedAt: string;
     }>;
@@ -926,7 +925,6 @@ describe("Displays routes", () => {
           displayId,
           startTime: "00:00",
           endTime: "23:59",
-          isActive: true,
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         },
