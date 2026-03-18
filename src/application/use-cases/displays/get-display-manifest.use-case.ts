@@ -84,6 +84,15 @@ interface ManifestFlashState {
   speedPxPerSecond: number;
 }
 
+interface ManifestScheduleWindow {
+  id: string;
+  kind: "PLAYLIST" | "FLASH";
+  startTime: string;
+  endTime: string;
+  startDate: string | null;
+  endDate: string | null;
+}
+
 interface ManifestPlaybackState {
   mode: "SCHEDULE" | "EMERGENCY";
   emergency: {
@@ -165,6 +174,15 @@ export class GetDisplayManifestUseCase {
           }
         : null;
 
+    const manifestSchedules: ManifestScheduleWindow[] = schedules.map((s) => ({
+      id: s.id,
+      kind: s.kind ?? "PLAYLIST",
+      startTime: s.startTime,
+      endTime: s.endTime,
+      startDate: s.startDate ?? null,
+      endDate: s.endDate ?? null,
+    }));
+
     const emergency = await this.resolveEmergencyPlayback({
       display,
       now: input.now,
@@ -199,10 +217,12 @@ export class GetDisplayManifestUseCase {
           refreshNonce: display.refreshNonce ?? 0,
           playback,
           items,
+          schedules: manifestSchedules,
         }),
         generatedAt: input.now.toISOString(),
         playback,
         items,
+        schedules: manifestSchedules,
       };
     }
 
@@ -227,10 +247,12 @@ export class GetDisplayManifestUseCase {
           refreshNonce: display.refreshNonce ?? 0,
           playback,
           items: [],
+          schedules: manifestSchedules,
         }),
         generatedAt: input.now.toISOString(),
         playback,
         items: [],
+        schedules: manifestSchedules,
       };
     }
 
@@ -339,10 +361,12 @@ export class GetDisplayManifestUseCase {
         refreshNonce: display.refreshNonce ?? 0,
         playback,
         items: manifestItems,
+        schedules: manifestSchedules,
       }),
       generatedAt: input.now.toISOString(),
       playback,
       items: manifestItems,
+      schedules: manifestSchedules,
     };
   }
 
@@ -436,6 +460,7 @@ export class GetDisplayManifestUseCase {
         checksum: string;
       };
     }>;
+    schedules: ManifestScheduleWindow[];
   }): Promise<string> {
     const versionPayload = JSON.stringify({
       playlistId: input.playlistId,
@@ -467,6 +492,14 @@ export class GetDisplayManifestUseCase {
         duration: item.duration,
         contentId: item.content.id,
         checksum: item.content.checksum,
+      })),
+      schedules: input.schedules.map((s) => ({
+        id: s.id,
+        kind: s.kind,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        startDate: s.startDate,
+        endDate: s.endDate,
       })),
     });
     return sha256Hex(new TextEncoder().encode(versionPayload).buffer);

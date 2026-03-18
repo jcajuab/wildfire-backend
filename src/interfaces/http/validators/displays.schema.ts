@@ -241,6 +241,15 @@ export const displayManifestItemSchema = z.object({
   }),
 });
 
+export const manifestScheduleWindowSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["PLAYLIST", "FLASH"]),
+  startTime: z.string(),
+  endTime: z.string(),
+  startDate: z.string().nullable(),
+  endDate: z.string().nullable(),
+});
+
 export const displayManifestSchema = z.object({
   playlistId: z.string().nullable(),
   playlistVersion: z.string(),
@@ -279,4 +288,5 @@ export const displayManifestSchema = z.object({
       .nullable(),
   }),
   items: z.array(displayManifestItemSchema),
+  schedules: z.array(manifestScheduleWindowSchema),
 });
