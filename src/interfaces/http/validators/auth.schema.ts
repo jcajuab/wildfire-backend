@@ -8,6 +8,8 @@ export const authLoginSchema = z.object({
 export const patchAuthMeSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   timezone: z.string().max(64).nullable().optional(),
+  username: z.string().min(1).max(120).optional(),
+  email: z.string().email().nullable().optional(),
 });
 
 export const postAuthProfileEmailChangeRequestSchema = z.object({

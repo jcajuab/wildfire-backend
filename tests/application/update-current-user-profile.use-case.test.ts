@@ -37,6 +37,10 @@ describe("UpdateCurrentUserProfileUseCase", () => {
 
     const useCase = new UpdateCurrentUserProfileUseCase({
       userRepository: repo,
+      authorizationRepository: {
+        findPermissionsForUser: async () => [],
+        isAdminUser: async () => false,
+      },
     });
     const result = await useCase.execute({
       userId: "user-1",
@@ -74,6 +78,10 @@ describe("UpdateCurrentUserProfileUseCase", () => {
 
     const useCase = new UpdateCurrentUserProfileUseCase({
       userRepository: repo,
+      authorizationRepository: {
+        findPermissionsForUser: async () => [],
+        isAdminUser: async () => false,
+      },
     });
     await expect(
       useCase.execute({ userId: "missing", name: "Name" }),

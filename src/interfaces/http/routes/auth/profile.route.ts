@@ -73,6 +73,8 @@ export const registerAuthProfileRoute = (args: {
           userId,
           name: payload.name,
           timezone: payload.timezone,
+          username: payload.username,
+          email: payload.email,
         });
         const result = await useCases.refreshSession.execute({ userId });
         const body = await buildAuthResponse(deps, result);

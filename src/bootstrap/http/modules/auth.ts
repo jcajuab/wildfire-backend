@@ -44,6 +44,7 @@ export const createAuthHttpModule = (
     }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository: deps.userRepository,
+      authorizationRepository: deps.authorizationRepository,
     }),
     changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
       userRepository: deps.userRepository,
