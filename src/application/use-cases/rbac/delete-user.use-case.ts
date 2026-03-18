@@ -1,4 +1,5 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
+import { assertNotDcismUser } from "#/application/guards/dcism-user.guard";
 import {
   type AuthorizationRepository,
   type UserRepository,
@@ -46,6 +47,14 @@ export class DeleteUserUseCase {
       "Cannot delete an Admin user",
     );
 
+    const user = await this.deps.userRepository.findById(input.id);
+    if (!user) throw new NotFoundError("User not found");
+
+    assertNotDcismUser(
+      user,
+      "Cannot delete a DCISM user. DCISM users are managed by the HTSHADOW file.",
+    );
+
     const deleted = await this.deps.userRepository.delete(input.id);
     if (!deleted) throw new NotFoundError("User not found");
   }
@@ -56,7 +65,11 @@ export class DeleteCurrentUserUseCase {
   constructor(private readonly deps: { userRepository: UserRepository }) {}
 
   async execute(input: { userId: string }) {
-    const deleted = await this.deps.userRepository.delete(input.userId);
-    if (!deleted) throw new NotFoundError("User not found");
+    const user = await this.deps.userRepository.findById(input.userId);
+    if (!user) throw new NotFoundError("User not found");
+
+    assertNotDcismUser(user, "DCISM users cannot delete their account.");
+
+    await this.deps.userRepository.delete(input.userId);
   }
 }

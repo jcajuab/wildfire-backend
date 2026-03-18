@@ -1,5 +1,6 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
+import { assertNotDcismUser } from "#/application/guards/dcism-user.guard";
 import {
   type CredentialsRepository,
   type PasswordHasher,
@@ -44,11 +45,10 @@ export class AdminResetPasswordUseCase {
     const user = await this.deps.userRepository.findById(input.id);
     if (!user) throw new NotFoundError("User not found");
 
-    if (user.invitedAt == null) {
-      throw new ForbiddenError(
-        "Password reset is only available for invited users.",
-      );
-    }
+    assertNotDcismUser(
+      user,
+      "Password reset is only available for invited users.",
+    );
 
     const plainPassword = generateRandomPassword();
     const passwordHash = await this.deps.passwordHasher.hash(plainPassword);

@@ -63,6 +63,7 @@ import { createRbacRouter } from "#/interfaces/http/routes/rbac";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules";
 import { RedisAuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import { runStartupAuthIdentitySync } from "#/interfaces/http/startup/auth-identity.sync";
+import { startHtshadowFileWatcher } from "#/interfaces/http/startup/htshadow-file-watcher.service";
 import packageJSON from "#/package.json" with { type: "json" };
 import { createHttpContainer } from "./container";
 
@@ -132,6 +133,7 @@ export const syncAuthIdentityOnStartup = () =>
   });
 
 let stopDisplayStatusReconciler: (() => Promise<void>) | null = null;
+let stopHtshadowFileWatcher: (() => void) | null = null;
 const getStorageConfig = () => ({
   minioEndpoint: container.storage.minioEndpoint,
   bucket: env.MINIO_BUCKET,
@@ -159,8 +161,27 @@ const startDisplayStatusReconcilerWorker = (): void => {
   });
 };
 
+const startHtshadowFileWatcherWorker = (): void => {
+  if (stopHtshadowFileWatcher != null) return;
+
+  void startHtshadowFileWatcher({
+    htshadowPath: env.HTSHADOW_PATH,
+    adminUsername: env.ADMIN_USERNAME,
+    userRepository: container.repositories.userRepository,
+    roleRepository: container.repositories.roleRepository,
+    userRoleRepository: container.repositories.userRoleRepository,
+    authSessionRepository: container.repositories.authSessionRepository,
+  }).then((watcher) => {
+    stopHtshadowFileWatcher = watcher.stop;
+    container.auth.credentialsRepository.setOnBeforeWrite(
+      watcher.markSelfWrite,
+    );
+  });
+};
+
 export const startHttpBackgroundWorkers = (): void => {
   startDisplayStatusReconcilerWorker();
+  startHtshadowFileWatcherWorker();
 };
 
 const toStorageErrorMessage = (error: unknown): string =>
@@ -655,6 +676,10 @@ export const stopHttpBackgroundWorkers = async (): Promise<void> => {
   if (stopDisplayStatusReconciler) {
     await stopDisplayStatusReconciler();
     stopDisplayStatusReconciler = null;
+  }
+  if (stopHtshadowFileWatcher) {
+    stopHtshadowFileWatcher();
+    stopHtshadowFileWatcher = null;
   }
   await closeRedisClients();
   await closeDbConnection();

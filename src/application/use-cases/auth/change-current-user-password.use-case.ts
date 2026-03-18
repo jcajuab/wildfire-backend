@@ -1,5 +1,5 @@
-import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
+import { assertNotDcismUser } from "#/application/guards/dcism-user.guard";
 import {
   type CredentialsRepository,
   type PasswordHasher,
@@ -28,11 +28,10 @@ export class ChangeCurrentUserPasswordUseCase {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
 
-    if (user.invitedAt == null) {
-      throw new ForbiddenError(
-        "Password change is only available for invited users.",
-      );
-    }
+    assertNotDcismUser(
+      user,
+      "Password change is only available for invited users.",
+    );
 
     const currentHash = await this.deps.credentialsRepository.findPasswordHash(
       user.username,

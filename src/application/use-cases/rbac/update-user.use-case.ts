@@ -1,4 +1,5 @@
 import { ForbiddenError } from "#/application/errors/forbidden";
+import { assertDcismUserCannotModifyIdentity } from "#/application/guards/dcism-user.guard";
 import {
   type AuthorizationRepository,
   type UserRepository,
@@ -56,6 +57,14 @@ export class UpdateUserUseCase {
       input.callerUserId,
       "Cannot modify an Admin user",
     );
+
+    const targetUser = await this.deps.userRepository.findById(input.id);
+    if (!targetUser) throw new NotFoundError("User not found");
+
+    assertDcismUserCannotModifyIdentity(targetUser, {
+      username: input.username,
+      email: input.email,
+    });
 
     if (input.username) {
       const existingByUsername = await this.deps.userRepository.findByUsername(

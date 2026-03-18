@@ -8,7 +8,13 @@ interface HtshadowCredentialsRepositoryDeps {
 const normalizeUsername = (value: string): string => value.trim().toLowerCase();
 
 export class HtshadowCredentialsRepository implements CredentialsRepository {
+  private onBeforeWrite: (() => void) | null = null;
+
   constructor(private readonly deps: HtshadowCredentialsRepositoryDeps) {}
+
+  setOnBeforeWrite(callback: () => void): void {
+    this.onBeforeWrite = callback;
+  }
 
   async findPasswordHash(username: string): Promise<string | null> {
     const normalizedUsername = normalizeUsername(username);
@@ -53,6 +59,7 @@ export class HtshadowCredentialsRepository implements CredentialsRepository {
         `User not found in credentials file: ${normalizedUsername}`,
       );
     }
+    this.onBeforeWrite?.();
     const tmpPath = `${this.deps.filePath}.tmp.${Date.now()}`;
     await writeFile(tmpPath, newLines.join("\n"), "utf-8");
     await rename(tmpPath, this.deps.filePath);
@@ -79,6 +86,7 @@ export class HtshadowCredentialsRepository implements CredentialsRepository {
     }
 
     const next = [...lines, `${normalizedUsername}:${passwordHash}`];
+    this.onBeforeWrite?.();
     const tmpPath = `${this.deps.filePath}.tmp.${Date.now()}`;
     await writeFile(tmpPath, `${next.join("\n")}\n`, "utf-8");
     await rename(tmpPath, this.deps.filePath);
