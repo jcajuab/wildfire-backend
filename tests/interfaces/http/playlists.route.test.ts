@@ -280,6 +280,7 @@ const makeApp = async (
         authorizationRepository: {
           findPermissionsForUser: async () =>
             permissions.map((permission) => Permission.parse(permission)),
+          isAdminUser: async () => false,
         },
         scheduleRepository: {
           list: async () => [],

@@ -40,15 +40,17 @@ export const createAuthHttpModule = (
     }),
     deleteCurrentUserUseCase: new DeleteCurrentUserUseCase({
       userRepository: deps.userRepository,
+      authorizationRepository: deps.authorizationRepository,
     }),
     updateCurrentUserProfileUseCase: new UpdateCurrentUserProfileUseCase({
       userRepository: deps.userRepository,
     }),
     changeCurrentUserPasswordUseCase: new ChangeCurrentUserPasswordUseCase({
       userRepository: deps.userRepository,
-      credentialsRepository: deps.credentialsRepository,
+      credentialsRepository: deps.dbCredentialsRepository,
       passwordVerifier: deps.passwordVerifier,
       passwordHasher: deps.passwordHasher,
+      authorizationRepository: deps.authorizationRepository,
     }),
     setCurrentUserAvatarUseCase: new SetCurrentUserAvatarUseCase({
       userRepository: deps.userRepository,
@@ -67,10 +69,12 @@ export const createAuthHttpModule = (
     deps: routerDeps,
     useCases: {
       authenticateUser: new AuthenticateUserUseCase({
-        credentialsRepository: routerDeps.credentialsRepository,
+        dbCredentialsRepository: routerDeps.dbCredentialsRepository,
+        htshadowCredentialsRepository: routerDeps.credentialsRepository,
         passwordVerifier: routerDeps.passwordVerifier,
         tokenIssuer: routerDeps.tokenIssuer,
         userRepository: routerDeps.userRepository,
+        authorizationRepository: routerDeps.authorizationRepository,
         clock: routerDeps.clock,
         tokenTtlSeconds: routerDeps.tokenTtlSeconds,
         issuer: routerDeps.issuer,
@@ -89,7 +93,7 @@ export const createAuthHttpModule = (
         invitationRepository: routerDeps.invitationRepository,
         userRepository: routerDeps.userRepository,
         passwordHasher: routerDeps.passwordHasher,
-        credentialsRepository: routerDeps.credentialsRepository,
+        credentialsRepository: routerDeps.dbCredentialsRepository,
       }),
       listInvitations: new ListInvitationsUseCase({
         invitationRepository: routerDeps.invitationRepository,

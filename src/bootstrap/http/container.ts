@@ -15,6 +15,7 @@ import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositor
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
 import { DisplayPreviewRedisRepository } from "#/infrastructure/db/repositories/display-preview.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
+import { DbCredentialsRepository } from "#/infrastructure/db/repositories/password-hashes.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
 import { PlaylistDbRepository } from "#/infrastructure/db/repositories/playlist.repo";
 import { RoleDbRepository } from "#/infrastructure/db/repositories/role.repo";
@@ -79,6 +80,7 @@ export interface HttpContainer {
   };
   auth: {
     credentialsRepository: HtshadowCredentialsRepository;
+    dbCredentialsRepository: DbCredentialsRepository;
     passwordVerifier: BcryptPasswordVerifier;
     passwordHasher: BcryptPasswordHasher;
     tokenIssuer: JwtTokenIssuer;
@@ -137,6 +139,7 @@ export const createHttpContainer = (
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
   });
+  const dbCredentialsRepository = new DbCredentialsRepository();
   const passwordVerifier = new BcryptPasswordVerifier();
   const passwordHasher = new BcryptPasswordHasher();
   const tokenIssuer = new JwtTokenIssuer({
@@ -185,6 +188,7 @@ export const createHttpContainer = (
     },
     auth: {
       credentialsRepository,
+      dbCredentialsRepository,
       passwordVerifier,
       passwordHasher,
       tokenIssuer,

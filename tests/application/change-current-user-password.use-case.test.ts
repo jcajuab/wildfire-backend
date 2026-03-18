@@ -42,12 +42,17 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
           updatedUsername = username;
           updatedHash = passwordHash;
         },
+        createPasswordHash: async () => {},
       },
       passwordVerifier: {
         verify: async () => true,
       },
       passwordHasher: {
         hash: async () => "new-hash",
+      },
+      authorizationRepository: {
+        findPermissionsForUser: async () => [],
+        isAdminUser: async () => false,
       },
     });
 
@@ -91,12 +96,17 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
       credentialsRepository: {
         findPasswordHash: async () => "old-hash",
         updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
       },
       passwordVerifier: {
         verify: async () => false,
       },
       passwordHasher: {
         hash: async () => "new-hash",
+      },
+      authorizationRepository: {
+        findPermissionsForUser: async () => [],
+        isAdminUser: async () => false,
       },
     });
 
@@ -132,12 +142,17 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
       credentialsRepository: {
         findPasswordHash: async () => "old-hash",
         updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
       },
       passwordVerifier: {
         verify: async () => true,
       },
       passwordHasher: {
         hash: async () => "new-hash",
+      },
+      authorizationRepository: {
+        findPermissionsForUser: async () => [],
+        isAdminUser: async () => false,
       },
     });
 

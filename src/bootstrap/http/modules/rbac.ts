@@ -140,7 +140,7 @@ export const createRbacHttpModule = (
       }),
       adminResetPassword: new AdminResetPasswordUseCase({
         userRepository: routerDeps.repositories.userRepository,
-        credentialsRepository: routerDeps.credentialsRepository,
+        credentialsRepository: routerDeps.dbCredentialsRepository,
         passwordHasher: routerDeps.passwordHasher,
         authorizationRepository:
           routerDeps.repositories.authorizationRepository,

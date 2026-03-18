@@ -130,6 +130,8 @@ export const syncAuthIdentityOnStartup = () =>
       rolePermissionRepository: container.repositories.rolePermissionRepository,
       userRoleRepository: container.repositories.userRoleRepository,
     },
+    dbCredentialsRepository: container.auth.dbCredentialsRepository,
+    passwordHasher: container.auth.passwordHasher,
   });
 
 let stopDisplayStatusReconciler: (() => Promise<void>) | null = null;
@@ -166,11 +168,11 @@ const startHtshadowFileWatcherWorker = (): void => {
 
   void startHtshadowFileWatcher({
     htshadowPath: env.HTSHADOW_PATH,
-    adminUsername: env.ADMIN_USERNAME,
     userRepository: container.repositories.userRepository,
     roleRepository: container.repositories.roleRepository,
     userRoleRepository: container.repositories.userRoleRepository,
     authSessionRepository: container.repositories.authSessionRepository,
+    dbCredentialsRepository: container.auth.dbCredentialsRepository,
   }).then((watcher) => {
     stopHtshadowFileWatcher = watcher.stop;
     container.auth.credentialsRepository.setOnBeforeWrite(
@@ -346,6 +348,7 @@ const healthRouter = createHealthRouter(
 
 const authModule = createAuthHttpModule({
   credentialsRepository: container.auth.credentialsRepository,
+  dbCredentialsRepository: container.auth.dbCredentialsRepository,
   passwordVerifier: container.auth.passwordVerifier,
   passwordHasher: container.auth.passwordHasher,
   tokenIssuer: container.auth.tokenIssuer,
@@ -504,6 +507,7 @@ const rbacModule = createRbacHttpModule({
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   credentialsRepository: container.auth.credentialsRepository,
+  dbCredentialsRepository: container.auth.dbCredentialsRepository,
   passwordHasher: container.auth.passwordHasher,
   repositories: {
     userRepository: container.repositories.userRepository,

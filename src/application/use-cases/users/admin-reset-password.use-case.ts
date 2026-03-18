@@ -35,9 +35,9 @@ export class AdminResetPasswordUseCase {
     id: string;
     callerUserId: string;
   }): Promise<{ plainPassword: string }> {
-    const callerIsAdmin = this.deps.authorizationRepository.isAdminUser
-      ? await this.deps.authorizationRepository.isAdminUser(input.callerUserId)
-      : false;
+    const callerIsAdmin = await this.deps.authorizationRepository.isAdminUser(
+      input.callerUserId,
+    );
     if (!callerIsAdmin) {
       throw new ForbiddenError("Only administrators can reset user passwords.");
     }
@@ -45,8 +45,11 @@ export class AdminResetPasswordUseCase {
     const user = await this.deps.userRepository.findById(input.id);
     if (!user) throw new NotFoundError("User not found");
 
+    const targetIsAdmin = await this.deps.authorizationRepository.isAdminUser(
+      user.id,
+    );
     assertNotDcismUser(
-      user,
+      { ...user, isAdmin: targetIsAdmin },
       "Password reset is only available for invited users.",
     );
 

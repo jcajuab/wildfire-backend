@@ -107,5 +107,5 @@ export interface RolePermissionRepository {
 
 export interface AuthorizationRepository {
   findPermissionsForUser(userId: string): Promise<Permission[]>;
-  isAdminUser?: (userId: string) => Promise<boolean>;
+  isAdminUser(userId: string): Promise<boolean>;
 }

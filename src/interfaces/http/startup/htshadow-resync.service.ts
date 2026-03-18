@@ -18,11 +18,13 @@ export interface HtshadowResyncMetrics {
 
 export interface HtshadowResyncDeps {
   htshadowPath: string;
-  adminUsername: string;
   userRepository: UserRepository;
   roleRepository: RoleRepository;
   userRoleRepository: UserRoleRepository;
   authSessionRepository: AuthSessionRepository;
+  dbCredentialsRepository: {
+    listUserIdsWithPasswordHash(): Promise<string[]>;
+  };
 }
 
 export const resyncHtshadowUsers = async (
@@ -37,10 +39,15 @@ export const resyncHtshadowUsers = async (
   const htshadowMap = await readHtshadowMap(deps.htshadowPath);
   const htshadowUsernames = new Set(htshadowMap.keys());
 
-  // List all DCISM users (invitedAt IS NULL), excluding admin
+  // Get WILDFIRE user IDs (those with DB credentials: admin + invited)
+  const wildfireUserIds = new Set(
+    await deps.dbCredentialsRepository.listUserIdsWithPasswordHash(),
+  );
+
+  // List all DCISM users (invitedAt IS NULL and not in password_hashes)
   const allUsers = await deps.userRepository.list();
   const dcismUsers = allUsers.filter(
-    (u) => u.invitedAt == null && u.username !== deps.adminUsername,
+    (u) => u.invitedAt == null && !wildfireUserIds.has(u.id),
   );
 
   // --- Add phase ---
@@ -49,7 +56,6 @@ export const resyncHtshadowUsers = async (
   const viewerRole = roles.find((r) => r.name === "Viewer") ?? null;
 
   for (const username of htshadowUsernames) {
-    if (username === deps.adminUsername) continue;
     if (existingUsernames.has(username)) continue;
 
     const newUser = await deps.userRepository.create({

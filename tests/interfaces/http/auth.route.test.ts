@@ -152,6 +152,7 @@ const buildApp = (opts?: {
             new Permission("roles", "create"),
           ])
         : [],
+    isAdminUser: async () => false,
   };
 
   const invitations = new Map<
@@ -291,6 +292,7 @@ const buildApp = (opts?: {
   const authRouter = createAuthRouter(
     createAuthHttpModule({
       credentialsRepository,
+      dbCredentialsRepository: credentialsRepository,
       passwordVerifier,
       passwordHasher: new BcryptPasswordHasher(),
       tokenIssuer,
@@ -583,6 +585,7 @@ describe("Auth routes", () => {
           updatePasswordHash: async (_username, nextHash) => {
             passwordHash = nextHash;
           },
+          createPasswordHash: async () => {},
         },
       });
       const token = await issueToken();

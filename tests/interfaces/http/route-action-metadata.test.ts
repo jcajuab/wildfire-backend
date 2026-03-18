@@ -93,6 +93,11 @@ const buildAuthActionApp = () => {
   const authRouter = createAuthRouter(
     createAuthHttpModule({
       credentialsRepository,
+      dbCredentialsRepository: {
+        findPasswordHash: async () => null,
+        updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
+      },
       passwordVerifier,
       passwordHasher,
       tokenIssuer: {
@@ -101,6 +106,7 @@ const buildAuthActionApp = () => {
       userRepository,
       authorizationRepository: {
         findPermissionsForUser: async () => [new Permission("roles", "read")],
+        isAdminUser: async () => false,
       },
       clock: {
         nowSeconds: () => Math.floor(Date.now() / 1000),
@@ -232,6 +238,7 @@ const buildContentActionApp = async () => {
           findPermissionsForUser: async () => [
             new Permission("content", "read"),
           ],
+          isAdminUser: async () => false,
         },
       },
       storage: {
@@ -318,6 +325,12 @@ const buildRbacActionApp = async () => {
       credentialsRepository: {
         findPasswordHash: async () => null,
         updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
+      },
+      dbCredentialsRepository: {
+        findPasswordHash: async () => null,
+        updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
       },
       passwordHasher: {
         hash: async (p: string) => p,
@@ -375,6 +388,7 @@ const buildRbacActionApp = async () => {
         },
         authorizationRepository: {
           findPermissionsForUser: async () => [new Permission("users", "read")],
+          isAdminUser: async () => false,
         },
       },
     }),

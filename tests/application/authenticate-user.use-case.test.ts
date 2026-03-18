@@ -58,9 +58,15 @@ const makeDeps = () => {
   return {
     issued,
     deps: {
-      credentialsRepository: {
+      dbCredentialsRepository: {
         findPasswordHash: async () => "hash",
         updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
+      },
+      htshadowCredentialsRepository: {
+        findPasswordHash: async () => "hash",
+        updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
       },
       passwordVerifier: {
         verify: async () => true,
@@ -69,6 +75,10 @@ const makeDeps = () => {
         issueToken,
       },
       userRepository,
+      authorizationRepository: {
+        findPermissionsForUser: async () => [],
+        isAdminUser: async () => false,
+      },
       clock: {
         nowSeconds: () => 1_700_000_000,
       },
@@ -108,6 +118,7 @@ describe("AuthenticateUserUseCase", () => {
         name: "Test One",
         timezone: null,
         avatarKey: null,
+        invitedAt: null,
       },
     });
     expect(issued).toEqual({
@@ -121,9 +132,15 @@ describe("AuthenticateUserUseCase", () => {
     const { deps } = makeDeps();
     const useCase = new AuthenticateUserUseCase({
       ...deps,
-      credentialsRepository: {
+      dbCredentialsRepository: {
         findPasswordHash: async () => null,
         updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
+      },
+      htshadowCredentialsRepository: {
+        findPasswordHash: async () => null,
+        updatePasswordHash: async () => {},
+        createPasswordHash: async () => {},
       },
     });
 

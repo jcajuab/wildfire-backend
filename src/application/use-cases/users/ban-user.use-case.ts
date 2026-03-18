@@ -16,9 +16,9 @@ export class BanUserUseCase {
   ) {}
 
   async execute(input: { id: string; callerUserId: string }): Promise<void> {
-    const callerIsAdmin = this.deps.authorizationRepository.isAdminUser
-      ? await this.deps.authorizationRepository.isAdminUser(input.callerUserId)
-      : false;
+    const callerIsAdmin = await this.deps.authorizationRepository.isAdminUser(
+      input.callerUserId,
+    );
     if (!callerIsAdmin) {
       throw new ForbiddenError("Only administrators can ban users.");
     }
@@ -40,9 +40,9 @@ export class UnbanUserUseCase {
   ) {}
 
   async execute(input: { id: string; callerUserId: string }): Promise<void> {
-    const callerIsAdmin = this.deps.authorizationRepository.isAdminUser
-      ? await this.deps.authorizationRepository.isAdminUser(input.callerUserId)
-      : false;
+    const callerIsAdmin = await this.deps.authorizationRepository.isAdminUser(
+      input.callerUserId,
+    );
     if (!callerIsAdmin) {
       throw new ForbiddenError("Only administrators can unban users.");
     }

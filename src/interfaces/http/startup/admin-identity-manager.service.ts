@@ -1,4 +1,7 @@
-import bcrypt from "bcryptjs";
+import {
+  type CredentialsRepository,
+  type PasswordHasher,
+} from "#/application/ports/auth";
 import {
   type PermissionRepository,
   type RolePermissionRepository,
@@ -8,10 +11,8 @@ import {
 } from "#/application/ports/rbac";
 import { ADMIN_PERMISSION } from "#/domain/rbac/canonical-permissions";
 import { db } from "#/infrastructure/db/client";
-import { writeHtshadowMap } from "./htshadow-file.adapter";
 
 const ADMIN_ROLE_NAME = "Admin";
-const BCRYPT_SALT_ROUNDS = 10;
 
 const uniqueIds = (values: readonly string[]): string[] => {
   const out: string[] = [];
@@ -147,8 +148,10 @@ export const ensureAdminRoleAndPermission = async (deps: {
 };
 
 /**
- * Ensures admin user exists in the directory with correct email/name.
- * Assigns Admin role exclusively to admin user and purges it from all other users.
+ * Phase 1: Find-or-create admin user.
+ * - Finds admin by role (not username). If found, skips creation (env vars ignored).
+ * - If no admin found, creates from env vars and stores password hash in DB.
+ * Phase 2: Purge admin role from unauthorized users (runs on EVERY boot).
  */
 export const ensureAdminUser = async (deps: {
   userRepository: UserRepository;
@@ -156,6 +159,9 @@ export const ensureAdminUser = async (deps: {
   adminRoleId: string;
   adminUsername: string;
   adminEmail: string | null;
+  adminPassword: string;
+  dbCredentialsRepository: CredentialsRepository;
+  passwordHasher: PasswordHasher;
 }): Promise<AdminUserSyncMetrics> => {
   return db.transaction(async () => {
     const result: AdminUserSyncMetrics = {
@@ -164,12 +170,18 @@ export const ensureAdminUser = async (deps: {
       adminRoleAssignedToAdminUser: false,
     };
 
-    const expectedName = deriveUserName(deps.adminUsername);
-    let adminUser = await deps.userRepository.findByUsername(
-      deps.adminUsername,
+    // Phase 1: Find admin by role, or create on first boot
+    const adminUserIds = await deps.userRoleRepository.listUserIdsByRoleId(
+      deps.adminRoleId,
     );
+    const firstAdminUserId = adminUserIds[0];
+    let adminUser = firstAdminUserId
+      ? await deps.userRepository.findById(firstAdminUserId)
+      : null;
 
     if (!adminUser) {
+      // First boot: create admin from env vars
+      const expectedName = deriveUserName(deps.adminUsername);
       adminUser = await deps.userRepository.create({
         username: deps.adminUsername,
         email: deps.adminEmail,
@@ -177,35 +189,23 @@ export const ensureAdminUser = async (deps: {
         isActive: true,
       });
       result.adminUserCreated = true;
-    } else {
-      const shouldUpdate =
-        adminUser.email !== deps.adminEmail ||
-        adminUser.name !== expectedName ||
-        adminUser.isActive !== true;
-      if (shouldUpdate) {
-        adminUser =
-          (await deps.userRepository.update(adminUser.id, {
-            email: deps.adminEmail,
-            name: expectedName,
-            isActive: true,
-          })) ?? adminUser;
-        result.adminUserUpdated = true;
-      }
-    }
 
-    const currentAssignments = await deps.userRoleRepository.listRolesByUserId(
-      adminUser.id,
-    );
-    const roleIds = currentAssignments.map((assignment) => assignment.roleId);
-    const hasExactAdminRoleOnly =
-      roleIds.length === 1 && roleIds[0] === deps.adminRoleId;
-    if (!hasExactAdminRoleOnly) {
-      result.adminRoleAssignedToAdminUser = true;
+      // Assign admin role
       await deps.userRoleRepository.setUserRoles(adminUser.id, [
         deps.adminRoleId,
       ]);
-    }
+      result.adminRoleAssignedToAdminUser = true;
 
+      // Create DB credential
+      const passwordHash = await deps.passwordHasher.hash(deps.adminPassword);
+      await deps.dbCredentialsRepository.createPasswordHash(
+        adminUser.username,
+        passwordHash,
+      );
+    }
+    // If admin found by role: skip creation, do NOT update from env vars
+
+    // Phase 2: Purge admin role from unauthorized users (ALWAYS runs)
     const users = await deps.userRepository.list();
     for (const user of users) {
       if (user.id === adminUser.id) {
@@ -226,28 +226,4 @@ export const ensureAdminUser = async (deps: {
 
     return result;
   });
-};
-
-/**
- * Ensures admin user's htshadow entry has the correct password hash.
- * Returns true if the hash was updated, false if already correct.
- */
-export const ensureAdminHtshadowEntry = async (input: {
-  htshadowPath: string;
-  adminUsername: string;
-  adminPassword: string;
-  map: Map<string, string>;
-}): Promise<boolean> => {
-  const currentHash = input.map.get(input.adminUsername);
-  const isCurrentValid =
-    currentHash != null
-      ? await bcrypt.compare(input.adminPassword, currentHash)
-      : false;
-  if (isCurrentValid) {
-    return false;
-  }
-  const nextHash = await bcrypt.hash(input.adminPassword, BCRYPT_SALT_ROUNDS);
-  input.map.set(input.adminUsername, nextHash);
-  await writeHtshadowMap(input.htshadowPath, input.map);
-  return true;
 };

@@ -62,10 +62,6 @@ export class AcceptInvitationUseCase {
       throw new ValidationError("A user with this username already exists.");
     }
 
-    if (!this.deps.credentialsRepository.createPasswordHash) {
-      throw new ValidationError("Invitation acceptance is not configured.");
-    }
-
     const passwordHash = await this.deps.passwordHasher.hash(input.password);
     const createdUser = await this.deps.userRepository.create({
       username,

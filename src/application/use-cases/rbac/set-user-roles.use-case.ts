@@ -31,9 +31,9 @@ export class SetUserRolesUseCase {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
 
-    const targetIsAdmin = this.deps.authorizationRepository.isAdminUser
-      ? await this.deps.authorizationRepository.isAdminUser(input.userId)
-      : false;
+    const targetIsAdmin = await this.deps.authorizationRepository.isAdminUser(
+      input.userId,
+    );
     if (targetIsAdmin) {
       throw new ForbiddenError(
         "Cannot modify roles for an Admin user via the application.",
@@ -64,12 +64,11 @@ export class SetUserRolesUseCase {
       );
 
       if (hasAdminPermission) {
-        const callerIsAdmin =
-          input.callerUserId && this.deps.authorizationRepository.isAdminUser
-            ? await this.deps.authorizationRepository.isAdminUser(
-                input.callerUserId,
-              )
-            : false;
+        const callerIsAdmin = input.callerUserId
+          ? await this.deps.authorizationRepository.isAdminUser(
+              input.callerUserId,
+            )
+          : false;
         if (!callerIsAdmin) {
           throw new ForbiddenError(
             "Only Admin users can assign the Admin role.",

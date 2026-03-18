@@ -161,6 +161,7 @@ const makeApp = async (permissions: string[]) => {
   const authorizationRepository = {
     findPermissionsForUser: async () =>
       permissions.map((permission) => Permission.parse(permission)),
+    isAdminUser: async () => false,
   };
   const authSessionRepository = {
     create: async () => {},

@@ -9,9 +9,9 @@ export class CheckPermissionUseCase {
   constructor(private readonly deps: CheckPermissionDeps) {}
 
   async execute(input: { userId: string; required: string }): Promise<boolean> {
-    const isAdmin = this.deps.authorizationRepository.isAdminUser
-      ? await this.deps.authorizationRepository.isAdminUser(input.userId)
-      : false;
+    const isAdmin = await this.deps.authorizationRepository.isAdminUser(
+      input.userId,
+    );
     if (isAdmin) {
       return true;
     }

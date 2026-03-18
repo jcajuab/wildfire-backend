@@ -1,3 +1,4 @@
+import { isDcismUser } from "#/application/guards/dcism-user.guard";
 import {
   type AuthSessionRepository,
   type Clock,
@@ -5,7 +6,10 @@ import {
   type PasswordVerifier,
   type TokenIssuer,
 } from "#/application/ports/auth";
-import { type UserRepository } from "#/application/ports/rbac";
+import {
+  type AuthorizationRepository,
+  type UserRepository,
+} from "#/application/ports/rbac";
 import { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 
 export interface AuthenticateUserInput {
@@ -24,14 +28,17 @@ export interface AuthResult {
     name: string;
     timezone?: string | null;
     avatarKey?: string | null;
+    invitedAt?: string | null;
   };
 }
 
 interface AuthenticateUserDeps {
-  credentialsRepository: CredentialsRepository;
+  dbCredentialsRepository: CredentialsRepository;
+  htshadowCredentialsRepository: CredentialsRepository;
   passwordVerifier: PasswordVerifier;
   tokenIssuer: TokenIssuer;
   userRepository: UserRepository;
+  authorizationRepository: AuthorizationRepository;
   clock: Clock;
   tokenTtlSeconds: number;
   issuer?: string;
@@ -43,9 +50,25 @@ export class AuthenticateUserUseCase {
 
   async execute(input: AuthenticateUserInput): Promise<AuthResult> {
     const username = input.username.trim().toLowerCase();
-    const passwordHash =
-      await this.deps.credentialsRepository.findPasswordHash(username);
 
+    // Look up user first to determine credential routing
+    const user = await this.deps.userRepository.findByUsername(username);
+    if (!user) {
+      throw new InvalidCredentialsError();
+    }
+
+    // Determine if DCISM user to route to correct credential store
+    const isAdmin = await this.deps.authorizationRepository.isAdminUser(
+      user.id,
+    );
+    const dcism = isDcismUser({ ...user, isAdmin });
+
+    // Route to appropriate credential store
+    const credentialsRepository = dcism
+      ? this.deps.htshadowCredentialsRepository
+      : this.deps.dbCredentialsRepository;
+
+    const passwordHash = await credentialsRepository.findPasswordHash(username);
     if (!passwordHash) {
       throw new InvalidCredentialsError();
     }
@@ -54,15 +77,10 @@ export class AuthenticateUserUseCase {
       password: input.password,
       passwordHash,
     });
-
     if (!verified) {
       throw new InvalidCredentialsError();
     }
 
-    const user = await this.deps.userRepository.findByUsername(username);
-    if (!user) {
-      throw new InvalidCredentialsError();
-    }
     if (!user.isActive) {
       throw new InvalidCredentialsError(
         "Your account is currently deactivated. Please contact your administrator.",
@@ -104,6 +122,7 @@ export class AuthenticateUserUseCase {
         name: user.name,
         timezone: user.timezone ?? null,
         avatarKey: user.avatarKey ?? null,
+        invitedAt: user.invitedAt ?? null,
       },
     };
   }

@@ -18,18 +18,16 @@ async function ensureCallerCanModifyAdminUser(
   callerUserId: string | undefined,
   forbiddenMessage: string,
 ): Promise<void> {
-  const targetIsAdmin = deps.authorizationRepository.isAdminUser
-    ? await deps.authorizationRepository.isAdminUser(targetUserId)
-    : false;
+  const targetIsAdmin =
+    await deps.authorizationRepository.isAdminUser(targetUserId);
   if (!targetIsAdmin) return;
 
   if (callerUserId === undefined) {
     throw new ForbiddenError(forbiddenMessage);
   }
 
-  const callerIsAdmin = deps.authorizationRepository.isAdminUser
-    ? await deps.authorizationRepository.isAdminUser(callerUserId)
-    : false;
+  const callerIsAdmin =
+    await deps.authorizationRepository.isAdminUser(callerUserId);
   if (!callerIsAdmin) {
     throw new ForbiddenError(forbiddenMessage);
   }
@@ -61,10 +59,16 @@ export class UpdateUserUseCase {
     const targetUser = await this.deps.userRepository.findById(input.id);
     if (!targetUser) throw new NotFoundError("User not found");
 
-    assertDcismUserCannotModifyIdentity(targetUser, {
-      username: input.username,
-      email: input.email,
-    });
+    const targetIsAdmin = await this.deps.authorizationRepository.isAdminUser(
+      input.id,
+    );
+    assertDcismUserCannotModifyIdentity(
+      { ...targetUser, isAdmin: targetIsAdmin },
+      {
+        username: input.username,
+        email: input.email,
+      },
+    );
 
     if (input.username) {
       const existingByUsername = await this.deps.userRepository.findByUsername(

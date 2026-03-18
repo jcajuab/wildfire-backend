@@ -5,7 +5,10 @@ import {
   type PasswordHasher,
   type PasswordVerifier,
 } from "#/application/ports/auth";
-import { type UserRepository } from "#/application/ports/rbac";
+import {
+  type AuthorizationRepository,
+  type UserRepository,
+} from "#/application/ports/rbac";
 import { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 
 export interface ChangeCurrentUserPasswordInput {
@@ -21,6 +24,7 @@ export class ChangeCurrentUserPasswordUseCase {
       credentialsRepository: CredentialsRepository;
       passwordVerifier: PasswordVerifier;
       passwordHasher: PasswordHasher;
+      authorizationRepository: AuthorizationRepository;
     },
   ) {}
 
@@ -28,8 +32,11 @@ export class ChangeCurrentUserPasswordUseCase {
     const user = await this.deps.userRepository.findById(input.userId);
     if (!user) throw new NotFoundError("User not found");
 
+    const isAdmin = await this.deps.authorizationRepository.isAdminUser(
+      user.id,
+    );
     assertNotDcismUser(
-      user,
+      { ...user, isAdmin },
       "Password change is only available for invited users.",
     );
 

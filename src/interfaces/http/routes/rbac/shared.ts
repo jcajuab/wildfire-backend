@@ -49,6 +49,7 @@ export interface RbacRouterDeps {
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
   credentialsRepository: CredentialsRepository;
+  dbCredentialsRepository: CredentialsRepository;
   passwordHasher: PasswordHasher;
   repositories: {
     userRepository: UserRepository;

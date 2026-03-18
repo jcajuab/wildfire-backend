@@ -35,6 +35,7 @@ import { AVATAR_MAX_BYTES } from "#/interfaces/http/validators/auth.schema";
 
 export interface AuthRouterDeps {
   credentialsRepository: CredentialsRepository;
+  dbCredentialsRepository: CredentialsRepository;
   passwordVerifier: PasswordVerifier;
   passwordHasher: PasswordHasher;
   tokenIssuer: TokenIssuer;
@@ -92,6 +93,7 @@ export const authResponseSchema = z.object({
     pendingEmail: z.string().email().nullable().optional(),
     name: z.string(),
     isAdmin: z.boolean(),
+    isInvitedUser: z.boolean(),
     timezone: z.string().nullable().optional(),
     avatarUrl: z.string().url().optional(),
   }),
@@ -105,6 +107,7 @@ type AuthResultUser = {
   name: string;
   timezone?: string | null;
   avatarKey?: string | null;
+  invitedAt?: string | null;
 };
 
 type AuthResultBase = {
@@ -119,6 +122,7 @@ const enrichUserWithAvatarUrl = async (
   storage: ContentStorage,
   expiresInSeconds: number,
   isAdmin: boolean,
+  isInvitedUser: boolean,
   pendingEmail: string | null,
 ): Promise<{
   id: string;
@@ -127,6 +131,7 @@ const enrichUserWithAvatarUrl = async (
   pendingEmail: string | null;
   name: string;
   isAdmin: boolean;
+  isInvitedUser: boolean;
   timezone?: string | null;
   avatarUrl?: string;
 }> => {
@@ -137,6 +142,7 @@ const enrichUserWithAvatarUrl = async (
     pendingEmail,
     name: user.name,
     isAdmin,
+    isInvitedUser,
     timezone: user.timezone ?? null,
   };
 
@@ -156,18 +162,20 @@ export const buildAuthResponse = async (
   deps: AuthRouterDeps,
   result: AuthResultBase,
 ) => {
-  const isAdmin = deps.authorizationRepository.isAdminUser
-    ? await deps.authorizationRepository.isAdminUser(result.user.id)
-    : false;
+  const isAdmin = await deps.authorizationRepository.isAdminUser(
+    result.user.id,
+  );
   const permissions = await deps.authorizationRepository.findPermissionsForUser(
     result.user.id,
   );
   const permissionStrings = permissions.map((p) => `${p.resource}:${p.action}`);
+  const isInvitedUser = result.user.invitedAt != null;
   const user = await enrichUserWithAvatarUrl(
     result.user,
     deps.avatarStorage,
     deps.avatarUrlExpiresInSeconds,
     isAdmin,
+    isInvitedUser,
     null,
   );
 
