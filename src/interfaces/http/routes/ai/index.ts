@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerAIChatRoutes } from "./chat.route";
-import { registerAIConfirmRoutes } from "./confirm.route";
 import { registerAICredentialRoutes } from "./credentials.route";
 import { type AIRouterDeps, type AIRouterUseCases } from "./shared";
 
@@ -23,7 +22,6 @@ export const createAIRouter = ({ deps, useCases }: AIRouterModule) => {
   });
 
   registerAIChatRoutes({ router, useCases, authorize });
-  registerAIConfirmRoutes({ router, useCases, authorize });
   registerAICredentialRoutes({ router, useCases, authorize });
 
   return router;

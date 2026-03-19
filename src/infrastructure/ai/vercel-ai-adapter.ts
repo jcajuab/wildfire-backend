@@ -54,6 +54,7 @@ const buildTools = (
       description: toolDef.description,
       // biome-ignore lint/suspicious/noExplicitAny: union of specific Zod schemas cannot be narrowed without per-tool overloads
       inputSchema: toolDef.inputSchema as any,
+      needsApproval: toolDef.requiresConfirmation,
       execute: async (args, { toolCallId }: { toolCallId: string }) => {
         return onToolCall(name, toolCallId, args as Record<string, unknown>);
       },

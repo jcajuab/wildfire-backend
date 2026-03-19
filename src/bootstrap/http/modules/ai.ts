@@ -12,12 +12,9 @@ import {
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   AIChatUseCase,
-  AIConfirmActionUseCase,
   AIToolExecutor,
-  CancelPendingActionUseCase,
   DeleteAICredentialUseCase,
   ListAICredentialsUseCase,
-  ListPendingActionsUseCase,
   StoreAICredentialUseCase,
 } from "#/application/use-cases/ai";
 import { CreateFlashContentUseCase } from "#/application/use-cases/content/create-flash-content.use-case";
@@ -32,7 +29,6 @@ import { ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-pla
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
 import { ListSchedulesUseCase } from "#/application/use-cases/schedules/list-schedules.use-case";
-import { RedisPendingActionStore } from "#/infrastructure/ai/redis-pending-action.store";
 import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import { AICredentialsDbRepository } from "#/infrastructure/db/repositories/ai-credentials.repo";
@@ -74,7 +70,6 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
   const masterKey = Buffer.from(config.encryptionKey, "hex");
   const encryptionService = new AIKeyEncryptionService(masterKey);
   const credentialsRepository = new AICredentialsDbRepository();
-  const pendingActionStore = new RedisPendingActionStore();
   const checkPermissionUseCase = new CheckPermissionUseCase({
     authorizationRepository: config.repositories.authorizationRepository,
   });
@@ -180,7 +175,9 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     listContentUseCase,
     listPlaylistsUseCase,
     listSchedulesUseCase,
-    pendingActionStore,
+    contentRepository: config.repositories.contentRepository,
+    playlistRepository: config.repositories.playlistRepository,
+    scheduleRepository: config.repositories.scheduleRepository,
     auditLogger,
   });
 
@@ -189,29 +186,8 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     credentialsRepository,
     encryptionService,
     toolExecutor,
-    pendingActionStore,
     auditLogger,
     executeAIChat,
-  });
-
-  const aiConfirmAction = new AIConfirmActionUseCase({
-    pendingActionStore,
-    credentialsRepository,
-    encryptionService,
-    contentRepository: config.repositories.contentRepository,
-    playlistRepository: config.repositories.playlistRepository,
-    replacePlaylistItemsAtomicUseCase,
-    scheduleRepository: config.repositories.scheduleRepository,
-    auditLogger,
-  });
-
-  const cancelPendingAction = new CancelPendingActionUseCase({
-    pendingActionStore,
-    auditLogger,
-  });
-
-  const listPendingActions = new ListPendingActionsUseCase({
-    pendingActionStore,
   });
 
   const storeCredential = new StoreAICredentialUseCase({
@@ -243,9 +219,6 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     },
     useCases: {
       aiChat,
-      aiConfirmAction,
-      cancelPendingAction,
-      listPendingActions,
       storeCredential,
       listCredentials,
       deleteCredential,

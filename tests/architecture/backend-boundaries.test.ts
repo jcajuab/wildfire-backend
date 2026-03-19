@@ -95,7 +95,6 @@ describe("backend architecture boundaries", () => {
         "src/bootstrap/workers/content-ingestion/runtime.ts",
         "src/bootstrap/workers/content-ingestion/stream-transport.ts",
         "src/index.ts",
-        "src/infrastructure/ai/redis-pending-action.store.ts",
         "src/infrastructure/media/pdf-crop-session.store.ts",
         "src/infrastructure/db/client.ts",
         "src/infrastructure/db/repositories/display-auth-nonce.repo.ts",

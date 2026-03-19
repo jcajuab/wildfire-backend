@@ -3,8 +3,10 @@ import {
   type AIToolCall,
   type AIToolResult,
   type AuditLogger,
-  type PendingActionStore,
 } from "#/application/ports/ai";
+import { type ContentRepository } from "#/application/ports/content";
+import { type PlaylistRepository } from "#/application/ports/playlists";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type CreateFlashContentUseCase } from "#/application/use-cases/content/create-flash-content.use-case";
 import { type CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
 import { type ListContentUseCase } from "#/application/use-cases/content/list-content.use-case";
@@ -32,6 +34,18 @@ type CreateFlashContentArgs = z.infer<
 >;
 type ListPlaylistsArgs = z.infer<typeof AI_TOOLS.list_playlists.inputSchema>;
 type ListSchedulesArgs = z.infer<typeof AI_TOOLS.list_schedules.inputSchema>;
+type EditContentArgs = z.infer<typeof AI_TOOLS.edit_content.inputSchema>;
+type DeleteContentArgs = z.infer<typeof AI_TOOLS.delete_content.inputSchema>;
+type EditPlaylistArgs = z.infer<typeof AI_TOOLS.edit_playlist.inputSchema>;
+type DeletePlaylistArgs = z.infer<typeof AI_TOOLS.delete_playlist.inputSchema>;
+type EditScheduleArgs = z.infer<typeof AI_TOOLS.edit_schedule.inputSchema>;
+type DeleteScheduleArgs = z.infer<typeof AI_TOOLS.delete_schedule.inputSchema>;
+type EditFlashScheduleArgs = z.infer<
+  typeof AI_TOOLS.edit_flash_schedule.inputSchema
+>;
+type DeleteFlashScheduleArgs = z.infer<
+  typeof AI_TOOLS.delete_flash_schedule.inputSchema
+>;
 
 export class AIToolExecutor {
   constructor(
@@ -45,7 +59,9 @@ export class AIToolExecutor {
       listContentUseCase: ListContentUseCase;
       listPlaylistsUseCase: ListPlaylistsUseCase;
       listSchedulesUseCase: ListSchedulesUseCase;
-      pendingActionStore: PendingActionStore;
+      contentRepository: ContentRepository;
+      playlistRepository: PlaylistRepository;
+      scheduleRepository: ScheduleRepository;
       auditLogger: AuditLogger;
     },
   ) {}
@@ -66,14 +82,6 @@ export class AIToolExecutor {
           success: false,
           error: `Invalid parameters: ${parseResult.error.message}`,
         };
-      }
-
-      if (toolDef.requiresConfirmation) {
-        return this.createPendingAction(
-          toolCall,
-          context,
-          parseResult.data as Record<string, unknown>,
-        );
       }
 
       const result = await this.executeDirectly(
@@ -252,122 +260,107 @@ export class AIToolExecutor {
         return { success: true, data: items };
       }
 
+      case "edit_content": {
+        const typedArgs = args as EditContentArgs;
+        const converted = typedArgs.text
+          ? convertPlainTextToTipTap(typedArgs.text)
+          : undefined;
+        const updated = await this.deps.contentRepository.update(
+          typedArgs.contentId,
+          {
+            title: typedArgs.title,
+            textJsonContent: converted?.jsonContent,
+            textHtmlContent: converted?.htmlContent,
+          },
+        );
+        return { success: true, data: updated };
+      }
+
+      case "delete_content": {
+        const typedArgs = args as DeleteContentArgs;
+        await this.deps.contentRepository.delete(typedArgs.contentId);
+        return { success: true, data: { deleted: true } };
+      }
+
+      case "edit_playlist": {
+        const typedArgs = args as EditPlaylistArgs;
+        const updated = await this.deps.playlistRepository.update(
+          typedArgs.playlistId,
+          {
+            name: typedArgs.name,
+            description: typedArgs.description,
+          },
+        );
+
+        if (typedArgs.items?.length) {
+          await this.deps.replacePlaylistItemsAtomicUseCase.execute({
+            ownerId: context.userId,
+            playlistId: typedArgs.playlistId,
+            items: typedArgs.items.map((item) => ({
+              kind: "new",
+              contentId: item.contentId,
+              duration: item.duration,
+            })),
+          });
+        }
+
+        return { success: true, data: updated };
+      }
+
+      case "delete_playlist": {
+        const typedArgs = args as DeletePlaylistArgs;
+        await this.deps.playlistRepository.delete(typedArgs.playlistId);
+        return { success: true, data: { deleted: true } };
+      }
+
+      case "edit_schedule": {
+        const typedArgs = args as EditScheduleArgs;
+        const updated = await this.deps.scheduleRepository.update(
+          typedArgs.scheduleId,
+          {
+            name: typedArgs.name,
+            playlistId: typedArgs.playlistId,
+            displayId: typedArgs.displayId,
+            startDate: typedArgs.startDate,
+            endDate: typedArgs.endDate,
+            startTime: typedArgs.startTime,
+            endTime: typedArgs.endTime,
+          },
+        );
+        return { success: true, data: updated };
+      }
+
+      case "delete_schedule": {
+        const typedArgs = args as DeleteScheduleArgs;
+        await this.deps.scheduleRepository.delete(typedArgs.scheduleId);
+        return { success: true, data: { deleted: true } };
+      }
+
+      case "edit_flash_schedule": {
+        const typedArgs = args as EditFlashScheduleArgs;
+        const updated = await this.deps.scheduleRepository.update(
+          typedArgs.scheduleId,
+          {
+            name: typedArgs.name,
+            contentId: typedArgs.contentId,
+            displayId: typedArgs.displayId,
+            startDate: typedArgs.startDate,
+            endDate: typedArgs.endDate,
+            startTime: typedArgs.startTime,
+            endTime: typedArgs.endTime,
+          },
+        );
+        return { success: true, data: updated };
+      }
+
+      case "delete_flash_schedule": {
+        const typedArgs = args as DeleteFlashScheduleArgs;
+        await this.deps.scheduleRepository.delete(typedArgs.scheduleId);
+        return { success: true, data: { deleted: true } };
+      }
+
       default:
         return { success: false, error: `Tool not implemented: ${toolName}` };
-    }
-  }
-
-  private async createPendingAction(
-    toolCall: AIToolCall,
-    context: { userId: string; conversationId: string },
-    args: Record<string, unknown>,
-  ): Promise<AIToolResult> {
-    const actionType = toolCall.toolName.startsWith("delete_")
-      ? "delete"
-      : "edit";
-    // Normalize: edit_flash_schedule -> schedule, delete_flash_schedule -> schedule
-    const resourceType = toolCall.toolName
-      .replace(/^(edit_|delete_)/, "")
-      .replace(/^flash_/, "") as "content" | "playlist" | "schedule";
-    const resourceId = (args.contentId ??
-      args.playlistId ??
-      args.scheduleId) as string;
-
-    const summary = await this.buildEnrichedSummary(
-      actionType,
-      resourceType,
-      resourceId,
-      context.userId,
-    );
-
-    const pending = await this.deps.pendingActionStore.create({
-      conversationId: context.conversationId,
-      userId: context.userId,
-      actionType,
-      resourceType,
-      resourceId,
-      payload: args,
-      summary,
-    });
-
-    this.deps.auditLogger.log({
-      event: "ai.action.pending",
-      userId: context.userId,
-      metadata: {
-        token: pending.token,
-        actionType,
-        resourceType,
-        resourceId,
-      },
-    });
-
-    return {
-      success: true,
-      requiresConfirmation: true,
-      confirmationToken: pending.token,
-      confirmationSummary: pending.summary,
-    };
-  }
-
-  private async buildEnrichedSummary(
-    actionType: string,
-    resourceType: "content" | "playlist" | "schedule",
-    resourceId: string,
-    userId: string,
-  ): Promise<string> {
-    const fallback = `${actionType} ${resourceType} ${resourceId}`;
-
-    try {
-      switch (resourceType) {
-        case "content": {
-          const result = await this.deps.listContentUseCase.execute({
-            ownerId: userId,
-            pageSize: 100,
-          });
-          const content = result.items.find((item) => item.id === resourceId);
-          if (content) {
-            return `${actionType} content: ${content.title} (${content.type})`;
-          }
-          return fallback;
-        }
-        case "playlist": {
-          const result = await this.deps.listPlaylistsUseCase.execute({
-            ownerId: userId,
-            pageSize: 100,
-          });
-          const playlist = result.items.find((item) => item.id === resourceId);
-          if (playlist) {
-            return `${actionType} playlist: ${playlist.name} (${playlist.itemsCount} items)`;
-          }
-          return fallback;
-        }
-        case "schedule": {
-          const result = await this.deps.listSchedulesUseCase.execute({
-            ownerId: userId,
-            pageSize: 100,
-          });
-          const schedule = result.items.find((item) => item.id === resourceId);
-          if (schedule) {
-            const display = schedule.display?.name
-              ? ` on ${schedule.display.name}`
-              : "";
-            const hasTimeInfo =
-              schedule.startTime &&
-              schedule.endTime &&
-              schedule.startDate &&
-              schedule.endDate;
-            const times = hasTimeInfo
-              ? ` (${schedule.startDate}-${schedule.endDate} ${schedule.startTime}-${schedule.endTime})`
-              : "";
-            return `${actionType} schedule: ${schedule.name}${display}${times}`;
-          }
-          return fallback;
-        }
-        default:
-          return fallback;
-      }
-    } catch {
-      return fallback;
     }
   }
 }
