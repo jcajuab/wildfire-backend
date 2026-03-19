@@ -19,6 +19,16 @@ import { type ListSchedulesUseCase } from "#/application/use-cases/schedules/lis
 import { AI_TOOLS } from "./ai-tool-registry";
 import { convertPlainTextToTipTap } from "./tiptap-convert";
 
+/** Fuzzy match: every word in the query must appear somewhere in the text. */
+const fuzzyMatch = (text: string, query: string): boolean => {
+  const lower = text.toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 0)
+    .every((word) => lower.includes(word));
+};
+
 type CreateTextContentArgs = z.infer<
   typeof AI_TOOLS.create_text_content.inputSchema
 >;
@@ -218,30 +228,36 @@ export class AIToolExecutor {
       case "list_displays": {
         const typedArgs = args as ListDisplaysArgs;
         const result = await this.deps.listDisplaysUseCase.execute({
-          q: typedArgs.search,
           pageSize: 100,
         });
-        return { success: true, data: result.items };
+        const items = typedArgs.search
+          ? result.items.filter((d) => fuzzyMatch(d.name, typedArgs.search!))
+          : result.items;
+        return { success: true, data: items };
       }
 
       case "list_content": {
         const typedArgs = args as ListContentArgs;
         const result = await this.deps.listContentUseCase.execute({
           ownerId: context.userId,
-          search: typedArgs.search,
           pageSize: 100,
         });
-        return { success: true, data: result.items };
+        const items = typedArgs.search
+          ? result.items.filter((c) => fuzzyMatch(c.title, typedArgs.search!))
+          : result.items;
+        return { success: true, data: items };
       }
 
       case "list_playlists": {
         const typedArgs = args as ListPlaylistsArgs;
         const result = await this.deps.listPlaylistsUseCase.execute({
           ownerId: context.userId,
-          search: typedArgs.search,
           pageSize: 100,
         });
-        return { success: true, data: result.items };
+        const items = typedArgs.search
+          ? result.items.filter((p) => fuzzyMatch(p.name, typedArgs.search!))
+          : result.items;
+        return { success: true, data: items };
       }
 
       case "list_schedules": {
@@ -251,11 +267,7 @@ export class AIToolExecutor {
           pageSize: 100,
         });
         const items = typedArgs.search
-          ? result.items.filter((item) =>
-              item.name
-                .toLowerCase()
-                .includes(typedArgs.search?.toLowerCase() ?? ""),
-            )
+          ? result.items.filter((s) => fuzzyMatch(s.name, typedArgs.search!))
           : result.items;
         return { success: true, data: items };
       }
