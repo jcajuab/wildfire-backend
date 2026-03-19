@@ -35,7 +35,6 @@ export interface AIChatDeps {
       toolCallId: string,
       args: Record<string, unknown>,
     ) => Promise<unknown>,
-    toolNames?: string[],
     systemPrompt?: string,
   ) => AIStreamResponse;
 }
@@ -51,7 +50,6 @@ export class AIChatUseCase {
     apiKey?: string;
     temperature?: number;
     maxTokens?: number;
-    toolNames?: string[];
     userId: string;
   }): Promise<AIStreamResponse> {
     // Detect prompt injection attempts
@@ -134,7 +132,6 @@ export class AIChatUseCase {
       config,
       sanitizedMessages,
       onToolCall,
-      input.toolNames,
       AI_SYSTEM_PROMPT,
     );
 

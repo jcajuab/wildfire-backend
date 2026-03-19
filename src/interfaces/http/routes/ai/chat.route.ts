@@ -75,7 +75,6 @@ export const registerAIChatRoutes = (args: {
           apiKey: apiKey ?? undefined,
           temperature: body.temperature,
           maxTokens: body.maxTokens,
-          toolNames: body.toolNames,
           userId,
         });
 
