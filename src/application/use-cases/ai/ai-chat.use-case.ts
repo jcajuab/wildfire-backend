@@ -1,8 +1,8 @@
+import { type UIMessage } from "ai";
 import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
 import {
   type AICredentialsRepository,
-  type AIMessage,
   type AIStreamResponse,
   type AuditLogger,
 } from "#/application/ports/ai";
@@ -13,6 +13,14 @@ import {
   detectPromptInjection,
   sanitizeUserMessage,
 } from "./system-prompt";
+
+/** Extract the concatenated text from a UIMessage's parts. */
+function extractText(msg: UIMessage): string {
+  return msg.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+}
 
 export interface AIChatDeps {
   credentialsRepository: AICredentialsRepository;
@@ -27,14 +35,14 @@ export interface AIChatDeps {
       temperature?: number;
       maxTokens?: number;
     },
-    messages: AIMessage[],
+    messages: UIMessage[],
     onToolCall: (
       toolName: string,
       toolCallId: string,
       args: Record<string, unknown>,
     ) => Promise<unknown>,
     systemPrompt?: string,
-  ) => AIStreamResponse;
+  ) => Promise<AIStreamResponse>;
 }
 
 export class AIChatUseCase {
@@ -42,7 +50,7 @@ export class AIChatUseCase {
 
   async execute(input: {
     conversationId: string;
-    messages: AIMessage[];
+    messages: UIMessage[];
     provider: string;
     model: string;
     apiKey?: string;
@@ -54,7 +62,10 @@ export class AIChatUseCase {
     const lastUserMessage = [...input.messages]
       .reverse()
       .find((m) => m.role === "user");
-    if (lastUserMessage && detectPromptInjection(lastUserMessage.content)) {
+    if (
+      lastUserMessage &&
+      detectPromptInjection(extractText(lastUserMessage))
+    ) {
       this.deps.auditLogger.log({
         event: "ai.injection.detected",
         userId: input.userId,
@@ -122,11 +133,19 @@ export class AIChatUseCase {
       return result;
     };
 
-    const sanitizedMessages = input.messages.map((m) =>
-      m.role === "user" ? { ...m, content: sanitizeUserMessage(m.content) } : m,
-    );
+    // Sanitize user text parts to prevent injection via control characters.
+    // UIMessage parts are immutable-shaped, so we rebuild the parts array.
+    const sanitizedMessages: UIMessage[] = input.messages.map((m) => {
+      if (m.role !== "user") return m;
+      return {
+        ...m,
+        parts: m.parts.map((p) =>
+          p.type === "text" ? { ...p, text: sanitizeUserMessage(p.text) } : p,
+        ),
+      };
+    });
 
-    const result = this.deps.executeAIChat(
+    const result = await this.deps.executeAIChat(
       config,
       sanitizedMessages,
       onToolCall,

@@ -884,6 +884,8 @@ describe("Auth routes", () => {
       });
       expect(createResponse.status).toBe(201);
       const created = await parseJson<ApiData<{ id: string }>>(createResponse);
+
+      // Reveal the invite URL via the dedicated endpoint
       const revealResponse = await app.request(
         `/auth/invitations/${created.data.id}/reveal-link`,
         {
@@ -895,6 +897,10 @@ describe("Auth routes", () => {
       const revealBody =
         await parseJson<ApiData<{ inviteUrl: string }>>(revealResponse);
       const parsedUrl = new URL(revealBody.data.inviteUrl);
+      const revealed =
+        await parseJson<ApiData<{ inviteUrl: string }>>(revealResponse);
+      expect(revealed.data.inviteUrl).toContain("token=");
+      const parsedUrl = new URL(revealed.data.inviteUrl);
       const inviteToken = parsedUrl.searchParams.get("token") ?? "";
 
       const acceptResponse = await app.request("/auth/invitations/accept", {

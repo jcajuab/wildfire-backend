@@ -68,10 +68,10 @@ export const registerAIChatRoutes = (args: {
         const apiKey = c.req.header("x-ai-provider-key");
 
         const result = await useCases.aiChat.execute({
-          conversationId: body.conversationId,
+          conversationId: body.conversationId ?? "",
           messages: body.messages,
-          provider: body.provider,
-          model: body.model,
+          provider: body.provider ?? "openai",
+          model: body.model ?? "gpt-4o-mini",
           apiKey: apiKey ?? undefined,
           temperature: body.temperature,
           maxTokens: body.maxTokens,

@@ -2,13 +2,14 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import {
-  type ModelMessage,
+  convertToModelMessages,
   stepCountIs,
   streamText,
   type ToolSet,
   tool,
+  type UIMessage,
 } from "ai";
-import { type AIMessage, type AIStreamResponse } from "#/application/ports/ai";
+import { type AIStreamResponse } from "#/application/ports/ai";
 import { AI_TOOLS } from "#/application/use-cases/ai/ai-tool-registry";
 
 export const createAIModel = (config: {
@@ -64,7 +65,7 @@ const buildTools = (
   return tools;
 };
 
-export const executeAIChat = (
+export const executeAIChat = async (
   config: {
     provider: "openai" | "anthropic" | "google" | "azure" | "mistral";
     model: string;
@@ -72,21 +73,21 @@ export const executeAIChat = (
     temperature?: number;
     maxTokens?: number;
   },
-  messages: AIMessage[],
+  messages: UIMessage[],
   onToolCall: (
     toolName: string,
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<unknown>,
   systemPrompt?: string,
-): AIStreamResponse => {
+): Promise<AIStreamResponse> => {
   const aiModel = createAIModel(config);
   const tools: ToolSet = buildTools(onToolCall);
 
-  const modelMessages: ModelMessage[] = messages.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
+  // Convert UIMessage[] (from the SDK's DefaultChatTransport) to
+  // ModelMessage[] that streamText expects. This preserves tool call/result
+  // parts so the needsApproval round-trip works correctly.
+  const modelMessages = await convertToModelMessages(messages);
 
   // toolChoice is intentionally left as "auto" (the default). Forcing
   // toolChoice to a specific tool or "required" causes the model to repeat

@@ -6,6 +6,7 @@ export interface AIProviderConfig {
   maxTokens?: number;
 }
 
+/** @deprecated Use UIMessage from the AI SDK instead for full tool support. */
 export interface AIMessage {
   role: "user" | "assistant" | "system";
   content: string;
