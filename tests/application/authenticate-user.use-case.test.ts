@@ -63,10 +63,8 @@ const makeDeps = () => {
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
       },
-      htshadowCredentialsRepository: {
+      htshadowCredentialsReader: {
         findPasswordHash: async () => "hash",
-        updatePasswordHash: async () => {},
-        createPasswordHash: async () => {},
       },
       passwordVerifier: {
         verify: async () => true,
@@ -137,10 +135,8 @@ describe("AuthenticateUserUseCase", () => {
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
       },
-      htshadowCredentialsRepository: {
+      htshadowCredentialsReader: {
         findPasswordHash: async () => null,
-        updatePasswordHash: async () => {},
-        createPasswordHash: async () => {},
       },
     });
 

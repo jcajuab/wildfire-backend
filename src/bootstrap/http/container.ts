@@ -1,3 +1,4 @@
+import { type CredentialsReader } from "#/application/ports/auth";
 import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hasher";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
@@ -79,7 +80,8 @@ export interface HttpContainer {
     auditLogRepository: AuditLogDbRepository;
   };
   auth: {
-    credentialsRepository: HtshadowCredentialsRepository;
+    /** Read-only htshadow credential lookup; Wildfire must not write to htshadow. */
+    credentialsRepository: CredentialsReader;
     dbCredentialsRepository: DbCredentialsRepository;
     passwordVerifier: BcryptPasswordVerifier;
     passwordHasher: BcryptPasswordHasher;

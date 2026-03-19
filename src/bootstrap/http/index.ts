@@ -175,9 +175,6 @@ const startHtshadowFileWatcherWorker = (): void => {
     dbCredentialsRepository: container.auth.dbCredentialsRepository,
   }).then((watcher) => {
     stopHtshadowFileWatcher = watcher.stop;
-    container.auth.credentialsRepository.setOnBeforeWrite(
-      watcher.markSelfWrite,
-    );
   });
 };
 

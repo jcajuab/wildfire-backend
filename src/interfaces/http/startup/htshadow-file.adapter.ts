@@ -45,6 +45,9 @@ export const readHtshadowMap = async (
 /**
  * Writes htshadow entries to disk atomically.
  * Entries are sorted by username for deterministic output.
+ *
+ * For external tooling only (e.g. seed scripts). Wildfire application code must
+ * not write to htshadow; invited users are stored in the DB only.
  */
 export const writeHtshadowMap = async (
   path: string,

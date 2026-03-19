@@ -78,7 +78,7 @@ export const createAuthHttpModule = (
     useCases: {
       authenticateUser: new AuthenticateUserUseCase({
         dbCredentialsRepository: routerDeps.dbCredentialsRepository,
-        htshadowCredentialsRepository: routerDeps.credentialsRepository,
+        htshadowCredentialsReader: routerDeps.credentialsRepository,
         passwordVerifier: routerDeps.passwordVerifier,
         tokenIssuer: routerDeps.tokenIssuer,
         userRepository: routerDeps.userRepository,

@@ -1,5 +1,11 @@
-export interface CredentialsRepository {
+/**
+ * Read-only credential lookup (e.g. htshadow). Wildfire must not write to htshadow.
+ */
+export interface CredentialsReader {
   findPasswordHash(username: string): Promise<string | null>;
+}
+
+export interface CredentialsRepository extends CredentialsReader {
   updatePasswordHash(username: string, newPasswordHash: string): Promise<void>;
   createPasswordHash(username: string, passwordHash: string): Promise<void>;
 }

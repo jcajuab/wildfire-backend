@@ -8,7 +8,6 @@ import {
 
 const DEBOUNCE_MS = 500;
 const FALLBACK_POLL_INTERVAL_MS = 60_000;
-const SELF_WRITE_FLAG_TTL_MS = 2_000;
 
 const computeFileHash = async (filePath: string): Promise<string> => {
   try {
@@ -19,34 +18,17 @@ const computeFileHash = async (filePath: string): Promise<string> => {
   }
 };
 
+/** Wildfire never writes to htshadow; this watcher resyncs when the file changes (external updates). */
 export const startHtshadowFileWatcher = async (
   deps: HtshadowResyncDeps,
-): Promise<{ stop: () => void; markSelfWrite: () => void }> => {
+): Promise<{ stop: () => void }> => {
   let lastHash = await computeFileHash(deps.htshadowPath);
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let resyncInProgress = false;
-  let selfWriteUntil = 0;
   let stopped = false;
-
-  const markSelfWrite = (): void => {
-    selfWriteUntil = Date.now() + SELF_WRITE_FLAG_TTL_MS;
-  };
 
   const tryResync = async (): Promise<void> => {
     if (resyncInProgress || stopped) return;
-
-    if (Date.now() < selfWriteUntil) {
-      logger.debug(
-        {
-          event: "htshadow.watcher.self_write_skipped",
-          component: "htshadow-watcher",
-        },
-        "Skipping resync triggered by application self-write",
-      );
-      // Still update the hash so we don't re-trigger on the next poll
-      lastHash = await computeFileHash(deps.htshadowPath);
-      return;
-    }
 
     const newHash = await computeFileHash(deps.htshadowPath);
     if (newHash === lastHash) return;
@@ -140,5 +122,5 @@ export const startHtshadowFileWatcher = async (
     `HTSHADOW file watcher started for ${deps.htshadowPath}`,
   );
 
-  return { stop, markSelfWrite };
+  return { stop };
 };

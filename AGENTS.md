@@ -8,18 +8,18 @@ Digital signage management system backend. Serves an HTTP API for managing displ
 
 ## Key Files
 
-| File                | Description                                                                  |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `htshadow`          | Shadow-style password file with bcrypt-hashed credentials for dev/test users |
-| `src/index.ts`      | HTTP server entrypoint — bootstraps app, starts Bun.serve()                  |
-| `src/env.ts`        | Environment variable validation via @t3-oss/env-core                         |
-| `package.json`      | Dependencies and scripts (bun runtime, hono, drizzle, ai SDK)                |
-| `tsconfig.json`     | TypeScript config — strict mode, `#/*` path alias to `./src/*`               |
-| `biome.json`        | Linter/formatter config (Biome)                                              |
-| `drizzle.config.ts` | Drizzle ORM config for MySQL schema push                                     |
-| `compose.yaml`      | Docker Compose for local dev (MySQL, Redis, MinIO)                           |
-| `bunfig.toml`       | Bun config — test preload, module resolution                                 |
-| `lefthook.yaml`     | Git hooks configuration (pre-commit, pre-push)                               |
+| File                | Description                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `htshadow`          | **Read-only** shadow-style password file for DCISM users (managed externally). Wildfire must not write to it; invited users are stored in the DB only. |
+| `src/index.ts`      | HTTP server entrypoint — bootstraps app, starts Bun.serve()                                                                                            |
+| `src/env.ts`        | Environment variable validation via @t3-oss/env-core                                                                                                   |
+| `package.json`      | Dependencies and scripts (bun runtime, hono, drizzle, ai SDK)                                                                                          |
+| `tsconfig.json`     | TypeScript config — strict mode, `#/*` path alias to `./src/*`                                                                                         |
+| `biome.json`        | Linter/formatter config (Biome)                                                                                                                        |
+| `drizzle.config.ts` | Drizzle ORM config for MySQL schema push                                                                                                               |
+| `compose.yaml`      | Docker Compose for local dev (MySQL, Redis, MinIO)                                                                                                     |
+| `bunfig.toml`       | Bun config — test preload, module resolution                                                                                                           |
+| `lefthook.yaml`     | Git hooks configuration (pre-commit, pre-push)                                                                                                         |
 
 ## Subdirectories
 
@@ -56,6 +56,11 @@ Digital signage management system backend. Serves an HTTP API for managing displ
 - Dependency injection via constructor/factory functions, no DI container
 - Zod for all validation (API schemas, env vars, AI tool schemas)
 - Repository pattern for data access (ports define interfaces, infrastructure implements)
+
+### Auth and credentials
+
+- **htshadow** is read-only from Wildfire’s perspective. DCISM users are synced from the htshadow file; Wildfire only reads it for login and resyncs the user directory when the file changes. Do not write to htshadow from application code.
+- **Invite flow**: creating an invitation and accepting it create users and credentials only in the application DB (`password_hashes` table via `DbCredentialsRepository`). Invited users are wildfire-specific, not added to htshadow.
 
 ## Dependencies
 

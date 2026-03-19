@@ -2,6 +2,7 @@ import { isDcismUser } from "#/application/guards/dcism-user.guard";
 import {
   type AuthSessionRepository,
   type Clock,
+  type CredentialsReader,
   type CredentialsRepository,
   type PasswordVerifier,
   type TokenIssuer,
@@ -34,7 +35,7 @@ export interface AuthResult {
 
 interface AuthenticateUserDeps {
   dbCredentialsRepository: CredentialsRepository;
-  htshadowCredentialsRepository: CredentialsRepository;
+  htshadowCredentialsReader: CredentialsReader;
   passwordVerifier: PasswordVerifier;
   tokenIssuer: TokenIssuer;
   userRepository: UserRepository;
@@ -63,12 +64,12 @@ export class AuthenticateUserUseCase {
     );
     const dcism = isDcismUser({ ...user, isAdmin });
 
-    // Route to appropriate credential store
-    const credentialsRepository = dcism
-      ? this.deps.htshadowCredentialsRepository
+    // Route to appropriate credential store (htshadow is read-only; DB for invited/wildfire users)
+    const credentialsReader = dcism
+      ? this.deps.htshadowCredentialsReader
       : this.deps.dbCredentialsRepository;
 
-    const passwordHash = await credentialsRepository.findPasswordHash(username);
+    const passwordHash = await credentialsReader.findPasswordHash(username);
     if (!passwordHash) {
       throw new InvalidCredentialsError();
     }

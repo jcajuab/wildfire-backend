@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   type AuthSessionRepository,
   type Clock,
+  type CredentialsReader,
   type CredentialsRepository,
   type InvitationRepository,
   type PasswordHasher,
@@ -35,7 +36,8 @@ import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-se
 import { AVATAR_MAX_BYTES } from "#/interfaces/http/validators/auth.schema";
 
 export interface AuthRouterDeps {
-  credentialsRepository: CredentialsRepository;
+  /** Read-only htshadow credential lookup; Wildfire must not write to htshadow. */
+  credentialsRepository: CredentialsReader;
   dbCredentialsRepository: CredentialsRepository;
   passwordVerifier: PasswordVerifier;
   passwordHasher: PasswordHasher;

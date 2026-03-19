@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Hono } from "hono";
 import { sign } from "hono/jwt";
 import {
   type AuthSessionRepository,
+  type CredentialsReader,
   type CredentialsRepository,
   type InvitationRepository,
 } from "#/application/ports/auth";
@@ -33,19 +35,47 @@ type ApiData<T> = { data: T };
 const DEACTIVATED_MESSAGE =
   "Your account is currently deactivated. Please contact your administrator.";
 
+/** In-memory CredentialsRepository for tests (invite accept, password change). */
+const createInMemoryDbCredentials = (): CredentialsRepository => {
+  const store = new Map<string, string>();
+  const fixtureContent = readFileSync(fixturePath, "utf-8");
+  const test1Line = fixtureContent
+    .split("\n")
+    .find((l) => l.startsWith("test1:"));
+  if (test1Line) {
+    const [, hash] = test1Line.split(":", 2);
+    if (hash) store.set("test1", hash.trim());
+  }
+  return {
+    findPasswordHash: async (username) =>
+      store.get(username.trim().toLowerCase()) ?? null,
+    updatePasswordHash: async (username, newHash) => {
+      store.set(username.trim().toLowerCase(), newHash);
+    },
+    createPasswordHash: async (username, hash) => {
+      store.set(username.trim().toLowerCase(), hash);
+    },
+  };
+};
+
 const buildApp = (opts?: {
   inactiveUsername?: string;
   avatarStorage?: ContentStorage;
-  credentialsRepository?: CredentialsRepository;
+  /** Read-only htshadow credential lookup (login for DCISM users). */
+  credentialsRepository?: CredentialsReader;
+  /** DB credentials for invited users (login, password change, accept invite). */
+  dbCredentialsRepository?: CredentialsRepository;
   permissions?: Permission[];
 }) => {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const inactiveUsername = opts?.inactiveUsername;
-  const credentialsRepository =
+  const credentialsRepository: CredentialsReader =
     opts?.credentialsRepository ??
     new HtshadowCredentialsRepository({
       filePath: fixturePath,
     });
+  const dbCredentialsRepository: CredentialsRepository =
+    opts?.dbCredentialsRepository ?? createInMemoryDbCredentials();
   const passwordVerifier = new BcryptPasswordVerifier();
   const tokenIssuer = new JwtTokenIssuer({ secret: "test-secret" });
   const clock = { nowSeconds: () => nowSeconds };
@@ -166,6 +196,9 @@ const buildApp = (opts?: {
       expiresAt: Date;
       acceptedAt: Date | null;
       revokedAt: Date | null;
+      encryptedToken?: string | null;
+      tokenIv?: string | null;
+      tokenAuthTag?: string | null;
     }
   >();
   const invitationRepository: InvitationRepository = {
@@ -179,6 +212,9 @@ const buildApp = (opts?: {
         expiresAt: input.expiresAt,
         acceptedAt: null,
         revokedAt: null,
+        encryptedToken: input.encryptedToken ?? null,
+        tokenIv: input.tokenIv ?? null,
+        tokenAuthTag: input.tokenAuthTag ?? null,
       });
     },
     findActiveByHashedToken: async (hashedToken, now) => {
@@ -201,6 +237,25 @@ const buildApp = (opts?: {
             name: invitation.name,
           };
         }
+      }
+      return null;
+    },
+    findEncryptedTokenById: async (id, now) => {
+      for (const inv of invitations.values()) {
+        if (inv.id !== id) continue;
+        if (inv.acceptedAt || inv.revokedAt) return null;
+        if (inv.expiresAt.getTime() <= now.getTime()) return null;
+        if (
+          inv.encryptedToken == null ||
+          inv.tokenIv == null ||
+          inv.tokenAuthTag == null
+        )
+          return null;
+        return {
+          encryptedToken: inv.encryptedToken,
+          tokenIv: inv.tokenIv,
+          tokenAuthTag: inv.tokenAuthTag,
+        };
       }
       return null;
     },
@@ -244,7 +299,6 @@ const buildApp = (opts?: {
         }
       }
     },
-    findEncryptedTokenById: async () => null,
   };
 
   const defaultAvatarStorage: ContentStorage = {
@@ -293,7 +347,7 @@ const buildApp = (opts?: {
   const authRouter = createAuthRouter(
     createAuthHttpModule({
       credentialsRepository,
-      dbCredentialsRepository: credentialsRepository,
+      dbCredentialsRepository,
       passwordVerifier,
       passwordHasher: new BcryptPasswordHasher(),
       tokenIssuer,
@@ -582,7 +636,7 @@ describe("Auth routes", () => {
       const hasher = new BcryptPasswordHasher();
       let passwordHash = await hasher.hash("old-password");
       const { app } = buildApp({
-        credentialsRepository: {
+        dbCredentialsRepository: {
           findPasswordHash: async () => passwordHash,
           updatePasswordHash: async (_username, nextHash) => {
             passwordHash = nextHash;
@@ -693,12 +747,21 @@ describe("Auth routes", () => {
           ApiData<{
             id: string;
             expiresAt: string;
-            inviteUrl: string;
           }>
         >(response);
       expect(body.data.id).toEqual(expect.any(String));
       expect(body.data.expiresAt).toEqual(expect.any(String));
-      expect(body.data.inviteUrl).toContain("token=");
+      const revealRes = await app.request(
+        `/auth/invitations/${body.data.id}/reveal-link`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      expect(revealRes.status).toBe(200);
+      const revealBody =
+        await parseJson<ApiData<{ inviteUrl: string }>>(revealRes);
+      expect(revealBody.data.inviteUrl).toContain("token=");
     });
 
     test("GET /auth/invitations returns invitation statuses", async () => {
@@ -777,16 +840,26 @@ describe("Auth routes", () => {
 
       expect(resendResponse.status).toBe(201);
       const resent =
-        await parseJson<ApiData<{ id: string; inviteUrl: string }>>(
+        await parseJson<ApiData<{ id: string; expiresAt: string }>>(
           resendResponse,
         );
       expect(resent.data.id).not.toBe(created.data.id);
-      expect(resent.data.inviteUrl).toContain("token=");
+      const revealRes = await app.request(
+        `/auth/invitations/${resent.data.id}/reveal-link`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      expect(revealRes.status).toBe(200);
+      const revealBody =
+        await parseJson<ApiData<{ inviteUrl: string }>>(revealRes);
+      expect(revealBody.data.inviteUrl).toContain("token=");
     });
 
     test("POST /auth/invitations/accept accepts a valid invitation", async () => {
       const credentials = new Map<string, string>([["test1", "hash"]]);
-      const credentialsRepository: CredentialsRepository = {
+      const dbCredentialsRepository: CredentialsRepository = {
         findPasswordHash: async (username) => credentials.get(username) ?? null,
         updatePasswordHash: async (username, newPasswordHash) => {
           credentials.set(username, newPasswordHash);
@@ -797,7 +870,7 @@ describe("Auth routes", () => {
       };
 
       const { app } = buildApp({
-        credentialsRepository,
+        dbCredentialsRepository,
         permissions: [new Permission("users", "create")],
       });
       const token = await issueToken();
@@ -810,10 +883,18 @@ describe("Auth routes", () => {
         body: JSON.stringify({ email: "new.invite@example.com" }),
       });
       expect(createResponse.status).toBe(201);
-      const created =
-        await parseJson<ApiData<{ inviteUrl: string }>>(createResponse);
-      expect(created.data.inviteUrl).toContain("token=");
-      const parsedUrl = new URL(created.data.inviteUrl);
+      const created = await parseJson<ApiData<{ id: string }>>(createResponse);
+      const revealResponse = await app.request(
+        `/auth/invitations/${created.data.id}/reveal-link`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      expect(revealResponse.status).toBe(200);
+      const revealBody =
+        await parseJson<ApiData<{ inviteUrl: string }>>(revealResponse);
+      const parsedUrl = new URL(revealBody.data.inviteUrl);
       const inviteToken = parsedUrl.searchParams.get("token") ?? "";
 
       const acceptResponse = await app.request("/auth/invitations/accept", {
