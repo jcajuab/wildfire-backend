@@ -35,7 +35,7 @@ export interface SchedulesRouterDeps {
     authorizationRepository: AuthorizationRepository;
   };
   displayEventPublisher: DisplayStreamEventPublisher;
-  adminLifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
+  adminLifecycleEventPublisher?: AdminDisplayLifecycleEventPublisher;
   checkPermissionUseCase: CheckPermissionUseCase;
 }
 
