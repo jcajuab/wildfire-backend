@@ -1,12 +1,16 @@
 import { deleteCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
+import {
+  setAuthSessionCookie,
+  setCsrfCookie,
+} from "#/interfaces/http/lib/auth-cookie";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   toApiResponse,
+  tooManyRequests,
   unauthorized,
 } from "#/interfaces/http/responses";
 import {
@@ -26,6 +30,7 @@ import {
   authResponseSchema,
   authTags,
   buildAuthResponse,
+  sessionResponseSchema,
 } from "./shared";
 
 export const registerAuthSessionRoutes = (args: {
@@ -35,6 +40,72 @@ export const registerAuthSessionRoutes = (args: {
   jwtMiddleware: AuthMiddleware;
 }) => {
   const { router, deps, useCases, jwtMiddleware } = args;
+
+  router.get(
+    "/session",
+    setAction("auth.session.get", {
+      route: "/auth/session",
+      resourceType: "session",
+    }),
+    jwtMiddleware,
+    requireJwtUser,
+    describeRoute({
+      description: "Get current session user and permissions",
+      tags: authTags,
+      responses: {
+        200: {
+          description: "Current session",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(sessionResponseSchema)),
+            },
+          },
+        },
+        401: { ...unauthorizedResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const userId = c.get("userId");
+        c.set("resourceId", userId);
+
+        const sessionGetStats =
+          await deps.authSecurityStore.consumeEndpointAttemptWithStats({
+            key: `session-get|${userId}`,
+            nowMs: Date.now(),
+            windowSeconds: deps.authSessionRateLimitWindowSeconds,
+            maxAttempts: deps.authSessionRateLimitMaxAttempts,
+          });
+        c.set("rateLimitLimit", String(sessionGetStats.limit));
+        c.set("rateLimitRemaining", String(sessionGetStats.remaining));
+        c.set("rateLimitReset", String(sessionGetStats.resetEpochSeconds));
+        c.set("rateLimitRetryAfter", String(sessionGetStats.retryAfterSeconds));
+        if (!sessionGetStats.allowed) {
+          return tooManyRequests(c, "Too many requests");
+        }
+
+        const user = await deps.userRepository.findById(userId);
+        if (!user) {
+          return unauthorized(c, "Unauthorized");
+        }
+        const fullResponse = await buildAuthResponse(deps, {
+          type: "bearer",
+          token: "",
+          expiresAt: "",
+          user,
+        });
+        const { token: _token, ...sessionBody } = fullResponse;
+        c.header("Cache-Control", "no-store");
+        c.header("X-RateLimit-Limit", String(sessionGetStats.limit));
+        c.header(
+          "X-RateLimit-Remaining",
+          String(Math.max(0, sessionGetStats.remaining)),
+        );
+        return c.json(toApiResponse(sessionBody));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
 
   router.post(
     "/session/refresh",
@@ -63,9 +134,26 @@ export const registerAuthSessionRoutes = (args: {
       async (c) => {
         const userId = c.get("userId");
         c.set("resourceId", userId);
+
+        const refreshStats =
+          await deps.authSecurityStore.consumeEndpointAttemptWithStats({
+            key: `session-refresh|${userId}`,
+            nowMs: Date.now(),
+            windowSeconds: deps.authSessionRateLimitWindowSeconds,
+            maxAttempts: deps.authSessionRateLimitMaxAttempts,
+          });
+        c.set("rateLimitLimit", String(refreshStats.limit));
+        c.set("rateLimitRemaining", String(refreshStats.remaining));
+        c.set("rateLimitReset", String(refreshStats.resetEpochSeconds));
+        c.set("rateLimitRetryAfter", String(refreshStats.retryAfterSeconds));
+        if (!refreshStats.allowed) {
+          return tooManyRequests(c, "Too many requests");
+        }
+
         const result = await useCases.refreshSession.execute({
           userId,
           currentSessionId: c.get("sessionId"),
+          currentJti: c.get("jti") as string | undefined,
         });
         const body = await buildAuthResponse(deps, result);
         setAuthSessionCookie(
@@ -73,6 +161,13 @@ export const registerAuthSessionRoutes = (args: {
           deps.authSessionCookieName,
           body.token,
           body.expiresAt,
+          deps.secureCookies,
+        );
+        setCsrfCookie(c, deps.csrfCookieName, deps.secureCookies);
+        c.header("X-RateLimit-Limit", String(refreshStats.limit));
+        c.header(
+          "X-RateLimit-Remaining",
+          String(Math.max(0, refreshStats.remaining)),
         );
         return c.json(toApiResponse(body));
       },

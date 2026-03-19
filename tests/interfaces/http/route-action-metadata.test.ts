@@ -88,6 +88,17 @@ const buildAuthActionApp = () => {
     revokeAllForUser: async () => {},
     isActive: async () => true,
     isOwnedByUser: async () => true,
+    findBySessionId: async (sessionId: string) => ({
+      id: sessionId,
+      userId: "user-1",
+      familyId: "family-1",
+      currentJti: sessionId,
+      previousJti: null,
+      previousJtiExpiresAt: null,
+      expiresAt: new Date(Date.now() + 3600 * 1000),
+    }),
+    updateCurrentJtiOptimistic: async () => false,
+    revokeByFamilyId: async () => 0,
   };
 
   const authRouter = createAuthRouter(
@@ -121,6 +132,8 @@ const buildAuthActionApp = () => {
       authLoginRateLimitWindowSeconds: 60,
       authLoginLockoutThreshold: 10,
       authLoginLockoutSeconds: 60,
+      authSessionRateLimitMaxAttempts: 60,
+      authSessionRateLimitWindowSeconds: 60,
       trustProxyHeaders: true,
       invitationRepository: {
         create: async () => {},
@@ -139,6 +152,8 @@ const buildAuthActionApp = () => {
       inviteEncryptionKey: "0".repeat(64),
       avatarStorage,
       avatarUrlExpiresInSeconds: 3600,
+      secureCookies: false,
+      csrfCookieName: "wildfire_csrf",
     }),
   );
 
@@ -164,6 +179,17 @@ const buildContentActionApp = async () => {
         revokeAllForUser: async () => {},
         isActive: async () => true,
         isOwnedByUser: async () => true,
+        findBySessionId: async (sessionId: string) => ({
+          id: sessionId,
+          userId: "user-1",
+          familyId: "family-1",
+          currentJti: sessionId,
+          previousJti: null,
+          previousJtiExpiresAt: null,
+          expiresAt: new Date(Date.now() + 3600 * 1000),
+        }),
+        updateCurrentJtiOptimistic: async () => false,
+        revokeByFamilyId: async () => 0,
       },
       authSessionCookieName: "wildfire_session_token",
       maxUploadBytes: 5 * 1024 * 1024,
@@ -322,6 +348,17 @@ const buildRbacActionApp = async () => {
         revokeAllForUser: async () => {},
         isActive: async () => true,
         isOwnedByUser: async () => true,
+        findBySessionId: async (sessionId: string) => ({
+          id: sessionId,
+          userId: "user-1",
+          familyId: "family-1",
+          currentJti: sessionId,
+          previousJti: null,
+          previousJtiExpiresAt: null,
+          expiresAt: new Date(Date.now() + 3600 * 1000),
+        }),
+        updateCurrentJtiOptimistic: async () => false,
+        revokeByFamilyId: async () => 0,
       },
       authSessionCookieName: "wildfire_session_token",
       credentialsRepository: {

@@ -45,6 +45,7 @@ import {
 import { closeRedisClients } from "#/infrastructure/redis/client";
 import { RedisAuditQueue } from "#/interfaces/http/audit/redis-audit-queue";
 import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
+import { createCsrfMiddleware } from "#/interfaces/http/middleware/csrf";
 import {
   requestId,
   requestLogger,
@@ -69,7 +70,7 @@ import { createHttpContainer } from "./container";
 
 export const app = new Hono<{ Variables: RequestIdVariables }>();
 
-const tokenTtlSeconds = env.PRESIGNED_URL_TTL_SECONDS;
+const tokenTtlSeconds = env.SESSION_TOKEN_TTL_SECONDS;
 const avatarUrlExpiresInSeconds = env.PRESIGNED_URL_TTL_SECONDS;
 const contentThumbnailUrlExpiresInSeconds = env.PRESIGNED_URL_TTL_SECONDS;
 
@@ -357,9 +358,13 @@ const authModule = createAuthHttpModule({
   issuer: env.JWT_ISSUER,
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
+  secureCookies: env.NODE_ENV === "production",
+  csrfCookieName: env.CSRF_COOKIE_NAME,
   authSecurityStore,
   authLoginRateLimitMaxAttempts: env.AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
   authLoginRateLimitWindowSeconds: env.AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+  authSessionRateLimitMaxAttempts: env.AUTH_SESSION_RATE_LIMIT_MAX_ATTEMPTS,
+  authSessionRateLimitWindowSeconds: env.AUTH_SESSION_RATE_LIMIT_WINDOW_SECONDS,
   authLoginLockoutThreshold: env.AUTH_LOGIN_LOCKOUT_THRESHOLD,
   authLoginLockoutSeconds: env.AUTH_LOGIN_LOCKOUT_SECONDS,
   trustProxyHeaders: env.TRUST_PROXY_HEADERS,
@@ -581,9 +586,21 @@ app.use(
       "X-Display-Nonce",
       "X-Display-Body-Sha256",
       "X-Display-Signature",
+      "X-CSRF-Token",
     ],
-    exposeHeaders: ["X-Request-Id"],
+    exposeHeaders: [
+      "X-Request-Id",
+      "X-RateLimit-Limit",
+      "X-RateLimit-Remaining",
+      "X-RateLimit-Reset",
+      "Retry-After",
+    ],
   }),
+);
+
+app.use(
+  "*",
+  createCsrfMiddleware(env.AUTH_SESSION_COOKIE_NAME, env.CSRF_COOKIE_NAME),
 );
 
 // Security: Redact X-AI-Provider-Key from logs to prevent key leakage

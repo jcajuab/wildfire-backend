@@ -308,11 +308,28 @@ const buildApp = (opts?: {
     getPresignedDownloadUrl: async () => "https://example.com/avatar-presigned",
   };
   const avatarStorage = opts?.avatarStorage ?? defaultAvatarStorage;
-  const sessions = new Map<string, { userId: string; expiresAt: Date }>();
+  const sessions = new Map<
+    string,
+    {
+      userId: string;
+      expiresAt: Date;
+      familyId: string;
+      currentJti: string;
+      previousJti: string | null;
+      previousJtiExpiresAt: Date | null;
+    }
+  >();
   const revoked = new Set<string>();
   const authSessionRepository: AuthSessionRepository = {
-    create: async ({ id, userId, expiresAt }) => {
-      sessions.set(id, { userId, expiresAt });
+    create: async ({ id, userId, expiresAt, familyId, currentJti }) => {
+      sessions.set(id, {
+        userId,
+        expiresAt,
+        familyId,
+        currentJti,
+        previousJti: null,
+        previousJtiExpiresAt: null,
+      });
       revoked.delete(id);
     },
     extendExpiry: async (sessionId, expiresAt) => {
@@ -342,6 +359,62 @@ const buildApp = (opts?: {
       if (session.expiresAt.getTime() <= now.getTime()) return false;
       return session.userId === userId;
     },
+    findBySessionId: async (sessionId) => {
+      if (revoked.has(sessionId)) return null;
+      const session = sessions.get(sessionId);
+      if (!session) {
+        // Unknown session (e.g. test-issued tokens not created via login):
+        // treat as valid with currentJti = sessionId (matches JWT jti = sid behavior)
+        return {
+          id: sessionId,
+          userId: "user-1",
+          familyId: "family-test",
+          currentJti: sessionId,
+          previousJti: null,
+          previousJtiExpiresAt: null,
+          expiresAt: new Date(Date.now() + 3600 * 1000),
+        };
+      }
+      if (session.expiresAt.getTime() <= Date.now()) return null;
+      return {
+        id: sessionId,
+        userId: session.userId,
+        familyId: session.familyId,
+        currentJti: session.currentJti,
+        previousJti: session.previousJti,
+        previousJtiExpiresAt: session.previousJtiExpiresAt,
+        expiresAt: session.expiresAt,
+      };
+    },
+    updateCurrentJtiOptimistic: async ({
+      sessionId,
+      expectedCurrentJti,
+      newJti,
+      previousJti,
+      previousJtiExpiresAt,
+      newExpiresAt,
+    }) => {
+      const session = sessions.get(sessionId);
+      if (!session || session.currentJti !== expectedCurrentJti) return false;
+      sessions.set(sessionId, {
+        ...session,
+        currentJti: newJti,
+        previousJti,
+        previousJtiExpiresAt,
+        expiresAt: newExpiresAt,
+      });
+      return true;
+    },
+    revokeByFamilyId: async (familyId) => {
+      let count = 0;
+      for (const [id, session] of sessions.entries()) {
+        if (session.familyId === familyId) {
+          revoked.add(id);
+          count++;
+        }
+      }
+      return count;
+    },
   };
 
   const authRouter = createAuthRouter(
@@ -363,6 +436,8 @@ const buildApp = (opts?: {
       authLoginRateLimitWindowSeconds: 60,
       authLoginLockoutThreshold: 10,
       authLoginLockoutSeconds: 60,
+      authSessionRateLimitMaxAttempts: 60,
+      authSessionRateLimitWindowSeconds: 60,
       trustProxyHeaders: true,
       invitationRepository,
       includeDevelopmentInviteUrls: true,
@@ -371,6 +446,8 @@ const buildApp = (opts?: {
       inviteEncryptionKey: "0".repeat(64),
       avatarStorage,
       avatarUrlExpiresInSeconds: 3600,
+      secureCookies: false,
+      csrfCookieName: "wildfire_csrf",
     }),
   );
 

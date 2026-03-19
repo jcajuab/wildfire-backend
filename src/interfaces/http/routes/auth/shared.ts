@@ -53,6 +53,8 @@ export interface AuthRouterDeps {
   authSecurityStore: AuthSecurityStore;
   authLoginRateLimitMaxAttempts: number;
   authLoginRateLimitWindowSeconds: number;
+  authSessionRateLimitMaxAttempts: number;
+  authSessionRateLimitWindowSeconds: number;
   authLoginLockoutThreshold: number;
   authLoginLockoutSeconds: number;
   trustProxyHeaders: boolean;
@@ -67,6 +69,8 @@ export interface AuthRouterDeps {
   avatarStorage: ContentStorage;
   avatarUrlExpiresInSeconds: number;
   checkPermissionUseCase: CheckPermissionUseCase;
+  secureCookies: boolean;
+  csrfCookieName: string;
 }
 
 export interface AuthRouterUseCases {
@@ -103,6 +107,8 @@ export const authResponseSchema = z.object({
   }),
   permissions: z.array(z.string()),
 });
+
+export const sessionResponseSchema = authResponseSchema.omit({ token: true });
 
 type AuthResultUser = {
   id: string;

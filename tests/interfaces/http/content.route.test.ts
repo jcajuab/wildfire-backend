@@ -170,6 +170,17 @@ const makeApp = async (permissions: string[]) => {
     revokeAllForUser: async () => {},
     isActive: async () => true,
     isOwnedByUser: async () => true,
+    findBySessionId: async (sessionId: string) => ({
+      id: sessionId,
+      userId: "user-1",
+      familyId: "family-1",
+      currentJti: sessionId,
+      previousJti: null,
+      previousJtiExpiresAt: null,
+      expiresAt: new Date(Date.now() + 3600 * 1000),
+    }),
+    updateCurrentJtiOptimistic: async () => false,
+    revokeByFamilyId: async () => 0,
   };
 
   const router = createContentRouter(

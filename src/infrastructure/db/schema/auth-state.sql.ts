@@ -16,6 +16,10 @@ export const authSessions = mysqlTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at").notNull(),
+    familyId: varchar("family_id", { length: 36 }).notNull(),
+    currentJti: varchar("current_jti", { length: 36 }).notNull(),
+    previousJti: varchar("previous_jti", { length: 36 }),
+    previousJtiExpiresAt: timestamp("previous_jti_expires_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -26,6 +30,7 @@ export const authSessions = mysqlTable(
       table.userId,
       table.expiresAt,
     ),
+    familyIdIdx: index("auth_sessions_family_id_idx").on(table.familyId),
   }),
 );
 

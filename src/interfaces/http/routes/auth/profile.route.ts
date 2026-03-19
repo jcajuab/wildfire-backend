@@ -83,6 +83,7 @@ export const registerAuthProfileRoute = (args: {
           deps.authSessionCookieName,
           body.token,
           body.expiresAt,
+          deps.secureCookies,
         );
         return c.json(toApiResponse(body));
       },

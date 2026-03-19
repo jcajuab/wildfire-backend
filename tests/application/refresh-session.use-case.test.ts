@@ -66,6 +66,17 @@ describe("RefreshSessionUseCase", () => {
         revokeAllForUser: async () => {},
         isActive: async () => true,
         isOwnedByUser: async () => true,
+        findBySessionId: async (sessionId: string) => ({
+          id: sessionId,
+          userId: "user-1",
+          familyId: "family-1",
+          currentJti: "jti-current",
+          previousJti: null,
+          previousJtiExpiresAt: null,
+          expiresAt: new Date(Date.now() + 3600 * 1000),
+        }),
+        updateCurrentJtiOptimistic: async () => false,
+        revokeByFamilyId: async () => 0,
       },
     });
 
@@ -93,15 +104,20 @@ describe("RefreshSessionUseCase", () => {
     });
   });
 
-  test("when currentSessionId is provided, extends session and issues token with same sessionId (sliding session)", async () => {
+  test("when currentSessionId is provided, rotates jti and issues token with same sessionId (sliding session)", async () => {
     const currentSessionId = "session-abc";
+    const existingJti = "jti-old-111";
     const issued: {
       subject?: string;
       issuedAt?: number;
       expiresAt?: number;
       sessionId?: string;
+      jti?: string;
     } = {};
-    const extendExpiryCalls: Array<{ sessionId: string; expiresAt: Date }> = [];
+    const updateCalls: Array<{
+      sessionId: string;
+      expectedCurrentJti: string;
+    }> = [];
     const createCalls: Array<{ id: string }> = [];
     let revokeByIdCalled = false;
 
@@ -110,11 +126,13 @@ describe("RefreshSessionUseCase", () => {
       issuedAt: number;
       expiresAt: number;
       sessionId?: string;
+      jti?: string;
     }) => {
       issued.subject = input.subject;
       issued.issuedAt = input.issuedAt;
       issued.expiresAt = input.expiresAt;
       issued.sessionId = input.sessionId;
+      issued.jti = input.jti;
       return `${input.subject}:${input.issuedAt}:${input.expiresAt}:${input.sessionId ?? ""}`;
     };
 
@@ -153,31 +171,51 @@ describe("RefreshSessionUseCase", () => {
         create: async (input) => {
           createCalls.push({ id: input.id });
         },
-        extendExpiry: async (sessionId, expiresAt) => {
-          extendExpiryCalls.push({ sessionId, expiresAt });
-        },
+        extendExpiry: async () => {},
         revokeById: async () => {
           revokeByIdCalled = true;
         },
         revokeAllForUser: async () => {},
         isActive: async () => true,
         isOwnedByUser: async () => true,
+        findBySessionId: async (sessionId: string) =>
+          sessionId === currentSessionId
+            ? {
+                id: currentSessionId,
+                userId: "user-1",
+                familyId: "family-1",
+                currentJti: existingJti,
+                previousJti: null,
+                previousJtiExpiresAt: null,
+                expiresAt: new Date((1_700_000_000 + tokenTtlSeconds) * 1000),
+              }
+            : null,
+        updateCurrentJtiOptimistic: async (input) => {
+          updateCalls.push({
+            sessionId: input.sessionId,
+            expectedCurrentJti: input.expectedCurrentJti,
+          });
+          return true;
+        },
+        revokeByFamilyId: async () => 0,
       },
     });
 
     const result = await useCase.execute({
       userId: "user-1",
       currentSessionId,
+      currentJti: existingJti,
     });
 
-    expect(extendExpiryCalls).toHaveLength(1);
-    expect(extendExpiryCalls[0]).toEqual({
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]).toEqual({
       sessionId: currentSessionId,
-      expiresAt: new Date((1_700_000_000 + tokenTtlSeconds) * 1000),
+      expectedCurrentJti: existingJti,
     });
     expect(createCalls).toHaveLength(0);
     expect(revokeByIdCalled).toBe(false);
     expect(issued.sessionId).toBe(currentSessionId);
+    expect(issued.jti).not.toBe(existingJti);
     expect(result.token).toContain(currentSessionId);
   });
 });

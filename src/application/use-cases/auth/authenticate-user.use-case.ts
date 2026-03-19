@@ -96,10 +96,14 @@ export class AuthenticateUserUseCase {
     const issuedAt = this.deps.clock.nowSeconds();
     const expiresAt = issuedAt + this.deps.tokenTtlSeconds;
     const sessionId = crypto.randomUUID();
+    const familyId = crypto.randomUUID();
+    const jti = crypto.randomUUID();
     await this.deps.authSessionRepository.create({
       id: sessionId,
       userId: user.id,
       expiresAt: new Date(expiresAt * 1000),
+      familyId,
+      currentJti: jti,
     });
     const token = await this.deps.tokenIssuer.issueToken({
       subject: user.id,
@@ -109,6 +113,7 @@ export class AuthenticateUserUseCase {
       username: user.username,
       email: user.email ?? undefined,
       sessionId,
+      jti,
       isInvitedUser: user.invitedAt != null,
     });
 

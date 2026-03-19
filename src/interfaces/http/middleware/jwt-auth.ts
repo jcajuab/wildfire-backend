@@ -47,15 +47,41 @@ export const createJwtMiddleware = (
       if (!parsed.success) {
         return unauthorized(c, "Invalid token");
       }
-      if (
-        deps.authSessionRepository &&
-        (!parsed.data.sid ||
-          !(await deps.authSessionRepository.isActive(
-            parsed.data.sid,
-            new Date(),
-          )))
-      ) {
-        return unauthorized(c, "Session is invalid or revoked");
+      if (deps.authSessionRepository) {
+        if (!parsed.data.sid) {
+          return unauthorized(c, "Session is invalid or revoked");
+        }
+        const session = await deps.authSessionRepository.findBySessionId(
+          parsed.data.sid,
+        );
+        if (!session) {
+          return unauthorized(c, "Session is invalid or revoked");
+        }
+        const jti = parsed.data.jti;
+        if (jti) {
+          const now = new Date();
+          const isCurrentJti = jti === session.currentJti;
+          const isGracePreviousJti =
+            jti === session.previousJti &&
+            session.previousJtiExpiresAt != null &&
+            now < session.previousJtiExpiresAt;
+          if (!isCurrentJti && !isGracePreviousJti) {
+            const revokedCount =
+              await deps.authSessionRepository.revokeByFamilyId(
+                session.familyId,
+              );
+            console.error(
+              JSON.stringify({
+                event: "auth.session.family_revoked",
+                familyId: session.familyId,
+                triggeredByJti: jti,
+                revokedSessionCount: revokedCount,
+                reason: "jti_mismatch",
+              }),
+            );
+            return unauthorized(c, "Session is invalid or revoked");
+          }
+        }
       }
       await next();
     } catch {

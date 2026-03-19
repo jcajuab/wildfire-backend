@@ -27,6 +27,7 @@ export interface TokenIssuer {
     username?: string;
     email?: string;
     sessionId?: string;
+    jti?: string;
     isInvitedUser?: boolean;
   }): Promise<string>;
 }
@@ -36,12 +37,36 @@ export interface Clock {
 }
 
 export interface AuthSessionRepository {
-  create(input: { id: string; userId: string; expiresAt: Date }): Promise<void>;
+  create(input: {
+    id: string;
+    userId: string;
+    expiresAt: Date;
+    familyId: string;
+    currentJti: string;
+  }): Promise<void>;
   extendExpiry(sessionId: string, expiresAt: Date): Promise<void>;
   revokeById(sessionId: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
   isActive(sessionId: string, now: Date): Promise<boolean>;
   isOwnedByUser(sessionId: string, userId: string, now: Date): Promise<boolean>;
+  findBySessionId(sessionId: string): Promise<{
+    id: string;
+    userId: string;
+    familyId: string;
+    currentJti: string;
+    previousJti: string | null;
+    previousJtiExpiresAt: Date | null;
+    expiresAt: Date;
+  } | null>;
+  updateCurrentJtiOptimistic(input: {
+    sessionId: string;
+    expectedCurrentJti: string;
+    newJti: string;
+    previousJti: string;
+    previousJtiExpiresAt: Date;
+    newExpiresAt: Date;
+  }): Promise<boolean>;
+  revokeByFamilyId(familyId: string): Promise<number>;
 }
 
 export interface PasswordResetTokenRepository {

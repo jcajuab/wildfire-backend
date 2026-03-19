@@ -9,6 +9,7 @@ import { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 export interface RefreshSessionInput {
   userId: string;
   currentSessionId?: string;
+  currentJti?: string;
 }
 
 export interface RefreshSessionResult {
@@ -57,26 +58,144 @@ export class RefreshSessionUseCase {
       })) ?? existingUser;
 
     let sessionId: string;
+    let newJti: string;
+
     if (input.currentSessionId) {
-      const isOwnedByUser = await this.deps.authSessionRepository.isOwnedByUser(
+      const session = await this.deps.authSessionRepository.findBySessionId(
         input.currentSessionId,
-        input.userId,
-        new Date(issuedAt * 1000),
       );
-      if (!isOwnedByUser) {
+      if (!session) {
         throw new InvalidCredentialsError();
       }
-      await this.deps.authSessionRepository.extendExpiry(
-        input.currentSessionId,
-        new Date(expiresAt * 1000),
-      );
+
+      // Ownership check: userId from session must match input
+      if (session.userId !== input.userId) {
+        throw new InvalidCredentialsError();
+      }
+
+      const presentedJti = input.currentJti;
+      const now = new Date(issuedAt * 1000);
+      const newExpiresAt = new Date(expiresAt * 1000);
+      const gracePreviousJtiExpiresAt = new Date(now.getTime() + 10_000);
+
+      if (presentedJti === session.currentJti) {
+        // Normal refresh: rotate jti
+        newJti = crypto.randomUUID();
+        const updated =
+          await this.deps.authSessionRepository.updateCurrentJtiOptimistic({
+            sessionId: input.currentSessionId,
+            expectedCurrentJti: session.currentJti,
+            newJti,
+            previousJti: session.currentJti,
+            previousJtiExpiresAt: gracePreviousJtiExpiresAt,
+            newExpiresAt,
+          });
+
+        if (!updated) {
+          // Concurrent refresh: re-read and converge
+          const refreshed =
+            await this.deps.authSessionRepository.findBySessionId(
+              input.currentSessionId,
+            );
+          if (
+            refreshed &&
+            refreshed.previousJti === presentedJti &&
+            refreshed.previousJtiExpiresAt &&
+            now < refreshed.previousJtiExpiresAt
+          ) {
+            // Another tab already rotated, converge to new jti
+            newJti = refreshed.currentJti;
+          } else {
+            throw new InvalidCredentialsError();
+          }
+        }
+      } else if (
+        presentedJti &&
+        presentedJti === session.previousJti &&
+        session.previousJtiExpiresAt &&
+        now < session.previousJtiExpiresAt
+      ) {
+        // Grace window: benign race (another tab already refreshed)
+        newJti = crypto.randomUUID();
+        const updated =
+          await this.deps.authSessionRepository.updateCurrentJtiOptimistic({
+            sessionId: input.currentSessionId,
+            expectedCurrentJti: session.currentJti,
+            newJti,
+            previousJti: session.currentJti,
+            previousJtiExpiresAt: gracePreviousJtiExpiresAt,
+            newExpiresAt,
+          });
+
+        if (!updated) {
+          // Another concurrent update happened; re-read and converge
+          const refreshed =
+            await this.deps.authSessionRepository.findBySessionId(
+              input.currentSessionId,
+            );
+          if (refreshed) {
+            newJti = refreshed.currentJti;
+          } else {
+            throw new InvalidCredentialsError();
+          }
+        }
+      } else if (
+        presentedJti &&
+        presentedJti === session.previousJti &&
+        session.previousJtiExpiresAt &&
+        now >= session.previousJtiExpiresAt
+      ) {
+        // Replay attack after grace window
+        const revokedCount =
+          await this.deps.authSessionRepository.revokeByFamilyId(
+            session.familyId,
+          );
+        console.error(
+          JSON.stringify({
+            event: "auth.session.family_revoked",
+            familyId: session.familyId,
+            triggeredByJti: presentedJti,
+            revokedSessionCount: revokedCount,
+            reason: "replay_after_grace",
+          }),
+        );
+        throw new InvalidCredentialsError();
+      } else if (presentedJti) {
+        // Unknown jti: replay attack
+        const revokedCount =
+          await this.deps.authSessionRepository.revokeByFamilyId(
+            session.familyId,
+          );
+        console.error(
+          JSON.stringify({
+            event: "auth.session.family_revoked",
+            familyId: session.familyId,
+            triggeredByJti: presentedJti,
+            revokedSessionCount: revokedCount,
+            reason: "jti_mismatch",
+          }),
+        );
+        throw new InvalidCredentialsError();
+      } else {
+        // No jti presented: extend session without jti rotation (legacy path with sessionId)
+        await this.deps.authSessionRepository.extendExpiry(
+          input.currentSessionId,
+          newExpiresAt,
+        );
+        newJti = session.currentJti;
+      }
+
       sessionId = input.currentSessionId;
     } else {
+      // No currentSessionId: create fresh session
       sessionId = crypto.randomUUID();
+      newJti = crypto.randomUUID();
       await this.deps.authSessionRepository.create({
         id: sessionId,
         userId: user.id,
         expiresAt: new Date(expiresAt * 1000),
+        familyId: crypto.randomUUID(),
+        currentJti: newJti,
       });
     }
 
@@ -88,6 +207,7 @@ export class RefreshSessionUseCase {
       username: user.username,
       email: user.email ?? undefined,
       sessionId,
+      jti: newJti,
     });
 
     return {

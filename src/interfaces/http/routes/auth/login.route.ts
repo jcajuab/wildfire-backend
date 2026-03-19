@@ -1,6 +1,9 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
+import {
+  setAuthSessionCookie,
+  setCsrfCookie,
+} from "#/interfaces/http/lib/auth-cookie";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -148,7 +151,9 @@ export const registerAuthLoginRoute = (args: {
           deps.authSessionCookieName,
           body.token,
           body.expiresAt,
+          deps.secureCookies,
         );
+        setCsrfCookie(c, deps.csrfCookieName, deps.secureCookies);
         c.set("resourceId", body.user.id);
         c.set("actorId", body.user.id);
         c.set("actorType", "user");

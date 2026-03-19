@@ -8,6 +8,7 @@ export type JwtUserVariables = {
   username?: string;
   userEmail?: string;
   sessionId?: string;
+  jti?: string;
   deniedPermission?: string;
   denyErrorCode?: string;
   denyErrorType?: string;
@@ -37,6 +38,9 @@ export const requireJwtUser: MiddlewareHandler<{
   const sessionId = extractSessionId(parsed.data);
   if (sessionId) {
     c.set("sessionId", sessionId);
+  }
+  if (parsed.data.jti) {
+    c.set("jti", parsed.data.jti);
   }
 
   await next();
