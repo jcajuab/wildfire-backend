@@ -894,9 +894,6 @@ describe("Auth routes", () => {
         },
       );
       expect(revealResponse.status).toBe(200);
-      const revealBody =
-        await parseJson<ApiData<{ inviteUrl: string }>>(revealResponse);
-      const parsedUrl = new URL(revealBody.data.inviteUrl);
       const revealed =
         await parseJson<ApiData<{ inviteUrl: string }>>(revealResponse);
       expect(revealed.data.inviteUrl).toContain("token=");

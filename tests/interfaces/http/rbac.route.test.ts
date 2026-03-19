@@ -262,8 +262,6 @@ const buildApp = (grantedPermissions: string[]) => {
         authSessionCookieName: "wildfire_session_token",
         credentialsRepository: {
           findPasswordHash: async () => null,
-          updatePasswordHash: async () => {},
-          createPasswordHash: async () => {},
         },
         dbCredentialsRepository: {
           findPasswordHash: async () => null,

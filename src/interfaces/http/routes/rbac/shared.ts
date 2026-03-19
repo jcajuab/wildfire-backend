@@ -1,6 +1,7 @@
 import { type Hono } from "hono";
 import {
   type AuthSessionRepository,
+  type CredentialsReader,
   type CredentialsRepository,
   type PasswordHasher,
 } from "#/application/ports/auth";
@@ -48,7 +49,8 @@ export interface RbacRouterDeps {
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
-  credentialsRepository: CredentialsRepository;
+  /** Read-only htshadow credential lookup; same as auth router. */
+  credentialsRepository: CredentialsReader;
   dbCredentialsRepository: CredentialsRepository;
   passwordHasher: PasswordHasher;
   repositories: {
