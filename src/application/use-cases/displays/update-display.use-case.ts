@@ -77,7 +77,7 @@ export class UpdateDisplayUseCase {
             );
       if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
         throw new ValidationError(
-          "emergencyContentId must reference a READY root IMAGE, VIDEO, or PDF asset",
+          "emergencyContentId must reference a READY IMAGE, VIDEO, or TEXT asset",
         );
       }
     }

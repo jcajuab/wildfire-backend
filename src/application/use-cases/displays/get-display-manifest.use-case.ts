@@ -417,10 +417,13 @@ export class GetDisplayManifestUseCase {
       return null;
     }
 
-    const downloadUrl = await this.deps.contentStorage.getPresignedDownloadUrl({
-      key: emergencyAsset.fileKey,
-      expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-    });
+    const downloadUrl =
+      emergencyAsset.type === "TEXT"
+        ? ""
+        : await this.deps.contentStorage.getPresignedDownloadUrl({
+            key: emergencyAsset.fileKey,
+            expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+          });
     const thumbnailUrl = emergencyAsset.thumbnailKey
       ? await this.deps.contentStorage.getPresignedDownloadUrl({
           key: emergencyAsset.thumbnailKey,

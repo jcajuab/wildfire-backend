@@ -8,7 +8,7 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 
-export type ManifestRenderableType = "IMAGE" | "VIDEO";
+export type ManifestRenderableType = "IMAGE" | "VIDEO" | "TEXT";
 
 export function withTelemetry(display: DisplayRecord) {
   const lastSeenAt = display.lastSeenAt ?? null;
@@ -238,5 +238,7 @@ export const isRenderableEmergencyAsset = (content: {
   type: ManifestRenderableType;
   status: "READY";
 } =>
-  (content.type === "IMAGE" || content.type === "VIDEO") &&
+  (content.type === "IMAGE" ||
+    content.type === "VIDEO" ||
+    content.type === "TEXT") &&
   content.status === "READY";
