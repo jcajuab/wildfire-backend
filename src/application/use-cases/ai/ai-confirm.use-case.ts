@@ -141,7 +141,6 @@ export class AIConfirmActionUseCase {
       case "edit_schedule": {
         const payload = action.payload as {
           name?: string;
-          kind?: "PLAYLIST" | "FLASH";
           playlistId?: string;
           contentId?: string;
           displayId?: string;
@@ -154,7 +153,6 @@ export class AIConfirmActionUseCase {
           action.resourceId,
           {
             name: payload.name,
-            kind: payload.kind,
             playlistId: payload.playlistId,
             contentId: payload.contentId,
             displayId: payload.displayId,

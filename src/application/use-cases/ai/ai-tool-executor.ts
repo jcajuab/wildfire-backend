@@ -21,6 +21,9 @@ type CreateTextContentArgs = z.infer<
 >;
 type CreatePlaylistArgs = z.infer<typeof AI_TOOLS.create_playlist.inputSchema>;
 type CreateScheduleArgs = z.infer<typeof AI_TOOLS.create_schedule.inputSchema>;
+type CreateFlashScheduleArgs = z.infer<
+  typeof AI_TOOLS.create_flash_schedule.inputSchema
+>;
 type ListDisplaysArgs = z.infer<typeof AI_TOOLS.list_displays.inputSchema>;
 type ListContentArgs = z.infer<typeof AI_TOOLS.list_content.inputSchema>;
 type CreateFlashContentArgs = z.infer<
@@ -171,9 +174,26 @@ export class AIToolExecutor {
         const typedArgs = args as CreateScheduleArgs;
         const result = await this.deps.createScheduleUseCase.execute({
           name: typedArgs.name,
-          kind: typedArgs.kind,
-          playlistId: "playlistId" in typedArgs ? typedArgs.playlistId : null,
-          contentId: "contentId" in typedArgs ? typedArgs.contentId : null,
+          kind: "PLAYLIST",
+          playlistId: typedArgs.playlistId,
+          contentId: null,
+          displayId: typedArgs.displayId,
+          startDate: typedArgs.startDate,
+          endDate: typedArgs.endDate,
+          startTime: typedArgs.startTime,
+          endTime: typedArgs.endTime,
+          ownerId: context.userId,
+        });
+        return { success: true, data: result };
+      }
+
+      case "create_flash_schedule": {
+        const typedArgs = args as CreateFlashScheduleArgs;
+        const result = await this.deps.createScheduleUseCase.execute({
+          name: typedArgs.name,
+          kind: "FLASH",
+          playlistId: null,
+          contentId: typedArgs.contentId,
           displayId: typedArgs.displayId,
           startDate: typedArgs.startDate,
           endDate: typedArgs.endDate,
@@ -226,10 +246,10 @@ export class AIToolExecutor {
     const actionType = toolCall.toolName.startsWith("delete_")
       ? "delete"
       : "edit";
-    const resourceType = toolCall.toolName.replace(/^(edit_|delete_)/, "") as
-      | "content"
-      | "playlist"
-      | "schedule";
+    // Normalize: edit_flash_schedule -> schedule, delete_flash_schedule -> schedule
+    const resourceType = toolCall.toolName
+      .replace(/^(edit_|delete_)/, "")
+      .replace(/^flash_/, "") as "content" | "playlist" | "schedule";
     const resourceId = (args.contentId ??
       args.playlistId ??
       args.scheduleId) as string;

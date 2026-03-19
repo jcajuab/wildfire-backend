@@ -43,29 +43,32 @@ export const AI_TOOLS = {
   },
 
   create_schedule: {
-    description: "Create a schedule to display content on a specific display",
-    inputSchema: z.discriminatedUnion("kind", [
-      z.object({
-        kind: z.literal("PLAYLIST").describe("Schedule a playlist"),
-        playlistId: z.string().uuid().describe("Playlist ID to schedule"),
-        name: z.string().min(1).describe("Schedule name"),
-        displayId: z.string().uuid().describe("Target display ID"),
-        startDate: z.string().describe("Start date (YYYY-MM-DD)"),
-        endDate: z.string().describe("End date (YYYY-MM-DD)"),
-        startTime: z.string().describe("Start time (HH:MM)"),
-        endTime: z.string().describe("End time (HH:MM)"),
-      }),
-      z.object({
-        kind: z.literal("FLASH").describe("Schedule flash content"),
-        contentId: z.string().uuid().describe("Flash content ID to schedule"),
-        name: z.string().min(1).describe("Schedule name"),
-        displayId: z.string().uuid().describe("Target display ID"),
-        startDate: z.string().describe("Start date (YYYY-MM-DD)"),
-        endDate: z.string().describe("End date (YYYY-MM-DD)"),
-        startTime: z.string().describe("Start time (HH:MM)"),
-        endTime: z.string().describe("End time (HH:MM)"),
-      }),
-    ]),
+    description:
+      "Create a schedule to display a playlist on a specific display",
+    inputSchema: z.object({
+      playlistId: z.string().uuid().describe("Playlist ID to schedule"),
+      name: z.string().min(1).describe("Schedule name"),
+      displayId: z.string().uuid().describe("Target display ID"),
+      startDate: z.string().describe("Start date (YYYY-MM-DD)"),
+      endDate: z.string().describe("End date (YYYY-MM-DD)"),
+      startTime: z.string().describe("Start time (HH:MM)"),
+      endTime: z.string().describe("End time (HH:MM)"),
+    }),
+    requiresConfirmation: false,
+  },
+
+  create_flash_schedule: {
+    description:
+      "Create a schedule to display flash content on a specific display",
+    inputSchema: z.object({
+      contentId: z.string().uuid().describe("Flash content ID to schedule"),
+      name: z.string().min(1).describe("Schedule name"),
+      displayId: z.string().uuid().describe("Target display ID"),
+      startDate: z.string().describe("Start date (YYYY-MM-DD)"),
+      endDate: z.string().describe("End date (YYYY-MM-DD)"),
+      startTime: z.string().describe("Start time (HH:MM)"),
+      endTime: z.string().describe("End time (HH:MM)"),
+    }),
     requiresConfirmation: false,
   },
 
@@ -140,24 +143,28 @@ export const AI_TOOLS = {
   },
 
   edit_schedule: {
-    description: "Edit existing schedule (requires user confirmation)",
+    description:
+      "Edit an existing playlist schedule (requires user confirmation)",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to edit"),
       name: z.string().optional().describe("New schedule name"),
-      kind: z
-        .enum(["PLAYLIST", "FLASH"])
-        .optional()
-        .describe("New schedule type"),
-      playlistId: z
-        .string()
-        .uuid()
-        .optional()
-        .describe("New playlist ID (when kind is PLAYLIST)"),
-      contentId: z
-        .string()
-        .uuid()
-        .optional()
-        .describe("New flash content ID (when kind is FLASH)"),
+      playlistId: z.string().uuid().optional().describe("New playlist ID"),
+      displayId: z.string().uuid().optional().describe("New target display ID"),
+      startDate: z.string().optional().describe("New start date (YYYY-MM-DD)"),
+      endDate: z.string().optional().describe("New end date (YYYY-MM-DD)"),
+      startTime: z.string().optional().describe("New start time (HH:MM)"),
+      endTime: z.string().optional().describe("New end time (HH:MM)"),
+    }),
+    requiresConfirmation: true,
+  },
+
+  edit_flash_schedule: {
+    description:
+      "Edit an existing flash content schedule (requires user confirmation)",
+    inputSchema: z.object({
+      scheduleId: z.string().uuid().describe("Schedule ID to edit"),
+      name: z.string().optional().describe("New schedule name"),
+      contentId: z.string().uuid().optional().describe("New flash content ID"),
       displayId: z.string().uuid().optional().describe("New target display ID"),
       startDate: z.string().optional().describe("New start date (YYYY-MM-DD)"),
       endDate: z.string().optional().describe("New end date (YYYY-MM-DD)"),
@@ -168,7 +175,15 @@ export const AI_TOOLS = {
   },
 
   delete_schedule: {
-    description: "Delete schedule (requires user confirmation)",
+    description: "Delete a playlist schedule (requires user confirmation)",
+    inputSchema: z.object({
+      scheduleId: z.string().uuid().describe("Schedule ID to delete"),
+    }),
+    requiresConfirmation: true,
+  },
+
+  delete_flash_schedule: {
+    description: "Delete a flash content schedule (requires user confirmation)",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to delete"),
     }),
