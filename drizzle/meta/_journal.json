@@ -8,6 +8,13 @@
       "when": 1773814982789,
       "tag": "0000_tranquil_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1773912647607,
+      "tag": "0001_minor_stellaris",
+      "breakpoints": true
     }
   ]
 }

@@ -2,13 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
 import { type InvitationRepository } from "#/application/ports/auth";
 import { type UserRepository } from "#/application/ports/rbac";
+import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 
 const DEFAULT_INVITE_NAME = "User";
 
 const hashToken = (token: string): string =>
   createHash("sha256").update(token).digest("hex");
 
-const buildInviteUrl = (baseUrl: string, token: string): string => {
+export const buildInviteUrl = (baseUrl: string, token: string): string => {
   const normalized = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
   return `${normalized}?token=${encodeURIComponent(token)}`;
 };
@@ -20,6 +21,7 @@ export class CreateInvitationUseCase {
       invitationRepository: InvitationRepository;
       inviteTokenTtlSeconds: number;
       inviteAcceptBaseUrl: string;
+      encryptionService: AIKeyEncryptionService;
     },
   ) {}
 
@@ -27,7 +29,7 @@ export class CreateInvitationUseCase {
     email: string;
     name?: string | null;
     invitedByUserId: string;
-  }): Promise<{ id: string; expiresAt: string; inviteUrl: string }> {
+  }): Promise<{ id: string; expiresAt: string }> {
     const email = input.email.trim().toLowerCase();
     if (email.length === 0) {
       throw new ValidationError("Email is required.");
@@ -47,8 +49,10 @@ export class CreateInvitationUseCase {
     const expiresAt = new Date(
       now.getTime() + this.deps.inviteTokenTtlSeconds * 1000,
     );
-    const inviteUrl = buildInviteUrl(this.deps.inviteAcceptBaseUrl, token);
     const name = input.name?.trim() || null;
+
+    const { encryptedKey, iv, authTag } =
+      this.deps.encryptionService.encrypt(token);
 
     await this.deps.invitationRepository.create({
       id,
@@ -57,12 +61,14 @@ export class CreateInvitationUseCase {
       name,
       invitedByUserId: input.invitedByUserId,
       expiresAt,
+      encryptedToken: encryptedKey,
+      tokenIv: iv,
+      tokenAuthTag: authTag,
     });
 
     return {
       id,
       expiresAt: expiresAt.toISOString(),
-      inviteUrl,
     };
   }
 }

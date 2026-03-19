@@ -1,3 +1,5 @@
+export const ADMIN_ROLE_NAME = "Admin";
+
 export const ADMIN_PERMISSION = {
   resource: "admin",
   action: "access",

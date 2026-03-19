@@ -370,6 +370,7 @@ const authModule = createAuthHttpModule({
   inviteTokenTtlSeconds: env.INVITE_TOKEN_TTL_SECONDS,
   inviteAcceptBaseUrl: env.INVITE_ACCEPT_BASE_URL,
   includeDevelopmentInviteUrls: env.NODE_ENV === "development",
+  inviteEncryptionKey: env.INVITE_ENCRYPTION_KEY,
   avatarStorage: container.storage.contentStorage,
   avatarUrlExpiresInSeconds,
 });

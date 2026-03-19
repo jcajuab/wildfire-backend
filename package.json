@@ -7,6 +7,7 @@
     "build": "bun run typecheck && rm -rf out && bun build --target bun src/index.ts workers/audit-stream.worker.ts workers/content-ingestion.worker.ts --outdir out",
     "check": "biome check --write",
     "db:drop": "bun run scripts/db/drop-all-tables.ts -- --force",
+    "db:set-admin": "bun run scripts/db/set-admin.ts --",
     "db:dump": "sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",

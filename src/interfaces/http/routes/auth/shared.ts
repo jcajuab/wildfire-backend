@@ -22,6 +22,7 @@ import {
   type ListInvitationsUseCase,
   type RefreshSessionUseCase,
   type ResendInvitationUseCase,
+  type RevealInvitationLinkUseCase,
   type SetCurrentUserAvatarUseCase,
   type UpdateCurrentUserProfileUseCase,
 } from "#/application/use-cases/auth";
@@ -73,6 +74,7 @@ export interface AuthRouterUseCases {
   acceptInvitation: AcceptInvitationUseCase;
   listInvitations: ListInvitationsUseCase;
   resendInvitation: ResendInvitationUseCase;
+  revealInvitationLink: RevealInvitationLinkUseCase;
 }
 
 export type AuthRouter = Hono<{ Variables: JwtUserVariables }>;

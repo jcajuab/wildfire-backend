@@ -13,7 +13,6 @@ export class ResendInvitationUseCase {
   async execute(input: { id: string; invitedByUserId: string }): Promise<{
     id: string;
     expiresAt: string;
-    inviteUrl: string;
   }> {
     const existing = await this.deps.invitationRepository.findById({
       id: input.id,

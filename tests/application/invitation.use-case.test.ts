@@ -6,9 +6,32 @@ import {
   ListInvitationsUseCase,
   ResendInvitationUseCase,
 } from "#/application/use-cases/auth";
+import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
+
+const mockEncryptionService = {
+  encrypt: () => ({
+    encryptedKey: "encrypted-key",
+    iv: "mock-iv",
+    authTag: "mock-auth-tag",
+  }),
+  decrypt: () => "decrypted-token",
+  generateKeyHint: (key: string) => `...${key.slice(-4)}`,
+} as unknown as AIKeyEncryptionService;
+
+const noopInvitationRepository = {
+  create: async () => {},
+  findActiveByHashedToken: async () => null,
+  findById: async () => null,
+  findEncryptedTokenById: async () => null,
+  countAll: async () => 0,
+  listPage: async () => [],
+  revokeActiveByEmail: async () => {},
+  markAccepted: async () => {},
+  deleteExpired: async () => {},
+};
 
 describe("Invitation use cases", () => {
-  test("CreateInvitationUseCase creates invite and emits accept URL", async () => {
+  test("CreateInvitationUseCase creates invite and returns id/expiresAt", async () => {
     const created: Array<{ email: string; invitedByUserId: string }> = [];
     const useCase = new CreateInvitationUseCase({
       userRepository: {
@@ -28,22 +51,17 @@ describe("Invitation use cases", () => {
         delete: async () => false,
       },
       invitationRepository: {
+        ...noopInvitationRepository,
         create: async (input) => {
           created.push({
             email: input.email,
             invitedByUserId: input.invitedByUserId,
           });
         },
-        findActiveByHashedToken: async () => null,
-        findById: async () => null,
-        countAll: async () => 0,
-        listPage: async () => [],
-        revokeActiveByEmail: async () => {},
-        markAccepted: async () => {},
-        deleteExpired: async () => {},
       },
       inviteTokenTtlSeconds: 3600,
       inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
+      encryptionService: mockEncryptionService,
     });
 
     const result = await useCase.execute({
@@ -57,9 +75,6 @@ describe("Invitation use cases", () => {
     ]);
     expect(result.id).toEqual(expect.any(String));
     expect(result.expiresAt).toEqual(expect.any(String));
-    expect(result.inviteUrl).toContain(
-      "http://localhost:3000/accept-invite?token=",
-    );
   });
 
   test("CreateInvitationUseCase rejects when user already exists", async () => {
@@ -86,18 +101,10 @@ describe("Invitation use cases", () => {
         update: async () => null,
         delete: async () => false,
       },
-      invitationRepository: {
-        create: async () => {},
-        findActiveByHashedToken: async () => null,
-        findById: async () => null,
-        countAll: async () => 0,
-        listPage: async () => [],
-        revokeActiveByEmail: async () => {},
-        markAccepted: async () => {},
-        deleteExpired: async () => {},
-      },
+      invitationRepository: noopInvitationRepository,
       inviteTokenTtlSeconds: 3600,
       inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
+      encryptionService: mockEncryptionService,
     });
 
     await expect(
@@ -112,20 +119,15 @@ describe("Invitation use cases", () => {
     const events: string[] = [];
     const useCase = new AcceptInvitationUseCase({
       invitationRepository: {
-        create: async () => {},
+        ...noopInvitationRepository,
         findActiveByHashedToken: async () => ({
           id: "invite-1",
           email: "invited@example.com",
           name: "Invited Name",
         }),
-        findById: async () => null,
-        countAll: async () => 0,
-        listPage: async () => [],
-        revokeActiveByEmail: async () => {},
         markAccepted: async () => {
           events.push("accepted");
         },
-        deleteExpired: async () => {},
       },
       userRepository: {
         list: async () => [],
@@ -170,9 +172,7 @@ describe("Invitation use cases", () => {
   test("ListInvitationsUseCase resolves invitation statuses", async () => {
     const useCase = new ListInvitationsUseCase({
       invitationRepository: {
-        create: async () => {},
-        findActiveByHashedToken: async () => null,
-        findById: async () => null,
+        ...noopInvitationRepository,
         countAll: async () => 2,
         listPage: async () => [
           {
@@ -194,9 +194,6 @@ describe("Invitation use cases", () => {
             createdAt: new Date(),
           },
         ],
-        revokeActiveByEmail: async () => {},
-        markAccepted: async () => {},
-        deleteExpired: async () => {},
       },
     });
 
@@ -210,18 +207,12 @@ describe("Invitation use cases", () => {
   test("ResendInvitationUseCase recreates invitation from existing invite", async () => {
     const resendUseCase = new ResendInvitationUseCase({
       invitationRepository: {
-        create: async () => {},
-        findActiveByHashedToken: async () => null,
+        ...noopInvitationRepository,
         findById: async () => ({
           id: "inv-1",
           email: "invite@example.com",
           name: "Invited",
         }),
-        countAll: async () => 0,
-        listPage: async () => [],
-        revokeActiveByEmail: async () => {},
-        markAccepted: async () => {},
-        deleteExpired: async () => {},
       },
       createInvitationUseCase: new CreateInvitationUseCase({
         userRepository: {
@@ -240,18 +231,10 @@ describe("Invitation use cases", () => {
           update: async () => null,
           delete: async () => false,
         },
-        invitationRepository: {
-          create: async () => {},
-          findActiveByHashedToken: async () => null,
-          findById: async () => null,
-          countAll: async () => 0,
-          listPage: async () => [],
-          revokeActiveByEmail: async () => {},
-          markAccepted: async () => {},
-          deleteExpired: async () => {},
-        },
+        invitationRepository: noopInvitationRepository,
         inviteTokenTtlSeconds: 3600,
         inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
+        encryptionService: mockEncryptionService,
       }),
     });
 
@@ -262,6 +245,5 @@ describe("Invitation use cases", () => {
 
     expect(result.id).toEqual(expect.any(String));
     expect(result.expiresAt).toEqual(expect.any(String));
-    expect(result.inviteUrl).toContain("accept-invite?token=");
   });
 });

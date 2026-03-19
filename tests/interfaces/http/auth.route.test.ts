@@ -244,6 +244,7 @@ const buildApp = (opts?: {
         }
       }
     },
+    findEncryptedTokenById: async () => null,
   };
 
   const defaultAvatarStorage: ContentStorage = {
@@ -313,6 +314,7 @@ const buildApp = (opts?: {
       includeDevelopmentInviteUrls: true,
       inviteTokenTtlSeconds: 3600,
       inviteAcceptBaseUrl: "http://localhost:3000/accept-invite",
+      inviteEncryptionKey: "0".repeat(64),
       avatarStorage,
       avatarUrlExpiresInSeconds: 3600,
     }),

@@ -80,7 +80,18 @@ export interface InvitationRepository {
     name: string | null;
     invitedByUserId: string;
     expiresAt: Date;
+    encryptedToken?: string | null;
+    tokenIv?: string | null;
+    tokenAuthTag?: string | null;
   }): Promise<void>;
+  findEncryptedTokenById(
+    id: string,
+    now: Date,
+  ): Promise<{
+    encryptedToken: string;
+    tokenIv: string;
+    tokenAuthTag: string;
+  } | null>;
   findActiveByHashedToken(
     hashedToken: string,
     now: Date,

@@ -151,6 +151,16 @@ export const env = createEnv({
       .default(
         "0000000000000000000000000000000000000000000000000000000000000000",
       ),
+
+    // Invite link encryption
+    // 32-byte hex-encoded AES-256 key for encrypting invite tokens for on-demand reveal
+    INVITE_ENCRYPTION_KEY: z
+      .string()
+      .length(64)
+      .regex(/^[0-9a-fA-F]+$/, "Must be a 64-character hex string")
+      .default(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+      ),
     AI_ALLOWED_CORS_HEADERS: z.string().default("X-AI-Provider-Key"),
     AI_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     AI_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(20),

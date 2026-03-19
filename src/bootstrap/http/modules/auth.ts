@@ -6,6 +6,7 @@ import {
   ListInvitationsUseCase,
   RefreshSessionUseCase,
   ResendInvitationUseCase,
+  RevealInvitationLinkUseCase,
   SetCurrentUserAvatarUseCase,
   UpdateCurrentUserProfileUseCase,
 } from "#/application/use-cases/auth";
@@ -13,6 +14,7 @@ import {
   CheckPermissionUseCase,
   DeleteCurrentUserUseCase,
 } from "#/application/use-cases/rbac";
+import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import {
   type AuthRouterDeps,
   type AuthRouterUseCases,
@@ -31,7 +33,7 @@ export const createAuthHttpModule = (
     | "deleteCurrentUserUseCase"
     | "setCurrentUserAvatarUseCase"
     | "updateCurrentUserProfileUseCase"
-  >,
+  > & { inviteEncryptionKey: string },
 ): AuthHttpModule => {
   const routerDeps: AuthRouterDeps = {
     ...deps,
@@ -59,11 +61,16 @@ export const createAuthHttpModule = (
     }),
   };
 
+  const inviteEncryptionService = new AIKeyEncryptionService(
+    Buffer.from(deps.inviteEncryptionKey, "hex"),
+  );
+
   const createInvitation = new CreateInvitationUseCase({
     userRepository: routerDeps.userRepository,
     invitationRepository: routerDeps.invitationRepository,
     inviteTokenTtlSeconds: routerDeps.inviteTokenTtlSeconds,
     inviteAcceptBaseUrl: routerDeps.inviteAcceptBaseUrl,
+    encryptionService: inviteEncryptionService,
   });
 
   return {
@@ -102,6 +109,11 @@ export const createAuthHttpModule = (
       resendInvitation: new ResendInvitationUseCase({
         invitationRepository: routerDeps.invitationRepository,
         createInvitationUseCase: createInvitation,
+      }),
+      revealInvitationLink: new RevealInvitationLinkUseCase({
+        invitationRepository: routerDeps.invitationRepository,
+        encryptionService: inviteEncryptionService,
+        inviteAcceptBaseUrl: routerDeps.inviteAcceptBaseUrl,
       }),
     },
   };

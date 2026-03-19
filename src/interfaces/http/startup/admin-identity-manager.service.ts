@@ -9,10 +9,11 @@ import {
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
-import { ADMIN_PERMISSION } from "#/domain/rbac/canonical-permissions";
+import {
+  ADMIN_PERMISSION,
+  ADMIN_ROLE_NAME,
+} from "#/domain/rbac/canonical-permissions";
 import { db } from "#/infrastructure/db/client";
-
-const ADMIN_ROLE_NAME = "Admin";
 
 const uniqueIds = (values: readonly string[]): string[] => {
   const out: string[] = [];

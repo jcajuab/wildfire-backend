@@ -11,6 +11,9 @@ export class InvitationDbRepository implements InvitationRepository {
     name: string | null;
     invitedByUserId: string;
     expiresAt: Date;
+    encryptedToken?: string | null;
+    tokenIv?: string | null;
+    tokenAuthTag?: string | null;
   }): Promise<void> {
     const now = new Date();
     await db.insert(invitations).values({
@@ -20,11 +23,51 @@ export class InvitationDbRepository implements InvitationRepository {
       name: input.name,
       invitedByUserId: input.invitedByUserId,
       expiresAt: input.expiresAt,
+      encryptedToken: input.encryptedToken ?? null,
+      tokenIv: input.tokenIv ?? null,
+      tokenAuthTag: input.tokenAuthTag ?? null,
       acceptedAt: null,
       revokedAt: null,
       createdAt: now,
       updatedAt: now,
     });
+  }
+
+  async findEncryptedTokenById(
+    id: string,
+    now: Date,
+  ): Promise<{
+    encryptedToken: string;
+    tokenIv: string;
+    tokenAuthTag: string;
+  } | null> {
+    const rows = await db
+      .select({
+        encryptedToken: invitations.encryptedToken,
+        tokenIv: invitations.tokenIv,
+        tokenAuthTag: invitations.tokenAuthTag,
+      })
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.id, id),
+          isNull(invitations.acceptedAt),
+          isNull(invitations.revokedAt),
+          gt(invitations.expiresAt, now),
+        ),
+      )
+      .limit(1);
+
+    const row = rows[0];
+    if (!row || !row.encryptedToken || !row.tokenIv || !row.tokenAuthTag) {
+      return null;
+    }
+
+    return {
+      encryptedToken: row.encryptedToken,
+      tokenIv: row.tokenIv,
+      tokenAuthTag: row.tokenAuthTag,
+    };
   }
 
   async findActiveByHashedToken(

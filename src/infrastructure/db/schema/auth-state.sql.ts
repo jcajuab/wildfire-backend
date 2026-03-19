@@ -1,6 +1,7 @@
 import {
   index,
   mysqlTable,
+  text,
   timestamp,
   uniqueIndex,
   varchar,
@@ -38,6 +39,9 @@ export const invitations = mysqlTable(
     invitedByUserId: varchar("invited_by_user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    encryptedToken: text("encrypted_token"),
+    tokenIv: text("token_iv"),
+    tokenAuthTag: text("token_auth_tag"),
     expiresAt: timestamp("expires_at").notNull(),
     acceptedAt: timestamp("accepted_at"),
     revokedAt: timestamp("revoked_at"),

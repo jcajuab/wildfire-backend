@@ -38,6 +38,9 @@ import {
 const inviteCreatedSchema = z.object({
   id: z.string().uuid(),
   expiresAt: z.string(),
+});
+
+const inviteLinkSchema = z.object({
   inviteUrl: z.string(),
 });
 
@@ -115,7 +118,6 @@ export const registerAuthInvitationRoutes = (args: {
           toApiResponse({
             id: result.id,
             expiresAt: result.expiresAt,
-            inviteUrl: result.inviteUrl,
           }),
           201,
         );
@@ -205,10 +207,45 @@ export const registerAuthInvitationRoutes = (args: {
           toApiResponse({
             id: result.id,
             expiresAt: result.expiresAt,
-            inviteUrl: result.inviteUrl,
           }),
           201,
         );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/invitations/:id/reveal-link",
+    setAction("auth.invitation.reveal-link", {
+      route: "/auth/invitations/:id/reveal-link",
+      resourceType: "invitation",
+    }),
+    ...authorize("users:create"),
+    validateParams(invitationIdParamSchema),
+    describeRoute({
+      description: "Reveal the invite URL for a pending invitation",
+      tags: authTags,
+      responses: {
+        200: {
+          description: "Invite URL",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(inviteLinkSchema)),
+            },
+          },
+        },
+        404: { ...notFoundResponse },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const result = await useCases.revealInvitationLink.execute({
+          id: params.id,
+        });
+        c.header("Cache-Control", "no-store");
+        return c.json(toApiResponse({ inviteUrl: result.inviteUrl }));
       },
       ...applicationErrorMappers,
     ),

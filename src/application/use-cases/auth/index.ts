@@ -8,5 +8,6 @@ export { ListInvitationsUseCase } from "#/application/use-cases/auth/list-invita
 export type { RefreshSessionResult } from "#/application/use-cases/auth/refresh-session.use-case";
 export { RefreshSessionUseCase } from "#/application/use-cases/auth/refresh-session.use-case";
 export { ResendInvitationUseCase } from "#/application/use-cases/auth/resend-invitation.use-case";
+export { RevealInvitationLinkUseCase } from "#/application/use-cases/auth/reveal-invitation-link.use-case";
 export { SetCurrentUserAvatarUseCase } from "#/application/use-cases/auth/set-current-user-avatar.use-case";
 export { UpdateCurrentUserProfileUseCase } from "#/application/use-cases/auth/update-current-user-profile.use-case";
