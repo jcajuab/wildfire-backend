@@ -77,31 +77,17 @@ export const executeAIChat = (
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<unknown>,
-  toolNames?: string[],
   systemPrompt?: string,
 ): AIStreamResponse => {
   const aiModel = createAIModel(config);
-  let tools: ToolSet = buildTools(onToolCall);
-
-  if (toolNames?.length) {
-    const filtered: ToolSet = {};
-    // Query tools are always available regardless of slash command selection
-    const alwaysAvailable = ["list_displays", "list_content", "list_playlists"];
-    for (const name of [...toolNames, ...alwaysAvailable]) {
-      if (tools[name]) {
-        filtered[name] = tools[name];
-      }
-    }
-    tools = filtered;
-  }
+  const tools: ToolSet = buildTools(onToolCall);
 
   const modelMessages: ModelMessage[] = messages.map((msg) => ({
     role: msg.role,
     content: msg.content,
   }));
 
-  // toolChoice is intentionally left as "auto" (the default). The filtered
-  // `tools` object already limits which tools the model can call. Forcing
+  // toolChoice is intentionally left as "auto" (the default). Forcing
   // toolChoice to a specific tool or "required" causes the model to repeat
   // the same tool call on every step, resulting in duplicate side-effects.
   return streamText({
@@ -112,6 +98,6 @@ export const executeAIChat = (
     temperature: config.temperature,
     maxOutputTokens: config.maxTokens,
     maxRetries: 0,
-    stopWhen: stepCountIs(6),
+    stopWhen: stepCountIs(10),
   });
 };
