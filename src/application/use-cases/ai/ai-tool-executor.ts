@@ -13,6 +13,7 @@ import { type CreatePlaylistUseCase } from "#/application/use-cases/playlists/cr
 import { type ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
 import { type ReplacePlaylistItemsAtomicUseCase } from "#/application/use-cases/playlists/replace-playlist-items.use-case";
 import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/create-schedule.use-case";
+import { type ListSchedulesUseCase } from "#/application/use-cases/schedules/list-schedules.use-case";
 import { AI_TOOLS } from "./ai-tool-registry";
 import { convertPlainTextToTipTap } from "./tiptap-convert";
 
@@ -30,6 +31,7 @@ type CreateFlashContentArgs = z.infer<
   typeof AI_TOOLS.create_flash_content.inputSchema
 >;
 type ListPlaylistsArgs = z.infer<typeof AI_TOOLS.list_playlists.inputSchema>;
+type ListSchedulesArgs = z.infer<typeof AI_TOOLS.list_schedules.inputSchema>;
 
 export class AIToolExecutor {
   constructor(
@@ -42,6 +44,7 @@ export class AIToolExecutor {
       listDisplaysUseCase: ListDisplaysUseCase;
       listContentUseCase: ListContentUseCase;
       listPlaylistsUseCase: ListPlaylistsUseCase;
+      listSchedulesUseCase: ListSchedulesUseCase;
       pendingActionStore: PendingActionStore;
       auditLogger: AuditLogger;
     },
@@ -233,6 +236,22 @@ export class AIToolExecutor {
         return { success: true, data: result.items };
       }
 
+      case "list_schedules": {
+        const typedArgs = args as ListSchedulesArgs;
+        const result = await this.deps.listSchedulesUseCase.execute({
+          ownerId: context.userId,
+          pageSize: 100,
+        });
+        const items = typedArgs.search
+          ? result.items.filter((item) =>
+              item.name
+                .toLowerCase()
+                .includes(typedArgs.search?.toLowerCase() ?? ""),
+            )
+          : result.items;
+        return { success: true, data: items };
+      }
+
       default:
         return { success: false, error: `Tool not implemented: ${toolName}` };
     }
@@ -254,6 +273,13 @@ export class AIToolExecutor {
       args.playlistId ??
       args.scheduleId) as string;
 
+    const summary = await this.buildEnrichedSummary(
+      actionType,
+      resourceType,
+      resourceId,
+      context.userId,
+    );
+
     const pending = await this.deps.pendingActionStore.create({
       conversationId: context.conversationId,
       userId: context.userId,
@@ -261,7 +287,7 @@ export class AIToolExecutor {
       resourceType,
       resourceId,
       payload: args,
-      summary: `${actionType} ${resourceType} ${resourceId}`,
+      summary,
     });
 
     this.deps.auditLogger.log({
@@ -281,5 +307,67 @@ export class AIToolExecutor {
       confirmationToken: pending.token,
       confirmationSummary: pending.summary,
     };
+  }
+
+  private async buildEnrichedSummary(
+    actionType: string,
+    resourceType: "content" | "playlist" | "schedule",
+    resourceId: string,
+    userId: string,
+  ): Promise<string> {
+    const fallback = `${actionType} ${resourceType} ${resourceId}`;
+
+    try {
+      switch (resourceType) {
+        case "content": {
+          const result = await this.deps.listContentUseCase.execute({
+            ownerId: userId,
+            pageSize: 100,
+          });
+          const content = result.items.find((item) => item.id === resourceId);
+          if (content) {
+            return `${actionType} content: ${content.title} (${content.type})`;
+          }
+          return fallback;
+        }
+        case "playlist": {
+          const result = await this.deps.listPlaylistsUseCase.execute({
+            ownerId: userId,
+            pageSize: 100,
+          });
+          const playlist = result.items.find((item) => item.id === resourceId);
+          if (playlist) {
+            return `${actionType} playlist: ${playlist.name} (${playlist.itemsCount} items)`;
+          }
+          return fallback;
+        }
+        case "schedule": {
+          const result = await this.deps.listSchedulesUseCase.execute({
+            ownerId: userId,
+            pageSize: 100,
+          });
+          const schedule = result.items.find((item) => item.id === resourceId);
+          if (schedule) {
+            const display = schedule.display?.name
+              ? ` on ${schedule.display.name}`
+              : "";
+            const hasTimeInfo =
+              schedule.startTime &&
+              schedule.endTime &&
+              schedule.startDate &&
+              schedule.endDate;
+            const times = hasTimeInfo
+              ? ` (${schedule.startDate}-${schedule.endDate} ${schedule.startTime}-${schedule.endTime})`
+              : "";
+            return `${actionType} schedule: ${schedule.name}${display}${times}`;
+          }
+          return fallback;
+        }
+        default:
+          return fallback;
+      }
+    } catch {
+      return fallback;
+    }
   }
 }

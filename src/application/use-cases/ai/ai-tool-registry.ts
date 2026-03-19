@@ -225,4 +225,16 @@ export const AI_TOOLS = {
     }),
     requiresConfirmation: false,
   },
+
+  list_schedules: {
+    description:
+      "List schedules owned by the current user with full details. Use this to find existing schedules before editing or deleting.",
+    inputSchema: z.object({
+      search: z
+        .string()
+        .optional()
+        .describe("Optional search term to filter schedules by name"),
+    }),
+    requiresConfirmation: false,
+  },
 } as const;

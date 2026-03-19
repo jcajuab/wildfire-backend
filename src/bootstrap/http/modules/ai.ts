@@ -31,6 +31,7 @@ import {
 import { ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
+import { ListSchedulesUseCase } from "#/application/use-cases/schedules/list-schedules.use-case";
 import { RedisPendingActionStore } from "#/infrastructure/ai/redis-pending-action.store";
 import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
@@ -162,6 +163,13 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     userRepository: config.repositories.userRepository,
   });
 
+  const listSchedulesUseCase = new ListSchedulesUseCase({
+    scheduleRepository: config.repositories.scheduleRepository,
+    playlistRepository: config.repositories.playlistRepository,
+    contentRepository: config.repositories.contentRepository,
+    displayRepository: config.repositories.displayRepository,
+  });
+
   const toolExecutor = new AIToolExecutor({
     createFlashContentUseCase,
     createTextContentUseCase,
@@ -171,6 +179,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     listDisplaysUseCase,
     listContentUseCase,
     listPlaylistsUseCase,
+    listSchedulesUseCase,
     pendingActionStore,
     auditLogger,
   });
