@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # use-cases
 
@@ -14,8 +14,8 @@ Business operations organized by domain module. Each use case is a single-respon
 | `ai/`        | AI chat, tool execution, credential management, system prompt (see `ai/AGENTS.md`) |
 | `audit/`     | Audit log listing, export (CSV), and recording                                     |
 | `auth/`      | Authentication, invitation, session, password, profile, avatar                     |
-| `content/`   | Content CRUD, file upload/replace, download URLs, exclusion                        |
-| `displays/`  | Display CRUD, registration, pairing, heartbeat, manifest, emergency                |
+| `content/`   | Content CRUD, file upload/replace, download URLs, PDF crop, flash content          |
+| `displays/`  | Display CRUD, registration, pairing, heartbeat, manifest, emergency, snapshots     |
 | `playlists/` | Playlist CRUD, item management, reordering, duration estimation                    |
 | `rbac/`      | User/role CRUD, permission management, role assignment                             |
 | `schedules/` | Schedule CRUD, active schedule resolution, merged playlists                        |

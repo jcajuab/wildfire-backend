@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # http
 
@@ -17,15 +17,15 @@ HTTP interface implementation using Hono framework. Contains all API routes, mid
 
 ## Subdirectories
 
-| Directory     | Purpose                                                                    |
-| ------------- | -------------------------------------------------------------------------- |
-| `routes/`     | API route handlers organized by domain module (see `routes/AGENTS.md`)     |
-| `middleware/` | Auth (JWT), permissions, audit trail, observability middleware             |
-| `validators/` | Zod request schemas for each route module                                  |
-| `lib/`        | HTTP utilities (cookie handling, IP extraction, SSE, session IDs)          |
-| `audit/`      | Audit queue (Redis-backed async audit log writing)                         |
-| `security/`   | Redis-backed auth security store (login rate limiting, lockout)            |
-| `startup/`    | Server startup services (admin identity, permission seeding, role seeding) |
+| Directory     | Purpose                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| `routes/`     | API route handlers organized by domain module (see `routes/AGENTS.md`)                    |
+| `middleware/` | Auth (JWT), permissions, audit trail, observability middleware                            |
+| `validators/` | Zod request schemas for each route module                                                 |
+| `lib/`        | HTTP utilities (cookie handling, avatar URLs, constants, IP extraction, SSE, sessions)    |
+| `audit/`      | Audit queue (Redis-backed async audit log writing)                                        |
+| `security/`   | Redis-backed auth security store (login rate limiting, lockout)                           |
+| `startup/`    | Server startup services (admin identity, permission seeding, role seeding, htshadow sync) |
 
 ## For AI Agents
 

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # Wildfire Backend
 
@@ -19,6 +19,7 @@ Digital signage management system backend. Serves an HTTP API for managing displ
 | `drizzle.config.ts` | Drizzle ORM config for MySQL schema push                                     |
 | `compose.yaml`      | Docker Compose for local dev (MySQL, Redis, MinIO)                           |
 | `bunfig.toml`       | Bun config — test preload, module resolution                                 |
+| `lefthook.yaml`     | Git hooks configuration (pre-commit, pre-push)                               |
 
 ## Subdirectories
 
@@ -29,6 +30,7 @@ Digital signage management system backend. Serves an HTTP API for managing displ
 | `workers/` | Background worker entrypoints (audit, content ingestion) (see `workers/AGENTS.md`) |
 | `scripts/` | Utility scripts (database management) (see `scripts/AGENTS.md`)                    |
 | `docs/`    | Documentation (database schema, logging, auth reference)                           |
+| `drizzle/` | Drizzle migration output (generated SQL files)                                     |
 | `out/`     | Compiled build output (git-ignored)                                                |
 
 ## For AI Agents

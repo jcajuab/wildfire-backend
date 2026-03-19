@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # repositories
 
@@ -25,6 +25,7 @@ Drizzle ORM repository implementations. Each file implements one or more port in
 | `display-pairing-session.repo.ts` | Display pairing session tracking           |
 | `display-preview.repo.ts`         | Display preview image storage              |
 | `invitation.repo.ts`              | User invitation management                 |
+| `password-hashes.repo.ts`         | Password hash storage and retrieval        |
 | `permission.repo.ts`              | Permission CRUD                            |
 | `playlist.repo.ts`                | Playlist and playlist item CRUD            |
 | `role.repo.ts`                    | Role CRUD                                  |

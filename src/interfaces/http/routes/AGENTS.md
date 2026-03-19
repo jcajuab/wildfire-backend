@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # routes
 
@@ -16,18 +16,18 @@ Hono route handlers organized by domain module. Each subdirectory defines API en
 
 ## Subdirectories
 
-| Directory          | Purpose                                                                   |
-| ------------------ | ------------------------------------------------------------------------- |
-| `ai/`              | AI chat, confirmation, and credential management routes                   |
-| `audit/`           | Audit log query and CSV export routes                                     |
-| `auth/`            | Login, session, invitation, password, profile, avatar routes              |
-| `content/`         | Content CRUD, file upload/download routes                                 |
-| `display-runtime/` | Display-facing runtime API (auth, heartbeat, manifest, stream, snapshot)  |
-| `displays/`        | Staff-facing display management (registration, groups, events, overrides) |
-| `playlists/`       | Playlist CRUD and item management routes                                  |
-| `rbac/`            | User, role, and permission management routes                              |
-| `schedules/`       | Schedule CRUD and query routes                                            |
-| `shared/`          | Shared route utilities (error handling, OpenAPI response helpers)         |
+| Directory          | Purpose                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| `ai/`              | AI chat, confirmation, and credential management routes                                            |
+| `audit/`           | Audit log query and CSV export routes                                                              |
+| `auth/`            | Login, session, invitation, password, profile, avatar routes                                       |
+| `content/`         | Content CRUD, file upload/download, PDF crop routes                                                |
+| `display-runtime/` | Display-facing runtime API (auth, heartbeat, manifest, stream, snapshot)                           |
+| `displays/`        | Staff-facing display management with `staff/` sub-routes (groups, events, registration, overrides) |
+| `playlists/`       | Playlist CRUD and item management routes                                                           |
+| `rbac/`            | User, role, and permission management routes                                                       |
+| `schedules/`       | Schedule CRUD and query routes                                                                     |
+| `shared/`          | Shared route utilities (error handling, OpenAPI response helpers)                                  |
 
 ## For AI Agents
 
@@ -37,6 +37,7 @@ Hono route handlers organized by domain module. Each subdirectory defines API en
 - Routes receive use cases from bootstrap module factories — no direct infrastructure access
 - Use `@hono/standard-validator` with Zod schemas from `validators/` for request validation
 - Two separate display APIs: `display-runtime/` (display devices call) vs `displays/` (staff manage)
+- `displays/` uses a `staff/` subdirectory for granular route files (groups, events, registration attempts, overrides)
 
 ### Common Patterns
 

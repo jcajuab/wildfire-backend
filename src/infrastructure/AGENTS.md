@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # infrastructure
 
@@ -15,12 +15,12 @@ Concrete implementations of application ports. Adapters for external systems: My
 | `redis/`         | Redis client, Lua script evaluation, hash utilities                                     |
 | `storage/`       | S3-compatible content storage (MinIO)                                                   |
 | `ai/`            | Vercel AI SDK adapter, Redis-backed pending action store                                |
-| `auth/`          | JWT token issuer/verifier, bcrypt password hashing, htshadow file reader                |
+| `auth/`          | JWT token issuer/verifier, bcrypt password hashing/verification, htshadow file reader   |
 | `content-jobs/`  | Redis-based content ingestion job queue and events                                      |
 | `crypto/`        | AI API key encryption service                                                           |
 | `displays/`      | Display SSE stream, registration attempt store, lifecycle events                        |
-| `media/`         | Content metadata extraction (ffprobe) and thumbnail generation                          |
-| `observability/` | Pino logger setup, structured logging helpers                                           |
+| `media/`         | Content metadata extraction (ffprobe), thumbnail generation, PDF crop/render/extract    |
+| `observability/` | Pino logger setup, structured logging helpers, startup logging                          |
 | `time/`          | System clock abstraction                                                                |
 
 ## For AI Agents

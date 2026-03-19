@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # ai
 
@@ -12,13 +12,13 @@ AI-assisted signage management. Provides a chat interface where users interact w
 | File                             | Description                                                                |
 | -------------------------------- | -------------------------------------------------------------------------- |
 | `ai-chat.use-case.ts`            | Main chat use case — calls `streamText()` with tools and system prompt     |
-| `ai-tool-registry.ts`            | All 13 AI tool definitions with Zod input schemas                          |
+| `ai-tool-registry.ts`            | All AI tool definitions with Zod input schemas                             |
 | `ai-tool-executor.ts`            | Dispatches tool calls to domain use cases                                  |
 | `ai-confirm.use-case.ts`         | Pending action confirmation flow (Redis-backed) for destructive operations |
 | `ai-credentials.use-cases.ts`    | AI provider API key management (encrypted storage)                         |
 | `manage-credentials.use-case.ts` | CRUD for AI credentials                                                    |
 | `system-prompt.ts`               | System prompt, injection detection, input sanitization                     |
-| `tiptap-convert.ts`              | Plain text → TipTap rich text format conversion                            |
+| `tiptap-convert.ts`              | Plain text to TipTap rich text format conversion                           |
 | `index.ts`                       | Barrel export                                                              |
 
 ## For AI Agents

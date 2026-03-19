@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # schema
 
@@ -18,7 +18,8 @@ Drizzle ORM table definitions for MySQL. Each `.sql.ts` file defines one or more
 | `content-job.sql.ts`     | Content ingestion jobs table                     |
 | `display-key.sql.ts`     | Display cryptographic keys table                 |
 | `displays.sql.ts`        | Displays and display groups tables               |
-| `playlist.sql.ts`        | Playlists and playlist items tables              |
+| `password-hashes.sql.ts` | Password hash storage table                      |
+| `playlist.sql.ts`        | Playlists table                                  |
 | `playlist-item.sql.ts`   | Playlist item join table                         |
 | `rbac.sql.ts`            | Users, roles, permissions, and assignment tables |
 | `runtime-control.sql.ts` | Runtime control flags table                      |

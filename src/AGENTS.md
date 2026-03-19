@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # src
 
@@ -16,15 +16,15 @@ Application source code organized in Clean Architecture layers. Each layer has s
 
 ## Subdirectories
 
-| Directory         | Purpose                                                                                 |
-| ----------------- | --------------------------------------------------------------------------------------- |
-| `domain/`         | Pure domain entities and business rules (see `domain/AGENTS.md`)                        |
-| `application/`    | Use cases, ports (interfaces), and application errors (see `application/AGENTS.md`)     |
-| `infrastructure/` | External system adapters — DB, Redis, S3, AI providers (see `infrastructure/AGENTS.md`) |
-| `interfaces/`     | HTTP routes, middleware, validators (see `interfaces/AGENTS.md`)                        |
-| `bootstrap/`      | Dependency wiring and server initialization (see `bootstrap/AGENTS.md`)                 |
-| `shared/`         | Cross-cutting utilities (retry logic)                                                   |
-| `types/`          | Ambient type declarations for untyped packages                                          |
+| Directory         | Purpose                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| `domain/`         | Pure domain entities and business rules (see `domain/AGENTS.md`)                            |
+| `application/`    | Use cases, ports (interfaces), guards, and application errors (see `application/AGENTS.md`) |
+| `infrastructure/` | External system adapters — DB, Redis, S3, AI providers (see `infrastructure/AGENTS.md`)     |
+| `interfaces/`     | HTTP routes, middleware, validators (see `interfaces/AGENTS.md`)                            |
+| `bootstrap/`      | Dependency wiring and server initialization (see `bootstrap/AGENTS.md`)                     |
+| `shared/`         | Cross-cutting utilities (retry logic)                                                       |
+| `types/`          | Ambient type declarations for untyped packages                                              |
 
 ## For AI Agents
 

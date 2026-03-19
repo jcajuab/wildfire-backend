@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-16 -->
+<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
 
 # workers (bootstrap)
 
@@ -22,5 +22,6 @@ Bootstrap logic for background worker processes. Configures Redis stream consume
 - Workers use Redis Streams (XREADGROUP) for reliable message consumption
 - Content ingestion has a DLQ (dead letter queue) for failed jobs
 - Each worker has its own composition root separate from the HTTP server
+- Content ingestion pipeline components: stream transport, entry processor, entry acknowledger, job processor, DLQ manager
 
 <!-- MANUAL: -->
