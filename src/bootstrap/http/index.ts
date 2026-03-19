@@ -406,6 +406,7 @@ const schedulesModule = createSchedulesHttpModule({
     authorizationRepository: container.repositories.authorizationRepository,
   },
   displayEventPublisher,
+  adminLifecycleEventPublisher: lifecycleEventPublisher,
 });
 const schedulesRouter = createSchedulesRouter(schedulesModule);
 

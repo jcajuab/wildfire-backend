@@ -53,6 +53,12 @@ export interface AdminDisplayLifecycleEventPublisher {
           previousStatus: "PROCESSING" | "READY" | "LIVE" | "DOWN";
           status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
           occurredAt: string;
+        }
+      | {
+          type: "playlist_status_changed";
+          playlistId: string;
+          status: "DRAFT" | "IN_USE";
+          occurredAt: string;
         },
   ): void;
 }
@@ -76,6 +82,12 @@ export type AdminDisplayLifecycleEvent =
       slug: string;
       previousStatus: DisplayStatus;
       status: DisplayStatus;
+      occurredAt: string;
+    }
+  | {
+      type: "playlist_status_changed";
+      playlistId: string;
+      status: "DRAFT" | "IN_USE";
       occurredAt: string;
     };
 

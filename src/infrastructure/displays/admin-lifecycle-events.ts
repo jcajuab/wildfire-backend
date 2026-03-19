@@ -12,7 +12,8 @@ import {
 export type AdminDisplayLifecycleEventType =
   | "display_registered"
   | "display_unregistered"
-  | "display_status_changed";
+  | "display_status_changed"
+  | "playlist_status_changed";
 
 export type AdminDisplayLifecycleEvent =
   | {
@@ -33,6 +34,12 @@ export type AdminDisplayLifecycleEvent =
       slug: string;
       previousStatus: DisplayStatus;
       status: DisplayStatus;
+      occurredAt: string;
+    }
+  | {
+      type: "playlist_status_changed";
+      playlistId: string;
+      status: "DRAFT" | "IN_USE";
       occurredAt: string;
     };
 
@@ -66,6 +73,9 @@ const isDisplayStatus = (value: unknown): value is DisplayStatus =>
   value === "READY" ||
   value === "LIVE" ||
   value === "DOWN";
+
+const isPlaylistStatus = (value: unknown): value is "DRAFT" | "IN_USE" =>
+  value === "DRAFT" || value === "IN_USE";
 
 const logInvalidEnvelope = (
   reason: string,
@@ -105,7 +115,22 @@ const parseLifecycleEvent = (
     occurredAt?: unknown;
     previousStatus?: unknown;
     status?: unknown;
+    playlistId?: unknown;
   };
+
+  if (
+    candidate.type === "playlist_status_changed" &&
+    isStringField(candidate.playlistId, MAX_DISPLAY_STATUS_EVENT_BYTES) &&
+    isPlaylistStatus(candidate.status) &&
+    isStringField(candidate.occurredAt, MAX_DISPLAY_STATUS_EVENT_BYTES)
+  ) {
+    return {
+      type: "playlist_status_changed",
+      playlistId: candidate.playlistId,
+      status: candidate.status,
+      occurredAt: candidate.occurredAt,
+    };
+  }
 
   if (
     !isStringField(candidate.displayId, MAX_DISPLAY_STATUS_EVENT_BYTES) ||
@@ -265,7 +290,7 @@ const publishLifecycleEventToRedis = async (
           event: "admin-lifecycle.publish.failed",
           channel: redisChannel,
           eventType: event.type,
-          displayId: event.displayId,
+          displayId: "displayId" in event ? event.displayId : undefined,
         },
         error,
       ),

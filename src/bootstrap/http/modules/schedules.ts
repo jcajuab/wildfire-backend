@@ -49,6 +49,7 @@ export const createSchedulesHttpModule = (
         displayRepository: routerDeps.repositories.displayRepository,
         contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
+        adminLifecycleEventPublisher: routerDeps.adminLifecycleEventPublisher,
         timezone: routerDeps.timezone,
       }),
       getSchedule: new GetScheduleUseCase({
@@ -63,12 +64,14 @@ export const createSchedulesHttpModule = (
         displayRepository: routerDeps.repositories.displayRepository,
         contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
+        adminLifecycleEventPublisher: routerDeps.adminLifecycleEventPublisher,
       }),
       deleteSchedule: new DeleteScheduleUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         playlistRepository: routerDeps.repositories.playlistRepository,
         contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
+        adminLifecycleEventPublisher: routerDeps.adminLifecycleEventPublisher,
       }),
       getMergedPlaylist: new GetMergedPlaylistUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,

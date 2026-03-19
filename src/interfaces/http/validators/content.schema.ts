@@ -84,7 +84,7 @@ export const createFlashContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
 export const createTextContentSchema = z.object({
   title: z.string().trim().min(1).max(255),
   jsonContent: z.string().min(1),
-  htmlContent: z.string().min(1),
+  htmlContent: z.string().min(1).max(10000),
 });
 
 export const createTextContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
@@ -142,7 +142,7 @@ export const updateContentSchema = z
     flashMessage: z.string().trim().min(1).max(240).optional(),
     flashTone: flashToneSchema.optional(),
     textJsonContent: z.string().min(1).optional(),
-    textHtmlContent: z.string().min(1).optional(),
+    textHtmlContent: z.string().min(1).max(10000).optional(),
   })
   .refine(
     (value) =>

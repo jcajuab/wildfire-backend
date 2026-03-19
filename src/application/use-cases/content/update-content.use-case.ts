@@ -8,6 +8,10 @@ import { type UserRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { sha256Hex } from "#/domain/content/checksum";
 import { type ContentStatus } from "#/domain/content/content";
+import {
+  countTextContentCharacters,
+  TEXT_CONTENT_MAX_CHARS,
+} from "#/domain/content/text-content";
 import { toContentView } from "./content-view";
 import { NotFoundError } from "./errors";
 
@@ -116,6 +120,12 @@ export class UpdateContentUseCase {
       if (!textJsonContent || !textHtmlContent) {
         throw new ValidationError(
           "Text content requires both JSON and HTML content",
+        );
+      }
+      const charCount = countTextContentCharacters(textHtmlContent);
+      if (charCount > TEXT_CONTENT_MAX_CHARS) {
+        throw new ValidationError(
+          `Text content exceeds maximum of ${TEXT_CONTENT_MAX_CHARS} characters`,
         );
       }
       const body = new TextEncoder().encode(textJsonContent);

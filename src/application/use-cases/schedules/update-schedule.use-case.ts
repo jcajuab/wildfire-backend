@@ -1,5 +1,8 @@
 import { ValidationError } from "#/application/errors/validation";
-import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
+import {
+  type AdminDisplayLifecycleEventPublisher,
+  type DisplayStreamEventPublisher,
+} from "#/application/ports/display-stream-events";
 import { type ScheduleKind } from "#/application/ports/schedules";
 import { computeRequiredMinPlaylistDurationSeconds } from "#/application/use-cases/shared/playlist-required-duration";
 import { NotFoundError } from "./errors";
@@ -18,6 +21,7 @@ export class UpdateScheduleUseCase {
   constructor(
     private readonly deps: ScheduleMutationDeps & {
       displayEventPublisher?: DisplayStreamEventPublisher;
+      adminLifecycleEventPublisher?: AdminDisplayLifecycleEventPublisher;
     },
   ) {}
 
@@ -162,6 +166,12 @@ export class UpdateScheduleUseCase {
           existing.playlistId,
           "DRAFT",
         );
+        this.deps.adminLifecycleEventPublisher?.publish({
+          type: "playlist_status_changed",
+          playlistId: existing.playlistId,
+          status: "DRAFT",
+          occurredAt: new Date().toISOString(),
+        });
       }
     }
     if (schedule.playlistId) {
@@ -169,6 +179,12 @@ export class UpdateScheduleUseCase {
         schedule.playlistId,
         "IN_USE",
       );
+      this.deps.adminLifecycleEventPublisher?.publish({
+        type: "playlist_status_changed",
+        playlistId: schedule.playlistId,
+        status: "IN_USE",
+        occurredAt: new Date().toISOString(),
+      });
     }
     this.deps.displayEventPublisher?.publish({
       type: "schedule_updated",

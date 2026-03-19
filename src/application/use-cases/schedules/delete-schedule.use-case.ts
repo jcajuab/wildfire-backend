@@ -1,5 +1,8 @@
 import { type ContentRepository } from "#/application/ports/content";
-import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
+import {
+  type AdminDisplayLifecycleEventPublisher,
+  type DisplayStreamEventPublisher,
+} from "#/application/ports/display-stream-events";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { NotFoundError } from "./errors";
@@ -12,6 +15,7 @@ export class DeleteScheduleUseCase {
       playlistRepository: PlaylistRepository;
       contentRepository: ContentRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
+      adminLifecycleEventPublisher?: AdminDisplayLifecycleEventPublisher;
     },
   ) {}
 
@@ -37,6 +41,12 @@ export class DeleteScheduleUseCase {
           existing.playlistId,
           "DRAFT",
         );
+        this.deps.adminLifecycleEventPublisher?.publish({
+          type: "playlist_status_changed",
+          playlistId: existing.playlistId,
+          status: "DRAFT",
+          occurredAt: new Date().toISOString(),
+        });
       }
     }
     this.deps.displayEventPublisher?.publish({

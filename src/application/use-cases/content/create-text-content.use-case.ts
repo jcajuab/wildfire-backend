@@ -5,9 +5,11 @@ import {
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import { sha256Hex } from "#/domain/content/checksum";
+import {
+  countTextContentCharacters,
+  TEXT_CONTENT_MAX_CHARS,
+} from "#/domain/content/text-content";
 import { toContentView } from "./content-view";
-
-const TEXT_CONTENT_MAX_CHARS = 5000;
 
 const createTextFileKey = (contentId: string): string =>
   `content/text/${contentId}.json`;
@@ -18,12 +20,6 @@ const buildTextChecksum = async (input: {
 }): Promise<string> => {
   const payload = JSON.stringify(input);
   return sha256Hex(new TextEncoder().encode(payload).buffer);
-};
-
-const countTextContentCharacters = (htmlContent: string): number => {
-  // Strip HTML tags to count actual text characters
-  const textOnly = htmlContent.replace(/<[^>]*>/g, "");
-  return textOnly.length;
 };
 
 export class CreateTextContentUseCase {
