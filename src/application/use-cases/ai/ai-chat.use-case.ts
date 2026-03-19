@@ -5,7 +5,6 @@ import {
   type AIMessage,
   type AIStreamResponse,
   type AuditLogger,
-  type PendingActionStore,
 } from "#/application/ports/ai";
 import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import { type AIToolExecutor } from "./ai-tool-executor";
@@ -19,7 +18,6 @@ export interface AIChatDeps {
   credentialsRepository: AICredentialsRepository;
   encryptionService: AIKeyEncryptionService;
   toolExecutor: AIToolExecutor;
-  pendingActionStore: PendingActionStore;
   auditLogger: AuditLogger;
   executeAIChat: (
     config: {

@@ -21,9 +21,6 @@ export interface AIToolResult {
   success: boolean;
   data?: unknown;
   error?: string;
-  requiresConfirmation?: boolean;
-  confirmationToken?: string;
-  confirmationSummary?: string;
 }
 
 /** Minimal interface for the streamText result used by the chat route. */
@@ -31,32 +28,6 @@ export interface AIStreamResponse {
   toUIMessageStreamResponse(options?: {
     headers?: Record<string, string>;
   }): Response;
-}
-
-export interface PendingAction {
-  token: string;
-  conversationId: string;
-  userId: string;
-  actionType: "edit" | "delete";
-  resourceType: "content" | "playlist" | "schedule";
-  resourceId: string;
-  payload: Record<string, unknown>;
-  summary: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
-export interface PendingActionStore {
-  create(
-    action: Omit<PendingAction, "token" | "createdAt" | "expiresAt">,
-  ): Promise<PendingAction>;
-  get(
-    token: string,
-    userId: string,
-    conversationId: string,
-  ): Promise<PendingAction | null>;
-  delete(token: string): Promise<boolean>;
-  listForUser(userId: string): Promise<PendingAction[]>;
 }
 
 export interface AICredential {

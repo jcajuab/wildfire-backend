@@ -95,7 +95,7 @@ export const AI_TOOLS = {
   },
 
   edit_content: {
-    description: "Edit existing content (requires user confirmation)",
+    description: "Edit existing content",
     inputSchema: z.object({
       contentId: z.string().uuid().describe("Content ID to edit"),
       title: z.string().optional().describe("New content title"),
@@ -110,7 +110,7 @@ export const AI_TOOLS = {
   },
 
   delete_content: {
-    description: "Delete content (requires user confirmation)",
+    description: "Delete content",
     inputSchema: z.object({
       contentId: z.string().uuid().describe("Content ID to delete"),
     }),
@@ -118,7 +118,7 @@ export const AI_TOOLS = {
   },
 
   edit_playlist: {
-    description: "Edit existing playlist (requires user confirmation)",
+    description: "Edit existing playlist",
     inputSchema: z.object({
       playlistId: z.string().uuid().describe("Playlist ID to edit"),
       name: z.string().optional().describe("New playlist name"),
@@ -135,7 +135,7 @@ export const AI_TOOLS = {
   },
 
   delete_playlist: {
-    description: "Delete playlist (requires user confirmation)",
+    description: "Delete playlist",
     inputSchema: z.object({
       playlistId: z.string().uuid().describe("Playlist ID to delete"),
     }),
@@ -143,8 +143,7 @@ export const AI_TOOLS = {
   },
 
   edit_schedule: {
-    description:
-      "Edit an existing playlist schedule (requires user confirmation)",
+    description: "Edit an existing playlist schedule",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to edit"),
       name: z.string().optional().describe("New schedule name"),
@@ -159,8 +158,7 @@ export const AI_TOOLS = {
   },
 
   edit_flash_schedule: {
-    description:
-      "Edit an existing flash content schedule (requires user confirmation)",
+    description: "Edit an existing flash content schedule",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to edit"),
       name: z.string().optional().describe("New schedule name"),
@@ -175,7 +173,7 @@ export const AI_TOOLS = {
   },
 
   delete_schedule: {
-    description: "Delete a playlist schedule (requires user confirmation)",
+    description: "Delete a playlist schedule",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to delete"),
     }),
@@ -183,7 +181,7 @@ export const AI_TOOLS = {
   },
 
   delete_flash_schedule: {
-    description: "Delete a flash content schedule (requires user confirmation)",
+    description: "Delete a flash content schedule",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to delete"),
     }),

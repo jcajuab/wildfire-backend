@@ -3,11 +3,8 @@ import { type AuthSessionRepository } from "#/application/ports/auth";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import {
   type AIChatUseCase,
-  type AIConfirmActionUseCase,
-  type CancelPendingActionUseCase,
   type DeleteAICredentialUseCase,
   type ListAICredentialsUseCase,
-  type ListPendingActionsUseCase,
   type StoreAICredentialUseCase,
 } from "#/application/use-cases/ai";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
@@ -28,9 +25,6 @@ export interface AIRouterDeps {
 
 export interface AIRouterUseCases {
   aiChat: AIChatUseCase;
-  aiConfirmAction: AIConfirmActionUseCase;
-  cancelPendingAction: CancelPendingActionUseCase;
-  listPendingActions: ListPendingActionsUseCase;
   storeCredential: StoreAICredentialUseCase;
   listCredentials: ListAICredentialsUseCase;
   deleteCredential: DeleteAICredentialUseCase;

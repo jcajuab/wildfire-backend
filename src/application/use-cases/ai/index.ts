@@ -1,11 +1,6 @@
 export type { AIChatDeps } from "./ai-chat.use-case";
 export { AIChatUseCase } from "./ai-chat.use-case";
 export {
-  AIConfirmActionUseCase,
-  CancelPendingActionUseCase,
-  ListPendingActionsUseCase,
-} from "./ai-confirm.use-case";
-export {
   DeleteAICredentialUseCase,
   ListAICredentialsUseCase,
   StoreAICredentialUseCase,

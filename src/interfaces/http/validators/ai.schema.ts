@@ -22,15 +22,6 @@ export const aiChatRequestSchema = z.object({
   maxTokens: z.number().int().positive().max(8192).optional(),
 });
 
-export const aiConfirmRequestSchema = z.object({
-  conversationId: z.string().uuid(),
-  approved: z.boolean(),
-});
-
-export const aiCancelPendingSchema = z.object({
-  token: z.string().uuid(),
-});
-
 // Credentials management schemas
 export const aiStoreCredentialRequestSchema = z.object({
   provider: aiProviderSchema,
