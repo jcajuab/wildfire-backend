@@ -5,13 +5,13 @@ import {
   type AICredentialsRepository,
   type AuditLogger,
 } from "#/application/ports/ai";
-import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
+import { type EncryptionService } from "#/application/ports/encryption";
 
 export class StoreAICredentialUseCase {
   constructor(
     private readonly deps: {
       credentialsRepository: AICredentialsRepository;
-      encryptionService: AIKeyEncryptionService;
+      encryptionService: EncryptionService;
       auditLogger: AuditLogger;
     },
   ) {}
@@ -28,7 +28,7 @@ export class StoreAICredentialUseCase {
     const { encryptedKey, iv, authTag } = this.deps.encryptionService.encrypt(
       input.apiKey,
     );
-    const keyHint = AIKeyEncryptionService.generateKeyHint(input.apiKey);
+    const keyHint = this.deps.encryptionService.generateKeyHint(input.apiKey);
 
     const credential = await this.deps.credentialsRepository.create({
       userId: input.userId,

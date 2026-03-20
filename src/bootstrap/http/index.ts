@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type RequestIdVariables } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import { openAPIRouteHandler } from "hono-openapi";
 import { createDefaultHealthDependencyChecks } from "#/bootstrap/http/health-checks";
 import {
@@ -570,6 +571,15 @@ const aiModule = createAIModule({
   storage: container.storage.contentStorage,
 });
 const aiRouter = createAIRouter(aiModule);
+
+app.use(
+  "*",
+  secureHeaders({
+    xFrameOptions: "DENY",
+    xContentTypeOptions: "nosniff",
+    strictTransportSecurity: "max-age=31536000; includeSubDomains",
+  }),
+);
 
 app.use(
   "*",

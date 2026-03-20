@@ -21,33 +21,27 @@ const mapRuntimeControlRowToRecord = (
 
 export class RuntimeControlDbRepository implements RuntimeControlRepository {
   async getGlobal(): Promise<RuntimeControlRecord> {
+    const now = new Date();
+    await db
+      .insert(runtimeControl)
+      .values({
+        id: GLOBAL_ID,
+        globalEmergencyActive: false,
+        globalEmergencyStartedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onDuplicateKeyUpdate({ set: { id: GLOBAL_ID } });
+
     const rows = await db
       .select()
       .from(runtimeControl)
       .where(eq(runtimeControl.id, GLOBAL_ID))
       .limit(1);
 
-    const existing = rows[0];
-    if (existing) {
-      return mapRuntimeControlRowToRecord(existing);
-    }
-
-    const now = new Date();
-    await db.insert(runtimeControl).values({
-      id: GLOBAL_ID,
-      globalEmergencyActive: false,
-      globalEmergencyStartedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return {
-      id: GLOBAL_ID,
-      globalEmergencyActive: false,
-      globalEmergencyStartedAt: null,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    };
+    const row = rows[0];
+    if (!row) throw new Error("Failed to upsert global runtime control");
+    return mapRuntimeControlRowToRecord(row);
   }
 
   async setGlobalEmergencyState(input: {

@@ -157,6 +157,7 @@ describe("Invitation use cases", () => {
         createPasswordHash: async () => {
           events.push("credentials");
         },
+        listUserIdsWithPasswordHash: async () => [],
       },
     });
 

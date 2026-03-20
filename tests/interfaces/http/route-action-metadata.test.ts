@@ -54,6 +54,7 @@ const buildAuthActionApp = () => {
       username === userRecord.username ? "hash" : null,
     updatePasswordHash: async () => {},
     createPasswordHash: async () => {},
+    listUserIdsWithPasswordHash: async () => [],
   };
   const passwordVerifier = {
     verify: async (input: { password: string; passwordHash: string }) =>
@@ -67,6 +68,7 @@ const buildAuthActionApp = () => {
     upload: async () => {},
     delete: async () => {},
     getPresignedDownloadUrl: async () => "https://example.com/avatar",
+    checkConnectivity: async () => ({ ok: true }),
   };
   const userRepository = {
     list: async () => [userRecord],
@@ -108,6 +110,7 @@ const buildAuthActionApp = () => {
         findPasswordHash: async () => null,
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       passwordVerifier,
       passwordHasher,
@@ -275,6 +278,7 @@ const buildContentActionApp = async () => {
         download: async () => new Uint8Array(),
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/file",
+        checkConnectivity: async () => ({ ok: true }),
       },
       contentIngestionQueue: {
         enqueue: async () => {},
@@ -368,6 +372,7 @@ const buildRbacActionApp = async () => {
         findPasswordHash: async () => null,
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       passwordHasher: {
         hash: async (p: string) => p,

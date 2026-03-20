@@ -36,12 +36,12 @@ export const env = createEnv({
       .string()
       .default("http://localhost:3000")
       .transform(parseCorsOrigins),
-    TRUST_PROXY_HEADERS: z.string().default("true").pipe(z.stringbool()),
+    TRUST_PROXY_HEADERS: z.string().default("false").pipe(z.stringbool()),
 
     // Admin identity
     ADMIN_USERNAME: z.string().min(1),
     ADMIN_EMAIL: z.string().email().optional(),
-    ADMIN_PASSWORD: z.string(),
+    ADMIN_PASSWORD: z.string().min(12),
 
     // MySQL
     MYSQL_HOST: z.string(),
@@ -151,20 +151,14 @@ export const env = createEnv({
     AI_ENCRYPTION_KEY: z
       .string()
       .length(64)
-      .regex(/^[0-9a-fA-F]+$/, "Must be a 64-character hex string")
-      .default(
-        "0000000000000000000000000000000000000000000000000000000000000000",
-      ),
+      .regex(/^[0-9a-fA-F]+$/, "Must be a 64-character hex string"),
 
     // Invite link encryption
     // 32-byte hex-encoded AES-256 key for encrypting invite tokens for on-demand reveal
     INVITE_ENCRYPTION_KEY: z
       .string()
       .length(64)
-      .regex(/^[0-9a-fA-F]+$/, "Must be a 64-character hex string")
-      .default(
-        "0000000000000000000000000000000000000000000000000000000000000000",
-      ),
+      .regex(/^[0-9a-fA-F]+$/, "Must be a 64-character hex string"),
     AI_ALLOWED_CORS_HEADERS: z.string().default("X-AI-Provider-Key"),
     AI_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     AI_RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(20),

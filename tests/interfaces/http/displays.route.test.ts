@@ -800,6 +800,7 @@ const makeApp = async (
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/file",
+        checkConnectivity: async () => ({ ok: true }),
       },
       displayEventPublisher: {
         publish: () => {},

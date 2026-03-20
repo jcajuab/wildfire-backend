@@ -1,13 +1,13 @@
 import { NotFoundError } from "#/application/errors/not-found";
 import { type InvitationRepository } from "#/application/ports/auth";
-import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
+import { type EncryptionService } from "#/application/ports/encryption";
 import { buildInviteUrl } from "./create-invitation.use-case";
 
 export class RevealInvitationLinkUseCase {
   constructor(
     private readonly deps: {
       invitationRepository: InvitationRepository;
-      encryptionService: AIKeyEncryptionService;
+      encryptionService: EncryptionService;
       inviteAcceptBaseUrl: string;
     },
   ) {}

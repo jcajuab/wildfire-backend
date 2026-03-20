@@ -3,7 +3,10 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import { type DisplayGroupRepository } from "#/application/ports/displays";
+import {
+  type DisplayGroupRepository,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
   type AuthorizationRepository,
@@ -32,7 +35,6 @@ import { ListSchedulesUseCase } from "#/application/use-cases/schedules/list-sch
 import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import { AICredentialsDbRepository } from "#/infrastructure/db/repositories/ai-credentials.repo";
-import { type DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
 import { logger } from "#/infrastructure/observability/logger";
 import { type AuditLogQueue } from "#/interfaces/http/audit/audit-queue";
 import {
@@ -53,7 +55,7 @@ export interface AIHttpModuleConfig {
     contentRepository: ContentRepository;
     playlistRepository: PlaylistRepository;
     scheduleRepository: ScheduleRepository;
-    displayRepository: DisplayDbRepository;
+    displayRepository: DisplayRepository;
     displayGroupRepository: DisplayGroupRepository;
     userRepository: UserRepository;
   };

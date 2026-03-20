@@ -160,6 +160,7 @@ const makeApp = async (
       expiresInSeconds: number;
       responseContentDisposition?: string;
     }) => `https://cdn.example.com/${input.key}`,
+    checkConnectivity: async () => ({ ok: true }),
   };
 
   const router = createPlaylistsRouter(

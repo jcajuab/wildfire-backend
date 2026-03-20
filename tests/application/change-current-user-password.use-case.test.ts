@@ -43,6 +43,7 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
           updatedHash = passwordHash;
         },
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       passwordVerifier: {
         verify: async () => true,
@@ -97,6 +98,7 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
         findPasswordHash: async () => "old-hash",
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       passwordVerifier: {
         verify: async () => false,
@@ -143,6 +145,7 @@ describe("ChangeCurrentUserPasswordUseCase", () => {
         findPasswordHash: async () => "old-hash",
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       passwordVerifier: {
         verify: async () => true,

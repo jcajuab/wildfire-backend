@@ -8,6 +8,7 @@ export interface CredentialsReader {
 export interface CredentialsRepository extends CredentialsReader {
   updatePasswordHash(username: string, newPasswordHash: string): Promise<void>;
   createPasswordHash(username: string, passwordHash: string): Promise<void>;
+  listUserIdsWithPasswordHash(): Promise<string[]>;
 }
 
 export interface PasswordHasher {
@@ -67,40 +68,6 @@ export interface AuthSessionRepository {
     newExpiresAt: Date;
   }): Promise<boolean>;
   revokeByFamilyId(familyId: string): Promise<number>;
-}
-
-export interface PasswordResetTokenRepository {
-  store(input: {
-    hashedToken: string;
-    email: string;
-    expiresAt: Date;
-  }): Promise<void>;
-  findByHashedToken(
-    hashedToken: string,
-    now: Date,
-  ): Promise<{ email: string } | null>;
-  consumeByHashedToken(hashedToken: string): Promise<void>;
-  deleteExpired(now: Date): Promise<void>;
-}
-
-export interface EmailChangeTokenRepository {
-  store(input: {
-    userId: string;
-    email: string;
-    hashedToken: string;
-    expiresAt: Date;
-  }): Promise<void>;
-  findByHashedToken(
-    hashedToken: string,
-    now: Date,
-  ): Promise<{ userId: string; email: string; expiresAt: Date } | null>;
-  findPendingByUserId(
-    userId: string,
-    now: Date,
-  ): Promise<{ email: string; expiresAt: Date } | null>;
-  consumeByHashedToken(hashedToken: string): Promise<void>;
-  deleteByUserId(userId: string): Promise<void>;
-  deleteExpired(now: Date): Promise<void>;
 }
 
 export interface InvitationRepository {

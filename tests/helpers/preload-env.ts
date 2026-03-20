@@ -3,7 +3,7 @@ const defaults: Record<string, string> = {
   NODE_ENV: "test",
   ADMIN_USERNAME: "admin",
   ADMIN_EMAIL: "admin@example.com",
-  ADMIN_PASSWORD: "admin",
+  ADMIN_PASSWORD: "admin-test-password",
   MYSQL_HOST: "127.0.0.1",
   MYSQL_PORT: "3306",
   MYSQL_DATABASE: "wildfire_test",
@@ -41,6 +41,10 @@ const defaults: Record<string, string> = {
   AUDIT_EXPORT_MAX_ROWS: "100000",
   SCHEDULE_TIMEZONE: "UTC",
   CORS_ORIGINS: "http://localhost:3000",
+  AI_ENCRYPTION_KEY:
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  INVITE_ENCRYPTION_KEY:
+    "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
 };
 
 for (const [key, value] of Object.entries(defaults)) {

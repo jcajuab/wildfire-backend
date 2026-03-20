@@ -29,7 +29,7 @@ type ValidationHookResult =
 
 const validationHook = (
   result: ValidationHookResult,
-  // biome-ignore lint/suspicious/noExplicitAny: hono 4.12+ requires looser Context generic for hook compatibility
+  // biome-ignore lint/suspicious/noExplicitAny: hono 4.12 changed HonoRequest internals; cast needed for hook compat
   c: Context<any, any, any>,
 ): HookResult => {
   if (!result.success) {
@@ -43,15 +43,19 @@ const validationHook = (
 };
 
 const validateJson = <Schema extends StandardSchemaV1>(schema: Schema) =>
-  validator("json", schema, validationHook);
+  // biome-ignore lint/suspicious/noExplicitAny: hook cast required for hono 4.12 validator type compatibility
+  validator("json", schema, validationHook as any);
 
 const validateForm = <Schema extends StandardSchemaV1>(schema: Schema) =>
-  sValidator("form", schema, validationHook);
+  // biome-ignore lint/suspicious/noExplicitAny: sValidator returns Handler<Env> incompatible with typed routers in hono 4.12
+  sValidator("form", schema, validationHook as any) as any;
 
 const validateQuery = <Schema extends StandardSchemaV1>(schema: Schema) =>
-  validator("query", schema, validationHook);
+  // biome-ignore lint/suspicious/noExplicitAny: hook cast required for hono 4.12 validator type compatibility
+  validator("query", schema, validationHook as any);
 
 const validateParams = <Schema extends StandardSchemaV1>(schema: Schema) =>
-  validator("param", schema, validationHook);
+  // biome-ignore lint/suspicious/noExplicitAny: hook cast required for hono 4.12 validator type compatibility
+  validator("param", schema, validationHook as any);
 
 export { validateJson, validateForm, validateQuery, validateParams };

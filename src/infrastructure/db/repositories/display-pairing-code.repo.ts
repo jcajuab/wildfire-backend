@@ -121,6 +121,7 @@ export class DisplayPairingCodeRedisRepository
     ]);
 
     if (toScriptString(setResult) !== "OK") {
+      await executeRedisCommand<number>(redis, ["DEL", pairingCodeKey(id)]);
       throw new DisplayPairingCodeCollisionError();
     }
 

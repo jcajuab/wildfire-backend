@@ -1,4 +1,48 @@
-import { type CredentialsReader } from "#/application/ports/auth";
+import { type AuditLogRepository } from "#/application/ports/audit";
+import {
+  type AuthSessionRepository,
+  type Clock,
+  type CredentialsReader,
+  type CredentialsRepository,
+  type InvitationRepository,
+  type PasswordHasher,
+  type PasswordVerifier,
+  type TokenIssuer,
+} from "#/application/ports/auth";
+import {
+  type ContentMetadataExtractor,
+  type ContentRepository,
+  type ContentStorage,
+  type ContentThumbnailGenerator,
+} from "#/application/ports/content";
+import { type ContentIngestionJobRepository } from "#/application/ports/content-jobs";
+import {
+  type DisplayAuthNonceRepository,
+  type DisplayKeyRepository,
+  type DisplayPairingSessionRepository,
+} from "#/application/ports/display-auth";
+import { type DisplayPairingCodeRepository } from "#/application/ports/display-pairing";
+import {
+  type DisplayGroupRepository,
+  type DisplayPreviewRepository,
+  type DisplayRepository,
+} from "#/application/ports/displays";
+import {
+  type PdfCropRenderer,
+  type PdfCropSessionStore,
+  type PdfPageExtractor,
+} from "#/application/ports/pdf-crop";
+import { type PlaylistRepository } from "#/application/ports/playlists";
+import {
+  type AuthorizationRepository,
+  type PermissionRepository,
+  type RolePermissionRepository,
+  type RoleRepository,
+  type UserRepository,
+  type UserRoleRepository,
+} from "#/application/ports/rbac";
+import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import { BcryptPasswordHasher } from "#/infrastructure/auth/bcrypt-password.hasher";
 import { BcryptPasswordVerifier } from "#/infrastructure/auth/bcrypt-password.verifier";
 import { HtshadowCredentialsRepository } from "#/infrastructure/auth/htshadow.repo";
@@ -52,49 +96,49 @@ export interface HttpContainerConfig {
 export interface HttpContainer {
   repositories: {
     // Auth & sessions
-    authSessionRepository: AuthSessionDbRepository;
-    invitationRepository: InvitationDbRepository;
+    authSessionRepository: AuthSessionRepository;
+    invitationRepository: InvitationRepository;
     // RBAC
-    userRepository: UserDbRepository;
-    roleRepository: RoleDbRepository;
-    permissionRepository: PermissionDbRepository;
-    userRoleRepository: UserRoleDbRepository;
-    rolePermissionRepository: RolePermissionDbRepository;
-    authorizationRepository: AuthorizationDbRepository;
+    userRepository: UserRepository;
+    roleRepository: RoleRepository;
+    permissionRepository: PermissionRepository;
+    userRoleRepository: UserRoleRepository;
+    rolePermissionRepository: RolePermissionRepository;
+    authorizationRepository: AuthorizationRepository;
     // Content
-    contentRepository: ContentDbRepository;
-    contentIngestionJobRepository: ContentIngestionJobDbRepository;
+    contentRepository: ContentRepository;
+    contentIngestionJobRepository: ContentIngestionJobRepository;
     // Playlists & schedules
-    playlistRepository: PlaylistDbRepository;
-    scheduleRepository: ScheduleDbRepository;
+    playlistRepository: PlaylistRepository;
+    scheduleRepository: ScheduleRepository;
     // Displays
-    displayRepository: DisplayDbRepository;
-    displayGroupRepository: DisplayGroupDbRepository;
-    displayKeyRepository: DisplayKeyDbRepository;
-    displayPairingCodeRepository: DisplayPairingCodeRedisRepository;
-    displayPairingSessionRepository: DisplayPairingSessionRedisRepository;
-    displayAuthNonceRepository: DisplayAuthNonceRedisRepository;
-    displayPreviewRepository: DisplayPreviewRedisRepository;
-    runtimeControlRepository: RuntimeControlDbRepository;
+    displayRepository: DisplayRepository;
+    displayGroupRepository: DisplayGroupRepository;
+    displayKeyRepository: DisplayKeyRepository;
+    displayPairingCodeRepository: DisplayPairingCodeRepository;
+    displayPairingSessionRepository: DisplayPairingSessionRepository;
+    displayAuthNonceRepository: DisplayAuthNonceRepository;
+    displayPreviewRepository: DisplayPreviewRepository;
+    runtimeControlRepository: RuntimeControlRepository;
     // Audit
-    auditLogRepository: AuditLogDbRepository;
+    auditLogRepository: AuditLogRepository;
   };
   auth: {
     /** Read-only htshadow credential lookup; Wildfire must not write to htshadow. */
     credentialsRepository: CredentialsReader;
-    dbCredentialsRepository: DbCredentialsRepository;
-    passwordVerifier: BcryptPasswordVerifier;
-    passwordHasher: BcryptPasswordHasher;
-    tokenIssuer: JwtTokenIssuer;
-    clock: SystemClock;
+    dbCredentialsRepository: CredentialsRepository;
+    passwordVerifier: PasswordVerifier;
+    passwordHasher: PasswordHasher;
+    tokenIssuer: TokenIssuer;
+    clock: Clock;
   };
   storage: {
-    contentStorage: S3ContentStorage;
-    contentMetadataExtractor: DefaultContentMetadataExtractor;
-    contentThumbnailGenerator: DefaultContentThumbnailGenerator;
-    pdfCropSessionStore: RedisPdfCropSessionStore;
-    pdfPageExtractor: PdfLibPageExtractor;
-    pdfCropRenderer: PdftoppmCropRenderer;
+    contentStorage: ContentStorage;
+    contentMetadataExtractor: ContentMetadataExtractor;
+    contentThumbnailGenerator: ContentThumbnailGenerator;
+    pdfCropSessionStore: PdfCropSessionStore;
+    pdfPageExtractor: PdfPageExtractor;
+    pdfCropRenderer: PdfCropRenderer;
     minioEndpoint: string;
   };
 }

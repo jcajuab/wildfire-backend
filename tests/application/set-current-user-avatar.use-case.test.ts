@@ -54,6 +54,7 @@ describe("SetCurrentUserAvatarUseCase", () => {
           deletedKeys.push(key);
         },
         getPresignedDownloadUrl: async () => "https://example.com/avatar",
+        checkConnectivity: async () => ({ ok: true }),
       },
     });
 
@@ -95,6 +96,7 @@ describe("SetCurrentUserAvatarUseCase", () => {
         upload: async () => {},
         delete: async () => {},
         getPresignedDownloadUrl: async () => "https://example.com/avatar",
+        checkConnectivity: async () => ({ ok: true }),
       },
     });
 

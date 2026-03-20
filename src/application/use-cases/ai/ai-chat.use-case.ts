@@ -6,7 +6,7 @@ import {
   type AIStreamResponse,
   type AuditLogger,
 } from "#/application/ports/ai";
-import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
+import { type EncryptionService } from "#/application/ports/encryption";
 import { type AIToolExecutor } from "./ai-tool-executor";
 import {
   AI_SYSTEM_PROMPT,
@@ -24,7 +24,7 @@ function extractText(msg: UIMessage): string {
 
 export interface AIChatDeps {
   credentialsRepository: AICredentialsRepository;
-  encryptionService: AIKeyEncryptionService;
+  encryptionService: EncryptionService;
   toolExecutor: AIToolExecutor;
   auditLogger: AuditLogger;
   executeAIChat: (

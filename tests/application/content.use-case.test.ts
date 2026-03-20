@@ -174,6 +174,7 @@ const makeStorage = (options?: {
       }
     },
     getPresignedDownloadUrl: async ({ key }) => `https://example.com/${key}`,
+    checkConnectivity: async () => ({ ok: true }),
   };
 
   return {

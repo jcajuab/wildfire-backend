@@ -5,7 +5,7 @@ export const setTestEnv = (overrides: EnvOverrides = {}) => {
     PORT: "3000",
     ADMIN_USERNAME: "admin",
     ADMIN_EMAIL: "admin@example.com",
-    ADMIN_PASSWORD: "admin",
+    ADMIN_PASSWORD: "admin-test-password",
     HTSHADOW_PATH: "/etc/htshadow",
     MYSQL_HOST: "127.0.0.1",
     MYSQL_PORT: "3306",

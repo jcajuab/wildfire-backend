@@ -1,9 +1,10 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { type EncryptionService } from "#/application/ports/encryption";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 
-export class AIKeyEncryptionService {
+export class AIKeyEncryptionService implements EncryptionService {
   constructor(
     // Master key from environment variable - 32 bytes for AES-256
     private readonly masterKey: Buffer,
@@ -50,7 +51,7 @@ export class AIKeyEncryptionService {
     return decrypted;
   }
 
-  static generateKeyHint(apiKey: string): string {
+  generateKeyHint(apiKey: string): string {
     // Show last 4 chars with prefix: "...1234"
     if (apiKey.length <= 4) {
       return `...${"*".repeat(apiKey.length)}`;

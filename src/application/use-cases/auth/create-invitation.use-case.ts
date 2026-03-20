@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ValidationError } from "#/application/errors/validation";
 import { type InvitationRepository } from "#/application/ports/auth";
+import { type EncryptionService } from "#/application/ports/encryption";
 import { type UserRepository } from "#/application/ports/rbac";
-import { type AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 
 const DEFAULT_INVITE_NAME = "User";
 
@@ -21,7 +21,7 @@ export class CreateInvitationUseCase {
       invitationRepository: InvitationRepository;
       inviteTokenTtlSeconds: number;
       inviteAcceptBaseUrl: string;
-      encryptionService: AIKeyEncryptionService;
+      encryptionService: EncryptionService;
     },
   ) {}
 

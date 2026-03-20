@@ -278,6 +278,7 @@ const buildApp = (grantedPermissions: string[]) => {
           findPasswordHash: async () => null,
           updatePasswordHash: async () => {},
           createPasswordHash: async () => {},
+          listUserIdsWithPasswordHash: async () => [],
         },
         passwordHasher: {
           hash: async (p: string) => p,

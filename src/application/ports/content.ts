@@ -121,6 +121,7 @@ export interface ContentStorage {
     expiresInSeconds: number;
     responseContentDisposition?: string;
   }): Promise<string>;
+  checkConnectivity(): Promise<{ ok: boolean; error?: string }>;
 }
 
 export interface ContentMetadataExtractor {

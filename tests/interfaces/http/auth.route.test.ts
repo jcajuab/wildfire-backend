@@ -55,6 +55,7 @@ const createInMemoryDbCredentials = (): CredentialsRepository => {
     createPasswordHash: async (username, hash) => {
       store.set(username.trim().toLowerCase(), hash);
     },
+    listUserIdsWithPasswordHash: async () => [],
   };
 };
 
@@ -306,6 +307,7 @@ const buildApp = (opts?: {
     upload: async () => {},
     delete: async () => {},
     getPresignedDownloadUrl: async () => "https://example.com/avatar-presigned",
+    checkConnectivity: async () => ({ ok: true }),
   };
   const avatarStorage = opts?.avatarStorage ?? defaultAvatarStorage;
   const sessions = new Map<
@@ -719,6 +721,7 @@ describe("Auth routes", () => {
             passwordHash = nextHash;
           },
           createPasswordHash: async () => {},
+          listUserIdsWithPasswordHash: async () => [],
         },
       });
       const token = await issueToken();
@@ -748,6 +751,7 @@ describe("Auth routes", () => {
         delete: async () => {},
         getPresignedDownloadUrl: async ({ key }) =>
           `https://example.com/download/${key}`,
+        checkConnectivity: async () => ({ ok: true }),
       };
 
       const { app } = buildApp({ avatarStorage });
@@ -944,6 +948,7 @@ describe("Auth routes", () => {
         createPasswordHash: async (username, passwordHash) => {
           credentials.set(username, passwordHash);
         },
+        listUserIdsWithPasswordHash: async () => [],
       };
 
       const { app } = buildApp({

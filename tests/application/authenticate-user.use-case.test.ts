@@ -62,6 +62,7 @@ const makeDeps = () => {
         findPasswordHash: async () => "hash",
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       htshadowCredentialsReader: {
         findPasswordHash: async () => "hash",
@@ -145,6 +146,7 @@ describe("AuthenticateUserUseCase", () => {
         findPasswordHash: async () => null,
         updatePasswordHash: async () => {},
         createPasswordHash: async () => {},
+        listUserIdsWithPasswordHash: async () => [],
       },
       htshadowCredentialsReader: {
         findPasswordHash: async () => null,

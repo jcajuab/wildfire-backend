@@ -132,6 +132,7 @@ const makeApp = async (permissions: string[]) => {
             )}`
           : ""
       }`,
+    checkConnectivity: async () => ({ ok: true }),
   };
   const userRepository = {
     list: async () => [],

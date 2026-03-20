@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { type MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 import { logger } from "#/infrastructure/observability/logger";
@@ -20,7 +21,14 @@ export const createCsrfMiddleware = (
     const csrfHeader = c.req.header("x-csrf-token");
     const csrfCookie = getCookie(c, csrfCookieName);
 
-    if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+    const headerBuf = Buffer.from(csrfHeader ?? "");
+    const cookieBuf = Buffer.from(csrfCookie ?? "");
+    const tokenMismatch =
+      !csrfHeader ||
+      !csrfCookie ||
+      headerBuf.length !== cookieBuf.length ||
+      !timingSafeEqual(headerBuf, cookieBuf);
+    if (tokenMismatch) {
       logger.warn(
         {
           event: "csrf.validation.failed",
