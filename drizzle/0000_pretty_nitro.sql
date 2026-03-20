@@ -35,6 +35,10 @@ CREATE TABLE `auth_sessions` (
 	`id` varchar(36) NOT NULL,
 	`user_id` varchar(36) NOT NULL,
 	`expires_at` timestamp NOT NULL,
+	`family_id` varchar(36) NOT NULL,
+	`current_jti` varchar(36) NOT NULL,
+	`previous_jti` varchar(36),
+	`previous_jti_expires_at` timestamp,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `auth_sessions_id` PRIMARY KEY(`id`)
@@ -57,6 +61,9 @@ CREATE TABLE `invitations` (
 	`email` varchar(255) NOT NULL,
 	`name` varchar(255),
 	`invited_by_user_id` varchar(36) NOT NULL,
+	`encrypted_token` text,
+	`token_iv` text,
+	`token_auth_tag` text,
 	`expires_at` timestamp NOT NULL,
 	`accepted_at` timestamp,
 	`revoked_at` timestamp,
@@ -198,6 +205,14 @@ CREATE TABLE `displays` (
 	CONSTRAINT `displays_fingerprint_output_unique` UNIQUE(`fingerprint`,`output`)
 );
 --> statement-breakpoint
+CREATE TABLE `password_hashes` (
+	`user_id` varchar(36) NOT NULL,
+	`password_hash` text NOT NULL,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `password_hashes_user_id` PRIMARY KEY(`user_id`)
+);
+--> statement-breakpoint
 CREATE TABLE `playlist_items` (
 	`id` varchar(36) NOT NULL,
 	`playlist_id` varchar(36) NOT NULL,
@@ -299,7 +314,6 @@ CREATE TABLE `schedules` (
 	`end_date` varchar(10) NOT NULL,
 	`start_time` varchar(5) NOT NULL,
 	`end_time` varchar(5) NOT NULL,
-	`is_active` boolean NOT NULL DEFAULT true,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `schedules_id` PRIMARY KEY(`id`)
@@ -322,6 +336,7 @@ ALTER TABLE `display_group_members` ADD CONSTRAINT `display_group_members_group_
 ALTER TABLE `display_group_members` ADD CONSTRAINT `display_group_members_display_id_displays_id_fk` FOREIGN KEY (`display_id`) REFERENCES `displays`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `display_runtime_states` ADD CONSTRAINT `display_runtime_states_display_id_displays_id_fk` FOREIGN KEY (`display_id`) REFERENCES `displays`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `displays` ADD CONSTRAINT `displays_emergency_content_id_content_id_fk` FOREIGN KEY (`emergency_content_id`) REFERENCES `content`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `password_hashes` ADD CONSTRAINT `password_hashes_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `playlist_items` ADD CONSTRAINT `playlist_items_playlist_id_playlists_id_fk` FOREIGN KEY (`playlist_id`) REFERENCES `playlists`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `playlist_items` ADD CONSTRAINT `playlist_items_content_id_content_id_fk` FOREIGN KEY (`content_id`) REFERENCES `content`(`id`) ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `playlists` ADD CONSTRAINT `playlists_owner_id_users_id_fk` FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -344,6 +359,7 @@ CREATE INDEX `audit_logs_request_id_idx` ON `audit_logs` (`request_id`);--> stat
 CREATE INDEX `auth_sessions_user_id_idx` ON `auth_sessions` (`user_id`);--> statement-breakpoint
 CREATE INDEX `auth_sessions_expires_at_idx` ON `auth_sessions` (`expires_at`);--> statement-breakpoint
 CREATE INDEX `auth_sessions_user_expires_at_idx` ON `auth_sessions` (`user_id`,`expires_at`);--> statement-breakpoint
+CREATE INDEX `auth_sessions_family_id_idx` ON `auth_sessions` (`family_id`);--> statement-breakpoint
 CREATE INDEX `email_change_tokens_expires_at_idx` ON `email_change_tokens` (`expires_at`);--> statement-breakpoint
 CREATE INDEX `invitations_email_created_at_idx` ON `invitations` (`email`,`created_at`);--> statement-breakpoint
 CREATE INDEX `invitations_expires_at_idx` ON `invitations` (`expires_at`);--> statement-breakpoint
@@ -377,4 +393,4 @@ CREATE INDEX `playlists_status_updated_at_idx` ON `playlists` (`status`,`updated
 CREATE INDEX `schedule_content_targets_content_id_idx` ON `schedule_content_targets` (`content_id`);--> statement-breakpoint
 CREATE INDEX `schedule_playlist_targets_playlist_id_idx` ON `schedule_playlist_targets` (`playlist_id`);--> statement-breakpoint
 CREATE INDEX `schedules_display_id_idx` ON `schedules` (`display_id`);--> statement-breakpoint
-CREATE INDEX `schedules_display_active_window_idx` ON `schedules` (`display_id`,`is_active`,`start_date`,`end_date`);
+CREATE INDEX `schedules_display_window_idx` ON `schedules` (`display_id`,`start_date`,`end_date`);
