@@ -45,5 +45,8 @@ export const toPlaylistItemView = (
     type: content.type,
     checksum: content.checksum,
     thumbnailUrl: input?.thumbnailUrl ?? null,
+    ...(content.type === "TEXT" && content.textHtmlContent
+      ? { textHtmlContent: content.textHtmlContent }
+      : {}),
   },
 });

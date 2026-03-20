@@ -231,7 +231,9 @@ export class AIToolExecutor {
           pageSize: 100,
         });
         const items = typedArgs.search
-          ? result.items.filter((d) => fuzzyMatch(d.name, typedArgs.search!))
+          ? result.items.filter((d) =>
+              fuzzyMatch(d.name, typedArgs.search ?? ""),
+            )
           : result.items;
         return { success: true, data: items };
       }
@@ -243,7 +245,9 @@ export class AIToolExecutor {
           pageSize: 100,
         });
         const items = typedArgs.search
-          ? result.items.filter((c) => fuzzyMatch(c.title, typedArgs.search!))
+          ? result.items.filter((c) =>
+              fuzzyMatch(c.title, typedArgs.search ?? ""),
+            )
           : result.items;
         return { success: true, data: items };
       }
@@ -255,7 +259,9 @@ export class AIToolExecutor {
           pageSize: 100,
         });
         const items = typedArgs.search
-          ? result.items.filter((p) => fuzzyMatch(p.name, typedArgs.search!))
+          ? result.items.filter((p) =>
+              fuzzyMatch(p.name, typedArgs.search ?? ""),
+            )
           : result.items;
         return { success: true, data: items };
       }
@@ -267,7 +273,9 @@ export class AIToolExecutor {
           pageSize: 100,
         });
         const items = typedArgs.search
-          ? result.items.filter((s) => fuzzyMatch(s.name, typedArgs.search!))
+          ? result.items.filter((s) =>
+              fuzzyMatch(s.name, typedArgs.search ?? ""),
+            )
           : result.items;
         return { success: true, data: items };
       }
