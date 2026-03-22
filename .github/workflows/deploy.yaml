@@ -25,23 +25,38 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Package deploy bundle
+      - name: Open SSH tunnel
         run: |
-          mkdir -p .deploy
-          cp out/server.js out/audit.worker.js out/content.worker.js .deploy/
-          cp -r drizzle/ .deploy/drizzle/
-          cp drizzle.config.ts .deploy/
-          tar czf deploy.tar.gz -C .deploy .
+          sshpass -p "${{ secrets.DEPLOY_PASSWORD }}" ssh -f -N \
+            -o StrictHostKeyChecking=no \
+            -p ${{ secrets.DEPLOY_PORT }} \
+            -L 3306:${{ secrets.MYSQL_HOST }}:${{ secrets.MYSQL_PORT }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+
+      - name: Run migrations
+        run: bun run db:migrate
+        env:
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+
+      - name: Close SSH tunnel
+        if: always()
+        run: pkill -f "ssh -f -N" || true
 
       - name: Upload via SFTP
         run: |
           sshpass -p "${{ secrets.DEPLOY_PASSWORD }}" sftp -P ${{ secrets.DEPLOY_PORT }} \
             -o StrictHostKeyChecking=no \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} <<SFTP
-          put deploy.tar.gz ${{ secrets.DEPLOY_PATH }}/deploy.tar.gz
+          put out/server.js ${{ secrets.DEPLOY_PATH }}/server.js
+          put out/audit.worker.js ${{ secrets.DEPLOY_PATH }}/audit.worker.js
+          put out/content.worker.js ${{ secrets.DEPLOY_PATH }}/content.worker.js
           SFTP
 
-      - name: Extract, migrate, and reload
+      - name: Reload PM2 processes
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -49,10 +64,6 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASSWORD }}
           script: |
-            cd ${{ secrets.DEPLOY_PATH }}
-            tar xzf deploy.tar.gz
-            rm deploy.tar.gz
-            bunx drizzle-kit migrate
             pm2 reload api-server
             pm2 reload audit-worker
             pm2 reload content-worker
