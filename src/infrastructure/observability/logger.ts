@@ -1,17 +1,6 @@
 import pino from "pino";
 import { env } from "#/env";
 
-const transport = env.LOG_PRETTY
-  ? pino.transport({
-      target: "pino-pretty",
-      options: {
-        singleLine: true,
-        colorize: true,
-        translateTime: "SYS:standard",
-      },
-    })
-  : undefined;
-
 export const logger = pino(
   {
     level: env.LOG_LEVEL,
@@ -19,5 +8,5 @@ export const logger = pino(
       service: "wildfire",
     },
   },
-  transport,
+  pino.destination({ fd: 1, sync: true }),
 );
