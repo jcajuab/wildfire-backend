@@ -57,12 +57,9 @@ jobs:
           SFTP
 
       - name: Reload PM2 processes
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          script: |
-            cd ${{ secrets.DEPLOY_PATH }}
-            pm2 reload ecosystem.config.cjs
+        run: |
+          sshpass -p "${{ secrets.DEPLOY_PASSWORD }}" ssh \
+            -o StrictHostKeyChecking=no \
+            -p ${{ secrets.DEPLOY_PORT }} \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && pm2 reload ecosystem.config.cjs"
