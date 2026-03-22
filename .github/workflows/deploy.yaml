@@ -42,15 +42,16 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
 
-      - name: Upload via SFTP
-        uses: wangyucode/sftp-upload-action@v2.0.4
+      - name: Upload via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASSWORD }}
-          localDir: ./out/
-          remoteDir: ${{ secrets.DEPLOY_PATH }}
+          source: out/server.js,out/audit.worker.js,out/content.worker.js
+          target: ${{ secrets.DEPLOY_PATH }}
+          strip_components: 1
 
       - name: Reload PM2 processes
         uses: appleboy/ssh-action@v1
