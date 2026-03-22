@@ -64,6 +64,5 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASSWORD }}
           script: |
-            pm2 reload api-server --update-env
-            pm2 reload audit-worker --update-env
-            pm2 reload content-worker --update-env
+            cd ${{ secrets.DEPLOY_PATH }}
+            pm2 reload ecosystem.config.cjs
