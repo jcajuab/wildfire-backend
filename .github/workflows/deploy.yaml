@@ -25,28 +25,23 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Upload build artifacts
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          source: out/server.js,out/audit.worker.js,out/content.worker.js
-          target: ${{ secrets.DEPLOY_PATH }}
-          strip_components: 1
+      - name: Package deploy bundle
+        run: |
+          mkdir -p .deploy
+          cp out/server.js out/audit.worker.js out/content.worker.js .deploy/
+          cp -r drizzle/ .deploy/drizzle/
+          cp drizzle.config.ts .deploy/
+          tar czf deploy.tar.gz -C .deploy .
 
-      - name: Upload migration files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          source: drizzle/,drizzle.config.ts
-          target: ${{ secrets.DEPLOY_PATH }}
+      - name: Upload via SFTP
+        run: |
+          sshpass -p "${{ secrets.DEPLOY_PASSWORD }}" sftp -P ${{ secrets.DEPLOY_PORT }} \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} <<SFTP
+          put deploy.tar.gz ${{ secrets.DEPLOY_PATH }}/deploy.tar.gz
+          SFTP
 
-      - name: Run migrations and reload PM2
+      - name: Extract, migrate, and reload
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -55,6 +50,8 @@ jobs:
           password: ${{ secrets.DEPLOY_PASSWORD }}
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
+            tar xzf deploy.tar.gz
+            rm deploy.tar.gz
             bunx drizzle-kit migrate
             pm2 reload api-server
             pm2 reload audit-worker
