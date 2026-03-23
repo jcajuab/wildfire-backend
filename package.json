@@ -4,7 +4,7 @@
   "description": "A digital signage management system",
   "type": "module",
   "scripts": {
-    "build": "bun run typecheck && rm -rf out && bun build --target bun src/index.ts workers/audit-stream.worker.ts workers/content-ingestion.worker.ts --outdir out && mv out/src/index.js out/server.js && mv out/workers/audit-stream.worker.js out/audit.worker.js && mv out/workers/content-ingestion.worker.js out/content.worker.js && rm -rf out/src out/workers",
+    "build": "bun run --env-file .env.production typecheck && rm -rf out && bun build --target bun src/index.ts workers/audit-stream.worker.ts workers/content-ingestion.worker.ts --outdir out && mv out/src/index.js out/server.js && mv out/workers/audit-stream.worker.js out/audit.worker.js && mv out/workers/content-ingestion.worker.js out/content.worker.js && rm -rf out/src out/workers",
     "check": "biome check --write",
     "db:drop": "bun run scripts/db/drop-all-tables.ts -- --force",
     "db:dump": "sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
