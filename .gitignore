@@ -1,16 +1,10 @@
-# dependencies
 node_modules/
-
-# output
 out/
 build/
 
-# environment variables
 .env*
 !.env.example
 
-# htshadow
-htshadow
-
-# omc state
 .omc/
+htshadow
+.DS_Store
