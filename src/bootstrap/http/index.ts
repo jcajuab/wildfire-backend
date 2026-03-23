@@ -628,17 +628,17 @@ app.use(
 );
 app.use("*", requestLogger);
 
-app.route("/api/v1/health", healthRouter);
-app.route("/api/v1/auth", authRouter);
-app.route("/api/v1/playlists", playlistsRouter);
-app.route("/api/v1/schedules", schedulesRouter);
-app.route("/api/v1/displays", displaysRouter);
-app.route("/api/v1/display-runtime", displayRouter);
-app.route("/api/v1/content", contentRouter);
-app.route("/api/v1/content-jobs", contentJobsRouter);
-app.route("/api/v1/audit", auditRouter);
-app.route("/api/v1/ai", aiRouter);
-app.route("/api/v1", rbacRouter);
+app.route("/v1/health", healthRouter);
+app.route("/v1/auth", authRouter);
+app.route("/v1/playlists", playlistsRouter);
+app.route("/v1/schedules", schedulesRouter);
+app.route("/v1/displays", displaysRouter);
+app.route("/v1/display-runtime", displayRouter);
+app.route("/v1/content", contentRouter);
+app.route("/v1/content-jobs", contentJobsRouter);
+app.route("/v1/audit", auditRouter);
+app.route("/v1/ai", aiRouter);
+app.route("/v1", rbacRouter);
 
 app.onError((err, c) => {
   const status = err instanceof HTTPException ? err.status : 500;

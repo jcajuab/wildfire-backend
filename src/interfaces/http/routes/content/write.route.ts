@@ -115,7 +115,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", result.content.id);
         c.header(
           "Location",
-          `/api/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
+          `/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
         );
         return c.json(toApiResponse(result), 202);
       },
@@ -401,7 +401,7 @@ export const registerContentWriteRoutes = (args: {
         });
         c.header(
           "Location",
-          `/api/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
+          `/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
         );
         return c.json(toApiResponse(result), 202);
       },

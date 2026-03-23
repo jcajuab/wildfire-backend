@@ -7,7 +7,7 @@ describe("normalizeApiPayload", () => {
       {
         playlistId: null,
       },
-      { requestUrl: "http://localhost/api/v1/display-runtime/lobby/manifest" },
+      { requestUrl: "http://localhost/v1/display-runtime/lobby/manifest" },
     ) as { data: unknown };
 
     expect(typeof normalized).toBe("object");
@@ -20,7 +20,7 @@ describe("normalizeApiPayload", () => {
         {
           data: [],
         },
-        { requestUrl: "http://localhost/api/v1/displays" },
+        { requestUrl: "http://localhost/v1/displays" },
       ),
     ).toThrow("missing meta envelope");
   });

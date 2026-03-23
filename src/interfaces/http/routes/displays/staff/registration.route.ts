@@ -193,7 +193,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
         const registered = await useCases.registerDisplay.execute(payload);
         c.header(
           "Location",
-          `/api/v1/displays/${encodeURIComponent(registered.displayId)}`,
+          `/v1/displays/${encodeURIComponent(registered.displayId)}`,
         );
         return c.json(toApiResponse(registered), 201);
       },

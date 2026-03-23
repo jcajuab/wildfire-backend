@@ -309,7 +309,7 @@ describe("Content routes", () => {
     }>(response);
     expect(body.data.content.title).toBe("Welcome");
     expect(response.headers.get("Location")).toBe(
-      `/api/v1/content-jobs/${body.data.job.id}`,
+      `/v1/content-jobs/${body.data.job.id}`,
     );
   });
 
@@ -695,7 +695,7 @@ describe("Content routes", () => {
     expect(body.data.content.status).toBe("PROCESSING");
     expect(body.data.content.mimeType).toBe("video/mp4");
     expect(response.headers.get("Location")).toBe(
-      `/api/v1/content-jobs/${body.data.job.id}`,
+      `/v1/content-jobs/${body.data.job.id}`,
     );
   });
 

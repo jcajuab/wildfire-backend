@@ -8,9 +8,9 @@ const parseJson = async <T>(response: Response): Promise<T> =>
 describe("Health routes", () => {
   test("GET / returns 200 with ok status", async () => {
     const app = new Hono();
-    app.route("/api/v1/health", createHealthRouter());
+    app.route("/v1/health", createHealthRouter());
 
-    const response = await app.request("/api/v1/health");
+    const response = await app.request("/v1/health");
     const payload = await parseJson<{ data: { status: "ok" } }>(response);
 
     expect(response.status).toBe(200);
@@ -20,7 +20,7 @@ describe("Health routes", () => {
   test("GET /ready returns 200 when all dependencies pass", async () => {
     const app = new Hono();
     app.route(
-      "/api/v1/health",
+      "/v1/health",
       createHealthRouter({
         checkMySql: async () => ({ ok: true }),
         checkRedis: async () => ({ ok: true }),
@@ -29,7 +29,7 @@ describe("Health routes", () => {
       }),
     );
 
-    const response = await app.request("/api/v1/health/ready");
+    const response = await app.request("/v1/health/ready");
     const payload = await parseJson<{
       data: {
         status: "ok";
@@ -55,7 +55,7 @@ describe("Health routes", () => {
   test("GET /ready returns 503 when any dependency fails", async () => {
     const app = new Hono();
     app.route(
-      "/api/v1/health",
+      "/v1/health",
       createHealthRouter({
         checkMySql: async () => ({ ok: true }),
         checkRedis: async () => ({ ok: false, error: "redis unavailable" }),
@@ -64,7 +64,7 @@ describe("Health routes", () => {
       }),
     );
 
-    const response = await app.request("/api/v1/health/ready");
+    const response = await app.request("/v1/health/ready");
     const payload = await parseJson<{
       data: {
         status: "degraded";
@@ -88,7 +88,7 @@ describe("Health routes", () => {
   test("GET /ready wraps thrown dependency errors as failed checks", async () => {
     const app = new Hono();
     app.route(
-      "/api/v1/health",
+      "/v1/health",
       createHealthRouter({
         checkMySql: async () => ({ ok: true }),
         checkRedis: async () => {
@@ -99,7 +99,7 @@ describe("Health routes", () => {
       }),
     );
 
-    const response = await app.request("/api/v1/health/ready");
+    const response = await app.request("/v1/health/ready");
     const payload = await parseJson<{
       data: {
         status: "degraded";
