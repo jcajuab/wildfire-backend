@@ -3,6 +3,8 @@ import { type MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 import { logger } from "#/infrastructure/observability/logger";
 
+const CSRF_EXEMPT_PATHS = new Set(["/v1/auth/login"]);
+
 export const createCsrfMiddleware = (
   sessionCookieName: string,
   csrfCookieName: string,
@@ -10,6 +12,10 @@ export const createCsrfMiddleware = (
   return async (c, next) => {
     const method = c.req.method.toUpperCase();
     if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+      return next();
+    }
+
+    if (CSRF_EXEMPT_PATHS.has(c.req.path)) {
       return next();
     }
 
