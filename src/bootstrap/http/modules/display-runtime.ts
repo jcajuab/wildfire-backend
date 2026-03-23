@@ -26,6 +26,7 @@ import {
   StoreDisplaySnapshotUseCase,
   VerifyDisplayAuthChallengeUseCase,
 } from "#/application/use-cases/displays";
+import { type DisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
 import {
   type DisplayRuntimeRouterDeps,
   type DisplayRuntimeRouterModule,
@@ -52,6 +53,7 @@ interface CreateDisplayRuntimeHttpModuleDeps extends DisplayRuntimeRouterDeps {
   lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
   displayEventSubscription: DisplayStreamEventSubscription;
   authSecurityStore: AuthSecurityStore;
+  displayHeartbeatStore: DisplayHeartbeatStore;
 }
 
 export const createDisplayRuntimeHttpModule = (
@@ -101,6 +103,7 @@ export const createDisplayRuntimeHttpModule = (
         scheduleRepository: deps.repositories.scheduleRepository,
         displayEventPublisher: deps.displayEventPublisher,
         lifecycleEventPublisher: deps.lifecycleEventPublisher,
+        displayHeartbeatStore: deps.displayHeartbeatStore,
         scheduleTimeZone: deps.scheduleTimeZone,
       }),
     },

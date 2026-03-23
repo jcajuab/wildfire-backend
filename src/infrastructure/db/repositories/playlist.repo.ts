@@ -319,6 +319,18 @@ export class PlaylistDbRepository implements PlaylistRepository {
     return rows.map(mapPlaylistItemRowToRecord);
   }
 
+  async listItemsByPlaylistIds(
+    playlistIds: string[],
+  ): Promise<PlaylistItemRecord[]> {
+    if (playlistIds.length === 0) return [];
+    const rows = await db
+      .select()
+      .from(playlistItems)
+      .where(inArray(playlistItems.playlistId, playlistIds))
+      .orderBy(asc(playlistItems.sequence));
+    return rows.map(mapPlaylistItemRowToRecord);
+  }
+
   async listItemStatsByPlaylistIds(
     playlistIds: string[],
   ): Promise<Map<string, { itemsCount: number; totalDuration: number }>> {
@@ -435,20 +447,29 @@ export class PlaylistDbRepository implements PlaylistRepository {
       }
     }
 
+    const ids = [...input.orderedItemIds];
     await db.transaction(async (tx) => {
       // Move sequences away first to avoid unique collisions during swaps.
-      for (const [index, itemId] of input.orderedItemIds.entries()) {
-        await tx
-          .update(playlistItems)
-          .set({ sequence: 10_000 + index + 1 })
-          .where(eq(playlistItems.id, itemId));
-      }
-      for (const [index, itemId] of input.orderedItemIds.entries()) {
-        await tx
-          .update(playlistItems)
-          .set({ sequence: index + 1 })
-          .where(eq(playlistItems.id, itemId));
-      }
+      const tempCaseChunks = ids.map(
+        (id, i) => sql`WHEN ${playlistItems.id} = ${id} THEN ${10_000 + i + 1}`,
+      );
+      await tx
+        .update(playlistItems)
+        .set({
+          sequence: sql`CASE ${sql.join(tempCaseChunks, sql` `)} END`,
+        })
+        .where(inArray(playlistItems.id, ids));
+
+      // Set final sequences in one batch.
+      const finalCaseChunks = ids.map(
+        (id, i) => sql`WHEN ${playlistItems.id} = ${id} THEN ${i + 1}`,
+      );
+      await tx
+        .update(playlistItems)
+        .set({
+          sequence: sql`CASE ${sql.join(finalCaseChunks, sql` `)} END`,
+        })
+        .where(inArray(playlistItems.id, ids));
     });
 
     return true;
@@ -484,45 +505,75 @@ export class PlaylistDbRepository implements PlaylistRepository {
             .where(inArray(playlistItems.id, idsToDelete));
         }
 
-        const maxSequence = existing.reduce(
-          (current, item) => Math.max(current, item.sequence),
-          0,
+        const existingItems = input.items.filter(
+          (
+            item,
+          ): item is Extract<
+            PlaylistItemAtomicWriteInput,
+            { kind: "existing" }
+          > => item.kind === "existing" && existingById.has(item.itemId),
         );
-        const temporarySequenceBase =
-          maxSequence + input.items.length + existing.length + 1_000;
-        for (const [index, item] of input.items.entries()) {
-          if (item.kind !== "existing") {
-            continue;
-          }
-          if (!existingById.has(item.itemId)) {
-            continue;
-          }
+        const newItems = input.items
+          .map((item, index) => ({ item, index }))
+          .filter(
+            (
+              entry,
+            ): entry is {
+              item: Extract<PlaylistItemAtomicWriteInput, { kind: "new" }>;
+              index: number;
+            } => entry.item.kind === "new",
+          );
+
+        if (existingItems.length > 0) {
+          const existingIds = existingItems.map((item) => item.itemId);
+          const maxSequence = existing.reduce(
+            (current, item) => Math.max(current, item.sequence),
+            0,
+          );
+          const temporarySequenceBase =
+            maxSequence + input.items.length + existing.length + 1_000;
+
+          // Batch move to temporary sequences
+          const tempCaseChunks = existingItems.map(
+            (item, i) =>
+              sql`WHEN ${playlistItems.id} = ${item.itemId} THEN ${temporarySequenceBase + i}`,
+          );
           await tx
             .update(playlistItems)
-            .set({ sequence: temporarySequenceBase + index })
-            .where(eq(playlistItems.id, item.itemId));
+            .set({
+              sequence: sql`CASE ${sql.join(tempCaseChunks, sql` `)} END`,
+            })
+            .where(inArray(playlistItems.id, existingIds));
+
+          // Batch set final sequences and durations
+          const seqCaseChunks = existingItems.map((item) => {
+            const finalIndex = input.items.indexOf(item);
+            return sql`WHEN ${playlistItems.id} = ${item.itemId} THEN ${finalIndex + 1}`;
+          });
+          const durCaseChunks = existingItems.map(
+            (item) =>
+              sql`WHEN ${playlistItems.id} = ${item.itemId} THEN ${item.duration}`,
+          );
+          await tx
+            .update(playlistItems)
+            .set({
+              sequence: sql`CASE ${sql.join(seqCaseChunks, sql` `)} END`,
+              duration: sql`CASE ${sql.join(durCaseChunks, sql` `)} END`,
+            })
+            .where(inArray(playlistItems.id, existingIds));
         }
 
-        for (const [index, item] of input.items.entries()) {
-          const sequence = index + 1;
-          if (item.kind === "existing") {
-            await tx
-              .update(playlistItems)
-              .set({
-                sequence,
-                duration: item.duration,
-              })
-              .where(eq(playlistItems.id, item.itemId));
-            continue;
-          }
-
-          await tx.insert(playlistItems).values({
-            id: crypto.randomUUID(),
-            playlistId: input.playlistId,
-            contentId: item.contentId,
-            sequence,
-            duration: item.duration,
-          });
+        // Bulk insert new items
+        if (newItems.length > 0) {
+          await tx.insert(playlistItems).values(
+            newItems.map(({ item, index }) => ({
+              id: crypto.randomUUID(),
+              playlistId: input.playlistId,
+              contentId: item.contentId,
+              sequence: index + 1,
+              duration: item.duration,
+            })),
+          );
         }
       });
     } catch (error) {

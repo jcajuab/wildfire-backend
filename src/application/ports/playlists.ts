@@ -72,6 +72,7 @@ export interface PlaylistRepository {
   delete(id: string): Promise<boolean>;
   deleteForOwner(id: string, ownerId: string): Promise<boolean>;
   listItems(playlistId: string): Promise<PlaylistItemRecord[]>;
+  listItemsByPlaylistIds?(playlistIds: string[]): Promise<PlaylistItemRecord[]>;
   listItemStatsByPlaylistIds?(
     playlistIds: string[],
   ): Promise<Map<string, { itemsCount: number; totalDuration: number }>>;

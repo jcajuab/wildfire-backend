@@ -94,25 +94,22 @@ const buildDisplayQuery = () =>
       eq(displayRuntimeStates.displayId, displays.id),
     );
 
-const ensureRuntimeState = async (displayId: string, at: Date) => {
-  await db
-    .insert(displayRuntimeStates)
-    .values({
-      displayId,
-      status: "PROCESSING",
-      createdAt: at,
-      updatedAt: at,
-    })
-    .onDuplicateKeyUpdate({
-      set: {
-        updatedAt: at,
-      },
-    });
-};
-
 export class DisplayDbRepository implements DisplayRepository {
   async list(): Promise<DisplayRecord[]> {
     const rows = await buildDisplayQuery().orderBy(desc(displays.createdAt));
+    return rows.map(mapDisplayRowToRecord);
+  }
+
+  async listForReconciliation(): Promise<DisplayRecord[]> {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const rows = await buildDisplayQuery()
+      .where(
+        or(
+          sql`${displayRuntimeStates.lastSeenAt} > ${fiveMinutesAgo}`,
+          sql`${displayRuntimeStates.status} != 'DOWN'`,
+        ),
+      )
+      .orderBy(desc(displays.createdAt));
     return rows.map(mapDisplayRowToRecord);
   }
 
@@ -386,53 +383,60 @@ export class DisplayDbRepository implements DisplayRepository {
 
     const now = new Date();
 
+    const nextName = input.name ?? existing.name;
+    const nextSlug = input.slug ?? existing.slug;
+    const nextFingerprint =
+      input.fingerprint !== undefined
+        ? input.fingerprint
+        : (existing.fingerprint ?? null);
+    const nextOutput =
+      input.output !== undefined
+        ? (input.output ?? "unknown")
+        : (existing.output ?? "unknown");
+    const nextLocation =
+      input.location !== undefined ? input.location : existing.location;
+    const nextEmergencyContentId =
+      input.emergencyContentId !== undefined
+        ? input.emergencyContentId
+        : (existing.emergencyContentId ?? null);
+
+    const runtimePatch = {
+      ipAddress:
+        input.ipAddress !== undefined
+          ? input.ipAddress
+          : (existing.ipAddress ?? null),
+      macAddress:
+        input.macAddress !== undefined
+          ? input.macAddress
+          : (existing.macAddress ?? null),
+      screenWidth:
+        input.screenWidth !== undefined
+          ? input.screenWidth
+          : (existing.screenWidth ?? null),
+      screenHeight:
+        input.screenHeight !== undefined
+          ? input.screenHeight
+          : (existing.screenHeight ?? null),
+      orientation:
+        input.orientation !== undefined
+          ? input.orientation
+          : (existing.orientation ?? null),
+      updatedAt: now,
+    };
+
     await db.transaction(async (tx) => {
       await tx
         .update(displays)
         .set({
-          name: input.name ?? existing.name,
-          slug: input.slug ?? existing.slug,
-          fingerprint:
-            input.fingerprint !== undefined
-              ? input.fingerprint
-              : (existing.fingerprint ?? null),
-          output:
-            input.output !== undefined
-              ? (input.output ?? "unknown")
-              : (existing.output ?? "unknown"),
-          location:
-            input.location !== undefined ? input.location : existing.location,
-          emergencyContentId:
-            input.emergencyContentId !== undefined
-              ? input.emergencyContentId
-              : (existing.emergencyContentId ?? null),
+          name: nextName,
+          slug: nextSlug,
+          fingerprint: nextFingerprint,
+          output: nextOutput,
+          location: nextLocation,
+          emergencyContentId: nextEmergencyContentId,
           updatedAt: now,
         })
         .where(eq(displays.id, id));
-
-      const runtimePatch = {
-        ipAddress:
-          input.ipAddress !== undefined
-            ? input.ipAddress
-            : (existing.ipAddress ?? null),
-        macAddress:
-          input.macAddress !== undefined
-            ? input.macAddress
-            : (existing.macAddress ?? null),
-        screenWidth:
-          input.screenWidth !== undefined
-            ? input.screenWidth
-            : (existing.screenWidth ?? null),
-        screenHeight:
-          input.screenHeight !== undefined
-            ? input.screenHeight
-            : (existing.screenHeight ?? null),
-        orientation:
-          input.orientation !== undefined
-            ? input.orientation
-            : (existing.orientation ?? null),
-        updatedAt: now,
-      };
 
       await tx
         .insert(displayRuntimeStates)
@@ -456,7 +460,24 @@ export class DisplayDbRepository implements DisplayRepository {
         });
     });
 
-    return this.findById(id);
+    return {
+      ...existing,
+      name: nextName,
+      slug: nextSlug,
+      fingerprint: nextFingerprint,
+      status: existing.status,
+      location: nextLocation,
+      ipAddress: runtimePatch.ipAddress,
+      macAddress: runtimePatch.macAddress,
+      screenWidth: runtimePatch.screenWidth,
+      screenHeight: runtimePatch.screenHeight,
+      output: nextOutput,
+      orientation: runtimePatch.orientation,
+      emergencyContentId: nextEmergencyContentId,
+      lastSeenAt: existing.lastSeenAt ?? null,
+      refreshNonce: existing.refreshNonce ?? 0,
+      updatedAt: now.toISOString(),
+    };
   }
 
   async setStatus(input: {
@@ -464,7 +485,6 @@ export class DisplayDbRepository implements DisplayRepository {
     status: DisplayStatus;
     at: Date;
   }): Promise<void> {
-    await ensureRuntimeState(input.id, input.at);
     await db
       .update(displayRuntimeStates)
       .set({
@@ -475,14 +495,8 @@ export class DisplayDbRepository implements DisplayRepository {
   }
 
   async bumpRefreshNonce(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-
     const now = new Date();
-    await ensureRuntimeState(id, now);
-    await db
+    const result = await db
       .update(displayRuntimeStates)
       .set({
         refreshNonce: sql`${displayRuntimeStates.refreshNonce} + 1`,
@@ -490,11 +504,10 @@ export class DisplayDbRepository implements DisplayRepository {
       })
       .where(eq(displayRuntimeStates.displayId, id));
 
-    return true;
+    return (result[0]?.affectedRows ?? 0) > 0;
   }
 
   async touchSeen(id: string, at: Date): Promise<void> {
-    await ensureRuntimeState(id, at);
     await db
       .update(displayRuntimeStates)
       .set({ lastSeenAt: at, updatedAt: at })

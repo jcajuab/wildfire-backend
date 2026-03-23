@@ -1,8 +1,11 @@
+import { eq } from "drizzle-orm";
 import { type ContentRepository } from "#/application/ports/content";
 import { type ContentIngestionJobRepository } from "#/application/ports/content-jobs";
 import { env } from "#/env";
 import { publishContentJobEvent } from "#/infrastructure/content-jobs/content-job-events";
 import { db } from "#/infrastructure/db/client";
+import { content } from "#/infrastructure/db/schema/content.sql";
+import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
@@ -55,11 +58,12 @@ const markJobAsFailed = async (
     return;
   }
 
-  await db.transaction(async () => {
+  await db.transaction(async (tx) => {
     try {
-      await repositories.contentRepository.update(job.contentId, {
-        status: "FAILED",
-      });
+      await tx
+        .update(content)
+        .set({ status: "FAILED", updatedAt: new Date() })
+        .where(eq(content.id, job.contentId));
     } catch (error) {
       logger.error(
         addErrorContext(
@@ -76,11 +80,16 @@ const markJobAsFailed = async (
       throw error;
     }
 
-    await repositories.contentIngestionJobRepository.update(job.id, {
-      status: "FAILED",
-      errorMessage: sanitizedErrorMessage,
-      completedAt: new Date().toISOString(),
-    });
+    const now = new Date();
+    await tx
+      .update(contentIngestionJobs)
+      .set({
+        status: "FAILED",
+        errorMessage: sanitizedErrorMessage,
+        completedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(contentIngestionJobs.id, job.id));
   });
 
   publishContentJobEvent({

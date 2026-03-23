@@ -25,6 +25,7 @@ import {
   BanUserUseCase,
   UnbanUserUseCase,
 } from "#/application/use-cases/users/ban-user.use-case";
+import { CachedAuthorizationRepository } from "#/infrastructure/db/repositories/cached-authorization.repo";
 import {
   type RbacRouterDeps,
   type RbacRouterUseCases,
@@ -78,6 +79,9 @@ export const createRbacHttpModule = (
         rolePermissionRepository:
           routerDeps.repositories.rolePermissionRepository,
         permissionRepository: routerDeps.repositories.permissionRepository,
+        userRoleRepository: routerDeps.repositories.userRoleRepository,
+        onPermissionsChanged: (userId) =>
+          CachedAuthorizationRepository.invalidateUser(userId),
       }),
       listPermissions: new ListPermissionsUseCase({
         permissionRepository: routerDeps.repositories.permissionRepository,
@@ -116,6 +120,8 @@ export const createRbacHttpModule = (
           routerDeps.repositories.rolePermissionRepository,
         authorizationRepository:
           routerDeps.repositories.authorizationRepository,
+        onPermissionsChanged: (userId) =>
+          CachedAuthorizationRepository.invalidateUser(userId),
       }),
       getUserRoles: new GetUserRolesUseCase({
         userRepository: routerDeps.repositories.userRepository,

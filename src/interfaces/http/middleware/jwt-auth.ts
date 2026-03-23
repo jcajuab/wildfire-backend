@@ -2,6 +2,7 @@ import { type MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 import { verify } from "hono/jwt";
 import { type AuthSessionRepository } from "#/application/ports/auth";
+import { logger } from "#/infrastructure/observability/logger";
 import { unauthorized } from "#/interfaces/http/responses";
 import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 
@@ -70,14 +71,15 @@ export const createJwtMiddleware = (
               await deps.authSessionRepository.revokeByFamilyId(
                 session.familyId,
               );
-            console.error(
-              JSON.stringify({
+            logger.error(
+              {
                 event: "auth.session.family_revoked",
                 familyId: session.familyId,
                 triggeredByJti: jti,
                 revokedSessionCount: revokedCount,
                 reason: "jti_mismatch",
-              }),
+              },
+              "Session family revoked due to JTI mismatch",
             );
             return unauthorized(c, "Session is invalid or revoked");
           }

@@ -4,6 +4,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import { aiChatRequestSchema } from "#/interfaces/http/validators/ai.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -12,34 +13,13 @@ import {
   type AuthorizePermission,
 } from "./shared";
 
-const AI_RATE_LIMIT_WINDOW_SECONDS = 60;
-const AI_RATE_LIMIT_MAX_REQUESTS = 20;
-
-// Simple in-memory rate limiter per user (resets when server restarts)
-const userRequestCounts = new Map<string, { count: number; resetAt: number }>();
-
-const checkRateLimit = (userId: string): boolean => {
-  const nowMs = Date.now();
-  const resetAt = nowMs + AI_RATE_LIMIT_WINDOW_SECONDS * 1000;
-  const existing = userRequestCounts.get(userId);
-
-  if (!existing || existing.resetAt < nowMs) {
-    userRequestCounts.set(userId, { count: 1, resetAt });
-    return true;
-  }
-
-  if (existing.count >= AI_RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  existing.count += 1;
-  return true;
-};
-
 export const registerAIChatRoutes = (args: {
   router: AIRouter;
   useCases: AIRouterUseCases;
   authorize: AuthorizePermission;
+  authSecurityStore: AuthSecurityStore;
+  rateLimitWindowSeconds: number;
+  rateLimitMaxRequests: number;
 }) => {
   const { router, useCases, authorize } = args;
 
@@ -56,8 +36,14 @@ export const registerAIChatRoutes = (args: {
         const userId = c.get("userId");
         const body = c.req.valid("json");
 
-        // Rate limiting
-        if (!checkRateLimit(userId)) {
+        // Redis-backed rate limiting
+        const allowed = await args.authSecurityStore.consumeEndpointAttempt({
+          key: `ai-chat:${userId}`,
+          nowMs: Date.now(),
+          windowSeconds: args.rateLimitWindowSeconds,
+          maxAttempts: args.rateLimitMaxRequests,
+        });
+        if (!allowed) {
           return tooManyRequests(
             c,
             "Too many AI requests. Please wait before trying again.",

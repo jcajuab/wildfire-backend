@@ -10,6 +10,7 @@
     "db:dump": "sh -c 'mysqldump --no-tablespaces -h \"$MYSQL_HOST\" -P \"$MYSQL_PORT\" -u \"$MYSQL_USER\" -p\"$MYSQL_PASSWORD\" \"$MYSQL_DATABASE\" > wildfire_db_dump_$(date +%Y%m%d_%H%M%S).sql'",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "env $(grep -v '^#' .env.production | xargs) drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:set-admin": "bun run scripts/db/set-admin.ts --",
     "db:studio": "drizzle-kit studio",
@@ -46,7 +47,7 @@
     "mysql2": "^3.16.2",
     "pdf-lib": "^1.17.1",
     "pino": "^10.3.0",
-    "redis": "^5",
+    "redis": "^5.11.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

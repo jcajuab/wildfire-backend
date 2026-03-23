@@ -7,23 +7,6 @@ export const parseCorsOrigins = (value: string): string[] =>
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
-const buildDatabaseUrl = ({
-  host,
-  port,
-  database,
-  user,
-  password,
-}: {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-}): string =>
-  `mysql://${encodeURIComponent(user)}:${encodeURIComponent(
-    password,
-  )}@${host}:${port}/${database}`;
-
 export const env = createEnv({
   server: {
     // Server
@@ -41,7 +24,7 @@ export const env = createEnv({
     // Admin identity
     ADMIN_USERNAME: z.string().min(1),
     ADMIN_EMAIL: z.string().email().optional(),
-    ADMIN_PASSWORD: z.string().min(12),
+    ADMIN_PASSWORD: z.string().min(16),
 
     // MySQL
     MYSQL_HOST: z.string(),
@@ -57,7 +40,7 @@ export const env = createEnv({
       .default("true")
       .pipe(z.stringbool()),
     MYSQL_POOL_IDLE_TIMEOUT_MS: z.coerce.number().default(60_000),
-    MYSQL_POOL_MAX_IDLE: z.coerce.number().default(10_000),
+    MYSQL_POOL_MAX_IDLE: z.coerce.number().default(10),
 
     // MinIO / S3 storage
     MINIO_ROOT_USER: z.string().min(1),
@@ -101,7 +84,7 @@ export const env = createEnv({
 
     // Auth & JWT
     HTSHADOW_PATH: z.string(),
-    JWT_SECRET: z.string(),
+    JWT_SECRET: z.string().min(32),
     JWT_ISSUER: z.string().default("wildfire"),
     AUTH_SESSION_COOKIE_NAME: z.string().default("wildfire_session_token"),
     AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().default(10),
@@ -170,12 +153,4 @@ export const env = createEnv({
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
-});
-
-export const DATABASE_URL = buildDatabaseUrl({
-  host: env.MYSQL_HOST,
-  port: env.MYSQL_PORT,
-  database: env.MYSQL_DATABASE,
-  user: env.MYSQL_USER,
-  password: env.MYSQL_PASSWORD,
 });

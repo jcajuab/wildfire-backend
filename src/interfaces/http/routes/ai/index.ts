@@ -21,7 +21,14 @@ export const createAIRouter = ({ deps, useCases }: AIRouterModule) => {
     authSessionCookieName: deps.authSessionCookieName,
   });
 
-  registerAIChatRoutes({ router, useCases, authorize });
+  registerAIChatRoutes({
+    router,
+    useCases,
+    authorize,
+    authSecurityStore: deps.authSecurityStore,
+    rateLimitWindowSeconds: deps.rateLimitWindowSeconds,
+    rateLimitMaxRequests: deps.rateLimitMaxRequests,
+  });
   registerAICredentialRoutes({ router, useCases, authorize });
 
   return router;

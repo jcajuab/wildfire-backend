@@ -3,6 +3,7 @@ import {
   type PermissionRepository,
   type RolePermissionRepository,
   type RoleRepository,
+  type UserRoleRepository,
 } from "#/application/ports/rbac";
 import { NotFoundError } from "./errors";
 
@@ -12,6 +13,8 @@ export class SetRolePermissionsUseCase {
       roleRepository: RoleRepository;
       rolePermissionRepository: RolePermissionRepository;
       permissionRepository: PermissionRepository;
+      userRoleRepository?: UserRoleRepository;
+      onPermissionsChanged?: (userId: string) => Promise<void>;
     },
   ) {}
 
@@ -37,6 +40,16 @@ export class SetRolePermissionsUseCase {
       input.roleId,
       input.permissionIds,
     );
+
+    if (this.deps.userRoleRepository && this.deps.onPermissionsChanged) {
+      const affectedUserIds =
+        await this.deps.userRoleRepository.listUserIdsByRoleId(input.roleId);
+      await Promise.all(
+        affectedUserIds.map((userId) =>
+          this.deps.onPermissionsChanged?.(userId),
+        ),
+      );
+    }
 
     return selectedPermissions;
   }

@@ -22,6 +22,7 @@ export interface DisplayRecord {
 
 export interface DisplayRepository {
   list(): Promise<DisplayRecord[]>;
+  listForReconciliation?(): Promise<DisplayRecord[]>;
   listPage(input: { page: number; pageSize: number }): Promise<{
     items: DisplayRecord[];
     total: number;

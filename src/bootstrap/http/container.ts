@@ -50,6 +50,7 @@ import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
 import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
+import { CachedAuthorizationRepository } from "#/infrastructure/db/repositories/cached-authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
 import { DisplayDbRepository } from "#/infrastructure/db/repositories/display.repo";
@@ -158,7 +159,9 @@ export const createHttpContainer = (
   const permissionRepository = new PermissionDbRepository();
   const userRoleRepository = new UserRoleDbRepository();
   const rolePermissionRepository = new RolePermissionDbRepository();
-  const authorizationRepository = new AuthorizationDbRepository();
+  const authorizationRepository = new CachedAuthorizationRepository(
+    new AuthorizationDbRepository(),
+  );
 
   // Content
   const contentRepository = new ContentDbRepository();

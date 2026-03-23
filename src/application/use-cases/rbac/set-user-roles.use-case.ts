@@ -18,6 +18,7 @@ export class SetUserRolesUseCase {
       permissionRepository: PermissionRepository;
       rolePermissionRepository: RolePermissionRepository;
       authorizationRepository: AuthorizationRepository;
+      onPermissionsChanged?: (userId: string) => Promise<void>;
     },
   ) {}
 
@@ -81,6 +82,8 @@ export class SetUserRolesUseCase {
       input.userId,
       input.roleIds,
     );
+
+    await this.deps.onPermissionsChanged?.(input.userId);
 
     const roles = await this.deps.roleRepository.list();
     return roles.filter((role) => input.roleIds.includes(role.id));

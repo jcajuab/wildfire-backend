@@ -91,5 +91,8 @@ export const displayGroupMembers = mysqlTable(
       .notNull()
       .references(() => displays.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.groupId, table.displayId] })],
+  (table) => [
+    primaryKey({ columns: [table.groupId, table.displayId] }),
+    index("display_group_members_display_id_idx").on(table.displayId),
+  ],
 );

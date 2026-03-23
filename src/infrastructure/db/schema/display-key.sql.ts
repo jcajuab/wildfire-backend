@@ -47,8 +47,5 @@ export const displayActiveKeys = mysqlTable(
     keyPairIdUnique: uniqueIndex("display_active_keys_key_pair_id_unique").on(
       table.keyPairId,
     ),
-    keyPairIdIndex: index("display_active_keys_key_pair_id_idx").on(
-      table.keyPairId,
-    ),
   }),
 );

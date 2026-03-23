@@ -24,6 +24,7 @@ export const playlists = mysqlTable(
   (table) => ({
     statusIndex: index("playlists_status_idx").on(table.status),
     nameIndex: index("playlists_name_idx").on(table.name),
+    ownerIdIndex: index("playlists_owner_id_idx").on(table.ownerId),
     updatedAtIndex: index("playlists_updated_at_idx").on(table.updatedAt),
     statusUpdatedAtIndex: index("playlists_status_updated_at_idx").on(
       table.status,

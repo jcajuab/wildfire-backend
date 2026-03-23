@@ -5,6 +5,7 @@ import { deriveDisplayStatus } from "#/application/use-cases/displays/display-st
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
+import { type DisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
 
 const DEFAULT_RECONCILE_INTERVAL_MS = 30_000;
 
@@ -12,6 +13,7 @@ export const startDisplayStatusReconciler = (input: {
   displayRepository: DisplayRepository;
   scheduleRepository: ScheduleRepository;
   lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
+  displayHeartbeatStore: DisplayHeartbeatStore;
   scheduleTimeZone?: string;
   intervalMs?: number;
 }): (() => Promise<void>) => {
@@ -25,9 +27,15 @@ export const startDisplayStatusReconciler = (input: {
       try {
         const now = new Date();
         const [allDisplays, schedules] = await Promise.all([
-          input.displayRepository.list(),
+          input.displayRepository.listForReconciliation
+            ? input.displayRepository.listForReconciliation()
+            : input.displayRepository.list(),
           input.scheduleRepository.list(),
         ]);
+
+        const displayIds = allDisplays.map((d) => d.id);
+        const heartbeats =
+          await input.displayHeartbeatStore.getLastSeenAtMany(displayIds);
 
         const schedulesByDisplayId = new Map<string, typeof schedules>();
         for (const schedule of schedules) {
@@ -52,8 +60,10 @@ export const startDisplayStatusReconciler = (input: {
             now,
             input.scheduleTimeZone ?? "UTC",
           );
+          const lastSeenAt =
+            heartbeats.get(display.id) ?? display.lastSeenAt ?? null;
           const nextStatus = deriveDisplayStatus({
-            lastSeenAt: display.lastSeenAt ?? null,
+            lastSeenAt,
             hasActivePlayback:
               activePlaylistSchedule !== null || activeFlashSchedule !== null,
             now,

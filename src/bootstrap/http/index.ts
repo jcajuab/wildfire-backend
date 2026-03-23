@@ -44,6 +44,7 @@ import {
   logStartupPhaseSucceeded,
 } from "#/infrastructure/observability/startup-logging";
 import { closeRedisClients } from "#/infrastructure/redis/client";
+import { RedisDisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
 import { RedisAuditQueue } from "#/interfaces/http/audit/redis-audit-queue";
 import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
 import { createCsrfMiddleware } from "#/interfaces/http/middleware/csrf";
@@ -97,6 +98,7 @@ const contentIngestionQueue = new RedisContentIngestionQueue({
 });
 
 const registrationAttemptStore = new RedisDisplayRegistrationAttemptStore();
+const displayHeartbeatStore = new RedisDisplayHeartbeatStore();
 
 const container = createHttpContainer({
   jwtSecret: env.JWT_SECRET,
@@ -161,6 +163,7 @@ const startDisplayStatusReconcilerWorker = (): void => {
     displayRepository: container.repositories.displayRepository,
     scheduleRepository: container.repositories.scheduleRepository,
     lifecycleEventPublisher,
+    displayHeartbeatStore,
     scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   });
 };
@@ -473,6 +476,7 @@ const displayRuntimeModule = createDisplayRuntimeHttpModule({
   displayEventPublisher,
   displayEventSubscription,
   lifecycleEventPublisher,
+  displayHeartbeatStore,
 });
 const displayRouter = createDisplayRouter(displayRuntimeModule);
 
@@ -556,6 +560,7 @@ const aiModule = createAIModule({
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   encryptionKey: env.AI_ENCRYPTION_KEY,
+  authSecurityStore,
   rateLimitWindowSeconds: env.AI_RATE_LIMIT_WINDOW_SECONDS,
   rateLimitMaxRequests: env.AI_RATE_LIMIT_MAX_REQUESTS,
   auditQueue,

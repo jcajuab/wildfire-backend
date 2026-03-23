@@ -1,4 +1,10 @@
-import { int, mysqlTable, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import {
+  index,
+  int,
+  mysqlTable,
+  uniqueIndex,
+  varchar,
+} from "drizzle-orm/mysql-core";
 import { content } from "./content.sql";
 import { playlists } from "./playlist.sql";
 
@@ -20,5 +26,6 @@ export const playlistItems = mysqlTable(
       table.playlistId,
       table.sequence,
     ),
+    index("playlist_items_content_id_idx").on(table.contentId),
   ],
 );

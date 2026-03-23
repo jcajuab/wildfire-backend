@@ -249,19 +249,22 @@ export class ContentDbRepository implements ContentRepository {
         ? [asc(orderColumn), asc(content.createdAt)]
         : [desc(orderColumn), desc(content.createdAt)];
 
-    const rows = await buildBaseContentQuery()
+    const dataQuery = buildBaseContentQuery()
       .where(whereClause)
       .orderBy(...orderBy)
       .limit(limit)
       .offset(offset);
 
-    const totalQuery = db
+    const countBaseQuery = db
       .select({ value: sql<number>`count(*)` })
-      .from(content);
-    const totalResult =
+      .from(content)
+      .innerJoin(contentAssets, eq(contentAssets.contentId, content.id));
+    const countQuery =
       whereClause === undefined
-        ? await totalQuery
-        : await totalQuery.where(whereClause);
+        ? countBaseQuery
+        : countBaseQuery.where(whereClause);
+
+    const [rows, totalResult] = await Promise.all([dataQuery, countQuery]);
 
     return {
       items: rows.map(mapContentRowToRecord),

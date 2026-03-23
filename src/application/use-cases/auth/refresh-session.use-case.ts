@@ -5,6 +5,7 @@ import {
 } from "#/application/ports/auth";
 import { type UserRepository } from "#/application/ports/rbac";
 import { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
+import { logger } from "#/infrastructure/observability/logger";
 
 export interface RefreshSessionInput {
   userId: string;
@@ -150,14 +151,15 @@ export class RefreshSessionUseCase {
           await this.deps.authSessionRepository.revokeByFamilyId(
             session.familyId,
           );
-        console.error(
-          JSON.stringify({
+        logger.error(
+          {
             event: "auth.session.family_revoked",
             familyId: session.familyId,
             triggeredByJti: presentedJti,
             revokedSessionCount: revokedCount,
             reason: "replay_after_grace",
-          }),
+          },
+          "Session family revoked due to replay after grace window",
         );
         throw new InvalidCredentialsError();
       } else if (presentedJti) {
@@ -166,14 +168,15 @@ export class RefreshSessionUseCase {
           await this.deps.authSessionRepository.revokeByFamilyId(
             session.familyId,
           );
-        console.error(
-          JSON.stringify({
+        logger.error(
+          {
             event: "auth.session.family_revoked",
             familyId: session.familyId,
             triggeredByJti: presentedJti,
             revokedSessionCount: revokedCount,
             reason: "jti_mismatch",
-          }),
+          },
+          "Session family revoked due to JTI mismatch",
         );
         throw new InvalidCredentialsError();
       } else {

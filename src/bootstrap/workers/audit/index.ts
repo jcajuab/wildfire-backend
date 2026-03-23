@@ -302,14 +302,31 @@ const runWorker = async (): Promise<void> => {
         continue;
       }
 
-      for (const entry of entries) {
-        if (isShuttingDown) {
-          break;
+      const CONCURRENCY = 10;
+      for (let i = 0; i < entries.length; i += CONCURRENCY) {
+        if (isShuttingDown) break;
+        const chunk = entries.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+          chunk.map((entry) =>
+            isShuttingDown
+              ? Promise.resolve()
+              : processEntry({ entry, recordAuditLog }),
+          ),
+        );
+        for (const result of results) {
+          if (result.status === "rejected") {
+            logger.error(
+              addErrorContext(
+                {
+                  component: "audit",
+                  event: "audit.worker.entry_failed",
+                },
+                result.reason,
+              ),
+              "audit worker entry processing failed",
+            );
+          }
         }
-        await processEntry({
-          entry,
-          recordAuditLog,
-        });
       }
     } catch (error) {
       if (isShuttingDown) {

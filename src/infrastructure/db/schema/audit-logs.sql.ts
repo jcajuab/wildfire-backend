@@ -8,6 +8,9 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 
+// Partition strategy: audit_logs is currently unpartitioned. When row count
+// exceeds ~10M, partition by RANGE on occurred_at (monthly buckets) to keep
+// index scans fast and allow cheap historical data archival via DROP PARTITION.
 export const auditLogs = mysqlTable(
   "audit_logs",
   {

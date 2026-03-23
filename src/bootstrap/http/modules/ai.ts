@@ -41,12 +41,14 @@ import {
   type AIRouterDeps,
   type AIRouterUseCases,
 } from "#/interfaces/http/routes/ai/shared";
+import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 
 export interface AIHttpModuleConfig {
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
   encryptionKey: string;
+  authSecurityStore: AuthSecurityStore;
   rateLimitWindowSeconds: number;
   rateLimitMaxRequests: number;
   auditQueue: AuditLogQueue;
@@ -216,6 +218,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
       repositories: {
         authorizationRepository: config.repositories.authorizationRepository,
       },
+      authSecurityStore: config.authSecurityStore,
       rateLimitWindowSeconds: config.rateLimitWindowSeconds,
       rateLimitMaxRequests: config.rateLimitMaxRequests,
     },

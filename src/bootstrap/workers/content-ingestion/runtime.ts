@@ -1,9 +1,17 @@
 import { randomUUID } from "node:crypto";
 import {
-  createHttpContainer,
-  type HttpContainer,
-} from "#/bootstrap/http/container";
+  type ContentMetadataExtractor,
+  type ContentRepository,
+  type ContentStorage,
+  type ContentThumbnailGenerator,
+} from "#/application/ports/content";
+import { type ContentIngestionJobRepository } from "#/application/ports/content-jobs";
 import { env } from "#/env";
+import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
+import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
+import { DefaultContentMetadataExtractor } from "#/infrastructure/media/content-metadata.extractor";
+import { DefaultContentThumbnailGenerator } from "#/infrastructure/media/content-thumbnail.generator";
+import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 
 export interface ContentIngestionWorkerConfig {
   streamName: string;
@@ -21,18 +29,33 @@ export const contentIngestionWorkerConfig: ContentIngestionWorkerConfig = {
   maxDeliveries: Math.max(1, env.REDIS_STREAM_MAX_DELIVERIES),
 };
 
-export const contentIngestionContainer: HttpContainer = createHttpContainer({
-  jwtSecret: env.JWT_SECRET,
-  jwtIssuer: env.JWT_ISSUER,
-  htshadowPath: env.HTSHADOW_PATH,
-  minio: {
-    endpoint: env.MINIO_ENDPOINT,
-    port: env.MINIO_PORT,
-    useSsl: env.MINIO_USE_SSL,
-    bucket: env.MINIO_BUCKET,
-    region: env.MINIO_REGION,
-    rootUser: env.MINIO_ROOT_USER,
-    rootPassword: env.MINIO_ROOT_PASSWORD,
-    requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
+const minioEndpoint = `${env.MINIO_USE_SSL ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
+
+export const contentIngestionContainer: {
+  repositories: {
+    contentRepository: ContentRepository;
+    contentIngestionJobRepository: ContentIngestionJobRepository;
+  };
+  storage: {
+    contentStorage: ContentStorage;
+    contentMetadataExtractor: ContentMetadataExtractor;
+    contentThumbnailGenerator: ContentThumbnailGenerator;
+  };
+} = {
+  repositories: {
+    contentRepository: new ContentDbRepository(),
+    contentIngestionJobRepository: new ContentIngestionJobDbRepository(),
   },
-});
+  storage: {
+    contentStorage: new S3ContentStorage({
+      bucket: env.MINIO_BUCKET,
+      region: env.MINIO_REGION,
+      endpoint: minioEndpoint,
+      accessKeyId: env.MINIO_ROOT_USER,
+      secretAccessKey: env.MINIO_ROOT_PASSWORD,
+      requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
+    }),
+    contentMetadataExtractor: new DefaultContentMetadataExtractor(),
+    contentThumbnailGenerator: new DefaultContentThumbnailGenerator(),
+  },
+};

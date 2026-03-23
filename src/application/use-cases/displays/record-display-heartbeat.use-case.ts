@@ -6,6 +6,7 @@ import { type DisplayRepository } from "#/application/ports/displays";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { deriveDisplayStatus } from "#/application/use-cases/displays/display-status";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
+import { type DisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
 
 export class RecordDisplayHeartbeatUseCase {
   constructor(
@@ -14,13 +15,14 @@ export class RecordDisplayHeartbeatUseCase {
       scheduleRepository: ScheduleRepository;
       displayEventPublisher: DisplayStreamEventPublisher;
       lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
+      displayHeartbeatStore: DisplayHeartbeatStore;
       scheduleTimeZone?: string;
     },
   ) {}
 
   async execute(input: { displayId: string; now?: Date }): Promise<void> {
     const now = input.now ?? new Date();
-    await this.deps.displayRepository.touchSeen(input.displayId, now);
+    await this.deps.displayHeartbeatStore.touchSeen(input.displayId, now);
 
     const [display, schedules] = await Promise.all([
       this.deps.displayRepository.findById(input.displayId),

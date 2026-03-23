@@ -10,6 +10,7 @@ import {
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
+import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 
 export interface AIRouterDeps {
   jwtSecret: string;
@@ -19,6 +20,7 @@ export interface AIRouterDeps {
     authorizationRepository: AuthorizationRepository;
   };
   checkPermissionUseCase: CheckPermissionUseCase;
+  authSecurityStore: AuthSecurityStore;
   rateLimitWindowSeconds: number;
   rateLimitMaxRequests: number;
 }

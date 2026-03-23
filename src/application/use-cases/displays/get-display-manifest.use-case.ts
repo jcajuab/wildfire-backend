@@ -270,40 +270,21 @@ export class GetDisplayManifestUseCase {
     const playlist = playlists[0];
     if (!playlist) throw new NotFoundError("Playlist not found");
 
-    const allItems: Array<{
-      playlistId: string;
-      contentId: string;
-      sequence: number;
-      duration: number;
-      id: string;
-    }> = [];
+    const allPlaylistItems = this.deps.playlistRepository.listItemsByPlaylistIds
+      ? await this.deps.playlistRepository.listItemsByPlaylistIds(playlistIds)
+      : await Promise.all(
+          playlistIds.map((id) => this.deps.playlistRepository.listItems(id)),
+        ).then((results) => results.flat());
 
-    for (const schedule of activeSchedules) {
-      if (!schedule.playlistId) continue;
-      const playlistItems = await this.deps.playlistRepository.listItems(
-        schedule.playlistId,
-      );
-      for (const item of playlistItems) {
-        allItems.push({
-          ...item,
-          playlistId: schedule.playlistId,
-        });
-      }
-    }
-
-    const items = allItems.sort((a, b) => a.sequence - b.sequence);
+    const items = allPlaylistItems.sort((a, b) => a.sequence - b.sequence);
     const contentIds = Array.from(new Set(items.map((item) => item.contentId)));
     const contents = await this.deps.contentRepository.findByIds(contentIds);
     const contentsById = new Map(
       contents.map((content) => [content.id, content]),
     );
 
-    const sortedPlaylistItems = [...items].sort(
-      (left, right) => left.sequence - right.sequence,
-    );
-
     const manifestItems: ManifestRenderableItem[] = await mapWithConcurrency(
-      sortedPlaylistItems,
+      items,
       8,
       async (item, index) => {
         const content = contentsById.get(item.contentId);

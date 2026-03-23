@@ -28,6 +28,7 @@ export const content = mysqlTable(
   (table) => ({
     statusIndex: index("content_status_idx").on(table.status),
     typeIndex: index("content_type_idx").on(table.type),
+    ownerIdIndex: index("content_owner_id_idx").on(table.ownerId),
     createdAtIndex: index("content_created_at_idx").on(table.createdAt),
     statusTypeCreatedAtIndex: index("content_status_type_created_at_idx").on(
       table.status,
@@ -76,9 +77,7 @@ export const contentFlashMessages = mysqlTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => ({
-    toneIndex: index("content_flash_messages_tone_idx").on(table.tone),
-  }),
+  () => ({}),
 );
 
 export const contentTextContent = mysqlTable("content_text_content", {

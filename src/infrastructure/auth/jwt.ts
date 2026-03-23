@@ -36,6 +36,6 @@ export class JwtTokenIssuer implements TokenIssuer {
         : {}),
     };
 
-    return sign(payload, this.deps.secret);
+    return sign(payload, this.deps.secret, "HS256");
   }
 }
