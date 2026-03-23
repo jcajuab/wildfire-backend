@@ -27,7 +27,7 @@ export function withTelemetry(display: DisplayRecord) {
   } as const;
 }
 
-export interface DisplayNowPlaying {
+interface DisplayNowPlaying {
   readonly title: string | null;
   readonly playlist: string | null;
   readonly progress: number;
@@ -94,7 +94,7 @@ export const buildNowPlayingMap = async (input: {
   return nowPlayingByDisplayId;
 };
 
-export const filterDisplays = (input: {
+const filterDisplays = (input: {
   displays: readonly DisplayRecord[];
   query?: string;
   status?: DisplayStatus;
@@ -138,7 +138,7 @@ export const filterDisplays = (input: {
   });
 };
 
-export const sortDisplays = (
+const sortDisplays = (
   displays: readonly DisplayRecord[],
   input?: {
     sortBy?: "name" | "status" | "location";

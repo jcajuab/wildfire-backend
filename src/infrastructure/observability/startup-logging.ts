@@ -1,11 +1,7 @@
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 
-export type StartupPhaseStatus =
-  | "started"
-  | "succeeded"
-  | "failed"
-  | "degraded";
+type StartupPhaseStatus = "started" | "succeeded" | "failed" | "degraded";
 
 export interface StartupPhaseContext {
   runId: string;
@@ -14,7 +10,7 @@ export interface StartupPhaseContext {
   operation: string;
 }
 
-export interface StartupPhaseEventContext extends StartupPhaseContext {
+interface StartupPhaseEventContext extends StartupPhaseContext {
   event: "startup.phase";
   status: StartupPhaseStatus;
   durationMs?: number;
@@ -23,7 +19,7 @@ export interface StartupPhaseEventContext extends StartupPhaseContext {
 export const createStartupRunId = (prefix: string): string =>
   `${prefix}-${crypto.randomUUID()}`;
 
-export const buildStartupPhasePayload = (
+const buildStartupPhasePayload = (
   context: StartupPhaseContext,
   status: StartupPhaseStatus,
   durationMs?: number,

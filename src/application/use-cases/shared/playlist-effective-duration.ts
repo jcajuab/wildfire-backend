@@ -1,17 +1,17 @@
 import { type ContentRepository } from "#/application/ports/content";
 
-export interface PlaylistDurationItemInput {
+interface PlaylistDurationItemInput {
   readonly contentId: string;
   readonly duration: number;
 }
 
-export interface PlaylistDurationItemBreakdown {
+interface PlaylistDurationItemBreakdown {
   readonly contentId: string;
   readonly baseDurationSeconds: number;
   readonly effectiveDurationSeconds: number;
 }
 
-export interface PlaylistDurationComputation {
+interface PlaylistDurationComputation {
   readonly baseDurationSeconds: number;
   readonly effectiveDurationSeconds: number;
   readonly items: readonly PlaylistDurationItemBreakdown[];

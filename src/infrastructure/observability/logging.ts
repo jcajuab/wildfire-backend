@@ -1,4 +1,4 @@
-export interface LogErrorContext {
+interface LogErrorContext {
   name: string;
   message: string;
   code?: string;
@@ -32,7 +32,7 @@ const resolveErrorCode = (error: unknown): string | undefined => {
   return undefined;
 };
 
-export const normalizeLogError = (error: unknown): LogErrorContext => {
+const normalizeLogError = (error: unknown): LogErrorContext => {
   const normalizedError =
     error instanceof Error
       ? error

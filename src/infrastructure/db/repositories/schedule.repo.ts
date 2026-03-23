@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { ValidationError } from "#/application/errors/validation";
 import {
   type ScheduleKind,
   type ScheduleRecord,
@@ -10,7 +11,6 @@ import {
   schedulePlaylistTargets,
   schedules,
 } from "#/infrastructure/db/schema/schedule.sql";
-import { ValidationError } from "#/shared/errors";
 import { toIsoString } from "./utils/date";
 
 type ScheduleRow = {

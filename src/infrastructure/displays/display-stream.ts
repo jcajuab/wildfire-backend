@@ -1,4 +1,8 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  fromBase64Url,
+  toBase64Url,
+} from "#/application/use-cases/displays/display-crypto";
 import { env } from "#/env";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
@@ -51,20 +55,6 @@ const logInvalidEnvelope = makeLogInvalidEnvelope({
   message: "invalid display stream Redis message",
   cooldownMs: INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS,
 });
-
-const toBase64Url = (value: string | Uint8Array): string =>
-  Buffer.from(value)
-    .toString("base64")
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/g, "");
-
-const fromBase64Url = (value: string): Buffer => {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const pad =
-    normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
-  return Buffer.from(`${normalized}${pad}`, "base64");
-};
 
 const sign = (payload: string, secret: string): string =>
   toBase64Url(createHmac("sha256", secret).update(payload).digest());

@@ -307,11 +307,6 @@ export const validationError = (
     422,
   );
 
-export const unprocessable = validationError;
-
-export const notImplemented = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "not_implemented", message), 501);
-
 export const unauthorized = (c: ResponseContext, message: string) =>
   c.json<ErrorResponse>(buildErrorPayload(c, "unauthorized", message), 401);
 

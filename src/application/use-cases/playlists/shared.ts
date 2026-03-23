@@ -1,6 +1,9 @@
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
+
 export const publishPlaylistUpdateEvents = async (
   deps: {
     scheduleRepository?: ScheduleRepository;
@@ -41,7 +44,15 @@ export const runPlaylistPostMutationEffects = async (
   try {
     await publishPlaylistUpdateEvents(deps, playlistId, reason);
   } catch (err) {
-    console.error("Playlist post-mutation effect failed.", err);
+    logger.error(
+      addErrorContext(
+        {
+          component: "playlists",
+          event: "playlist.post_mutation_effects.failed",
+        },
+        err,
+      ),
+    );
   }
 };
 
