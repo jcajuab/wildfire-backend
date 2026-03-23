@@ -22,16 +22,22 @@ import {
 } from "#/application/use-cases/ai";
 import { CreateFlashContentUseCase } from "#/application/use-cases/content/create-flash-content.use-case";
 import { CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
+import { DeleteContentUseCase } from "#/application/use-cases/content/delete-content.use-case";
 import { ListContentUseCase } from "#/application/use-cases/content/list-content.use-case";
+import { UpdateContentUseCase } from "#/application/use-cases/content/update-content.use-case";
 import { ListDisplaysUseCase } from "#/application/use-cases/displays/list-displays.use-case";
 import {
   CreatePlaylistUseCase,
   ReplacePlaylistItemsAtomicUseCase,
 } from "#/application/use-cases/playlists";
+import { DeletePlaylistUseCase } from "#/application/use-cases/playlists/delete-playlist.use-case";
 import { ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
+import { UpdatePlaylistUseCase } from "#/application/use-cases/playlists/update-playlist.use-case";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { CreateScheduleUseCase } from "#/application/use-cases/schedules";
+import { DeleteScheduleUseCase } from "#/application/use-cases/schedules/delete-schedule.use-case";
 import { ListSchedulesUseCase } from "#/application/use-cases/schedules/list-schedules.use-case";
+import { UpdateScheduleUseCase } from "#/application/use-cases/schedules/update-schedule.use-case";
 import { executeAIChat } from "#/infrastructure/ai/vercel-ai-adapter";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
 import { AICredentialsDbRepository } from "#/infrastructure/db/repositories/ai-credentials.repo";
@@ -169,19 +175,58 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     displayRepository: config.repositories.displayRepository,
   });
 
+  const updateContentUseCase = new UpdateContentUseCase({
+    contentRepository: config.repositories.contentRepository,
+    userRepository: config.repositories.userRepository,
+  });
+
+  const deleteContentUseCase = new DeleteContentUseCase({
+    contentRepository: config.repositories.contentRepository,
+    contentStorage: config.storage,
+    scheduleRepository: config.repositories.scheduleRepository,
+  });
+
+  const updatePlaylistUseCase = new UpdatePlaylistUseCase({
+    playlistRepository: config.repositories.playlistRepository,
+    userRepository: config.repositories.userRepository,
+  });
+
+  const deletePlaylistUseCase = new DeletePlaylistUseCase({
+    playlistRepository: config.repositories.playlistRepository,
+    contentRepository: config.repositories.contentRepository,
+    scheduleRepository: config.repositories.scheduleRepository,
+    displayRepository: config.repositories.displayRepository,
+  });
+
+  const updateScheduleUseCase = new UpdateScheduleUseCase({
+    scheduleRepository: config.repositories.scheduleRepository,
+    playlistRepository: config.repositories.playlistRepository,
+    contentRepository: config.repositories.contentRepository,
+    displayRepository: config.repositories.displayRepository,
+  });
+
+  const deleteScheduleUseCase = new DeleteScheduleUseCase({
+    scheduleRepository: config.repositories.scheduleRepository,
+    playlistRepository: config.repositories.playlistRepository,
+    contentRepository: config.repositories.contentRepository,
+  });
+
   const toolExecutor = new AIToolExecutor({
     createFlashContentUseCase,
     createTextContentUseCase,
+    updateContentUseCase,
+    deleteContentUseCase,
     createPlaylistUseCase,
+    updatePlaylistUseCase,
+    deletePlaylistUseCase,
     replacePlaylistItemsAtomicUseCase,
     createScheduleUseCase,
+    updateScheduleUseCase,
+    deleteScheduleUseCase,
     listDisplaysUseCase,
     listContentUseCase,
     listPlaylistsUseCase,
     listSchedulesUseCase,
-    contentRepository: config.repositories.contentRepository,
-    playlistRepository: config.repositories.playlistRepository,
-    scheduleRepository: config.repositories.scheduleRepository,
     auditLogger,
   });
 

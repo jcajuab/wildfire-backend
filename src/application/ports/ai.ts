@@ -6,12 +6,6 @@ export interface AIProviderConfig {
   maxTokens?: number;
 }
 
-/** @deprecated Use UIMessage from the AI SDK instead for full tool support. */
-export interface AIMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-
 export interface AIToolCall {
   id: string;
   toolName: string;
@@ -60,10 +54,4 @@ export interface AICredentialsRepository {
   delete(userId: string, provider: string): Promise<boolean>;
 }
 
-export interface AuditLogger {
-  log(input: {
-    event: string;
-    userId: string;
-    metadata?: Record<string, unknown>;
-  }): void;
-}
+export type { AuditLogger } from "#/application/ports/audit";

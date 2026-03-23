@@ -131,12 +131,17 @@ export class CreateScheduleUseCase {
       ).map(toScheduleWindow),
     });
 
+    if (!input.ownerId) {
+      throw new ValidationError("ownerId is required to create a schedule");
+    }
+
     const schedule = await this.deps.scheduleRepository.create({
       name: candidate.name,
       kind: candidate.kind,
       playlistId: candidate.playlistId,
       contentId: candidate.contentId,
       displayId: candidate.displayId,
+      createdBy: input.ownerId,
       startDate: candidate.startDate,
       endDate: candidate.endDate,
       startTime: candidate.startTime,

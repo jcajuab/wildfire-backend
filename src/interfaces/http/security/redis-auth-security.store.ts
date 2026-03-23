@@ -4,6 +4,7 @@ import {
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
 import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
+import { parseMilliseconds } from "#/infrastructure/redis/utils";
 
 export interface AuthSecurityStore {
   checkLoginAllowed(
@@ -50,15 +51,6 @@ const endpointAttemptKey = (key: string): string =>
 
 const sanitizeTtlMs = (value: number): number =>
   Math.max(1_000, Math.trunc(value));
-
-const parseMilliseconds = (value: string | undefined): number | null => {
-  if (typeof value !== "string" || value.length === 0) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 const LOGIN_FAILURE_SCRIPT = `
 local nowMs = tonumber(ARGV[1])

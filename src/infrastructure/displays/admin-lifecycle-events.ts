@@ -1,13 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { type DisplayStatus } from "#/application/ports/displays";
 import { env } from "#/env";
-import { logger } from "#/infrastructure/observability/logger";
-import { addErrorContext } from "#/infrastructure/observability/logging";
-import {
-  executeRedisCommand,
-  getRedisPublisherClient,
-  getRedisSubscriberClient,
-} from "#/infrastructure/redis/client";
+import { makeRedisEventBus } from "#/infrastructure/redis/event-bus";
+import { isStringField } from "#/shared/event-utils";
 
 export type AdminDisplayLifecycleEventType =
   | "display_registered"
@@ -43,30 +37,7 @@ export type AdminDisplayLifecycleEvent =
       occurredAt: string;
     };
 
-type AdminLifecycleSubscriber = (event: AdminDisplayLifecycleEvent) => void;
-
-interface AdminLifecycleEnvelope {
-  origin: string;
-  event: AdminDisplayLifecycleEvent;
-}
-
-const lifecycleSubscribers = new Map<string, AdminLifecycleSubscriber>();
-const redisChannel = `${env.REDIS_KEY_PREFIX}:events:admin-display-lifecycle`;
-const lifecycleOrigin = randomUUID();
-
-let hasLifecycleSubscription = false;
-let lifecycleSubscriptionPromise: Promise<void> | null = null;
-
-const MAX_DISPLAY_STATUS_EVENT_BYTES = 256;
-const MAX_ADMIN_LIFECYCLE_MESSAGE_BYTES = 8_192;
-const MAX_ADMIN_LIFECYCLE_PREVIEW_BYTES = 256;
-const INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS = 10_000;
-let lastInvalidEnvelopeLogMs = 0;
-
-const isStringField = (value: unknown, maxBytes: number): value is string =>
-  typeof value === "string" &&
-  value.length > 0 &&
-  Buffer.byteLength(value) <= maxBytes;
+const MAX_FIELD_BYTES = 256;
 
 const isDisplayStatus = (value: unknown): value is DisplayStatus =>
   value === "PROCESSING" ||
@@ -77,36 +48,10 @@ const isDisplayStatus = (value: unknown): value is DisplayStatus =>
 const isPlaylistStatus = (value: unknown): value is "DRAFT" | "IN_USE" =>
   value === "DRAFT" || value === "IN_USE";
 
-const logInvalidEnvelope = (
-  reason: string,
-  channel: string,
-  rawMessage: string,
-): void => {
-  const now = Date.now();
-  if (now - lastInvalidEnvelopeLogMs < INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS) {
-    return;
-  }
-  lastInvalidEnvelopeLogMs = now;
-
-  logger.warn(
-    {
-      component: "displays",
-      event: "admin-lifecycle.envelope.invalid",
-      channel,
-      reason,
-      messageBytes: Buffer.byteLength(rawMessage),
-      messagePreview: rawMessage.slice(0, MAX_ADMIN_LIFECYCLE_PREVIEW_BYTES),
-    },
-    "invalid admin lifecycle Redis message",
-  );
-};
-
 const parseLifecycleEvent = (
   value: unknown,
 ): AdminDisplayLifecycleEvent | null => {
-  if (value == null || typeof value !== "object") {
-    return null;
-  }
+  if (value == null || typeof value !== "object") return null;
 
   const candidate = value as {
     type?: unknown;
@@ -120,9 +65,9 @@ const parseLifecycleEvent = (
 
   if (
     candidate.type === "playlist_status_changed" &&
-    isStringField(candidate.playlistId, MAX_DISPLAY_STATUS_EVENT_BYTES) &&
+    isStringField(candidate.playlistId, MAX_FIELD_BYTES) &&
     isPlaylistStatus(candidate.status) &&
-    isStringField(candidate.occurredAt, MAX_DISPLAY_STATUS_EVENT_BYTES)
+    isStringField(candidate.occurredAt, MAX_FIELD_BYTES)
   ) {
     return {
       type: "playlist_status_changed",
@@ -133,9 +78,9 @@ const parseLifecycleEvent = (
   }
 
   if (
-    !isStringField(candidate.displayId, MAX_DISPLAY_STATUS_EVENT_BYTES) ||
-    !isStringField(candidate.slug, MAX_DISPLAY_STATUS_EVENT_BYTES) ||
-    !isStringField(candidate.occurredAt, MAX_DISPLAY_STATUS_EVENT_BYTES)
+    !isStringField(candidate.displayId, MAX_FIELD_BYTES) ||
+    !isStringField(candidate.slug, MAX_FIELD_BYTES) ||
+    !isStringField(candidate.occurredAt, MAX_FIELD_BYTES)
   ) {
     return null;
   }
@@ -176,145 +121,22 @@ const parseLifecycleEvent = (
   return null;
 };
 
-const parseEnvelope = (rawMessage: string): AdminLifecycleEnvelope | null => {
-  if (Buffer.byteLength(rawMessage) > MAX_ADMIN_LIFECYCLE_MESSAGE_BYTES) {
-    logInvalidEnvelope(
-      "message_too_large",
-      redisChannel,
-      rawMessage.slice(0, MAX_ADMIN_LIFECYCLE_PREVIEW_BYTES),
-    );
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawMessage) as {
-      origin?: unknown;
-      event?: unknown;
-    };
-
-    if (!isStringField(parsed.origin, MAX_DISPLAY_STATUS_EVENT_BYTES)) {
-      logInvalidEnvelope(
-        "invalid_origin",
-        redisChannel,
-        rawMessage.slice(0, MAX_ADMIN_LIFECYCLE_PREVIEW_BYTES),
-      );
-      return null;
-    }
-
-    const event = parseLifecycleEvent(parsed.event);
-    if (!event) {
-      logInvalidEnvelope(
-        "invalid_event",
-        redisChannel,
-        rawMessage.slice(0, MAX_ADMIN_LIFECYCLE_PREVIEW_BYTES),
-      );
-      return null;
-    }
-
-    return {
-      origin: parsed.origin,
-      event,
-    };
-  } catch {
-    logInvalidEnvelope(
-      "json_parse_failed",
-      redisChannel,
-      rawMessage.slice(0, MAX_ADMIN_LIFECYCLE_PREVIEW_BYTES),
-    );
-    return null;
-  }
-};
-
-const emitLifecycleEventLocally = (event: AdminDisplayLifecycleEvent): void => {
-  for (const subscriber of lifecycleSubscribers.values()) {
-    subscriber(event);
-  }
-};
-
-const ensureLifecycleSubscription = (): void => {
-  if (hasLifecycleSubscription || lifecycleSubscriptionPromise) {
-    return;
-  }
-
-  lifecycleSubscriptionPromise = (async () => {
-    try {
-      const subscriber = await getRedisSubscriberClient();
-      await subscriber.subscribe(redisChannel, (rawMessage) => {
-        const envelope = parseEnvelope(rawMessage);
-        if (!envelope || envelope.origin === lifecycleOrigin) {
-          return;
-        }
-
-        emitLifecycleEventLocally(envelope.event);
-      });
-      hasLifecycleSubscription = true;
-    } catch (error) {
-      hasLifecycleSubscription = false;
-      logger.error(
-        addErrorContext(
-          {
-            component: "displays",
-            event: "admin-lifecycle.subscription.failed",
-            channel: redisChannel,
-          },
-          error,
-        ),
-        "admin lifecycle Redis subscription failed",
-      );
-    } finally {
-      lifecycleSubscriptionPromise = null;
-    }
-  })();
-};
-
-const publishLifecycleEventToRedis = async (
-  event: AdminDisplayLifecycleEvent,
-): Promise<void> => {
-  try {
-    const publisher = await getRedisPublisherClient();
-    const envelope: AdminLifecycleEnvelope = {
-      origin: lifecycleOrigin,
-      event,
-    };
-
-    await executeRedisCommand<number>(publisher, [
-      "PUBLISH",
-      redisChannel,
-      JSON.stringify(envelope),
-    ]);
-  } catch (error) {
-    logger.warn(
-      addErrorContext(
-        {
-          component: "displays",
-          event: "admin-lifecycle.publish.failed",
-          channel: redisChannel,
-          eventType: event.type,
-          displayId: "displayId" in event ? event.displayId : undefined,
-        },
-        error,
-      ),
-      "admin lifecycle Redis publish failed",
-    );
-  }
-};
+const bus = makeRedisEventBus<AdminDisplayLifecycleEvent>({
+  channel: `${env.REDIS_KEY_PREFIX}:events:admin-display-lifecycle`,
+  component: "displays",
+  eventLabel: "admin-lifecycle",
+  maxMessageBytes: 8_192,
+  maxFieldBytes: MAX_FIELD_BYTES,
+  maxPreviewBytes: 256,
+  invalidLogCooldownMs: 10_000,
+  parseEvent: parseLifecycleEvent,
+  getKey: null,
+});
 
 export const subscribeToAdminDisplayLifecycleEvents = (
-  handler: AdminLifecycleSubscriber,
-): (() => void) => {
-  ensureLifecycleSubscription();
-
-  const subscriberId = randomUUID();
-  lifecycleSubscribers.set(subscriberId, handler);
-  return () => {
-    lifecycleSubscribers.delete(subscriberId);
-  };
-};
+  handler: (event: AdminDisplayLifecycleEvent) => void,
+): (() => void) => bus.subscribeBroadcast(handler);
 
 export const publishAdminDisplayLifecycleEvent = (
   event: AdminDisplayLifecycleEvent,
-): void => {
-  ensureLifecycleSubscription();
-  emitLifecycleEventLocally(event);
-  void publishLifecycleEventToRedis(event);
-};
+): void => bus.publish(event);

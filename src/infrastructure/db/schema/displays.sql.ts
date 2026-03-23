@@ -27,14 +27,14 @@ export const displays = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    slugUnique: uniqueIndex("displays_slug_unique").on(table.slug),
-    emergencyContentIdIndex: index("displays_emergency_content_id_idx").on(
+    slugUniqueIdx: uniqueIndex("displays_slug_unique").on(table.slug),
+    emergencyContentIdIdx: index("displays_emergency_content_id_idx").on(
       table.emergencyContentId,
     ),
-    fingerprintOutputUnique: uniqueIndex(
+    fingerprintOutputUniqueIdx: uniqueIndex(
       "displays_fingerprint_output_unique",
     ).on(table.fingerprint, table.output),
-    createdAtIndex: index("displays_created_at_idx").on(table.createdAt),
+    createdAtIdx: index("displays_created_at_idx").on(table.createdAt),
   }),
 );
 
@@ -58,11 +58,11 @@ export const displayRuntimeStates = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    statusIndex: index("display_runtime_states_status_idx").on(table.status),
-    lastSeenAtIndex: index("display_runtime_states_last_seen_at_idx").on(
+    statusIdx: index("display_runtime_states_status_idx").on(table.status),
+    lastSeenAtIdx: index("display_runtime_states_last_seen_at_idx").on(
       table.lastSeenAt,
     ),
-    updatedAtIndex: index("display_runtime_states_updated_at_idx").on(
+    updatedAtIdx: index("display_runtime_states_updated_at_idx").on(
       table.updatedAt,
     ),
   }),
@@ -77,7 +77,7 @@ export const displayGroups = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    nameUnique: unique("display_groups_name_unique").on(table.name),
+    nameUniqueIdx: unique("display_groups_name_unique").on(table.name),
   }),
 );
 

@@ -1,9 +1,7 @@
 import { type UserRecord } from "#/application/ports/rbac";
+import { normalizeQuery } from "#/shared/string-utils";
 
-export const normalizeQuery = (value: string | undefined): string | null => {
-  const normalized = value?.trim().toLowerCase();
-  return normalized ? normalized : null;
-};
+export { normalizeQuery };
 
 export const filterUsers = (
   users: readonly UserRecord[],

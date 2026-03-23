@@ -7,6 +7,7 @@ import {
   getRedisPublisherClient,
   getRedisSubscriberClient,
 } from "#/infrastructure/redis/client";
+import { isStringField, makeLogInvalidEnvelope } from "#/shared/event-utils";
 
 export type DisplayStreamEventType =
   | "manifest_updated"
@@ -42,36 +43,14 @@ const MAX_DISPLAY_STREAM_TOKEN_SEGMENT_BYTES = 2_048;
 const MAX_DISPLAY_ID_BYTES = 128;
 const MAX_TIMESTAMP_BYTES = 64;
 const INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS = 10_000;
-let lastInvalidEnvelopeLogMs = 0;
 
-const isStringField = (value: unknown, maxBytes: number): value is string =>
-  typeof value === "string" &&
-  value.length > 0 &&
-  Buffer.byteLength(value) <= maxBytes;
-
-const logInvalidEnvelope = (
-  reason: string,
-  channel: string,
-  rawMessage: string,
-): void => {
-  const now = Date.now();
-  if (now - lastInvalidEnvelopeLogMs < INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS) {
-    return;
-  }
-  lastInvalidEnvelopeLogMs = now;
-
-  logger.warn(
-    {
-      component: "displays",
-      event: "display-stream.envelope.invalid",
-      channel,
-      reason,
-      messageBytes: Buffer.byteLength(rawMessage),
-      messagePreview: rawMessage.slice(0, MAX_DISPLAY_STREAM_PREVIEW_BYTES),
-    },
-    "invalid display stream Redis message",
-  );
-};
+const logInvalidEnvelope = makeLogInvalidEnvelope({
+  component: "displays",
+  event: "display-stream.envelope.invalid",
+  previewBytes: MAX_DISPLAY_STREAM_PREVIEW_BYTES,
+  message: "invalid display stream Redis message",
+  cooldownMs: INVALID_REDIS_MESSAGE_LOG_COOLDOWN_MS,
+});
 
 const toBase64Url = (value: string | Uint8Array): string =>
   Buffer.from(value)

@@ -314,6 +314,7 @@ CREATE TABLE `schedules` (
 	`end_date` varchar(10) NOT NULL,
 	`start_time` varchar(5) NOT NULL,
 	`end_time` varchar(5) NOT NULL,
+	`created_by` varchar(36) NOT NULL,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp NOT NULL DEFAULT (now()),
 	CONSTRAINT `schedules_id` PRIMARY KEY(`id`)
@@ -349,6 +350,7 @@ ALTER TABLE `schedule_content_targets` ADD CONSTRAINT `schedule_content_targets_
 ALTER TABLE `schedule_playlist_targets` ADD CONSTRAINT `schedule_playlist_targets_schedule_id_schedules_id_fk` FOREIGN KEY (`schedule_id`) REFERENCES `schedules`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `schedule_playlist_targets` ADD CONSTRAINT `schedule_playlist_targets_playlist_id_playlists_id_fk` FOREIGN KEY (`playlist_id`) REFERENCES `playlists`(`id`) ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `schedules` ADD CONSTRAINT `schedules_display_id_displays_id_fk` FOREIGN KEY (`display_id`) REFERENCES `displays`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `schedules` ADD CONSTRAINT `schedules_created_by_users_id_fk` FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX `ai_credentials_user_id_idx` ON `ai_credentials` (`user_id`);--> statement-breakpoint
 CREATE INDEX `audit_logs_occurred_at_idx` ON `audit_logs` (`occurred_at`);--> statement-breakpoint
 CREATE INDEX `audit_logs_actor_occurred_idx` ON `audit_logs` (`actor_id`,`occurred_at`);--> statement-breakpoint
@@ -373,21 +375,23 @@ CREATE INDEX `content_ingestion_jobs_status_idx` ON `content_ingestion_jobs` (`s
 CREATE INDEX `content_ingestion_jobs_created_at_idx` ON `content_ingestion_jobs` (`created_at`);--> statement-breakpoint
 CREATE INDEX `content_status_idx` ON `content` (`status`);--> statement-breakpoint
 CREATE INDEX `content_type_idx` ON `content` (`type`);--> statement-breakpoint
+CREATE INDEX `content_owner_id_idx` ON `content` (`owner_id`);--> statement-breakpoint
 CREATE INDEX `content_created_at_idx` ON `content` (`created_at`);--> statement-breakpoint
 CREATE INDEX `content_status_type_created_at_idx` ON `content` (`status`,`type`,`created_at`);--> statement-breakpoint
 CREATE INDEX `content_assets_mime_type_idx` ON `content_assets` (`mime_type`);--> statement-breakpoint
 CREATE INDEX `content_assets_file_size_idx` ON `content_assets` (`file_size`);--> statement-breakpoint
-CREATE INDEX `content_flash_messages_tone_idx` ON `content_flash_messages` (`tone`);--> statement-breakpoint
-CREATE INDEX `display_active_keys_key_pair_id_idx` ON `display_active_keys` (`key_pair_id`);--> statement-breakpoint
 CREATE INDEX `display_key_pairs_display_id_created_idx` ON `display_key_pairs` (`display_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `display_key_pairs_display_id_revoked_idx` ON `display_key_pairs` (`display_id`,`revoked_at`);--> statement-breakpoint
+CREATE INDEX `display_group_members_display_id_idx` ON `display_group_members` (`display_id`);--> statement-breakpoint
 CREATE INDEX `display_runtime_states_status_idx` ON `display_runtime_states` (`status`);--> statement-breakpoint
 CREATE INDEX `display_runtime_states_last_seen_at_idx` ON `display_runtime_states` (`last_seen_at`);--> statement-breakpoint
 CREATE INDEX `display_runtime_states_updated_at_idx` ON `display_runtime_states` (`updated_at`);--> statement-breakpoint
 CREATE INDEX `displays_emergency_content_id_idx` ON `displays` (`emergency_content_id`);--> statement-breakpoint
 CREATE INDEX `displays_created_at_idx` ON `displays` (`created_at`);--> statement-breakpoint
+CREATE INDEX `playlist_items_content_id_idx` ON `playlist_items` (`content_id`);--> statement-breakpoint
 CREATE INDEX `playlists_status_idx` ON `playlists` (`status`);--> statement-breakpoint
 CREATE INDEX `playlists_name_idx` ON `playlists` (`name`);--> statement-breakpoint
+CREATE INDEX `playlists_owner_id_idx` ON `playlists` (`owner_id`);--> statement-breakpoint
 CREATE INDEX `playlists_updated_at_idx` ON `playlists` (`updated_at`);--> statement-breakpoint
 CREATE INDEX `playlists_status_updated_at_idx` ON `playlists` (`status`,`updated_at`);--> statement-breakpoint
 CREATE INDEX `schedule_content_targets_content_id_idx` ON `schedule_content_targets` (`content_id`);--> statement-breakpoint

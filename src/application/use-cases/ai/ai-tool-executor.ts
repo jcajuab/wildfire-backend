@@ -4,18 +4,21 @@ import {
   type AIToolResult,
   type AuditLogger,
 } from "#/application/ports/ai";
-import { type ContentRepository } from "#/application/ports/content";
-import { type PlaylistRepository } from "#/application/ports/playlists";
-import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type CreateFlashContentUseCase } from "#/application/use-cases/content/create-flash-content.use-case";
 import { type CreateTextContentUseCase } from "#/application/use-cases/content/create-text-content.use-case";
+import { type DeleteContentUseCase } from "#/application/use-cases/content/delete-content.use-case";
 import { type ListContentUseCase } from "#/application/use-cases/content/list-content.use-case";
+import { type UpdateContentUseCase } from "#/application/use-cases/content/update-content.use-case";
 import { type ListDisplaysUseCase } from "#/application/use-cases/displays/list-displays.use-case";
 import { type CreatePlaylistUseCase } from "#/application/use-cases/playlists/create-playlist.use-case";
+import { type DeletePlaylistUseCase } from "#/application/use-cases/playlists/delete-playlist.use-case";
 import { type ListPlaylistsUseCase } from "#/application/use-cases/playlists/list-playlists.use-case";
 import { type ReplacePlaylistItemsAtomicUseCase } from "#/application/use-cases/playlists/replace-playlist-items.use-case";
+import { type UpdatePlaylistUseCase } from "#/application/use-cases/playlists/update-playlist.use-case";
 import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/create-schedule.use-case";
+import { type DeleteScheduleUseCase } from "#/application/use-cases/schedules/delete-schedule.use-case";
 import { type ListSchedulesUseCase } from "#/application/use-cases/schedules/list-schedules.use-case";
+import { type UpdateScheduleUseCase } from "#/application/use-cases/schedules/update-schedule.use-case";
 import { AI_TOOLS } from "./ai-tool-registry";
 import { convertPlainTextToTipTap } from "./tiptap-convert";
 
@@ -62,16 +65,19 @@ export class AIToolExecutor {
     private readonly deps: {
       createFlashContentUseCase: CreateFlashContentUseCase;
       createTextContentUseCase: CreateTextContentUseCase;
+      updateContentUseCase: UpdateContentUseCase;
+      deleteContentUseCase: DeleteContentUseCase;
       createPlaylistUseCase: CreatePlaylistUseCase;
+      updatePlaylistUseCase: UpdatePlaylistUseCase;
+      deletePlaylistUseCase: DeletePlaylistUseCase;
       replacePlaylistItemsAtomicUseCase: ReplacePlaylistItemsAtomicUseCase;
       createScheduleUseCase: CreateScheduleUseCase;
+      updateScheduleUseCase: UpdateScheduleUseCase;
+      deleteScheduleUseCase: DeleteScheduleUseCase;
       listDisplaysUseCase: ListDisplaysUseCase;
       listContentUseCase: ListContentUseCase;
       listPlaylistsUseCase: ListPlaylistsUseCase;
       listSchedulesUseCase: ListSchedulesUseCase;
-      contentRepository: ContentRepository;
-      playlistRepository: PlaylistRepository;
-      scheduleRepository: ScheduleRepository;
       auditLogger: AuditLogger;
     },
   ) {}
@@ -225,6 +231,8 @@ export class AIToolExecutor {
         return { success: true, data: result };
       }
 
+      // Displays are shared infrastructure (not user-owned resources),
+      // so they are intentionally listed without ownership filtering.
       case "list_displays": {
         const typedArgs = args as ListDisplaysArgs;
         const result = await this.deps.listDisplaysUseCase.execute({
@@ -285,32 +293,33 @@ export class AIToolExecutor {
         const converted = typedArgs.text
           ? convertPlainTextToTipTap(typedArgs.text)
           : undefined;
-        const updated = await this.deps.contentRepository.update(
-          typedArgs.contentId,
-          {
-            title: typedArgs.title,
-            textJsonContent: converted?.jsonContent,
-            textHtmlContent: converted?.htmlContent,
-          },
-        );
+        const updated = await this.deps.updateContentUseCase.execute({
+          id: typedArgs.contentId,
+          ownerId: context.userId,
+          title: typedArgs.title,
+          textJsonContent: converted?.jsonContent,
+          textHtmlContent: converted?.htmlContent,
+        });
         return { success: true, data: updated };
       }
 
       case "delete_content": {
         const typedArgs = args as DeleteContentArgs;
-        await this.deps.contentRepository.delete(typedArgs.contentId);
+        await this.deps.deleteContentUseCase.execute({
+          id: typedArgs.contentId,
+          ownerId: context.userId,
+        });
         return { success: true, data: { deleted: true } };
       }
 
       case "edit_playlist": {
         const typedArgs = args as EditPlaylistArgs;
-        const updated = await this.deps.playlistRepository.update(
-          typedArgs.playlistId,
-          {
-            name: typedArgs.name,
-            description: typedArgs.description,
-          },
-        );
+        const updated = await this.deps.updatePlaylistUseCase.execute({
+          id: typedArgs.playlistId,
+          ownerId: context.userId,
+          name: typedArgs.name,
+          description: typedArgs.description,
+        });
 
         if (typedArgs.items?.length) {
           await this.deps.replacePlaylistItemsAtomicUseCase.execute({
@@ -329,53 +338,60 @@ export class AIToolExecutor {
 
       case "delete_playlist": {
         const typedArgs = args as DeletePlaylistArgs;
-        await this.deps.playlistRepository.delete(typedArgs.playlistId);
+        await this.deps.deletePlaylistUseCase.execute({
+          id: typedArgs.playlistId,
+          ownerId: context.userId,
+        });
         return { success: true, data: { deleted: true } };
       }
 
       case "edit_schedule": {
         const typedArgs = args as EditScheduleArgs;
-        const updated = await this.deps.scheduleRepository.update(
-          typedArgs.scheduleId,
-          {
-            name: typedArgs.name,
-            playlistId: typedArgs.playlistId,
-            displayId: typedArgs.displayId,
-            startDate: typedArgs.startDate,
-            endDate: typedArgs.endDate,
-            startTime: typedArgs.startTime,
-            endTime: typedArgs.endTime,
-          },
-        );
+        const updated = await this.deps.updateScheduleUseCase.execute({
+          id: typedArgs.scheduleId,
+          ownerId: context.userId,
+          name: typedArgs.name,
+          playlistId: typedArgs.playlistId,
+          displayId: typedArgs.displayId,
+          startDate: typedArgs.startDate,
+          endDate: typedArgs.endDate,
+          startTime: typedArgs.startTime,
+          endTime: typedArgs.endTime,
+        });
         return { success: true, data: updated };
       }
 
       case "delete_schedule": {
         const typedArgs = args as DeleteScheduleArgs;
-        await this.deps.scheduleRepository.delete(typedArgs.scheduleId);
+        await this.deps.deleteScheduleUseCase.execute({
+          id: typedArgs.scheduleId,
+          ownerId: context.userId,
+        });
         return { success: true, data: { deleted: true } };
       }
 
       case "edit_flash_schedule": {
         const typedArgs = args as EditFlashScheduleArgs;
-        const updated = await this.deps.scheduleRepository.update(
-          typedArgs.scheduleId,
-          {
-            name: typedArgs.name,
-            contentId: typedArgs.contentId,
-            displayId: typedArgs.displayId,
-            startDate: typedArgs.startDate,
-            endDate: typedArgs.endDate,
-            startTime: typedArgs.startTime,
-            endTime: typedArgs.endTime,
-          },
-        );
+        const updated = await this.deps.updateScheduleUseCase.execute({
+          id: typedArgs.scheduleId,
+          ownerId: context.userId,
+          name: typedArgs.name,
+          contentId: typedArgs.contentId,
+          displayId: typedArgs.displayId,
+          startDate: typedArgs.startDate,
+          endDate: typedArgs.endDate,
+          startTime: typedArgs.startTime,
+          endTime: typedArgs.endTime,
+        });
         return { success: true, data: updated };
       }
 
       case "delete_flash_schedule": {
         const typedArgs = args as DeleteFlashScheduleArgs;
-        await this.deps.scheduleRepository.delete(typedArgs.scheduleId);
+        await this.deps.deleteScheduleUseCase.execute({
+          id: typedArgs.scheduleId,
+          ownerId: context.userId,
+        });
         return { success: true, data: { deleted: true } };
       }
 

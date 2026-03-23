@@ -10,6 +10,11 @@ import {
 } from "#/infrastructure/redis/client";
 import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
 import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
+import {
+  parseMilliseconds,
+  toScriptString,
+  toUnixSecondsMs,
+} from "#/infrastructure/redis/utils";
 
 interface RegistrationAttemptRecord {
   id: string;
@@ -34,21 +39,6 @@ const attemptByCodeHashKey = (codeHash: string): string =>
   `${attemptByCodeHashPrefix}:${codeHash}`;
 const sessionAttemptKey = (sessionId: string): string =>
   `${attemptPrefix}:session:${sessionId}`;
-
-const toUnixSeconds = (value: number): string =>
-  String(Math.max(1, Math.ceil(value / 1000)));
-
-const toScriptString = (value: unknown): string =>
-  typeof value === "string" ? value : value == null ? "" : String(value);
-
-const parseMilliseconds = (value: string | undefined): number | null => {
-  if (typeof value !== "string" || value.length === 0) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 const parseRegistrationAttempt = (
   value: Record<string, string>,
@@ -340,7 +330,7 @@ export class RedisDisplayRegistrationAttemptStore
         input.activeCode.pairingCodeId,
         String(activeCodeExpiresAtMs),
         String(attemptTtlMs),
-        toUnixSeconds(activeCodeExpiresAtMs),
+        toUnixSecondsMs(activeCodeExpiresAtMs),
       ],
     });
 
@@ -389,7 +379,7 @@ export class RedisDisplayRegistrationAttemptStore
         input.nextCode.pairingCodeId,
         String(nextCodeExpiresAtMs),
         String(attemptTtlMs),
-        toUnixSeconds(nextCodeExpiresAtMs),
+        toUnixSecondsMs(nextCodeExpiresAtMs),
       ],
     });
 

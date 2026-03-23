@@ -24,10 +24,9 @@ export const aiCredentials = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    userProviderUnique: uniqueIndex("ai_credentials_user_provider_unique").on(
-      table.userId,
-      table.provider,
-    ),
-    userIdIndex: index("ai_credentials_user_id_idx").on(table.userId),
+    userProviderUniqueIdx: uniqueIndex(
+      "ai_credentials_user_provider_unique",
+    ).on(table.userId, table.provider),
+    userIdIdx: index("ai_credentials_user_id_idx").on(table.userId),
   }),
 );

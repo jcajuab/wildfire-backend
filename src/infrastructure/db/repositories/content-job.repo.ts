@@ -67,11 +67,18 @@ export class ContentIngestionJobDbRepository
       completedAt: null,
     });
 
-    const created = await this.findById(input.id);
-    if (!created) {
-      throw new Error("Failed to create content ingestion job");
-    }
-    return created;
+    return {
+      id: input.id,
+      contentId: input.contentId,
+      operation: input.operation,
+      status: input.status,
+      errorMessage: input.errorMessage ?? null,
+      ownerId: input.ownerId,
+      createdAt: toIsoString(now),
+      updatedAt: toIsoString(now),
+      startedAt: null,
+      completedAt: null,
+    };
   }
 
   async findById(id: string): Promise<ContentIngestionJobRecord | null> {

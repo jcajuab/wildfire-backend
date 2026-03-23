@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { type CredentialsReader } from "#/application/ports/auth";
+import { normalizeUsername } from "#/shared/string-utils";
 
 interface HtshadowCredentialsRepositoryDeps {
   filePath: string;
 }
-
-const normalizeUsername = (value: string): string => value.trim().toLowerCase();
 
 /**
  * Read-only credentials repository for the htshadow file.

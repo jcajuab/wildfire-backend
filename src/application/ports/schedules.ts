@@ -1,12 +1,15 @@
-export type ScheduleKind = "PLAYLIST" | "FLASH";
+import { type SchedulableKind } from "#/domain/schedules/schedule";
+
+export type { SchedulableKind as ScheduleKind } from "#/domain/schedules/schedule";
 
 export interface ScheduleRecord {
   id: string;
   name: string;
-  kind?: ScheduleKind;
+  kind?: SchedulableKind;
   playlistId: string | null;
   contentId?: string | null;
   displayId: string;
+  createdBy?: string;
   startDate?: string;
   endDate?: string;
   startTime: string;
@@ -29,10 +32,11 @@ export interface ScheduleRepository {
   findById(id: string): Promise<ScheduleRecord | null>;
   create(input: {
     name: string;
-    kind?: ScheduleKind;
+    kind?: SchedulableKind;
     playlistId: string | null;
     contentId?: string | null;
     displayId: string;
+    createdBy: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -42,7 +46,7 @@ export interface ScheduleRepository {
     id: string,
     input: {
       name?: string;
-      kind?: ScheduleKind;
+      kind?: SchedulableKind;
       playlistId?: string | null;
       contentId?: string | null;
       displayId?: string;

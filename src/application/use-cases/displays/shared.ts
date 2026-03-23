@@ -7,6 +7,7 @@ import {
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
+import { normalizeQuery } from "#/shared/string-utils";
 
 export type ManifestRenderableType = "IMAGE" | "VIDEO" | "TEXT";
 
@@ -93,13 +94,6 @@ export const buildNowPlayingMap = async (input: {
   return nowPlayingByDisplayId;
 };
 
-export const normalizeDisplayQuery = (
-  value: string | undefined,
-): string | null => {
-  const normalized = value?.trim().toLowerCase();
-  return normalized ? normalized : null;
-};
-
 export const filterDisplays = (input: {
   displays: readonly DisplayRecord[];
   query?: string;
@@ -108,7 +102,7 @@ export const filterDisplays = (input: {
   groupIds?: readonly string[];
   groupIdsByDisplayId: Map<string, Set<string>>;
 }): DisplayRecord[] => {
-  const normalizedQuery = normalizeDisplayQuery(input.query);
+  const normalizedQuery = normalizeQuery(input.query);
   const normalizedOutput = input.output?.trim().toLowerCase();
 
   return input.displays.filter((display) => {

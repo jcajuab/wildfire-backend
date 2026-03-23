@@ -1,5 +1,5 @@
 export type PermissionResource =
-  | "root"
+  | "admin"
   | "displays"
   | "content"
   | "playlists"

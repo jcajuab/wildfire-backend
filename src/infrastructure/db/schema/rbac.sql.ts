@@ -25,8 +25,8 @@ export const users = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    usernameUnique: uniqueIndex("users_username_unique").on(table.username),
-    emailUnique: uniqueIndex("users_email_unique").on(table.email),
+    usernameUniqueIdx: uniqueIndex("users_username_unique").on(table.username),
+    emailUniqueIdx: uniqueIndex("users_email_unique").on(table.email),
   }),
 );
 
@@ -38,7 +38,7 @@ export const roles = mysqlTable(
     description: text("description"),
   },
   (table) => ({
-    nameUnique: uniqueIndex("roles_name_unique").on(table.name),
+    nameUniqueIdx: uniqueIndex("roles_name_unique").on(table.name),
   }),
 );
 
@@ -51,10 +51,9 @@ export const permissions = mysqlTable(
     isAdmin: boolean("is_admin").notNull().default(false),
   },
   (table) => ({
-    resourceActionUnique: uniqueIndex("permissions_resource_action_unique").on(
-      table.resource,
-      table.action,
-    ),
+    resourceActionUniqueIdx: uniqueIndex(
+      "permissions_resource_action_unique",
+    ).on(table.resource, table.action),
   }),
 );
 

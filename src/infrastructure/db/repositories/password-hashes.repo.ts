@@ -3,8 +3,7 @@ import { type CredentialsRepository } from "#/application/ports/auth";
 import { db } from "#/infrastructure/db/client";
 import { passwordHashes } from "#/infrastructure/db/schema/password-hashes.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
-
-const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+import { normalizeUsername } from "#/shared/string-utils";
 
 export class DbCredentialsRepository implements CredentialsRepository {
   async findPasswordHash(username: string): Promise<string | null> {
@@ -39,7 +38,7 @@ export class DbCredentialsRepository implements CredentialsRepository {
       .set({ passwordHash: newPasswordHash, updatedAt: new Date() })
       .where(eq(passwordHashes.userId, user[0].id));
 
-    if (result[0].affectedRows === 0) {
+    if ((result[0]?.affectedRows ?? 0) === 0) {
       throw new Error(`No password hash entry for user: ${normalized}`);
     }
   }

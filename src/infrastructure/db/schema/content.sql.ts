@@ -26,11 +26,11 @@ export const content = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    statusIndex: index("content_status_idx").on(table.status),
-    typeIndex: index("content_type_idx").on(table.type),
-    ownerIdIndex: index("content_owner_id_idx").on(table.ownerId),
-    createdAtIndex: index("content_created_at_idx").on(table.createdAt),
-    statusTypeCreatedAtIndex: index("content_status_type_created_at_idx").on(
+    statusIdx: index("content_status_idx").on(table.status),
+    typeIdx: index("content_type_idx").on(table.type),
+    ownerIdIdx: index("content_owner_id_idx").on(table.ownerId),
+    createdAtIdx: index("content_created_at_idx").on(table.createdAt),
+    statusTypeCreatedAtIdx: index("content_status_type_created_at_idx").on(
       table.status,
       table.type,
       table.createdAt,
@@ -56,29 +56,25 @@ export const contentAssets = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    fileKeyUnique: uniqueIndex("content_assets_file_key_unique").on(
+    fileKeyUniqueIdx: uniqueIndex("content_assets_file_key_unique").on(
       table.fileKey,
     ),
-    mimeTypeIndex: index("content_assets_mime_type_idx").on(table.mimeType),
-    fileSizeIndex: index("content_assets_file_size_idx").on(table.fileSize),
+    mimeTypeIdx: index("content_assets_mime_type_idx").on(table.mimeType),
+    fileSizeIdx: index("content_assets_file_size_idx").on(table.fileSize),
   }),
 );
 
-export const contentFlashMessages = mysqlTable(
-  "content_flash_messages",
-  {
-    contentId: varchar("content_id", { length: 36 })
-      .primaryKey()
-      .references(() => content.id, { onDelete: "cascade" }),
-    message: varchar("message", { length: 240 }).notNull(),
-    tone: mysqlEnum("tone", ["INFO", "WARNING", "CRITICAL"])
-      .notNull()
-      .default("INFO"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  () => ({}),
-);
+export const contentFlashMessages = mysqlTable("content_flash_messages", {
+  contentId: varchar("content_id", { length: 36 })
+    .primaryKey()
+    .references(() => content.id, { onDelete: "cascade" }),
+  message: varchar("message", { length: 240 }).notNull(),
+  tone: mysqlEnum("tone", ["INFO", "WARNING", "CRITICAL"])
+    .notNull()
+    .default("INFO"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 export const contentTextContent = mysqlTable("content_text_content", {
   contentId: varchar("content_id", { length: 36 })

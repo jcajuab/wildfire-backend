@@ -112,7 +112,17 @@ const makeDeps = () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           }
         : null,
-    findByIdForOwner: async () => null,
+    findByIdForOwner: async (id: string, ownerId: string) =>
+      id === "playlist-1" && ownerId === "user-1"
+        ? {
+            id,
+            name: "Morning",
+            description: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          }
+        : null,
     create: async () => {
       throw new Error("not used");
     },
@@ -460,6 +470,7 @@ describe("Schedules use cases", () => {
         endDate: futureDate(330),
         startTime: "10:30",
         endTime: "11:30",
+        ownerId: "user-1",
       }),
     ).resolves.toBeDefined();
   });
@@ -499,6 +510,7 @@ describe("Schedules use cases", () => {
         endDate: futureDate(330),
         startTime: "11:00",
         endTime: "12:00",
+        ownerId: "user-1",
       }),
     ).resolves.toBeDefined();
   });

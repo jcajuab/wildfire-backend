@@ -1,6 +1,5 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
-
-const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+import { normalizeUsername } from "#/shared/string-utils";
 
 /**
  * Parses htshadow file content into a username-to-hash map.

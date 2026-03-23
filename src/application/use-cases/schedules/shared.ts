@@ -68,6 +68,15 @@ export const ensureScheduleVisibleToOwner = async (input: {
     return;
   }
 
+  // Primary ownership check: if the schedule has a createdBy field, use it directly
+  if (input.schedule.createdBy) {
+    if (input.schedule.createdBy === input.ownerId) {
+      return;
+    }
+    throw new NotFoundError("Schedule not found");
+  }
+
+  // Fallback for legacy schedules without createdBy: check via playlist/content ownership
   if (input.schedule.playlistId) {
     const ownedPlaylist = await findPlaylistForOwner(
       input.playlistRepository,

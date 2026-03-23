@@ -1,4 +1,3 @@
-import { ContentPlaylistReportingService } from "#/application/reporting/content-playlist-reporting";
 import {
   CancelPdfCropUseCase,
   CreateFlashContentUseCase,
@@ -16,6 +15,7 @@ import {
   UploadContentUseCase,
 } from "#/application/use-cases/content";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
+import { ContentPlaylistReportingRepository } from "#/infrastructure/db/repositories/content-playlist-reporting.repo";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -66,7 +66,7 @@ export const createContentHttpModule = (
     },
   };
 
-  const contentPlaylistReportingService = new ContentPlaylistReportingService();
+  const contentPlaylistReportingPort = new ContentPlaylistReportingRepository();
 
   return {
     deps: routerDeps,
@@ -89,7 +89,7 @@ export const createContentHttpModule = (
         contentJobEventPublisher: routerDeps.contentJobEventPublisher,
         userRepository: routerDeps.repositories.userRepository,
         cleanupFailureLogger,
-        contentPlaylistReportingService,
+        contentPlaylistReportingPort,
       }),
       listContent: new ListContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
@@ -132,7 +132,7 @@ export const createContentHttpModule = (
         contentStorage: routerDeps.storage,
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         cleanupFailureLogger,
-        contentPlaylistReportingService,
+        contentPlaylistReportingPort,
       }),
       getDownloadUrl: new GetContentDownloadUrlUseCase({
         contentRepository: routerDeps.repositories.contentRepository,

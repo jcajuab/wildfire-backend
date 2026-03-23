@@ -192,6 +192,7 @@ describe("Module repositories (integration)", () => {
       playlistId: "playlist-1",
       contentId: null,
       displayId: "display-1",
+      createdBy: "user-1",
       startTime: "08:00",
       endTime: "17:00",
     });

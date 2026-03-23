@@ -9,7 +9,11 @@ import {
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
 import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
-import { parseMilliseconds, toUnixSeconds } from "#/infrastructure/redis/utils";
+import {
+  parseMilliseconds,
+  toScriptString,
+  toUnixSeconds,
+} from "#/infrastructure/redis/utils";
 
 const pairingCodePrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code`;
 const pairingCodeLookupPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code-lookup`;
@@ -17,9 +21,6 @@ const pairingCodeLookupPrefix = `${env.REDIS_KEY_PREFIX}:display-pairing-code-lo
 const pairingCodeKey = (id: string): string => `${pairingCodePrefix}:${id}`;
 const pairingCodeLookupKey = (codeHash: string): string =>
   `${pairingCodeLookupPrefix}:${codeHash}`;
-
-const toScriptString = (value: unknown): string =>
-  typeof value === "string" ? value : value == null ? "" : String(value);
 
 interface StoredPairingCode {
   id: string;

@@ -1,9 +1,12 @@
 import { eq, sql } from "drizzle-orm";
+import { type ContentPlaylistReportingPort } from "#/application/ports/content-playlist-reporting";
 import { db } from "#/infrastructure/db/client";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 
-export class ContentPlaylistReportingService {
+export class ContentPlaylistReportingRepository
+  implements ContentPlaylistReportingPort
+{
   async countPlaylistReferences(contentId: string): Promise<number> {
     const result = await db
       .select({ value: sql<number>`count(*)` })

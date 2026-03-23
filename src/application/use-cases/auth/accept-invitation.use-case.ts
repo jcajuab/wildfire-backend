@@ -9,8 +9,7 @@ import {
   DEFAULT_INVITE_NAME,
   hashToken,
 } from "#/application/use-cases/auth/create-invitation.use-case";
-
-const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+import { normalizeUsername } from "#/shared/string-utils";
 
 const deriveNameFromEmail = (email: string): string => {
   const localPart = email.split("@")[0]?.trim();

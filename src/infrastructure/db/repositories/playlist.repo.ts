@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
-import { ValidationError } from "#/application/errors/validation";
 import {
   type PlaylistItemAtomicWriteInput,
   type PlaylistItemRecord,
@@ -14,6 +13,7 @@ import { db } from "#/infrastructure/db/client";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
+import { ValidationError } from "#/shared/errors";
 import { toIsoString } from "./utils/date";
 
 const mapPlaylistRowToRecord = (

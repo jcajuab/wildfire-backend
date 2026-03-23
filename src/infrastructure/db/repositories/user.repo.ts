@@ -2,10 +2,8 @@ import { eq, inArray } from "drizzle-orm";
 import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
+import { normalizeUsername } from "#/shared/string-utils";
 import { toNullableIsoString } from "./utils/date";
-
-const normalizeUsername = (username: string): string =>
-  username.trim().toLowerCase();
 
 const mapUserRowToRecord = (row: typeof users.$inferSelect): UserRecord => ({
   id: row.id,

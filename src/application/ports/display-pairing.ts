@@ -8,12 +8,7 @@ export interface DisplayPairingCodeRecord {
   updatedAt: string;
 }
 
-export class DisplayPairingCodeCollisionError extends Error {
-  constructor() {
-    super("Display pairing code collision detected");
-    this.name = "DisplayPairingCodeCollisionError";
-  }
-}
+export { DisplayPairingCodeCollisionError } from "#/application/use-cases/displays/errors";
 
 export interface DisplayPairingCodeRepository {
   create(input: {

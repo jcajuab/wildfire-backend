@@ -54,7 +54,7 @@ export const invitations = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    hashedTokenUnique: uniqueIndex("invitations_hashed_token_unique").on(
+    hashedTokenUniqueIdx: uniqueIndex("invitations_hashed_token_unique").on(
       table.hashedToken,
     ),
     emailCreatedAtIdx: index("invitations_email_created_at_idx").on(
@@ -97,7 +97,7 @@ export const emailChangeTokens = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    userIdUnique: uniqueIndex("email_change_tokens_user_id_unique").on(
+    userIdUniqueIdx: uniqueIndex("email_change_tokens_user_id_unique").on(
       table.userId,
     ),
     expiresAtIdx: index("email_change_tokens_expires_at_idx").on(

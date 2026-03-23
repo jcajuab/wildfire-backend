@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "2d18df1f-7837-4189-9335-a6a4ce2a5c5c",
+  "id": "cd781652-a4b3-4fd0-aca2-be624f604252",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "ai_credentials": {
@@ -842,6 +842,11 @@
           "columns": ["type"],
           "isUnique": false
         },
+        "content_owner_id_idx": {
+          "name": "content_owner_id_idx",
+          "columns": ["owner_id"],
+          "isUnique": false
+        },
         "content_created_at_idx": {
           "name": "content_created_at_idx",
           "columns": ["created_at"],
@@ -1035,13 +1040,7 @@
           "default": "(now())"
         }
       },
-      "indexes": {
-        "content_flash_messages_tone_idx": {
-          "name": "content_flash_messages_tone_idx",
-          "columns": ["tone"],
-          "isUnique": false
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "content_flash_messages_content_id_content_id_fk": {
           "name": "content_flash_messages_content_id_content_id_fk",
@@ -1163,11 +1162,6 @@
           "name": "display_active_keys_key_pair_id_unique",
           "columns": ["key_pair_id"],
           "isUnique": true
-        },
-        "display_active_keys_key_pair_id_idx": {
-          "name": "display_active_keys_key_pair_id_idx",
-          "columns": ["key_pair_id"],
-          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -1304,7 +1298,13 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "display_group_members_display_id_idx": {
+          "name": "display_group_members_display_id_idx",
+          "columns": ["display_id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "display_group_members_group_id_display_groups_id_fk": {
           "name": "display_group_members_group_id_display_groups_id_fk",
@@ -1717,6 +1717,11 @@
           "name": "playlist_items_playlist_id_sequence_unique",
           "columns": ["playlist_id", "sequence"],
           "isUnique": true
+        },
+        "playlist_items_content_id_idx": {
+          "name": "playlist_items_content_id_idx",
+          "columns": ["content_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -1813,6 +1818,11 @@
         "playlists_name_idx": {
           "name": "playlists_name_idx",
           "columns": ["name"],
+          "isUnique": false
+        },
+        "playlists_owner_id_idx": {
+          "name": "playlists_owner_id_idx",
+          "columns": ["owner_id"],
           "isUnique": false
         },
         "playlists_updated_at_idx": {
@@ -2392,6 +2402,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -2429,6 +2446,15 @@
           "columnsFrom": ["display_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "schedules_created_by_users_id_fk": {
+          "name": "schedules_created_by_users_id_fk",
+          "tableFrom": "schedules",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },

@@ -23,6 +23,8 @@ export interface DisplayRecord {
 export interface DisplayRepository {
   list(): Promise<DisplayRecord[]>;
   listForReconciliation?(): Promise<DisplayRecord[]>;
+  // Pagination convention: new repos use { offset, limit } (see playlists, content).
+  // This repo uses { page, pageSize } for historical reasons.
   listPage(input: { page: number; pageSize: number }): Promise<{
     items: DisplayRecord[];
     total: number;

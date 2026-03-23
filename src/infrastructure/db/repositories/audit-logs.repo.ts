@@ -9,7 +9,10 @@ import { db } from "#/infrastructure/db/client";
 import { auditLogs } from "#/infrastructure/db/schema/audit-logs.sql";
 import { displays } from "#/infrastructure/db/schema/displays.sql";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
-import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
+import {
+  buildLikeContainsPattern,
+  escapeLikePattern,
+} from "#/infrastructure/db/utils/sql";
 
 const mapAuditLogRowToRecord = (
   row: typeof auditLogs.$inferSelect & {
@@ -181,10 +184,9 @@ export class AuditLogDbRepository implements AuditLogRepository {
   }
 
   async deleteByRequestIdPrefix(prefix: string): Promise<number> {
-    const escaped = prefix.replace(/[%_\\]/g, (ch) => `\\${ch}`);
     const result = await db
       .delete(auditLogs)
-      .where(like(auditLogs.requestId, `${escaped}%`));
+      .where(like(auditLogs.requestId, `${escapeLikePattern(prefix)}%`));
     return Number(result[0]?.affectedRows ?? 0);
   }
 }

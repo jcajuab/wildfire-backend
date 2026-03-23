@@ -1,5 +1,5 @@
 import { type DisplayRepository } from "#/application/ports/displays";
-import { normalizeDisplayQuery } from "./shared";
+import { normalizeQuery } from "#/shared/string-utils";
 
 export class ListDisplayOptionsUseCase {
   constructor(
@@ -7,7 +7,7 @@ export class ListDisplayOptionsUseCase {
   ) {}
 
   async execute(input?: { q?: string; limit?: number }) {
-    const normalizedQuery = normalizeDisplayQuery(input?.q);
+    const normalizedQuery = normalizeQuery(input?.q);
     const limit = input?.limit;
     const displays = (await this.deps.displayRepository.list())
       .filter((display) =>

@@ -94,6 +94,8 @@ const buildDisplayQuery = () =>
       eq(displayRuntimeStates.displayId, displays.id),
     );
 
+const RECONCILIATION_STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
 export class DisplayDbRepository implements DisplayRepository {
   async list(): Promise<DisplayRecord[]> {
     const rows = await buildDisplayQuery().orderBy(desc(displays.createdAt));
@@ -101,7 +103,9 @@ export class DisplayDbRepository implements DisplayRepository {
   }
 
   async listForReconciliation(): Promise<DisplayRecord[]> {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const fiveMinutesAgo = new Date(
+      Date.now() - RECONCILIATION_STALE_THRESHOLD_MS,
+    );
     const rows = await buildDisplayQuery()
       .where(
         or(

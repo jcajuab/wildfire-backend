@@ -31,24 +31,24 @@ export const auditLogs = mysqlTable(
     metadataJson: text("metadata_json"),
   },
   (table) => ({
-    occurredAtIndex: index("audit_logs_occurred_at_idx").on(table.occurredAt),
-    actorOccurredAtIndex: index("audit_logs_actor_occurred_idx").on(
+    occurredAtIdx: index("audit_logs_occurred_at_idx").on(table.occurredAt),
+    actorOccurredAtIdx: index("audit_logs_actor_occurred_idx").on(
       table.actorId,
       table.occurredAt,
     ),
-    actionOccurredAtIndex: index("audit_logs_action_occurred_idx").on(
+    actionOccurredAtIdx: index("audit_logs_action_occurred_idx").on(
       table.action,
       table.occurredAt,
     ),
-    resourceOccurredAtIndex: index("audit_logs_resource_occurred_idx").on(
+    resourceOccurredAtIdx: index("audit_logs_resource_occurred_idx").on(
       table.resourceType,
       table.resourceId,
       table.occurredAt,
     ),
-    statusOccurredAtIndex: index("audit_logs_status_occurred_idx").on(
+    statusOccurredAtIdx: index("audit_logs_status_occurred_idx").on(
       table.status,
       table.occurredAt,
     ),
-    requestIdIndex: index("audit_logs_request_id_idx").on(table.requestId),
+    requestIdIdx: index("audit_logs_request_id_idx").on(table.requestId),
   }),
 );

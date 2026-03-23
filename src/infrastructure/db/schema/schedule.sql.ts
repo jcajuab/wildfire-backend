@@ -2,6 +2,7 @@ import { index, mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";
 import { content } from "./content.sql";
 import { displays } from "./displays.sql";
 import { playlists } from "./playlist.sql";
+import { users } from "./rbac.sql";
 
 export const schedules = mysqlTable(
   "schedules",
@@ -15,6 +16,9 @@ export const schedules = mysqlTable(
     endDate: varchar("end_date", { length: 10 }).notNull(),
     startTime: varchar("start_time", { length: 5 }).notNull(),
     endTime: varchar("end_time", { length: 5 }).notNull(),
+    createdBy: varchar("created_by", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

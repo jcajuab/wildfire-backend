@@ -22,12 +22,14 @@ export const displayKeyPairs = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    displayIdCreatedAtIndex: index(
-      "display_key_pairs_display_id_created_idx",
-    ).on(table.displayId, table.createdAt),
-    displayIdRevokedAtIndex: index(
-      "display_key_pairs_display_id_revoked_idx",
-    ).on(table.displayId, table.revokedAt),
+    displayIdCreatedAtIdx: index("display_key_pairs_display_id_created_idx").on(
+      table.displayId,
+      table.createdAt,
+    ),
+    displayIdRevokedAtIdx: index("display_key_pairs_display_id_revoked_idx").on(
+      table.displayId,
+      table.revokedAt,
+    ),
   }),
 );
 
@@ -44,8 +46,8 @@ export const displayActiveKeys = mysqlTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    keyPairIdUnique: uniqueIndex("display_active_keys_key_pair_id_unique").on(
-      table.keyPairId,
-    ),
+    keyPairIdUniqueIdx: uniqueIndex(
+      "display_active_keys_key_pair_id_unique",
+    ).on(table.keyPairId),
   }),
 );

@@ -122,7 +122,6 @@ describe("backend architecture boundaries", () => {
 
     expect(dbClientImportFiles).toEqual(
       [
-        "src/application/reporting/content-playlist-reporting.ts",
         "src/bootstrap/http/health-checks.ts",
         "src/bootstrap/http/index.ts",
         "src/bootstrap/workers/audit/index.ts",
@@ -133,6 +132,7 @@ describe("backend architecture boundaries", () => {
         "src/infrastructure/db/repositories/auth-session.repo.ts",
         "src/infrastructure/db/repositories/authorization.repo.ts",
         "src/infrastructure/db/repositories/content-job.repo.ts",
+        "src/infrastructure/db/repositories/content-playlist-reporting.repo.ts",
         "src/infrastructure/db/repositories/content.repo.ts",
         "src/infrastructure/db/repositories/display-groups.repo.ts",
         "src/infrastructure/db/repositories/display-key.repo.ts",

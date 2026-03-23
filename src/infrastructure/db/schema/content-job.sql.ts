@@ -29,11 +29,11 @@ export const contentIngestionJobs = mysqlTable(
     completedAt: timestamp("completed_at"),
   },
   (table) => ({
-    contentIdIndex: index("content_ingestion_jobs_content_id_idx").on(
+    contentIdIdx: index("content_ingestion_jobs_content_id_idx").on(
       table.contentId,
     ),
-    statusIndex: index("content_ingestion_jobs_status_idx").on(table.status),
-    createdAtIndex: index("content_ingestion_jobs_created_at_idx").on(
+    statusIdx: index("content_ingestion_jobs_status_idx").on(table.status),
+    createdAtIdx: index("content_ingestion_jobs_created_at_idx").on(
       table.createdAt,
     ),
   }),

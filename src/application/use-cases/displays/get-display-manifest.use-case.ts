@@ -16,6 +16,10 @@ import {
   selectActiveSchedulesByKind,
 } from "#/domain/schedules/schedule";
 import { NotFoundError } from "./errors";
+import {
+  isRenderableEmergencyAsset,
+  type ManifestRenderableType,
+} from "./shared";
 
 const mapWithConcurrency = async <T, R>(
   items: readonly T[],
@@ -51,8 +55,6 @@ const mapWithConcurrency = async <T, R>(
 
   return result;
 };
-
-type ManifestRenderableType = "IMAGE" | "VIDEO" | "TEXT";
 
 interface ManifestRenderableContent {
   id: string;
@@ -104,17 +106,10 @@ interface ManifestPlaybackState {
   flash: ManifestFlashState | null;
 }
 
-const isRenderableEmergencyAsset = (content: {
-  type: string;
-  status: string;
-}): content is {
-  type: ManifestRenderableType;
-  status: "READY";
-} =>
-  (content.type === "IMAGE" ||
-    content.type === "VIDEO" ||
-    content.type === "TEXT") &&
-  content.status === "READY";
+const FLASH_TICKER_HEIGHT_PX = 48;
+const FLASH_TICKER_SPEED_PX_PER_SEC = 96;
+const EMERGENCY_IMAGE_DURATION_SECONDS = 86_400;
+const PRESIGNED_URL_CONCURRENCY = 8;
 
 const pickDisplayEmergencyAssetId = (input: {
   display: DisplayRecord;
@@ -169,8 +164,8 @@ export class GetDisplayManifestUseCase {
             message: flashContent.flashMessage,
             tone: flashContent.flashTone ?? "INFO",
             region: "TOP_TICKER" as const,
-            heightPx: 48,
-            speedPxPerSecond: 96,
+            heightPx: FLASH_TICKER_HEIGHT_PX,
+            speedPxPerSecond: FLASH_TICKER_SPEED_PX_PER_SEC,
           }
         : null;
 
@@ -194,7 +189,7 @@ export class GetDisplayManifestUseCase {
       const emergencyDuration =
         emergency.content.type === "VIDEO"
           ? Math.max(1, emergency.content.duration ?? 1)
-          : 86_400;
+          : EMERGENCY_IMAGE_DURATION_SECONDS;
       const items: ManifestRenderableItem[] = [
         {
           id: `emergency:${emergency.content.id}`,
@@ -285,7 +280,7 @@ export class GetDisplayManifestUseCase {
 
     const manifestItems: ManifestRenderableItem[] = await mapWithConcurrency(
       items,
-      8,
+      PRESIGNED_URL_CONCURRENCY,
       async (item, index) => {
         const content = contentsById.get(item.contentId);
         if (!content) {

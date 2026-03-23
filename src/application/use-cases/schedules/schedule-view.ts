@@ -15,6 +15,7 @@ export const toScheduleView = (
   playlistId: schedule.playlistId,
   contentId: schedule.contentId ?? null,
   displayId: schedule.displayId,
+  createdBy: schedule.createdBy ?? null,
   startDate: schedule.startDate ?? "",
   endDate: schedule.endDate ?? "",
   startTime: schedule.startTime,

@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { ValidationError } from "#/application/errors/validation";
 import {
   type ScheduleKind,
   type ScheduleRecord,
@@ -11,12 +10,14 @@ import {
   schedulePlaylistTargets,
   schedules,
 } from "#/infrastructure/db/schema/schedule.sql";
+import { ValidationError } from "#/shared/errors";
 import { toIsoString } from "./utils/date";
 
 type ScheduleRow = {
   id: string;
   name: string;
   displayId: string;
+  createdBy: string;
   startDate: string;
   endDate: string;
   startTime: string;
@@ -46,6 +47,7 @@ const mapScheduleRowToRecord = (row: ScheduleRow): ScheduleRecord => ({
   playlistId: row.playlistId,
   contentId: row.contentId,
   displayId: row.displayId,
+  createdBy: row.createdBy,
   startDate: row.startDate,
   endDate: row.endDate,
   startTime: row.startTime,
@@ -60,6 +62,7 @@ const buildScheduleQuery = () =>
       id: schedules.id,
       name: schedules.name,
       displayId: schedules.displayId,
+      createdBy: schedules.createdBy,
       startDate: schedules.startDate,
       endDate: schedules.endDate,
       startTime: schedules.startTime,
@@ -170,6 +173,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
     playlistId: string | null;
     contentId?: string | null;
     displayId: string;
+    createdBy: string;
     startDate?: string;
     endDate?: string;
     startTime: string;
@@ -191,6 +195,7 @@ export class ScheduleDbRepository implements ScheduleRepository {
         id,
         name: input.name,
         displayId: input.displayId,
+        createdBy: input.createdBy,
         startDate: input.startDate ?? "1970-01-01",
         endDate: input.endDate ?? "2099-12-31",
         startTime: input.startTime,
@@ -200,16 +205,20 @@ export class ScheduleDbRepository implements ScheduleRepository {
       });
 
       if (kind === "PLAYLIST") {
+        if (!input.playlistId)
+          throw new Error("playlistId required for PLAYLIST schedule");
         await tx.insert(schedulePlaylistTargets).values({
           scheduleId: id,
-          playlistId: input.playlistId as string,
+          playlistId: input.playlistId,
           createdAt: now,
           updatedAt: now,
         });
       } else {
+        if (!contentId)
+          throw new Error("contentId required for FLASH schedule");
         await tx.insert(scheduleContentTargets).values({
           scheduleId: id,
-          contentId: contentId as string,
+          contentId,
           createdAt: now,
           updatedAt: now,
         });
@@ -279,16 +288,20 @@ export class ScheduleDbRepository implements ScheduleRepository {
         .where(eq(scheduleContentTargets.scheduleId, id));
 
       if (nextKind === "PLAYLIST") {
+        if (!nextPlaylistId)
+          throw new Error("playlistId required for PLAYLIST schedule");
         await tx.insert(schedulePlaylistTargets).values({
           scheduleId: id,
-          playlistId: nextPlaylistId as string,
+          playlistId: nextPlaylistId,
           createdAt: now,
           updatedAt: now,
         });
       } else {
+        if (!nextContentId)
+          throw new Error("contentId required for FLASH schedule");
         await tx.insert(scheduleContentTargets).values({
           scheduleId: id,
-          contentId: nextContentId as string,
+          contentId: nextContentId,
           createdAt: now,
           updatedAt: now,
         });

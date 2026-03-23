@@ -1,4 +1,3 @@
-import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -30,39 +29,19 @@ export const publishPlaylistUpdateEvents = async (
   }
 };
 
-const invalidateImpactedSchedules = async (
-  _deps: {
-    playlistRepository: PlaylistRepository;
-    contentRepository: ContentRepository;
-    scheduleRepository?: ScheduleRepository;
-    displayEventPublisher?: DisplayStreamEventPublisher;
-  },
-  _playlistId: string,
-): Promise<void> => {
-  // Auto-disable behavior removed: playlists loop naturally on displays,
-  // so short playlists no longer cause schedule deactivation.
-};
-
 export const runPlaylistPostMutationEffects = async (
   deps: {
     playlistRepository: PlaylistRepository;
-    contentRepository: ContentRepository;
     scheduleRepository?: ScheduleRepository;
     displayEventPublisher?: DisplayStreamEventPublisher;
   },
   playlistId: string,
   reason: string,
 ): Promise<void> => {
-  // Item mutations are the primary operation; downstream notifications and
-  // schedule invalidation should not fail an already-committed write.
-  const results = await Promise.allSettled([
-    publishPlaylistUpdateEvents(deps, playlistId, reason),
-    invalidateImpactedSchedules(deps, playlistId),
-  ]);
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.error("Playlist post-mutation effect failed.", result.reason);
-    }
+  try {
+    await publishPlaylistUpdateEvents(deps, playlistId, reason);
+  } catch (err) {
+    console.error("Playlist post-mutation effect failed.", err);
   }
 };
 
@@ -111,12 +90,13 @@ export const listPlaylistPageForOwner = async (
     sortDirection: input.sortDirection,
   });
 
+  const filtered =
+    input.ownerId !== undefined
+      ? items.filter((playlist) => playlist.ownerId === input.ownerId)
+      : items;
   return {
-    items:
-      input.ownerId !== undefined
-        ? items.filter((playlist) => playlist.ownerId === input.ownerId)
-        : items,
-    total,
+    items: filtered,
+    total: input.ownerId !== undefined ? filtered.length : total,
   };
 };
 

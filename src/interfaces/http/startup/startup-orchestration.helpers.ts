@@ -4,8 +4,7 @@ import {
   logStartupPhaseSucceeded,
   type StartupPhaseContext,
 } from "#/infrastructure/observability/startup-logging";
-
-const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+import { normalizeUsername } from "#/shared/string-utils";
 
 export interface StartupAdminIdentity {
   htshadowPath: string;

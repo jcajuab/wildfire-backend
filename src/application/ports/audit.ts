@@ -57,3 +57,11 @@ export interface AuditLogRepository {
   count(query: ListAuditLogsQuery): Promise<number>;
   deleteByRequestIdPrefix(prefix: string): Promise<number>;
 }
+
+export interface AuditLogger {
+  log(input: {
+    event: string;
+    userId: string;
+    metadata?: Record<string, unknown>;
+  }): void;
+}
