@@ -1,11 +1,22 @@
 import { eq, inArray } from "drizzle-orm";
 import { type RoleRecord, type RoleRepository } from "#/application/ports/rbac";
+import { ADMIN_ROLE_NAME } from "#/domain/rbac/canonical-permissions";
 import { db } from "#/infrastructure/db/client";
 import { roles } from "#/infrastructure/db/schema/rbac.sql";
 
+const withIsSystem = (role: {
+  id: string;
+  name: string;
+  description: string | null;
+}): RoleRecord => ({
+  ...role,
+  isSystem: role.name === ADMIN_ROLE_NAME,
+});
+
 export class RoleDbRepository implements RoleRepository {
   async list(): Promise<RoleRecord[]> {
-    return db.select().from(roles);
+    const rows = await db.select().from(roles);
+    return rows.map(withIsSystem);
   }
 
   async findById(id: string): Promise<RoleRecord | null> {
@@ -14,12 +25,13 @@ export class RoleDbRepository implements RoleRepository {
       .from(roles)
       .where(eq(roles.id, id))
       .limit(1);
-    return result[0] ?? null;
+    return result[0] ? withIsSystem(result[0]) : null;
   }
 
   async findByIds(ids: string[]): Promise<RoleRecord[]> {
     if (ids.length === 0) return [];
-    return db.select().from(roles).where(inArray(roles.id, ids));
+    const rows = await db.select().from(roles).where(inArray(roles.id, ids));
+    return rows.map(withIsSystem);
   }
 
   async create(input: {
@@ -35,7 +47,7 @@ export class RoleDbRepository implements RoleRepository {
       description,
     });
 
-    return { id, name: input.name, description };
+    return withIsSystem({ id, name: input.name, description });
   }
 
   async update(
@@ -61,7 +73,7 @@ export class RoleDbRepository implements RoleRepository {
       })
       .where(eq(roles.id, id));
 
-    return { ...existing, ...next };
+    return withIsSystem({ ...existing, ...next });
   }
 
   async delete(id: string): Promise<boolean> {

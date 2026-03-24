@@ -70,6 +70,30 @@ export class UpdateUserUseCase {
       },
     );
 
+    if (
+      input.username &&
+      input.callerUserId &&
+      input.id === input.callerUserId
+    ) {
+      const currentUser = targetUser;
+      if (input.username !== currentUser.username) {
+        throw new ForbiddenError("You cannot change your own username.");
+      }
+    }
+
+    // Self-deactivation guard (must come after username self-check)
+    if (
+      input.isActive === false &&
+      input.callerUserId &&
+      input.id === input.callerUserId
+    ) {
+      if (targetIsAdmin) {
+        throw new ForbiddenError(
+          "An administrator cannot deactivate their own account.",
+        );
+      }
+    }
+
     if (input.username) {
       const existingByUsername = await this.deps.userRepository.findByUsername(
         input.username,

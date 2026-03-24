@@ -23,6 +23,10 @@ export class BanUserUseCase {
       throw new ForbiddenError("Only administrators can ban users.");
     }
 
+    if (input.id === input.callerUserId) {
+      throw new ForbiddenError("You cannot ban yourself.");
+    }
+
     const user = await this.deps.userRepository.findById(input.id);
     if (!user) throw new NotFoundError("User not found");
 

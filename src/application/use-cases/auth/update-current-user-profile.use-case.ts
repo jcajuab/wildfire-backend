@@ -1,3 +1,4 @@
+import { ForbiddenError } from "#/application/errors/forbidden";
 import { NotFoundError } from "#/application/errors/not-found";
 import { assertDcismUserCannotModifyIdentity } from "#/application/guards/dcism-user.guard";
 import {
@@ -37,6 +38,9 @@ export class UpdateCurrentUserProfileUseCase {
     if (input.username) {
       const normalizedUsername = input.username.trim().toLowerCase();
       input = { ...input, username: normalizedUsername };
+      if (normalizedUsername !== user.username) {
+        throw new ForbiddenError("Cannot change your own username");
+      }
       const existingByUsername =
         await this.deps.userRepository.findByUsername(normalizedUsername);
       if (existingByUsername && existingByUsername.id !== input.userId) {
