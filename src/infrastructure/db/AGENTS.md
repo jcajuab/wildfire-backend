@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # db
 
@@ -19,21 +19,21 @@ MySQL database layer using Drizzle ORM. Contains the database client, table sche
 | --------------- | ------------------------------------------------------------------------------------- |
 | `schema/`       | Drizzle table definitions (`.sql.ts` files) — one per domain entity                   |
 | `repositories/` | Repository implementations using Drizzle query builder (see `repositories/AGENTS.md`) |
-| `utils/`        | Database utilities (SQL helpers, date formatting)                                     |
+| `utils/`        | Database utilities (SQL helpers)                                                      |
 
 ## For AI Agents
 
 ### Working In This Directory
 
 - Schema files use Drizzle's `mysqlTable()` with typed columns
-- Schema push (`bun run db:push`) applies schema to database — no migration files
+- Supports both `bun run db:push` (dev) and `bun run db:migrate` (prod via drizzle-kit)
 - Repositories implement port interfaces from `application/ports/`
-- Date handling: MySQL stores dates as strings, utils handle conversion
+- `utils/sql.ts` provides SQL helper functions for complex queries
 
 ### Common Patterns
 
 - Each repository file implements one port interface
 - Queries use Drizzle's type-safe query builder (no raw SQL)
-- Error mapping: unique constraint violations → application-level errors
+- Error mapping: unique constraint violations -> application-level errors
 
 <!-- MANUAL: -->

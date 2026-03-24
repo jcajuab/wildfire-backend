@@ -1,11 +1,11 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # schema
 
 ## Purpose
 
-Drizzle ORM table definitions for MySQL. Each `.sql.ts` file defines one or more related tables using Drizzle's schema builder. Used by both the query builder (repositories) and `drizzle-kit push` (schema sync).
+Drizzle ORM table definitions for MySQL. Each `.sql.ts` file defines one or more related tables using Drizzle's schema builder. Used by both the query builder (repositories) and drizzle-kit (schema sync/migrations).
 
 ## Key Files
 
@@ -31,7 +31,7 @@ Drizzle ORM table definitions for MySQL. Each `.sql.ts` file defines one or more
 
 - Use `mysqlTable()` from `drizzle-orm/mysql-core` for table definitions
 - Column types: `varchar`, `text`, `int`, `boolean`, `datetime`, `json`
-- Schema changes are applied via `bun run db:push` (no migration files)
+- Schema changes can be applied via `bun run db:push` (dev) or `bun run db:migrate` (prod)
 - Relations are defined alongside tables for Drizzle's relational query builder
 
 <!-- MANUAL: -->

@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # domain
 
@@ -9,13 +9,12 @@ Pure domain entities, value objects, and business rules. Zero external dependenc
 
 ## Subdirectories
 
-| Directory    | Purpose                                                                       |
-| ------------ | ----------------------------------------------------------------------------- |
-| `content/`   | Content entity (types: TEXT, FLASH, IMAGE, VIDEO, PDF) and checksum utilities |
-| `displays/`  | Display entity and runtime registration domain logic                          |
-| `playlists/` | Playlist entity with item ordering and duration rules                         |
-| `rbac/`      | Permission value object, canonical permissions, system role templates         |
-| `schedules/` | Schedule entity with time window and kind (PLAYLIST, FLASH) rules             |
+| Directory    | Purpose                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| `content/`   | Content entity (types: TEXT, FLASH, IMAGE, VIDEO, PDF), text-content model, and checksums |
+| `playlists/` | Playlist entity with item ordering and duration rules                                     |
+| `rbac/`      | Permission value object, permission types, canonical permissions, system role templates   |
+| `schedules/` | Schedule entity with time window and kind (PLAYLIST, FLASH) rules                         |
 
 ## For AI Agents
 
@@ -25,11 +24,14 @@ Pure domain entities, value objects, and business rules. Zero external dependenc
 - Entities use factory functions and validation, not ORM decorators
 - Changes here affect all layers above — test thoroughly
 - Domain tests are in `tests/domain/`
+- Note: display entities are not in the domain layer; display logic resides in application use-cases and infrastructure
 
 ### Common Patterns
 
 - Entities define their own validation rules (e.g., `Schedule.validateTimeWindow()`)
 - Value objects are immutable (e.g., `Permission.parse()`)
 - Canonical lists (permissions, role templates) are defined as constants
+- `content/text-content.ts` defines structured text content (TipTap format)
+- `rbac/permission-types.ts` defines TypeScript types for the permission system
 
 <!-- MANUAL: -->

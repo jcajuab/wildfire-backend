@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # workers (bootstrap)
 
@@ -9,11 +9,11 @@ Bootstrap logic for background worker processes. Configures Redis stream consume
 
 ## Subdirectories
 
-| Directory            | Purpose                                                                      |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `audit/`             | Audit stream worker bootstrap — consumes audit events from Redis             |
-| `content-ingestion/` | Content ingestion pipeline — processes uploaded files (metadata, thumbnails) |
-| `shared/`            | Shared worker utilities (Redis stream parsing)                               |
+| Directory            | Purpose                                                                       |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `audit/`             | Audit stream worker bootstrap — consumes audit events from Redis (`index.ts`) |
+| `content-ingestion/` | Content ingestion pipeline — processes uploaded files (metadata, thumbnails)  |
+| `shared/`            | Shared worker utilities (`stream-parsing.ts` — Redis stream parsing)          |
 
 ## For AI Agents
 
@@ -22,6 +22,6 @@ Bootstrap logic for background worker processes. Configures Redis stream consume
 - Workers use Redis Streams (XREADGROUP) for reliable message consumption
 - Content ingestion has a DLQ (dead letter queue) for failed jobs
 - Each worker has its own composition root separate from the HTTP server
-- Content ingestion pipeline components: stream transport, entry processor, entry acknowledger, job processor, DLQ manager
+- Content ingestion pipeline components: `stream-transport.ts`, `entry-processor.ts`, `entry-acknowledger.ts`, `job-processor.ts`, `dlq-manager.ts`, `runtime.ts`
 
 <!-- MANUAL: -->

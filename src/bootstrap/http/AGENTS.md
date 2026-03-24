@@ -1,11 +1,11 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # http (bootstrap)
 
 ## Purpose
 
-HTTP server composition root. Creates the Hono app, wires all dependencies via module factories, configures health checks, and manages background workers (display status reconciler).
+HTTP server composition root. Creates the Hono app, wires all dependencies via module factories, configures health checks, and manages background runtime services (display status reconciler).
 
 ## Key Files
 
@@ -20,14 +20,15 @@ HTTP server composition root. Creates the Hono app, wires all dependencies via m
 | Directory  | Purpose                                                                                         |
 | ---------- | ----------------------------------------------------------------------------------------------- |
 | `modules/` | Per-domain module factories — wire dependencies for each feature area (see `modules/AGENTS.md`) |
-| `runtime/` | Background runtime services (display status reconciler)                                         |
+| `runtime/` | Background runtime services — `display-status-reconciler.ts` (periodic display status checks)   |
 
 ## For AI Agents
 
 ### Working In This Directory
 
 - Adding a new feature: create a module factory in `modules/`, wire it in `container.ts`
-- Module factories take (config, repositories) → return { useCases, router }
+- Module factories take (config, repositories) -> return { useCases, router }
 - `index.ts` is the central app assembly — all routes are mounted here
+- `runtime/display-status-reconciler.ts` runs as a background task alongside the HTTP server
 
 <!-- MANUAL: -->

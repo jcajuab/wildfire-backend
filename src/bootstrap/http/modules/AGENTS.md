@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # modules
 
@@ -11,7 +11,7 @@ Per-domain module factory functions. Each module wires dependencies (repositorie
 
 | File                 | Description                                         |
 | -------------------- | --------------------------------------------------- |
-| `ai.ts`              | AI chat, confirmation, and credential wiring        |
+| `ai.ts`              | AI chat and credential wiring                       |
 | `audit.ts`           | Audit log query and export wiring                   |
 | `auth.ts`            | Authentication, session, invitation, profile wiring |
 | `content.ts`         | Content CRUD and file management wiring             |
@@ -27,7 +27,7 @@ Per-domain module factory functions. Each module wires dependencies (repositorie
 ### Working In This Directory
 
 - Each module exports a `create*HttpModule()` factory function
-- Factory takes: config values + repository instances → returns use cases + router
+- Factory takes: config values + repository instances -> returns use cases + router
 - Adding a new domain feature: create module here, wire in `container.ts`, mount in `index.ts`
 - Module factories are the ONLY place where use cases are instantiated
 

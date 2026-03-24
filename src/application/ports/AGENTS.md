@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # ports
 
@@ -17,14 +17,14 @@ TypeScript interfaces (types) defining contracts between application use cases a
 | `content.ts`                      | Content repository and storage interfaces                                    |
 | `content-jobs.ts`                 | Content ingestion job queue interface                                        |
 | `content-playlist-reporting.ts`   | Repository interface for querying playlist references to content             |
-| `pdf-crop.ts`                     | Session store, renderer, and page extractor interfaces for PDF crop workflow |
 | `displays.ts`                     | Display repository interface                                                 |
 | `display-auth.ts`                 | Display authentication nonce and key interfaces                              |
 | `display-pairing.ts`              | Display pairing code and session interfaces                                  |
 | `display-registration-attempt.ts` | Registration attempt store interface                                         |
 | `display-stream-events.ts`        | Display SSE event emitter interface                                          |
-| `notifications.ts`                | Notification service interface                                               |
+| `encryption.ts`                   | Encryption service interface (used for AI API key encryption)                |
 | `observability.ts`                | Logger interface                                                             |
+| `pdf-crop.ts`                     | Session store, renderer, and page extractor interfaces for PDF crop workflow |
 | `playlists.ts`                    | Playlist repository interface                                                |
 | `rbac.ts`                         | User, role, permission, and authorization repository interfaces              |
 | `runtime-controls.ts`             | Runtime control repository interface (emergency mode)                        |

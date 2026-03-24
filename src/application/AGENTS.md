@@ -1,11 +1,11 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # application
 
 ## Purpose
 
-Application layer containing use cases (business operations), ports (repository/service interfaces), guards (authorization checks), application-level errors, and reporting logic. Depends only on domain layer. Infrastructure implements the ports defined here.
+Application layer containing use cases (business operations), ports (repository/service interfaces), guards (authorization checks), and application-level errors. Depends only on domain layer. Infrastructure implements the ports defined here.
 
 ## Subdirectories
 
@@ -15,7 +15,6 @@ Application layer containing use cases (business operations), ports (repository/
 | `ports/`     | Repository and service interfaces (TypeScript types) that infrastructure must implement (see `ports/AGENTS.md`) |
 | `guards/`    | Authorization guard functions (e.g., DCISM user validation)                                                     |
 | `errors/`    | Application-level error classes (AppError, NotFound, Forbidden, Validation)                                     |
-| `reporting/` | Cross-domain reporting logic (content-playlist relationships)                                                   |
 
 ## For AI Agents
 

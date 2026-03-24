@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # tests
 
@@ -9,16 +9,19 @@ Test suites organized by architecture layer. Uses Bun's built-in test runner (`b
 
 ## Subdirectories
 
-| Directory         | Purpose                                                      |
-| ----------------- | ------------------------------------------------------------ |
-| `application/`    | Use-case unit tests with mocked repositories                 |
-| `domain/`         | Domain entity and value object tests (pure logic)            |
-| `infrastructure/` | Repository and adapter tests (integration tests use real DB) |
-| `interfaces/`     | HTTP route tests using Hono's `app.request()` test helper    |
-| `architecture/`   | Architectural boundary enforcement tests                     |
-| `helpers/`        | Shared test utilities (env preload, in-memory stores)        |
-| `fixtures/`       | Test fixture files                                           |
-| `scripts/`        | Script tests                                                 |
+| Directory                     | Purpose                                                      |
+| ----------------------------- | ------------------------------------------------------------ |
+| `application/`                | Use-case unit tests with mocked repositories                 |
+| `application/ai/`             | AI-specific tests (chat, credentials, tool executor, tiptap) |
+| `application/audit/`          | Audit log use-case tests (export, list, record)              |
+| `domain/`                     | Domain entity and value object tests (pure logic)            |
+| `infrastructure/`             | Repository and adapter tests (integration tests use real DB) |
+| `interfaces/`                 | HTTP route tests using Hono's `app.request()` test helper    |
+| `interfaces/http/middleware/` | Middleware-specific tests (permissions)                      |
+| `architecture/`               | Architectural boundary enforcement tests                     |
+| `helpers/`                    | Shared test utilities (env preload, in-memory stores)        |
+| `fixtures/`                   | Test fixture files (e.g., `example_htshadow`)                |
+| `scripts/`                    | Script tests (e.g., `db/drop-all-tables.test.ts`)            |
 
 ## Key Files
 
@@ -35,6 +38,7 @@ Test suites organized by architecture layer. Uses Bun's built-in test runner (`b
 - Test preload file `helpers/preload-env.ts` sets default env vars (LOG_LEVEL=silent)
 - Use `app.request()` pattern for HTTP route tests (no real server needed)
 - Mock repositories by implementing port interfaces inline
+- `helpers/in-memory-auth-security.store.ts` provides test double for auth security
 
 ### Common Patterns
 

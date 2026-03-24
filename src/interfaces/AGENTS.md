@@ -1,11 +1,11 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # interfaces
 
 ## Purpose
 
-HTTP interface layer. Contains Hono routes, middleware, request/response validators, and the audit queue. This is the outermost application layer that handles HTTP concerns and delegates to use cases.
+HTTP interface layer. Contains Hono routes, middleware, request/response validators, audit queue, security stores, startup services, and HTTP utilities. This is the outermost application layer that handles HTTP concerns and delegates to use cases.
 
 ## Subdirectories
 
@@ -18,8 +18,9 @@ HTTP interface layer. Contains Hono routes, middleware, request/response validat
 ### Working In This Directory
 
 - Routes receive validated input via Zod schemas in `validators/`
-- Middleware handles auth (JWT), permissions, audit trail, observability
+- Middleware handles auth (JWT), permissions, CSRF, audit trail, observability
 - Routes delegate to use cases — no business logic in route handlers
 - Response helpers in `responses.ts` ensure consistent API shape
+- Startup services handle initial data seeding and identity sync
 
 <!-- MANUAL: -->

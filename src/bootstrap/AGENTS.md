@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-03-16 | Updated: 2026-03-19 -->
+<!-- Generated: 2026-03-24 -->
 
 # bootstrap
 
@@ -20,7 +20,7 @@ Dependency wiring and initialization. Creates concrete instances of repositories
 
 - This is the composition root — the only place where concrete implementations are instantiated
 - Module files in `http/modules/` wire dependencies for each domain feature
-- Adding a new feature requires: define port → implement in infrastructure → create use case → wire in bootstrap module → add route
+- Adding a new feature requires: define port -> implement in infrastructure -> create use case -> wire in bootstrap module -> add route
 - `container.ts` creates the top-level DI wiring
 
 ### Common Patterns
