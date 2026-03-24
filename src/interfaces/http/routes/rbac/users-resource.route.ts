@@ -36,6 +36,7 @@ import {
   type AuthorizePermission,
   addRoleSummariesToUsers,
   maybeEnrichUserForResponse,
+  maybeEnrichUsersForResponse,
   type RbacRouter,
   type RbacRouterDeps,
   type RbacRouterUseCases,
@@ -111,11 +112,15 @@ export const registerRbacUserResourceRoutes = (args: {
           q: query.q,
           limit: query.limit,
         });
-        const options = users.map((user) => ({
+        const enriched = await maybeEnrichUsersForResponse(users, deps);
+        const options = enriched.map((user) => ({
           id: user.id,
           username: user.username,
           email: user.email,
           name: user.name,
+          ...(typeof user.avatarUrl === "string" && user.avatarUrl.length > 0
+            ? { avatarUrl: user.avatarUrl }
+            : {}),
         }));
         return c.json(toApiResponse(options));
       },

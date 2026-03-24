@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { type ContentStorage } from "#/application/ports/content";
 import {
   type PermissionRecord,
   type RoleRecord,
@@ -41,7 +42,15 @@ const authSessionRepository = {
 const makePermissionId = (index: number): string =>
   `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
 
-const buildApp = (grantedPermissions: string[]) => {
+const buildApp = (
+  grantedPermissions: string[],
+  appOptions?: {
+    readonly avatar?: {
+      readonly storage: ContentStorage;
+      readonly expiresInSeconds: number;
+    };
+  },
+) => {
   const counters = {
     listRolesByUserIdCalls: 0,
     listRolesByUserIdsCalls: 0,
@@ -60,6 +69,9 @@ const buildApp = (grantedPermissions: string[]) => {
         email: "admin@example.com",
         name: "Admin",
         isActive: true,
+        ...(appOptions?.avatar != null
+          ? { avatarKey: "user-avatars/admin.png" }
+          : {}),
       },
     ],
     roles: [
@@ -284,6 +296,12 @@ const buildApp = (grantedPermissions: string[]) => {
           hash: async (p: string) => p,
         },
         repositories,
+        ...(appOptions?.avatar != null
+          ? {
+              avatarStorage: appOptions.avatar.storage,
+              avatarUrlExpiresInSeconds: appOptions.avatar.expiresInSeconds,
+            }
+          : {}),
       }),
     ),
   );
@@ -462,6 +480,46 @@ describe("RBAC routes", () => {
         username: "admin",
         email: "admin@example.com",
         name: "Admin",
+      },
+    ]);
+  });
+
+  test("GET /users/options includes avatarUrl when avatar storage is configured", async () => {
+    const presigned =
+      "https://example.com/avatar-presigned?key=user-avatars%2Fadmin.png";
+    const avatarStorage: ContentStorage = {
+      ensureBucketExists: async () => {},
+      upload: async () => {},
+      delete: async () => {},
+      getPresignedDownloadUrl: async () => presigned,
+      checkConnectivity: async () => ({ ok: true }),
+    };
+    const { app, issueToken } = buildApp(["users:read"], {
+      avatar: { storage: avatarStorage, expiresInSeconds: 3600 },
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/users/options?q=admin&limit=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        username: string;
+        email: string | null;
+        name: string;
+        avatarUrl?: string;
+      }>;
+    }>(response);
+    expect(body.data).toEqual([
+      {
+        id: rootUserId,
+        username: "admin",
+        email: "admin@example.com",
+        name: "Admin",
+        avatarUrl: presigned,
       },
     ]);
   });
