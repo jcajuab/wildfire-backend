@@ -402,6 +402,7 @@ const buildRbacActionApp = async () => {
             id: "role-1",
             name: "Role",
             description: null,
+            isSystem: false,
           }),
           update: async () => null,
           delete: async () => false,

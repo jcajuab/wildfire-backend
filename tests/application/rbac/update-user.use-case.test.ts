@@ -28,7 +28,11 @@ function makeUseCase(overrides: {
       findByEmail: async () => null,
       update:
         overrides.update ??
-        (async (id, data) => ({ ...baseUser, ...data, id })),
+        (async (id: string, data: Record<string, unknown>) => ({
+          ...baseUser,
+          ...data,
+          id,
+        })),
       list: async () => [],
       findByIds: async () => [],
       create: async () => baseUser,
