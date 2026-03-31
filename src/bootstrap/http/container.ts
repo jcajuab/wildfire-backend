@@ -91,6 +91,7 @@ export interface HttpContainerConfig {
     rootUser: string;
     rootPassword: string;
     requestTimeoutMs: number;
+    publicEndpoint?: string;
   };
 }
 
@@ -201,6 +202,7 @@ export const createHttpContainer = (
     bucket: config.minio.bucket,
     region: config.minio.region,
     endpoint: minioEndpoint,
+    publicEndpoint: config.minio.publicEndpoint,
     accessKeyId: config.minio.rootUser,
     secretAccessKey: config.minio.rootPassword,
     requestTimeoutMs: config.minio.requestTimeoutMs,

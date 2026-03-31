@@ -14,6 +14,7 @@ import { withTimeout } from "#/shared/retry";
 
 export class S3ContentStorage implements ContentStorage {
   private readonly client: S3Client;
+  private readonly presignClient: S3Client;
   private readonly requestTimeoutMs: number;
   private readinessPromise: Promise<void> | null = null;
 
@@ -22,21 +23,31 @@ export class S3ContentStorage implements ContentStorage {
       bucket: string;
       region: string;
       endpoint: string;
+      publicEndpoint?: string;
       accessKeyId: string;
       secretAccessKey: string;
       requestTimeoutMs?: number;
     },
   ) {
     this.requestTimeoutMs = config.requestTimeoutMs ?? 15_000;
+    const credentials = {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    };
     this.client = new S3Client({
       region: config.region,
       endpoint: config.endpoint,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
+      credentials,
       forcePathStyle: true,
     });
+    this.presignClient = config.publicEndpoint
+      ? new S3Client({
+          region: config.region,
+          endpoint: config.publicEndpoint,
+          credentials,
+          forcePathStyle: true,
+        })
+      : this.client;
   }
 
   async upload(input: {
@@ -288,7 +299,7 @@ export class S3ContentStorage implements ContentStorage {
     });
     try {
       const url = await withTimeout(
-        getSignedUrl(this.client, command, {
+        getSignedUrl(this.presignClient, command, {
           expiresIn: input.expiresInSeconds,
         }),
         this.requestTimeoutMs,

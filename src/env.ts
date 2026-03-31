@@ -51,6 +51,10 @@ export const env = createEnv({
     MINIO_BUCKET: z.string().min(1),
     MINIO_REGION: z.string().default("us-east-1"),
     MINIO_REQUEST_TIMEOUT_MS: z.coerce.number().default(15_000),
+    // Public-facing URL for presigned URLs (e.g. https://wildfire.dcism.org/media).
+    // When set, presigned download URLs use this endpoint so browsers can reach MinIO
+    // through a reverse proxy. Internal operations (upload, delete) still use MINIO_ENDPOINT.
+    MINIO_PUBLIC_ENDPOINT: z.string().url().optional(),
     STARTUP_STRICT_STORAGE: z.string().default("false").pipe(z.stringbool()),
 
     // Redis

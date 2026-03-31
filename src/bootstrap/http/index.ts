@@ -113,6 +113,7 @@ const container = createHttpContainer({
     rootUser: env.MINIO_ROOT_USER,
     rootPassword: env.MINIO_ROOT_PASSWORD,
     requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
+    publicEndpoint: env.MINIO_PUBLIC_ENDPOINT,
   },
 });
 
