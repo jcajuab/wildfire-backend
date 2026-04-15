@@ -50,6 +50,7 @@ import { JwtTokenIssuer } from "#/infrastructure/auth/jwt";
 import { AuditLogDbRepository } from "#/infrastructure/db/repositories/audit-logs.repo";
 import { AuthSessionDbRepository } from "#/infrastructure/db/repositories/auth-session.repo";
 import { AuthorizationDbRepository } from "#/infrastructure/db/repositories/authorization.repo";
+import { CachedAuthSessionRepository } from "#/infrastructure/db/repositories/cached-auth-session.repo";
 import { CachedAuthorizationRepository } from "#/infrastructure/db/repositories/cached-authorization.repo";
 import { ContentDbRepository } from "#/infrastructure/db/repositories/content.repo";
 import { ContentIngestionJobDbRepository } from "#/infrastructure/db/repositories/content-job.repo";
@@ -151,7 +152,9 @@ export const createHttpContainer = (
   const minioEndpoint = `${config.minio.useSsl ? "https" : "http"}://${config.minio.endpoint}:${config.minio.port}`;
 
   // Auth & sessions
-  const authSessionRepository = new AuthSessionDbRepository();
+  const authSessionRepository = new CachedAuthSessionRepository(
+    new AuthSessionDbRepository(),
+  );
   const invitationRepository = new InvitationDbRepository();
 
   // RBAC

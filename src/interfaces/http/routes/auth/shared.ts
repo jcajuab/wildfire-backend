@@ -172,12 +172,10 @@ export const buildAuthResponse = async (
   deps: AuthRouterDeps,
   result: AuthResultBase,
 ) => {
-  const isAdmin = await deps.authorizationRepository.isAdminUser(
-    result.user.id,
-  );
-  const permissions = await deps.authorizationRepository.findPermissionsForUser(
-    result.user.id,
-  );
+  const [isAdmin, permissions] = await Promise.all([
+    deps.authorizationRepository.isAdminUser(result.user.id),
+    deps.authorizationRepository.findPermissionsForUser(result.user.id),
+  ]);
   const permissionStrings = permissions.map((p) => `${p.resource}:${p.action}`);
   const isInvitedUser = result.user.invitedAt != null;
   const user = await enrichUserWithAvatarUrl(
