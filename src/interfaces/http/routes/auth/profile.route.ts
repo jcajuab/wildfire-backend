@@ -1,3 +1,4 @@
+import { getCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
@@ -76,13 +77,17 @@ export const registerAuthProfileRoute = (args: {
           username: payload.username,
           email: payload.email,
         });
-        const result = await useCases.refreshSession.execute({ userId });
+        const refreshToken = getCookie(c, deps.authSessionCookieName);
+        if (!refreshToken) {
+          return unauthorized(c, "Unauthorized");
+        }
+        const result = await useCases.refreshSession.execute({ refreshToken });
         const body = await buildAuthResponse(deps, result);
         setAuthSessionCookie(
           c,
           deps.authSessionCookieName,
-          body.token,
-          body.expiresAt,
+          result.refreshToken ?? "",
+          result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
           deps.secureCookies,
         );
         return c.json(toApiResponse(body));

@@ -1,10 +1,12 @@
-import { deleteCookie } from "hono/cookie";
+import { deleteCookie, getCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
-import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import {
-  setAuthSessionCookie,
-  setCsrfCookie,
-} from "#/interfaces/http/lib/auth-cookie";
+  hashRefreshTokenSecret,
+  parseRefreshTokenValue,
+} from "#/application/auth/refresh-token";
+import { InvalidCredentialsError } from "#/application/use-cases/auth";
+import { logger } from "#/infrastructure/observability/logger";
+import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -30,7 +32,6 @@ import {
   authResponseSchema,
   authTags,
   buildAuthResponse,
-  sessionResponseSchema,
 } from "./shared";
 
 export const registerAuthSessionRoutes = (args: {
@@ -41,82 +42,14 @@ export const registerAuthSessionRoutes = (args: {
 }) => {
   const { router, deps, useCases, jwtMiddleware } = args;
 
-  router.get(
-    "/session",
-    setAction("auth.session.get", {
-      route: "/auth/session",
-      resourceType: "session",
-    }),
-    jwtMiddleware,
-    requireJwtUser,
-    describeRoute({
-      description: "Get current session user and permissions",
-      tags: authTags,
-      responses: {
-        200: {
-          description: "Current session",
-          content: {
-            "application/json": {
-              schema: resolver(apiResponseSchema(sessionResponseSchema)),
-            },
-          },
-        },
-        401: { ...unauthorizedResponse },
-      },
-    }),
-    withRouteErrorHandling(
-      async (c) => {
-        const userId = c.get("userId");
-        c.set("resourceId", userId);
-
-        const sessionGetStats =
-          await deps.authSecurityStore.consumeEndpointAttemptWithStats({
-            key: `session-get|${userId}`,
-            nowMs: Date.now(),
-            windowSeconds: deps.authSessionRateLimitWindowSeconds,
-            maxAttempts: deps.authSessionRateLimitMaxAttempts,
-          });
-        c.set("rateLimitLimit", String(sessionGetStats.limit));
-        c.set("rateLimitRemaining", String(sessionGetStats.remaining));
-        c.set("rateLimitReset", String(sessionGetStats.resetEpochSeconds));
-        c.set("rateLimitRetryAfter", String(sessionGetStats.retryAfterSeconds));
-        if (!sessionGetStats.allowed) {
-          return tooManyRequests(c, "Too many requests");
-        }
-
-        const user = await deps.userRepository.findById(userId);
-        if (!user) {
-          return unauthorized(c, "Unauthorized");
-        }
-        const fullResponse = await buildAuthResponse(deps, {
-          type: "bearer",
-          token: "",
-          expiresAt: "",
-          user,
-        });
-        const { token: _token, ...sessionBody } = fullResponse;
-        c.header("Cache-Control", "no-store");
-        c.header("X-RateLimit-Limit", String(sessionGetStats.limit));
-        c.header(
-          "X-RateLimit-Remaining",
-          String(Math.max(0, sessionGetStats.remaining)),
-        );
-        return c.json(toApiResponse(sessionBody));
-      },
-      ...applicationErrorMappers,
-    ),
-  );
-
   router.post(
-    "/session/refresh",
+    "/refresh",
     setAction("auth.session.refresh", {
-      route: "/auth/session/refresh",
+      route: "/auth/refresh",
       resourceType: "session",
     }),
-    jwtMiddleware,
-    requireJwtUser,
     describeRoute({
-      description: "Refresh current authenticated session JWT",
+      description: "Rotate refresh token and issue a fresh access token",
       tags: authTags,
       responses: {
         200: {
@@ -132,12 +65,16 @@ export const registerAuthSessionRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const userId = c.get("userId");
-        c.set("resourceId", userId);
+        const startedAt = Date.now();
+        const refreshCookie = getCookie(c, deps.authSessionCookieName);
+        if (!refreshCookie) {
+          return unauthorized(c, "Unauthorized");
+        }
 
+        const parsedRefreshToken = parseRefreshTokenValue(refreshCookie);
         const refreshStats =
           await deps.authSecurityStore.consumeEndpointAttemptWithStats({
-            key: `session-refresh|${userId}`,
+            key: `session-refresh|${parsedRefreshToken?.sessionId ?? "unknown"}`,
             nowMs: Date.now(),
             windowSeconds: deps.authSessionRateLimitWindowSeconds,
             maxAttempts: deps.authSessionRateLimitMaxAttempts,
@@ -151,23 +88,28 @@ export const registerAuthSessionRoutes = (args: {
         }
 
         const result = await useCases.refreshSession.execute({
-          userId,
-          currentSessionId: c.get("sessionId"),
-          currentJti: c.get("jti") as string | undefined,
+          refreshToken: refreshCookie,
         });
         const body = await buildAuthResponse(deps, result);
         setAuthSessionCookie(
           c,
           deps.authSessionCookieName,
-          body.token,
-          body.expiresAt,
+          result.refreshToken ?? "",
+          result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
           deps.secureCookies,
         );
-        setCsrfCookie(c, deps.csrfCookieName, deps.secureCookies);
         c.header("X-RateLimit-Limit", String(refreshStats.limit));
         c.header(
           "X-RateLimit-Remaining",
           String(Math.max(0, refreshStats.remaining)),
+        );
+        logger.info(
+          {
+            event: "auth.refresh.completed",
+            durationMs: Date.now() - startedAt,
+            userId: body.user.id,
+          },
+          "Auth refresh completed",
         );
         return c.json(toApiResponse(body));
       },
@@ -182,34 +124,47 @@ export const registerAuthSessionRoutes = (args: {
       route: "/auth/logout",
       resourceType: "session",
     }),
-    jwtMiddleware,
-    requireJwtUser,
     describeRoute({
-      description: "Logout current user (no-op)",
+      description: "Logout current user",
       tags: authTags,
       responses: {
         204: {
           description: "Logged out",
         },
-        401: { ...unauthorizedResponse },
       },
     }),
     withRouteErrorHandling(
       async (c) => {
-        c.set("resourceId", c.get("userId"));
-        const sessionId = c.get("sessionId");
-        if (sessionId) {
-          const isOwnedByUser = await deps.authSessionRepository.isOwnedByUser(
-            sessionId,
-            c.get("userId"),
-            new Date(),
-          );
-          if (!isOwnedByUser) {
-            return unauthorized(c, "Unauthorized");
+        const refreshCookie = getCookie(c, deps.authSessionCookieName);
+        if (refreshCookie) {
+          const parsedRefreshToken = parseRefreshTokenValue(refreshCookie);
+          if (parsedRefreshToken) {
+            const session = await deps.authSessionRepository.findBySessionId(
+              parsedRefreshToken.sessionId,
+            );
+            if (session) {
+              const hashedSecret = hashRefreshTokenSecret(
+                parsedRefreshToken.secret,
+              );
+              const now = new Date();
+              const matchesCurrent = hashedSecret === session.currentJti;
+              const matchesGracePrevious =
+                hashedSecret === session.previousJti &&
+                session.previousJtiExpiresAt != null &&
+                now < session.previousJtiExpiresAt;
+
+              if (matchesCurrent || matchesGracePrevious) {
+                await deps.authSessionRepository.revokeById(session.id);
+              } else {
+                await deps.authSessionRepository.revokeByFamilyId(
+                  session.familyId,
+                );
+              }
+            }
           }
-          await deps.authSessionRepository.revokeById(sessionId);
         }
-        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
+
+        deleteCookie(c, deps.authSessionCookieName, { path: "/v1/auth" });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -240,7 +195,7 @@ export const registerAuthSessionRoutes = (args: {
         const userId = c.get("userId");
         c.set("resourceId", userId);
         await deps.authSessionRepository.revokeAllForUser(userId);
-        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
+        deleteCookie(c, deps.authSessionCookieName, { path: "/v1/auth" });
         await deps.deleteCurrentUserUseCase.execute({ userId });
         return c.body(null, 204);
       },

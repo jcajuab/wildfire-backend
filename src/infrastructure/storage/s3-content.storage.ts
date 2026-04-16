@@ -17,6 +17,13 @@ export class S3ContentStorage implements ContentStorage {
   private readonly presignClient: S3Client;
   private readonly requestTimeoutMs: number;
   private readinessPromise: Promise<void> | null = null;
+  private readonly presignCache = new Map<
+    string,
+    { url: string; expiresAtMs: number }
+  >();
+  private readonly presignInflight = new Map<string, Promise<string>>();
+  private readonly presignCacheMaxEntries = 5_000;
+  private readonly presignCacheSafetyWindowMs = 5_000;
 
   constructor(
     private readonly config: {
@@ -290,49 +297,97 @@ export class S3ContentStorage implements ContentStorage {
   }): Promise<string> {
     await this.ensureBucketExists();
 
+    const cacheKey = [
+      input.key,
+      String(input.expiresInSeconds),
+      input.responseContentDisposition ?? "",
+    ].join("|");
+    const nowMs = Date.now();
+    const cached = this.presignCache.get(cacheKey);
+    if (cached && cached.expiresAtMs > nowMs) {
+      return cached.url;
+    }
+
+    const inflight = this.presignInflight.get(cacheKey);
+    if (inflight) {
+      return inflight;
+    }
+
     const operation = "s3.presignDownload";
-    const start = Date.now();
     const command = new GetObjectCommand({
       Bucket: this.config.bucket,
       Key: input.key,
       ResponseContentDisposition: input.responseContentDisposition,
     });
-    try {
-      const url = await withTimeout(
-        getSignedUrl(this.presignClient, command, {
-          expiresIn: input.expiresInSeconds,
-        }),
-        this.requestTimeoutMs,
-        "getPresignedDownloadUrl",
-      );
-      logger.info(
-        {
-          component: "storage",
-          operation,
-          bucket: this.config.bucket,
-          key: input.key,
-          durationMs: Date.now() - start,
-          success: true,
-        },
-        "storage presign completed",
-      );
-      return url;
-    } catch (error) {
-      logger.error(
-        addErrorContext(
+    const presignTask = (async () => {
+      const start = Date.now();
+      try {
+        const url = await withTimeout(
+          getSignedUrl(this.presignClient, command, {
+            expiresIn: input.expiresInSeconds,
+          }),
+          this.requestTimeoutMs,
+          "getPresignedDownloadUrl",
+        );
+        this.storePresignedUrl(cacheKey, url, input.expiresInSeconds);
+        logger.info(
           {
             component: "storage",
             operation,
             bucket: this.config.bucket,
             key: input.key,
             durationMs: Date.now() - start,
-            success: false,
+            success: true,
           },
-          error,
-        ),
-        "storage presign failed",
-      );
-      throw error;
+          "storage presign completed",
+        );
+        return url;
+      } catch (error) {
+        logger.error(
+          addErrorContext(
+            {
+              component: "storage",
+              operation,
+              bucket: this.config.bucket,
+              key: input.key,
+              durationMs: Date.now() - start,
+              success: false,
+            },
+            error,
+          ),
+          "storage presign failed",
+        );
+        throw error;
+      } finally {
+        this.presignInflight.delete(cacheKey);
+      }
+    })();
+
+    this.presignInflight.set(cacheKey, presignTask);
+    return presignTask;
+  }
+
+  private storePresignedUrl(
+    cacheKey: string,
+    url: string,
+    expiresInSeconds: number,
+  ): void {
+    const expiresAtMs =
+      Date.now() +
+      Math.max(expiresInSeconds * 1000 - this.presignCacheSafetyWindowMs, 0);
+
+    if (this.presignCache.has(cacheKey)) {
+      this.presignCache.delete(cacheKey);
+    }
+
+    this.presignCache.set(cacheKey, { url, expiresAtMs });
+
+    while (this.presignCache.size > this.presignCacheMaxEntries) {
+      const oldestKey = this.presignCache.keys().next().value;
+      if (typeof oldestKey !== "string") {
+        break;
+      }
+      this.presignCache.delete(oldestKey);
     }
   }
 

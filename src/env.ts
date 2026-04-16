@@ -98,6 +98,7 @@ export const env = createEnv({
     AUTH_SESSION_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().default(60),
     AUTH_SESSION_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().default(60),
     SESSION_TOKEN_TTL_SECONDS: z.coerce.number().default(3600),
+    REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24 * 14),
     CSRF_COOKIE_NAME: z.string().default("wildfire_csrf"),
 
     // Invitations

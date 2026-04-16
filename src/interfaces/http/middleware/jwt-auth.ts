@@ -1,26 +1,29 @@
 import { type MiddlewareHandler } from "hono";
-import { getCookie } from "hono/cookie";
 import { verify } from "hono/jwt";
-import { type AuthSessionRepository } from "#/application/ports/auth";
-import { logger } from "#/infrastructure/observability/logger";
 import { unauthorized } from "#/interfaces/http/responses";
 import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 
 interface JwtMiddlewareDeps {
   secret: string;
-  authSessionRepository?: AuthSessionRepository;
+  authSessionRepository?: unknown;
   authSessionCookieName?: string;
 }
 
 const extractBearerToken = (
   authorizationHeader: string | undefined,
 ): string | undefined => {
-  if (!authorizationHeader) return undefined;
-  const [scheme, value] = authorizationHeader.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !value) {
+  if (authorizationHeader == null || authorizationHeader.length === 0) {
     return undefined;
   }
-  return value;
+
+  const [scheme, value] = authorizationHeader.split(" ");
+  const normalizedScheme = scheme?.toLowerCase();
+  const hasValue = typeof value === "string" && value.length > 0;
+  if (normalizedScheme === "bearer" && hasValue) {
+    return value;
+  }
+
+  return undefined;
 };
 
 export const createJwtMiddleware = (
@@ -28,63 +31,24 @@ export const createJwtMiddleware = (
 ): MiddlewareHandler => {
   const deps: JwtMiddlewareDeps =
     typeof depsOrSecret === "string" ? { secret: depsOrSecret } : depsOrSecret;
-  const cookieName = deps.authSessionCookieName ?? "wildfire_session_token";
 
   return async (c, next) => {
-    const bearerToken = extractBearerToken(
+    const token = extractBearerToken(
       c.req.header("authorization") ?? c.req.header("Authorization"),
     );
-    const cookieToken = getCookie(c, cookieName);
-    const token = cookieToken ?? bearerToken;
 
-    if (!token) {
+    if (token == null) {
       return unauthorized(c, "Unauthorized");
     }
 
     try {
       const payload = await verify(token, deps.secret, "HS256");
-      c.set("jwtPayload", payload);
       const parsed = jwtPayloadSchema.safeParse(payload);
-      if (!parsed.success) {
+      if (parsed.success === false) {
         return unauthorized(c, "Invalid token");
       }
-      if (deps.authSessionRepository) {
-        if (!parsed.data.sid) {
-          return unauthorized(c, "Session is invalid or revoked");
-        }
-        const session = await deps.authSessionRepository.findBySessionId(
-          parsed.data.sid,
-        );
-        if (!session) {
-          return unauthorized(c, "Session is invalid or revoked");
-        }
-        const jti = parsed.data.jti;
-        if (jti) {
-          const now = new Date();
-          const isCurrentJti = jti === session.currentJti;
-          const isGracePreviousJti =
-            jti === session.previousJti &&
-            session.previousJtiExpiresAt != null &&
-            now < session.previousJtiExpiresAt;
-          if (!isCurrentJti && !isGracePreviousJti) {
-            const revokedCount =
-              await deps.authSessionRepository.revokeByFamilyId(
-                session.familyId,
-              );
-            logger.error(
-              {
-                event: "auth.session.family_revoked",
-                familyId: session.familyId,
-                triggeredByJti: jti,
-                revokedSessionCount: revokedCount,
-                reason: "jti_mismatch",
-              },
-              "Session family revoked due to JTI mismatch",
-            );
-            return unauthorized(c, "Session is invalid or revoked");
-          }
-        }
-      }
+
+      c.set("jwtPayload", parsed.data);
       await next();
     } catch {
       return unauthorized(c, "Unauthorized");

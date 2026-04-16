@@ -27,9 +27,13 @@ export interface TokenIssuer {
     issuer?: string;
     username?: string;
     email?: string;
+    name?: string;
+    timezone?: string | null;
+    isAdmin?: boolean;
+    isInvitedUser?: boolean;
+    permissions?: string[];
     sessionId?: string;
     jti?: string;
-    isInvitedUser?: boolean;
   }): Promise<string>;
 }
 

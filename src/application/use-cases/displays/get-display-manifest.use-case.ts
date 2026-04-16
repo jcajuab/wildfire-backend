@@ -1,5 +1,6 @@
 import { ValidationError } from "#/application/errors/validation";
 import {
+  type ContentRecord,
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
@@ -106,6 +107,46 @@ interface ManifestPlaybackState {
   flash: ManifestFlashState | null;
 }
 
+type ManifestVersionPlaybackState = {
+  mode: "SCHEDULE" | "EMERGENCY";
+  emergency: {
+    source: "DISPLAY" | "DEFAULT";
+    startedAt: string | null;
+    isGlobal: boolean;
+    content: { id: string };
+  } | null;
+  flash: ManifestFlashState | null;
+};
+
+type ManifestSourceItem = {
+  id: string;
+  sequence: number;
+  duration: number;
+  content: ContentRecord & {
+    type: ManifestRenderableType;
+  };
+};
+
+type EmergencySource = {
+  source: "DISPLAY" | "DEFAULT";
+  startedAt: string | null;
+  isGlobal: boolean;
+  content: ContentRecord & {
+    type: ManifestRenderableType;
+    status: "READY";
+  };
+};
+
+export interface GetDisplayManifestResult {
+  notModified: boolean;
+  playlistId: string | null;
+  playlistVersion: string;
+  generatedAt: string;
+  playback: ManifestPlaybackState;
+  items: ManifestRenderableItem[];
+  schedules: ManifestScheduleWindow[];
+}
+
 const FLASH_TICKER_HEIGHT_PX = 48;
 const FLASH_TICKER_SPEED_PX_PER_SEC = 96;
 const EMERGENCY_IMAGE_DURATION_SECONDS = 86_400;
@@ -132,14 +173,18 @@ export class GetDisplayManifestUseCase {
     },
   ) {}
 
-  async execute(input: { displayId: string; now: Date }) {
-    await this.deps.displayRepository.touchSeen(input.displayId, input.now);
+  async execute(input: {
+    displayId: string;
+    now: Date;
+    ifNoneMatch?: string | null;
+  }): Promise<GetDisplayManifestResult> {
     const [display, schedules, runtimeOverrides] = await Promise.all([
       this.deps.displayRepository.findById(input.displayId),
       this.deps.scheduleRepository.listByDisplay(input.displayId),
       this.getRuntimeOverrides(input.now),
     ]);
     if (!display) throw new NotFoundError("Display not found");
+
     const activeFlashSchedule = selectActiveScheduleByKind(
       schedules,
       "FLASH",
@@ -178,7 +223,7 @@ export class GetDisplayManifestUseCase {
       endDate: s.endDate ?? null,
     }));
 
-    const emergency = await this.resolveEmergencyPlayback({
+    const emergency = await this.resolveEmergencyPlaybackSource({
       display,
       now: input.now,
       globalEmergencyActive: runtimeOverrides.global.globalEmergencyActive,
@@ -190,30 +235,79 @@ export class GetDisplayManifestUseCase {
         emergency.content.type === "VIDEO"
           ? Math.max(1, emergency.content.duration ?? 1)
           : EMERGENCY_IMAGE_DURATION_SECONDS;
+      const versionPlayback: ManifestVersionPlaybackState = {
+        mode: "EMERGENCY",
+        emergency: {
+          source: emergency.source,
+          startedAt: emergency.startedAt,
+          isGlobal: emergency.isGlobal,
+          content: {
+            id: emergency.content.id,
+          },
+        },
+        flash: null,
+      };
+      const playlistVersion = await this.computePlaylistVersion({
+        playlistId: null,
+        refreshNonce: display.refreshNonce ?? 0,
+        playback: versionPlayback,
+        items: [
+          {
+            id: `emergency:${emergency.content.id}`,
+            sequence: 1,
+            duration: emergencyDuration,
+            content: {
+              id: emergency.content.id,
+              checksum: emergency.content.checksum,
+            },
+          },
+        ],
+        schedules: manifestSchedules,
+      });
+
+      if (this.matchesIfNoneMatch(input.ifNoneMatch, playlistVersion)) {
+        return {
+          notModified: true,
+          playlistId: null,
+          playlistVersion,
+          generatedAt: input.now.toISOString(),
+          playback: {
+            mode: "EMERGENCY",
+            emergency: null,
+            flash: null,
+          },
+          items: [],
+          schedules: manifestSchedules,
+        };
+      }
+
+      const emergencyContent = await this.materializeRenderableContent(
+        emergency.content,
+      );
       const items: ManifestRenderableItem[] = [
         {
-          id: `emergency:${emergency.content.id}`,
+          id: `emergency:${emergencyContent.id}`,
           sequence: 1,
           duration: emergencyDuration,
-          content: emergency.content,
+          content: emergencyContent,
         },
       ];
 
       const playback: ManifestPlaybackState = {
         mode: "EMERGENCY",
-        emergency,
+        emergency: {
+          source: emergency.source,
+          startedAt: emergency.startedAt,
+          isGlobal: emergency.isGlobal,
+          content: emergencyContent,
+        },
         flash: null,
       };
 
       return {
+        notModified: false,
         playlistId: null,
-        playlistVersion: await this.computePlaylistVersion({
-          playlistId: null,
-          refreshNonce: display.refreshNonce ?? 0,
-          playback,
-          items,
-          schedules: manifestSchedules,
-        }),
+        playlistVersion,
         generatedAt: input.now.toISOString(),
         playback,
         items,
@@ -228,22 +322,47 @@ export class GetDisplayManifestUseCase {
       this.deps.scheduleTimeZone ?? "UTC",
     );
 
-    const playback: ManifestPlaybackState = {
+    const versionPlayback: ManifestVersionPlaybackState = {
       mode: "SCHEDULE",
       emergency: null,
       flash,
     };
 
     if (activeSchedules.length === 0) {
-      return {
+      const playlistVersion = await this.computePlaylistVersion({
         playlistId: null,
-        playlistVersion: await this.computePlaylistVersion({
+        refreshNonce: display.refreshNonce ?? 0,
+        playback: versionPlayback,
+        items: [],
+        schedules: manifestSchedules,
+      });
+
+      if (this.matchesIfNoneMatch(input.ifNoneMatch, playlistVersion)) {
+        return {
+          notModified: true,
           playlistId: null,
-          refreshNonce: display.refreshNonce ?? 0,
-          playback,
+          playlistVersion,
+          generatedAt: input.now.toISOString(),
+          playback: {
+            mode: "SCHEDULE",
+            emergency: null,
+            flash,
+          },
           items: [],
           schedules: manifestSchedules,
-        }),
+        };
+      }
+
+      const playback: ManifestPlaybackState = {
+        mode: "SCHEDULE",
+        emergency: null,
+        flash,
+      };
+
+      return {
+        notModified: false,
+        playlistId: null,
+        playlistVersion,
         generatedAt: input.now.toISOString(),
         playback,
         items: [],
@@ -252,7 +371,7 @@ export class GetDisplayManifestUseCase {
     }
 
     const playlistIds = activeSchedules
-      .map((s) => s.playlistId)
+      .map((schedule) => schedule.playlistId)
       .filter((id): id is string => id !== null);
 
     if (playlistIds.length === 0) {
@@ -260,10 +379,14 @@ export class GetDisplayManifestUseCase {
     }
 
     const playlists = await this.deps.playlistRepository.findByIds(playlistIds);
-    if (playlists.length === 0) throw new NotFoundError("Playlist not found");
+    if (playlists.length === 0) {
+      throw new NotFoundError("Playlist not found");
+    }
 
     const playlist = playlists[0];
-    if (!playlist) throw new NotFoundError("Playlist not found");
+    if (!playlist) {
+      throw new NotFoundError("Playlist not found");
+    }
 
     const allPlaylistItems = this.deps.playlistRepository.listItemsByPlaylistIds
       ? await this.deps.playlistRepository.listItemsByPlaylistIds(playlistIds)
@@ -278,10 +401,8 @@ export class GetDisplayManifestUseCase {
       contents.map((content) => [content.id, content]),
     );
 
-    const manifestItems: ManifestRenderableItem[] = await mapWithConcurrency(
-      items,
-      PRESIGNED_URL_CONCURRENCY,
-      async (item, index) => {
+    const manifestItemSources: ManifestSourceItem[] = items.map(
+      (item, index) => {
         const content = contentsById.get(item.contentId);
         if (!content) {
           throw new NotFoundError("Content not found");
@@ -296,53 +417,121 @@ export class GetDisplayManifestUseCase {
             `Unsupported content type in playlist: ${content.type}`,
           );
         }
-        const downloadUrl =
-          content.type === "TEXT"
-            ? ""
-            : await this.deps.contentStorage.getPresignedDownloadUrl({
-                key: content.fileKey,
-                expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-              });
-        const thumbnailUrl = content.thumbnailKey
-          ? await this.deps.contentStorage.getPresignedDownloadUrl({
-              key: content.thumbnailKey,
-              expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-            })
-          : null;
 
         return {
           id: item.id,
           sequence: index + 1,
           duration: item.duration,
-          content: {
-            id: content.id,
-            type: content.type,
-            checksum: content.checksum,
-            downloadUrl,
-            thumbnailUrl,
-            mimeType: content.mimeType,
-            width: content.width,
-            height: content.height,
-            duration: content.duration,
-            textHtmlContent: content.textHtmlContent ?? null,
+          content: content as ContentRecord & {
+            type: ManifestRenderableType;
           },
         };
       },
     );
 
-    return {
+    const playlistVersion = await this.computePlaylistVersion({
       playlistId: playlist.id,
-      playlistVersion: await this.computePlaylistVersion({
+      refreshNonce: display.refreshNonce ?? 0,
+      playback: versionPlayback,
+      items: manifestItemSources.map((item) => ({
+        id: item.id,
+        sequence: item.sequence,
+        duration: item.duration,
+        content: {
+          id: item.content.id,
+          checksum: item.content.checksum,
+        },
+      })),
+      schedules: manifestSchedules,
+    });
+
+    if (this.matchesIfNoneMatch(input.ifNoneMatch, playlistVersion)) {
+      return {
+        notModified: true,
         playlistId: playlist.id,
-        refreshNonce: display.refreshNonce ?? 0,
-        playback,
-        items: manifestItems,
+        playlistVersion,
+        generatedAt: input.now.toISOString(),
+        playback: {
+          mode: "SCHEDULE",
+          emergency: null,
+          flash,
+        },
+        items: [],
         schedules: manifestSchedules,
+      };
+    }
+
+    const manifestItems: ManifestRenderableItem[] = await mapWithConcurrency(
+      manifestItemSources,
+      PRESIGNED_URL_CONCURRENCY,
+      async (item) => ({
+        id: item.id,
+        sequence: item.sequence,
+        duration: item.duration,
+        content: await this.materializeRenderableContent(item.content),
       }),
+    );
+
+    const playback: ManifestPlaybackState = {
+      mode: "SCHEDULE",
+      emergency: null,
+      flash,
+    };
+
+    return {
+      notModified: false,
+      playlistId: playlist.id,
+      playlistVersion,
       generatedAt: input.now.toISOString(),
       playback,
       items: manifestItems,
       schedules: manifestSchedules,
+    };
+  }
+
+  private matchesIfNoneMatch(
+    ifNoneMatch: string | null | undefined,
+    playlistVersion: string,
+  ): boolean {
+    if (!ifNoneMatch) {
+      return false;
+    }
+
+    const normalized = ifNoneMatch
+      .replace(/^W\//, "")
+      .trim()
+      .replace(/^"+|"+$/g, "");
+    return normalized === playlistVersion;
+  }
+
+  private async materializeRenderableContent(
+    content: ContentRecord & { type: ManifestRenderableType },
+  ): Promise<ManifestRenderableContent> {
+    const downloadUrl =
+      content.type === "TEXT"
+        ? ""
+        : await this.deps.contentStorage.getPresignedDownloadUrl({
+            key: content.fileKey,
+            expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+          });
+    const thumbnailUrl = content.thumbnailKey
+      ? await this.deps.contentStorage.getPresignedDownloadUrl({
+          key: content.thumbnailKey,
+          expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+        })
+      : null;
+
+    return {
+      id: content.id,
+      type: content.type,
+      checksum: content.checksum,
+      downloadUrl,
+      thumbnailUrl,
+      mimeType: content.mimeType,
+      width: content.width,
+      height: content.height,
+      duration: content.duration,
+      textHtmlContent: content.textHtmlContent ?? null,
     };
   }
 
@@ -370,12 +559,12 @@ export class GetDisplayManifestUseCase {
     };
   }
 
-  private async resolveEmergencyPlayback(input: {
+  private async resolveEmergencyPlaybackSource(input: {
     display: DisplayRecord;
     now: Date;
     globalEmergencyActive: boolean;
     globalEmergencyStartedAt: string | null;
-  }): Promise<ManifestPlaybackState["emergency"]> {
+  }): Promise<EmergencySource | null> {
     if (!input.globalEmergencyActive) {
       return null;
     }
@@ -393,43 +582,18 @@ export class GetDisplayManifestUseCase {
       return null;
     }
 
-    const downloadUrl =
-      emergencyAsset.type === "TEXT"
-        ? ""
-        : await this.deps.contentStorage.getPresignedDownloadUrl({
-            key: emergencyAsset.fileKey,
-            expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-          });
-    const thumbnailUrl = emergencyAsset.thumbnailKey
-      ? await this.deps.contentStorage.getPresignedDownloadUrl({
-          key: emergencyAsset.thumbnailKey,
-          expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-        })
-      : null;
-
     return {
       source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
       startedAt: input.globalEmergencyStartedAt,
       isGlobal: true,
-      content: {
-        id: emergencyAsset.id,
-        type: emergencyAsset.type,
-        checksum: emergencyAsset.checksum,
-        downloadUrl,
-        thumbnailUrl,
-        mimeType: emergencyAsset.mimeType,
-        width: emergencyAsset.width,
-        height: emergencyAsset.height,
-        duration: emergencyAsset.duration,
-        textHtmlContent: emergencyAsset.textHtmlContent ?? null,
-      },
+      content: emergencyAsset,
     };
   }
 
   private async computePlaylistVersion(input: {
     playlistId: string | null;
     refreshNonce: number;
-    playback: ManifestPlaybackState;
+    playback: ManifestVersionPlaybackState;
     items: Array<{
       id: string;
       sequence: number;

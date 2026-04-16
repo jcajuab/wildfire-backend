@@ -6,6 +6,7 @@ import {
 } from "./shared";
 import { registerRbacUserActionRoutes } from "./user-actions.route";
 import { registerRbacUserMembershipRoutes } from "./user-memberships.route";
+import { registerRbacUserBootstrapRoute } from "./users-bootstrap.route";
 import { registerRbacUserResourceRoutes } from "./users-resource.route";
 
 export const registerRbacUserRoutes = (args: {
@@ -14,6 +15,7 @@ export const registerRbacUserRoutes = (args: {
   useCases: RbacRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
+  registerRbacUserBootstrapRoute(args);
   registerRbacUserResourceRoutes(args);
   registerRbacUserMembershipRoutes(args);
   registerRbacUserActionRoutes(args);

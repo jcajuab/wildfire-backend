@@ -66,8 +66,16 @@ export const registerDisplayRuntimeManifestRoutes = (input: {
         const result = await useCases.getDisplayManifest.execute({
           displayId: String(c.get("displayId")),
           now: new Date(),
+          ifNoneMatch:
+            c.req.header("if-none-match") ?? c.req.header("If-None-Match"),
         });
-        return c.json(toApiResponse(result));
+        c.header("ETag", `"${result.playlistVersion}"`);
+        c.header("Cache-Control", "private, no-cache");
+        if (result.notModified) {
+          return c.body(null, 304);
+        }
+        const { notModified: _notModified, ...manifest } = result;
+        return c.json(toApiResponse(manifest));
       },
       ...applicationErrorMappers,
     ),

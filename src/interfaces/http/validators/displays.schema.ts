@@ -44,6 +44,16 @@ export const displayListQuerySchema = z.object({
       if (value === undefined) return undefined;
       return Array.isArray(value) ? value : [value];
     }),
+  groupNames: z
+    .union([
+      z.string().trim().min(1).max(120),
+      z.array(z.string().trim().min(1).max(120)),
+    ])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      return Array.isArray(value) ? value : [value];
+    }),
   sortBy: z.enum(["name", "status", "location"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
 });

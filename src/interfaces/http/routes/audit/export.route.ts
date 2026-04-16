@@ -93,10 +93,24 @@ async function warmActorNameCache(
   userRepository: UserRepository,
   displayRepository: DisplayRepository,
 ): Promise<void> {
+  for (const event of events) {
+    if (
+      event.actorId != null &&
+      event.actorType != null &&
+      typeof event.actorName === "string" &&
+      event.actorName.length > 0
+    ) {
+      cache.set(`${event.actorType}:${event.actorId}`, event.actorName);
+    }
+  }
+
   const userIds = [
     ...new Set(
       events
         .filter((e) => e.actorType === "user" && e.actorId != null)
+        .filter(
+          (e) => !(typeof e.actorName === "string" && e.actorName.length > 0),
+        )
         .filter((e) => !cache.has(`user:${e.actorId as string}`))
         .map((e) => e.actorId as string),
     ),
@@ -105,6 +119,9 @@ async function warmActorNameCache(
     ...new Set(
       events
         .filter((e) => e.actorType === "display" && e.actorId != null)
+        .filter(
+          (e) => !(typeof e.actorName === "string" && e.actorName.length > 0),
+        )
         .filter((e) => !cache.has(`display:${e.actorId as string}`))
         .map((e) => e.actorId as string),
     ),
@@ -135,6 +152,10 @@ function getActorName(
   event: AuditLogRecord,
   cache: Map<string, string>,
 ): string {
+  if (typeof event.actorName === "string" && event.actorName.length > 0) {
+    return event.actorName;
+  }
+
   const key =
     event.actorId != null && event.actorType != null
       ? `${event.actorType}:${event.actorId}`

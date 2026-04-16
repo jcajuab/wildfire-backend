@@ -47,7 +47,6 @@ import { closeRedisClients } from "#/infrastructure/redis/client";
 import { RedisDisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
 import { RedisAuditQueue } from "#/interfaces/http/audit/redis-audit-queue";
 import { createAuditTrailMiddleware } from "#/interfaces/http/middleware/audit-trail";
-import { createCsrfMiddleware } from "#/interfaces/http/middleware/csrf";
 import {
   requestId,
   requestLogger,
@@ -73,6 +72,7 @@ import { createHttpContainer } from "./container";
 export const app = new Hono<{ Variables: RequestIdVariables }>();
 
 const tokenTtlSeconds = env.SESSION_TOKEN_TTL_SECONDS;
+const refreshTokenTtlSeconds = env.REFRESH_TOKEN_TTL_SECONDS;
 const avatarUrlExpiresInSeconds = env.PRESIGNED_URL_TTL_SECONDS;
 const contentThumbnailUrlExpiresInSeconds = env.PRESIGNED_URL_TTL_SECONDS;
 
@@ -357,6 +357,7 @@ const authModule = createAuthHttpModule({
   tokenIssuer: container.auth.tokenIssuer,
   clock: container.auth.clock,
   tokenTtlSeconds,
+  refreshTokenTtlSeconds,
   userRepository: container.repositories.userRepository,
   authorizationRepository: container.repositories.authorizationRepository,
   jwtSecret: env.JWT_SECRET,
@@ -410,6 +411,7 @@ const schedulesModule = createSchedulesHttpModule({
     scheduleRepository: container.repositories.scheduleRepository,
     playlistRepository: container.repositories.playlistRepository,
     displayRepository: container.repositories.displayRepository,
+    displayGroupRepository: container.repositories.displayGroupRepository,
     contentRepository: container.repositories.contentRepository,
     authorizationRepository: container.repositories.authorizationRepository,
   },
@@ -518,6 +520,7 @@ const rbacModule = createRbacHttpModule({
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   credentialsRepository: container.auth.credentialsRepository,
   dbCredentialsRepository: container.auth.dbCredentialsRepository,
+  invitationRepository: container.repositories.invitationRepository,
   passwordHasher: container.auth.passwordHasher,
   repositories: {
     userRepository: container.repositories.userRepository,
@@ -602,7 +605,6 @@ app.use(
       "X-Display-Nonce",
       "X-Display-Body-Sha256",
       "X-Display-Signature",
-      "X-CSRF-Token",
     ],
     exposeHeaders: [
       "X-Request-Id",
@@ -612,11 +614,6 @@ app.use(
       "Retry-After",
     ],
   }),
-);
-
-app.use(
-  "*",
-  createCsrfMiddleware(env.AUTH_SESSION_COOKIE_NAME, env.CSRF_COOKIE_NAME),
 );
 
 // Security: Redact X-AI-Provider-Key from logs to prevent key leakage

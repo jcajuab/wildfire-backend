@@ -4,6 +4,7 @@ import {
   type DisplaysRouterDeps,
   type DisplaysRouterUseCases,
 } from "../module";
+import { registerDisplayStaffBootstrapRoute } from "./bootstrap.route";
 import { registerDisplayStaffGroupRoutes } from "./display-groups.route";
 import { registerDisplayStaffDisplayRoutes } from "./displays.route";
 import { registerDisplayStaffEventRoutes } from "./events.route";
@@ -21,6 +22,7 @@ export const registerDisplayStaffRoutes = (input: {
   registerDisplayStaffRegistrationAttemptRoutes(input);
   registerDisplayStaffRegistrationRoutes(input);
   registerDisplayStaffRuntimeOverrideRoutes(input);
+  registerDisplayStaffBootstrapRoute(input);
   registerDisplayStaffDisplayRoutes(input);
   registerDisplayStaffGroupRoutes(input);
 };

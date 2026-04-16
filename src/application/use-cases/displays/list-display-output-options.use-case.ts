@@ -6,6 +6,10 @@ export class ListDisplayOutputOptionsUseCase {
   ) {}
 
   async execute() {
+    if (this.deps.displayRepository.listOutputOptions) {
+      return this.deps.displayRepository.listOutputOptions();
+    }
+
     return [
       ...new Set(
         (await this.deps.displayRepository.list())

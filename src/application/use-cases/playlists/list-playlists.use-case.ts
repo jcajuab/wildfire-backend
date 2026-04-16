@@ -3,7 +3,10 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
-import { type PlaylistRepository } from "#/application/ports/playlists";
+import {
+  type PlaylistItemRecord,
+  type PlaylistRepository,
+} from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type PlaylistStatus } from "#/domain/playlists/playlist";
 import { toPlaylistItemView, toPlaylistView } from "./playlist-view";
@@ -20,21 +23,38 @@ export class ListPlaylistsUseCase {
     },
   ) {}
 
-  private async buildThumbnailUrl(
-    content: ContentRecord,
-  ): Promise<string | undefined> {
-    if (!content.thumbnailKey || !this.deps.contentStorage) {
-      return undefined;
-    }
+  private async buildThumbnailUrlMap(
+    contents: readonly ContentRecord[],
+  ): Promise<Map<string, string>> {
+    const thumbnailKeys = Array.from(
+      new Set(
+        contents
+          .map((content) => content.thumbnailKey)
+          .filter(
+            (key): key is string => typeof key === "string" && key.length > 0,
+          ),
+      ),
+    );
 
-    try {
-      return await this.deps.contentStorage.getPresignedDownloadUrl({
-        key: content.thumbnailKey,
-        expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds ?? 3600,
-      });
-    } catch {
-      return undefined;
-    }
+    const thumbnailUrlByKey = new Map<string, string>();
+    await Promise.all(
+      thumbnailKeys.map(async (thumbnailKey) => {
+        try {
+          const thumbnailUrl =
+            await this.deps.contentStorage?.getPresignedDownloadUrl({
+              key: thumbnailKey,
+              expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds ?? 3600,
+            });
+          if (thumbnailUrl) {
+            thumbnailUrlByKey.set(thumbnailKey, thumbnailUrl);
+          }
+        } catch {
+          // Best-effort enrichment only.
+        }
+      }),
+    );
+
+    return thumbnailUrlByKey;
   }
 
   async execute(input?: {
@@ -72,16 +92,15 @@ export class ListPlaylistsUseCase {
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
     const playlistIds = playlists.map((playlist) => playlist.id);
-    const statsByPlaylistId = this.deps.playlistRepository
-      .listItemStatsByPlaylistIds
-      ? await this.deps.playlistRepository.listItemStatsByPlaylistIds(
-          playlistIds,
-        )
-      : await this.buildStatsByPlaylistId(playlistIds);
-    const previewItemsByPlaylistId = await this.buildPreviewItemsByPlaylistId({
-      playlistIds,
-      ownerId: input?.ownerId,
-    });
+    const [statsByPlaylistId, previewItemsByPlaylistId] = await Promise.all([
+      this.deps.playlistRepository.listItemStatsByPlaylistIds
+        ? this.deps.playlistRepository.listItemStatsByPlaylistIds(playlistIds)
+        : this.buildStatsByPlaylistId(playlistIds),
+      this.buildPreviewItemsByPlaylistId({
+        playlistIds,
+        ownerId: input?.ownerId,
+      }),
+    ]);
 
     const items = playlists.map((playlist) =>
       toPlaylistView(
@@ -111,22 +130,48 @@ export class ListPlaylistsUseCase {
       ReturnType<typeof toPlaylistItemView>[]
     >();
 
-    const playlistItemsByPlaylistId = await Promise.all(
-      input.playlistIds.map(async (playlistId) => {
-        const items = await this.deps.playlistRepository.listItems(playlistId);
-        return {
-          playlistId,
-          items: [...items].sort(
-            (left, right) => left.sequence - right.sequence,
-          ),
-        };
-      }),
-    );
+    const playlistItems =
+      this.deps.playlistRepository.listItemsByPlaylistIds != null
+        ? await this.deps.playlistRepository.listItemsByPlaylistIds(
+            input.playlistIds,
+          )
+        : (
+            await Promise.all(
+              input.playlistIds.map(async (playlistId) => ({
+                playlistId,
+                items: await this.deps.playlistRepository.listItems(playlistId),
+              })),
+            )
+          ).flatMap((entry) => entry.items);
+
+    const playlistItemsByPlaylistId = new Map<string, PlaylistItemRecord[]>();
+    for (const playlistId of input.playlistIds) {
+      playlistItemsByPlaylistId.set(playlistId, []);
+    }
+    for (const item of playlistItems) {
+      const existingItems =
+        playlistItemsByPlaylistId.get(item.playlistId) ?? [];
+      existingItems.push(item);
+      playlistItemsByPlaylistId.set(item.playlistId, existingItems);
+    }
+
+    const previewCandidateItemsByPlaylistId = new Map<
+      string,
+      PlaylistItemRecord[]
+    >();
+    for (const [playlistId, itemsForPlaylist] of playlistItemsByPlaylistId) {
+      previewCandidateItemsByPlaylistId.set(
+        playlistId,
+        [...itemsForPlaylist]
+          .sort((left, right) => left.sequence - right.sequence)
+          .slice(0, 3),
+      );
+    }
 
     const contentIds = Array.from(
       new Set(
-        playlistItemsByPlaylistId.flatMap((entry) =>
-          entry.items.map((item) => item.contentId),
+        [...previewCandidateItemsByPlaylistId.values()].flatMap((items) =>
+          items.map((item) => item.contentId),
         ),
       ),
     );
@@ -144,20 +189,21 @@ export class ListPlaylistsUseCase {
     const contentById = new Map(
       contents.map((content) => [content.id, content]),
     );
+    const thumbnailUrlByKey = await this.buildThumbnailUrlMap(contents);
 
-    for (const entry of playlistItemsByPlaylistId) {
+    for (const [playlistId, rawItems] of previewCandidateItemsByPlaylistId) {
       const previewItems: ReturnType<typeof toPlaylistItemView>[] = [];
-
-      for (const item of entry.items) {
+      for (const item of rawItems) {
         const content = contentById.get(item.contentId);
         if (!content) {
           continue;
         }
 
-        const thumbnailUrl = await this.buildThumbnailUrl(content);
         previewItems.push(
           toPlaylistItemView(item, content, {
-            thumbnailUrl: thumbnailUrl ?? null,
+            thumbnailUrl: content.thumbnailKey
+              ? (thumbnailUrlByKey.get(content.thumbnailKey) ?? null)
+              : null,
           }),
         );
 
@@ -166,7 +212,7 @@ export class ListPlaylistsUseCase {
         }
       }
 
-      previewItemsByPlaylistId.set(entry.playlistId, previewItems);
+      previewItemsByPlaylistId.set(playlistId, previewItems);
     }
 
     return previewItemsByPlaylistId;

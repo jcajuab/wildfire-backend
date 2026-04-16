@@ -22,21 +22,36 @@ export class ListContentUseCase {
     },
   ) {}
 
-  private async buildThumbnailUrl(
-    record: ContentRecord,
-  ): Promise<string | undefined> {
-    if (!record.thumbnailKey) {
-      return undefined;
-    }
+  private async buildThumbnailUrlMap(
+    records: readonly ContentRecord[],
+  ): Promise<Map<string, string>> {
+    const thumbnailKeys = Array.from(
+      new Set(
+        records
+          .map((record) => record.thumbnailKey)
+          .filter(
+            (key): key is string => typeof key === "string" && key.length > 0,
+          ),
+      ),
+    );
 
-    try {
-      return await this.deps.contentStorage.getPresignedDownloadUrl({
-        key: record.thumbnailKey,
-        expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds,
-      });
-    } catch {
-      return undefined;
-    }
+    const thumbnailUrlByKey = new Map<string, string>();
+    await Promise.all(
+      thumbnailKeys.map(async (thumbnailKey) => {
+        try {
+          const thumbnailUrl =
+            await this.deps.contentStorage.getPresignedDownloadUrl({
+              key: thumbnailKey,
+              expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds,
+            });
+          thumbnailUrlByKey.set(thumbnailKey, thumbnailUrl);
+        } catch {
+          // Best-effort enrichment only.
+        }
+      }),
+    );
+
+    return thumbnailUrlByKey;
   }
 
   async execute(input: {
@@ -76,17 +91,17 @@ export class ListContentUseCase {
           });
 
     const creatorIds = Array.from(new Set(items.map((item) => item.ownerId)));
-    const creators = await this.deps.userRepository.findByIds(creatorIds);
+    const [creators, thumbnailUrlByKey] = await Promise.all([
+      this.deps.userRepository.findByIds(creatorIds),
+      this.buildThumbnailUrlMap(items),
+    ]);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
-    const views = await Promise.all(
-      items.map(async (item) => {
-        const thumbnailUrl = await this.buildThumbnailUrl(item);
-        return toContentView(
-          item,
-          creatorsById.get(item.ownerId)?.name ?? null,
-          { thumbnailUrl },
-        );
+    const views = items.map((item) =>
+      toContentView(item, creatorsById.get(item.ownerId)?.name ?? null, {
+        thumbnailUrl: item.thumbnailKey
+          ? thumbnailUrlByKey.get(item.thumbnailKey)
+          : undefined,
       }),
     );
 

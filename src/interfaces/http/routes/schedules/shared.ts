@@ -5,7 +5,10 @@ import {
   type AdminDisplayLifecycleEventPublisher,
   type DisplayStreamEventPublisher,
 } from "#/application/ports/display-stream-events";
-import { type DisplayRepository } from "#/application/ports/displays";
+import {
+  type DisplayGroupRepository,
+  type DisplayRepository,
+} from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -31,6 +34,7 @@ export interface SchedulesRouterDeps {
     scheduleRepository: ScheduleRepository;
     playlistRepository: PlaylistRepository;
     displayRepository: DisplayRepository;
+    displayGroupRepository?: DisplayGroupRepository;
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
   };

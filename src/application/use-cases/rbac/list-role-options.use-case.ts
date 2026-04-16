@@ -5,6 +5,10 @@ export class ListRoleOptionsUseCase {
   constructor(private readonly deps: { roleRepository: RoleRepository }) {}
 
   async execute(input?: { q?: string; limit?: number }) {
+    if (this.deps.roleRepository.listOptions) {
+      return this.deps.roleRepository.listOptions(input ?? {});
+    }
+
     const normalizedQuery = normalizeQuery(input?.q);
     const limit = input?.limit;
 

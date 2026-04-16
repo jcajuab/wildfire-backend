@@ -1,8 +1,13 @@
-import { eq, inArray } from "drizzle-orm";
-import { type RoleRecord, type RoleRepository } from "#/application/ports/rbac";
+import { asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import {
+  type RoleRecord,
+  type RoleRepository,
+  type RoleWithUserCount,
+} from "#/application/ports/rbac";
 import { ADMIN_ROLE_NAME } from "#/domain/rbac/canonical-permissions";
 import { db } from "#/infrastructure/db/client";
-import { roles } from "#/infrastructure/db/schema/rbac.sql";
+import { roles, userRoles } from "#/infrastructure/db/schema/rbac.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const withIsSystem = (role: {
   id: string;
@@ -17,6 +22,86 @@ export class RoleDbRepository implements RoleRepository {
   async list(): Promise<RoleRecord[]> {
     const rows = await db.select().from(roles);
     return rows.map(withIsSystem);
+  }
+
+  async listOptions(input: {
+    q?: string;
+    limit?: number;
+  }): Promise<RoleRecord[]> {
+    const normalizedQuery = input.q?.trim();
+    const whereClause = normalizedQuery
+      ? or(
+          like(roles.name, buildLikeContainsPattern(normalizedQuery)),
+          like(roles.description, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+    const limit = Math.max(1, input.limit ?? 100);
+
+    const rows = await db
+      .select()
+      .from(roles)
+      .where(whereClause)
+      .orderBy(asc(roles.name))
+      .limit(limit);
+
+    return rows.map(withIsSystem);
+  }
+
+  async listPageWithUserCount(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+    sortBy?: "name" | "usersCount";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: RoleWithUserCount[]; total: number }> {
+    const normalizedQuery = input.q?.trim();
+    const whereClause = normalizedQuery
+      ? or(
+          like(roles.name, buildLikeContainsPattern(normalizedQuery)),
+          like(roles.description, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+
+    const usersCountSql = sql<number>`count(${userRoles.userId})`;
+    const orderBy =
+      input.sortBy === "usersCount"
+        ? ([
+            input.sortDirection === "asc"
+              ? asc(usersCountSql)
+              : desc(usersCountSql),
+            input.sortDirection === "desc" ? desc(roles.name) : asc(roles.name),
+          ] as const)
+        : ([
+            input.sortDirection === "desc" ? desc(roles.name) : asc(roles.name),
+          ] as const);
+    const rows = await db
+      .select({
+        id: roles.id,
+        name: roles.name,
+        description: roles.description,
+        usersCount: usersCountSql,
+      })
+      .from(roles)
+      .leftJoin(userRoles, eq(userRoles.roleId, roles.id))
+      .where(whereClause)
+      .groupBy(roles.id, roles.name, roles.description)
+      .orderBy(...orderBy)
+      .limit(input.limit)
+      .offset(input.offset);
+
+    const totalQuery = db.select({ value: sql<number>`count(*)` }).from(roles);
+    const totalResult =
+      whereClause == null
+        ? await totalQuery
+        : await totalQuery.where(whereClause);
+
+    return {
+      items: rows.map((row) => ({
+        ...withIsSystem(row),
+        usersCount: Number(row.usersCount),
+      })),
+      total: Number(totalResult[0]?.value ?? 0),
+    };
   }
 
   async findById(id: string): Promise<RoleRecord | null> {

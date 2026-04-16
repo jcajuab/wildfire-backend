@@ -106,7 +106,7 @@ export const registerAuthPasswordRoute = (args: {
           newPassword: payload.newPassword,
         });
         await deps.authSessionRepository.revokeAllForUser(userId);
-        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
+        deleteCookie(c, deps.authSessionCookieName, { path: "/v1/auth" });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

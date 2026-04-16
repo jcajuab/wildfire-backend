@@ -1,12 +1,19 @@
 import { bodyLimit } from "hono/body-limit";
+import { getCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
+import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { logger } from "#/infrastructure/observability/logger";
 import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  toApiResponse,
+  unauthorized,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
+  mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import {
@@ -95,18 +102,23 @@ export const registerAuthAvatarRoute = (args: {
           "avatar upload done",
         );
 
-        const result = await useCases.refreshSession.execute({ userId });
+        const refreshToken = getCookie(c, deps.authSessionCookieName);
+        if (!refreshToken) {
+          return unauthorized(c, "Unauthorized");
+        }
+        const result = await useCases.refreshSession.execute({ refreshToken });
         const body = await buildAuthResponse(deps, result);
         setAuthSessionCookie(
           c,
           deps.authSessionCookieName,
-          body.token,
-          body.expiresAt,
+          result.refreshToken ?? "",
+          result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
           deps.secureCookies,
         );
         return c.json(toApiResponse(body));
       },
       ...applicationErrorMappers,
+      mapErrorToResponse(InvalidCredentialsError, unauthorized),
     ),
   );
 };

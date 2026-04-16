@@ -3,6 +3,7 @@ import {
   type AuthSessionRepository,
   type CredentialsReader,
   type CredentialsRepository,
+  type InvitationRepository,
   type PasswordHasher,
 } from "#/application/ports/auth";
 import { type ContentStorage } from "#/application/ports/content";
@@ -41,7 +42,10 @@ import {
   type BanUserUseCase,
   type UnbanUserUseCase,
 } from "#/application/use-cases/users/ban-user.use-case";
-import { addAvatarUrlToUser } from "#/interfaces/http/lib/avatar-url";
+import {
+  addAvatarUrlsToUsers,
+  addAvatarUrlToUser,
+} from "#/interfaces/http/lib/avatar-url";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
 
@@ -52,6 +56,7 @@ export interface RbacRouterDeps {
   /** Read-only htshadow credential lookup; same as auth router. */
   credentialsRepository: CredentialsReader;
   dbCredentialsRepository: CredentialsRepository;
+  invitationRepository?: InvitationRepository;
   passwordHasher: PasswordHasher;
   repositories: {
     userRepository: UserRepository;
@@ -132,9 +137,7 @@ export const maybeEnrichUsersForResponse = async <
   const expiresIn = deps.avatarUrlExpiresInSeconds;
 
   if (storage != null && expiresIn != null && expiresIn > 0) {
-    return Promise.all(
-      users.map((user) => addAvatarUrlToUser(user, storage, expiresIn)),
-    );
+    return addAvatarUrlsToUsers(users, storage, expiresIn);
   }
 
   return users.map(removeAvatarKey);

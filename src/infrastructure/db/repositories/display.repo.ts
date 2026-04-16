@@ -102,6 +102,40 @@ export class DisplayDbRepository implements DisplayRepository {
     return rows.map(mapDisplayRowToRecord);
   }
 
+  async listOptions(input: {
+    q?: string;
+    limit?: number;
+  }): Promise<DisplayRecord[]> {
+    const normalizedQuery = input.q?.trim();
+    const whereClause = normalizedQuery
+      ? or(
+          like(displays.name, buildLikeContainsPattern(normalizedQuery)),
+          like(displays.slug, buildLikeContainsPattern(normalizedQuery)),
+          like(displays.location, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+    const limit = Math.max(1, input.limit ?? 100);
+
+    const rows = await buildDisplayQuery()
+      .where(whereClause)
+      .orderBy(asc(displays.name))
+      .limit(limit);
+
+    return rows.map(mapDisplayRowToRecord);
+  }
+
+  async listOutputOptions(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ output: displays.output })
+      .from(displays)
+      .where(sql`trim(${displays.output}) <> ''`)
+      .orderBy(asc(displays.output));
+
+    return rows
+      .map((row) => row.output?.trim() ?? "")
+      .filter((value) => value.length > 0);
+  }
+
   async listForReconciliation(): Promise<DisplayRecord[]> {
     const fiveMinutesAgo = new Date(
       Date.now() - RECONCILIATION_STALE_THRESHOLD_MS,

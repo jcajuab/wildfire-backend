@@ -23,3 +23,49 @@ export async function addAvatarUrlToUser<
     avatarUrl?: string;
   };
 }
+
+export async function addAvatarUrlsToUsers<
+  T extends { avatarKey?: string | null },
+>(
+  users: readonly T[],
+  storage: ContentStorage,
+  expiresInSeconds: number,
+): Promise<Array<Omit<T, "avatarKey"> & { avatarUrl?: string }>> {
+  const avatarKeys = Array.from(
+    new Set(
+      users
+        .map((user) => user.avatarKey)
+        .filter(
+          (key): key is string => typeof key === "string" && key.length > 0,
+        ),
+    ),
+  );
+
+  const avatarUrlByKey = new Map<string, string>();
+  await Promise.all(
+    avatarKeys.map(async (avatarKey) => {
+      try {
+        const avatarUrl = await storage.getPresignedDownloadUrl({
+          key: avatarKey,
+          expiresInSeconds,
+        });
+        avatarUrlByKey.set(avatarKey, avatarUrl);
+      } catch {
+        // Best-effort enrichment only.
+      }
+    }),
+  );
+
+  return users.map((user) => {
+    const { avatarKey, ...rest } = user;
+    if (!avatarKey) {
+      return rest as Omit<T, "avatarKey"> & { avatarUrl?: string };
+    }
+
+    const avatarUrl = avatarUrlByKey.get(avatarKey);
+    return {
+      ...rest,
+      ...(avatarUrl ? { avatarUrl } : {}),
+    } as Omit<T, "avatarKey"> & { avatarUrl?: string };
+  });
+}

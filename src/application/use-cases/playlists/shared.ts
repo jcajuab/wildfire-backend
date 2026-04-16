@@ -15,13 +15,9 @@ export const publishPlaylistUpdateEvents = async (
   if (!deps.scheduleRepository || !deps.displayEventPublisher) {
     return;
   }
-  const schedules = await deps.scheduleRepository.list();
+  const schedules = await deps.scheduleRepository.listByPlaylistId(playlistId);
   const impactedDisplayIds = Array.from(
-    new Set(
-      schedules
-        .filter((schedule) => schedule.playlistId === playlistId)
-        .map((schedule) => schedule.displayId),
-    ),
+    new Set(schedules.map((schedule) => schedule.displayId)),
   );
   for (const displayId of impactedDisplayIds) {
     deps.displayEventPublisher.publish({

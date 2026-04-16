@@ -1,7 +1,8 @@
-import { eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 import { normalizeUsername } from "#/shared/string-utils";
 import { toNullableIsoString } from "./utils/date";
 
@@ -22,6 +23,78 @@ export class UserDbRepository implements UserRepository {
   async list(): Promise<UserRecord[]> {
     const rows = await db.select().from(users);
     return rows.map(mapUserRowToRecord);
+  }
+
+  async listOptions(input: {
+    q?: string;
+    limit?: number;
+  }): Promise<UserRecord[]> {
+    const normalizedQuery = input.q?.trim();
+    const whereClause = normalizedQuery
+      ? or(
+          like(users.name, buildLikeContainsPattern(normalizedQuery)),
+          like(users.username, buildLikeContainsPattern(normalizedQuery)),
+          like(users.email, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+    const limit = Math.max(1, input.limit ?? 100);
+
+    const rows = await db
+      .select()
+      .from(users)
+      .where(whereClause)
+      .orderBy(asc(users.name))
+      .limit(limit);
+
+    return rows.map(mapUserRowToRecord);
+  }
+
+  async listPage(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+    sortBy?: "name" | "lastSeenAt";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: UserRecord[]; total: number }> {
+    const normalizedQuery = input.q?.trim();
+    const whereClause = normalizedQuery
+      ? or(
+          like(users.name, buildLikeContainsPattern(normalizedQuery)),
+          like(users.username, buildLikeContainsPattern(normalizedQuery)),
+          like(users.email, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+    const orderBy =
+      input.sortBy === "lastSeenAt"
+        ? ([
+            sql`case when ${users.lastSeenAt} is null then 1 else 0 end`,
+            input.sortDirection === "asc"
+              ? asc(users.lastSeenAt)
+              : desc(users.lastSeenAt),
+            input.sortDirection === "desc" ? desc(users.name) : asc(users.name),
+          ] as const)
+        : ([
+            input.sortDirection === "desc" ? desc(users.name) : asc(users.name),
+          ] as const);
+
+    const rows = await db
+      .select()
+      .from(users)
+      .where(whereClause)
+      .orderBy(...orderBy)
+      .limit(input.limit)
+      .offset(input.offset);
+
+    const totalQuery = db.select({ value: sql<number>`count(*)` }).from(users);
+    const totalResult =
+      whereClause == null
+        ? await totalQuery
+        : await totalQuery.where(whereClause);
+
+    return {
+      items: rows.map(mapUserRowToRecord),
+      total: Number(totalResult[0]?.value ?? 0),
+    };
   }
 
   async findById(id: string): Promise<UserRecord | null> {

@@ -22,6 +22,8 @@ export interface DisplayRecord {
 
 export interface DisplayRepository {
   list(): Promise<DisplayRecord[]>;
+  listOptions?(input: { q?: string; limit?: number }): Promise<DisplayRecord[]>;
+  listOutputOptions?(): Promise<string[]>;
   listForReconciliation?(): Promise<DisplayRecord[]>;
   // Pagination convention: new repos use { offset, limit } (see playlists, content).
   // This repo uses { page, pageSize } for historical reasons.

@@ -5,6 +5,10 @@ export class ListUserOptionsUseCase {
   constructor(private readonly deps: { userRepository: UserRepository }) {}
 
   async execute(input?: { q?: string; limit?: number }) {
+    if (this.deps.userRepository.listOptions) {
+      return this.deps.userRepository.listOptions(input ?? {});
+    }
+
     const limit = input?.limit;
     const users = sortUsers(
       filterUsers(await this.deps.userRepository.list(), input?.q),

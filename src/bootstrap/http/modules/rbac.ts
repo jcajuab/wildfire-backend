@@ -80,8 +80,10 @@ export const createRbacHttpModule = (
           routerDeps.repositories.rolePermissionRepository,
         permissionRepository: routerDeps.repositories.permissionRepository,
         userRoleRepository: routerDeps.repositories.userRoleRepository,
-        onPermissionsChanged: (userId) =>
-          CachedAuthorizationRepository.invalidateUser(userId),
+        onPermissionsChanged: async (userId) => {
+          await CachedAuthorizationRepository.invalidateUser(userId);
+          await routerDeps.authSessionRepository.revokeAllForUser(userId);
+        },
       }),
       listPermissions: new ListPermissionsUseCase({
         permissionRepository: routerDeps.repositories.permissionRepository,
@@ -120,8 +122,10 @@ export const createRbacHttpModule = (
           routerDeps.repositories.rolePermissionRepository,
         authorizationRepository:
           routerDeps.repositories.authorizationRepository,
-        onPermissionsChanged: (userId) =>
-          CachedAuthorizationRepository.invalidateUser(userId),
+        onPermissionsChanged: async (userId) => {
+          await CachedAuthorizationRepository.invalidateUser(userId);
+          await routerDeps.authSessionRepository.revokeAllForUser(userId);
+        },
       }),
       getUserRoles: new GetUserRolesUseCase({
         userRepository: routerDeps.repositories.userRepository,

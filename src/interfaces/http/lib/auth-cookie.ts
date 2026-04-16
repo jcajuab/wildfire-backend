@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { type Context } from "hono";
 import { setCookie } from "hono/cookie";
 
@@ -13,20 +12,7 @@ export const setAuthSessionCookie = (
     httpOnly: true,
     secure: secureCookies,
     sameSite: "Strict",
-    path: "/",
+    path: "/v1/auth",
     expires: new Date(expiresAt),
-  });
-};
-
-export const setCsrfCookie = (
-  c: Context,
-  csrfCookieName: string,
-  secureCookies: boolean,
-): void => {
-  setCookie(c, csrfCookieName, randomUUID(), {
-    httpOnly: false,
-    secure: secureCookies,
-    sameSite: "Strict",
-    path: "/",
   });
 };

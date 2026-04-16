@@ -33,6 +33,14 @@ export interface PermissionRecord {
 
 export interface UserRepository {
   list(): Promise<UserRecord[]>;
+  listOptions?(input: { q?: string; limit?: number }): Promise<UserRecord[]>;
+  listPage?(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+    sortBy?: "name" | "lastSeenAt";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: UserRecord[]; total: number }>;
   findById(id: string): Promise<UserRecord | null>;
   findByIds(ids: string[]): Promise<UserRecord[]>;
   findByUsername(username: string): Promise<UserRecord | null>;
@@ -62,6 +70,14 @@ export interface UserRepository {
 
 export interface RoleRepository {
   list(): Promise<RoleRecord[]>;
+  listOptions?(input: { q?: string; limit?: number }): Promise<RoleRecord[]>;
+  listPageWithUserCount?(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+    sortBy?: "name" | "usersCount";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{ items: RoleWithUserCount[]; total: number }>;
   findById(id: string): Promise<RoleRecord | null>;
   findByIds(ids: string[]): Promise<RoleRecord[]>;
   create(input: {

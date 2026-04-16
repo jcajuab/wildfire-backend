@@ -61,6 +61,29 @@ export class ListRolesUseCase {
     sortBy?: "name" | "usersCount";
     sortDirection?: "asc" | "desc";
   }): Promise<PaginatedResult<RoleWithUserCount>> {
+    const page = Math.max(Math.trunc(input?.page ?? 1), 1);
+    const pageSize = Math.min(
+      Math.max(Math.trunc(input?.pageSize ?? 10), 1),
+      100,
+    );
+    const offset = (page - 1) * pageSize;
+
+    if (this.deps.roleRepository.listPageWithUserCount) {
+      const result = await this.deps.roleRepository.listPageWithUserCount({
+        offset,
+        limit: pageSize,
+        q: input?.q,
+        sortBy: input?.sortBy,
+        sortDirection: input?.sortDirection,
+      });
+      return {
+        items: result.items,
+        total: result.total,
+        page,
+        pageSize,
+      };
+    }
+
     const roles = await this.deps.roleRepository.list();
     const roleIds = roles.map((r) => r.id);
     const counts =

@@ -7,6 +7,16 @@ export class ListDisplayOptionsUseCase {
   ) {}
 
   async execute(input?: { q?: string; limit?: number }) {
+    if (this.deps.displayRepository.listOptions) {
+      const displays = await this.deps.displayRepository.listOptions(
+        input ?? {},
+      );
+      return displays.map((display) => ({
+        id: display.id,
+        name: display.name,
+      }));
+    }
+
     const normalizedQuery = normalizeQuery(input?.q);
     const limit = input?.limit;
     const displays = (await this.deps.displayRepository.list())

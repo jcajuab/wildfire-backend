@@ -46,6 +46,7 @@ export interface AuthRouterDeps {
   authorizationRepository: AuthorizationRepository;
   clock: Clock;
   tokenTtlSeconds: number;
+  refreshTokenTtlSeconds?: number;
   issuer?: string;
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
@@ -92,8 +93,8 @@ export { AVATAR_MAX_BYTES };
 
 export const authResponseSchema = z.object({
   type: z.literal("bearer"),
-  token: z.string(),
-  expiresAt: z.string(),
+  accessToken: z.string(),
+  accessTokenExpiresAt: z.string(),
   user: z.object({
     id: z.string(),
     username: z.string(),
@@ -103,12 +104,10 @@ export const authResponseSchema = z.object({
     isAdmin: z.boolean(),
     isInvitedUser: z.boolean(),
     timezone: z.string().nullable().optional(),
-    avatarUrl: z.string().url().optional(),
+    avatarUrl: z.string().url().nullable().optional(),
   }),
   permissions: z.array(z.string()),
 });
-
-export const sessionResponseSchema = authResponseSchema.omit({ token: true });
 
 type AuthResultUser = {
   id: string;
@@ -118,22 +117,26 @@ type AuthResultUser = {
   timezone?: string | null;
   avatarKey?: string | null;
   invitedAt?: string | null;
+  isAdmin?: boolean;
+  isInvitedUser?: boolean;
 };
 
 type AuthResultBase = {
   type: "bearer";
-  token: string;
-  expiresAt: string;
+  token?: string;
+  expiresAt?: string;
+  accessToken?: string;
+  accessTokenExpiresAt?: string;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: string;
   user: AuthResultUser;
+  permissions?: string[];
 };
 
 const enrichUserWithAvatarUrl = async (
   user: AuthResultUser,
   storage: ContentStorage,
   expiresInSeconds: number,
-  isAdmin: boolean,
-  isInvitedUser: boolean,
-  pendingEmail: string | null,
 ): Promise<{
   id: string;
   username: string;
@@ -143,17 +146,18 @@ const enrichUserWithAvatarUrl = async (
   isAdmin: boolean;
   isInvitedUser: boolean;
   timezone?: string | null;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }> => {
   const base = {
     id: user.id,
     username: user.username,
     email: user.email,
-    pendingEmail,
+    pendingEmail: null,
     name: user.name,
-    isAdmin,
-    isInvitedUser,
+    isAdmin: user.isAdmin ?? false,
+    isInvitedUser: user.isInvitedUser ?? false,
     timezone: user.timezone ?? null,
+    avatarUrl: null,
   };
 
   if (!user.avatarKey) {
@@ -172,24 +176,20 @@ export const buildAuthResponse = async (
   deps: AuthRouterDeps,
   result: AuthResultBase,
 ) => {
-  const [isAdmin, permissions] = await Promise.all([
-    deps.authorizationRepository.isAdminUser(result.user.id),
-    deps.authorizationRepository.findPermissionsForUser(result.user.id),
-  ]);
-  const permissionStrings = permissions.map((p) => `${p.resource}:${p.action}`);
-  const isInvitedUser = result.user.invitedAt != null;
   const user = await enrichUserWithAvatarUrl(
     result.user,
     deps.avatarStorage,
     deps.avatarUrlExpiresInSeconds,
-    isAdmin,
-    isInvitedUser,
-    null,
   );
 
   return {
-    ...result,
+    type: result.type,
+    accessToken: result.accessToken ?? result.token ?? "",
+    accessTokenExpiresAt:
+      result.accessTokenExpiresAt ??
+      result.expiresAt ??
+      new Date(0).toISOString(),
     user,
-    permissions: permissionStrings,
+    permissions: result.permissions ?? [],
   };
 };

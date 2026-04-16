@@ -15,7 +15,6 @@ export class GetDisplayActiveScheduleUseCase {
   ) {}
 
   async execute(input: { displayId: string; now: Date }) {
-    await this.deps.displayRepository.touchSeen(input.displayId, input.now);
     const [display, schedules] = await Promise.all([
       this.deps.displayRepository.findById(input.displayId),
       this.deps.scheduleRepository.listByDisplay(input.displayId),

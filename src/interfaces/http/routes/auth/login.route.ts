@@ -1,9 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import {
-  setAuthSessionCookie,
-  setCsrfCookie,
-} from "#/interfaces/http/lib/auth-cookie";
+import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -45,7 +42,7 @@ export const registerAuthLoginRoute = (args: {
     }),
     validateJson(authLoginSchema),
     describeRoute({
-      description: "Authenticate user credentials and issue JWT",
+      description: "Authenticate user credentials and issue access token",
       tags: authTags,
       responses: {
         200: {
@@ -101,7 +98,6 @@ export const registerAuthLoginRoute = (args: {
             "Too many failed login attempts. Try again later.",
           );
         }
-        // Per-username rate limit: prevents brute-force even with IP rotation
         if (
           !(await deps.authSecurityStore.consumeEndpointAttempt({
             key: `login-username|${username}`,
@@ -115,7 +111,6 @@ export const registerAuthLoginRoute = (args: {
             "Too many login attempts for this account. Try again later.",
           );
         }
-        // Per-IP rate limit: secondary layer
         if (
           !(await deps.authSecurityStore.consumeEndpointAttempt({
             key: `login-window|${ip}`,
@@ -129,10 +124,11 @@ export const registerAuthLoginRoute = (args: {
             "Too many login requests. Try again later.",
           );
         }
-        let body: Awaited<ReturnType<typeof buildAuthResponse>>;
+        let result: Awaited<
+          ReturnType<typeof useCases.authenticateUser.execute>
+        >;
         try {
-          const result = await useCases.authenticateUser.execute(payload);
-          body = await buildAuthResponse(deps, result);
+          result = await useCases.authenticateUser.execute(payload);
           await deps.authSecurityStore.clearLoginFailures(loginKey);
         } catch (error) {
           if (error instanceof InvalidCredentialsError) {
@@ -146,14 +142,14 @@ export const registerAuthLoginRoute = (args: {
           }
           throw error;
         }
+        const body = await buildAuthResponse(deps, result);
         setAuthSessionCookie(
           c,
           deps.authSessionCookieName,
-          body.token,
-          body.expiresAt,
+          result.refreshToken ?? "",
+          result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
           deps.secureCookies,
         );
-        setCsrfCookie(c, deps.csrfCookieName, deps.secureCookies);
         c.set("resourceId", body.user.id);
         c.set("actorId", body.user.id);
         c.set("actorType", "user");
