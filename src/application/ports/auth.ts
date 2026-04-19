@@ -74,6 +74,18 @@ export interface AuthSessionRepository {
   revokeByFamilyId(familyId: string): Promise<number>;
 }
 
+export interface AuthIdentityCache {
+  getPermissions(
+    userId: string,
+  ): Promise<{ isAdmin: boolean; permissions: string[] } | null>;
+  setPermissions(
+    userId: string,
+    value: { isAdmin: boolean; permissions: string[] },
+    ttlSeconds: number,
+  ): Promise<void>;
+  invalidatePermissions(userId: string): Promise<void>;
+}
+
 export interface InvitationRepository {
   create(input: {
     id: string;

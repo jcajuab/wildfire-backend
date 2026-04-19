@@ -122,6 +122,7 @@ export const registerRbacUserResourceRoutes = (args: {
             ? { avatarUrl: user.avatarUrl }
             : {}),
         }));
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(options));
       },
       ...applicationErrorMappers,

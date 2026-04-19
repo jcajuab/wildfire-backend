@@ -174,6 +174,7 @@ export const registerRbacPermissionRoutes = (args: {
         const result = await useCases.listPermissionOptions.execute({
           q: query.q,
         });
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

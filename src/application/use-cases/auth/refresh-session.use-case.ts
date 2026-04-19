@@ -5,6 +5,7 @@ import {
   parseRefreshTokenValue,
 } from "#/application/auth/refresh-token";
 import {
+  type AuthIdentityCache,
   type AuthSessionRepository,
   type Clock,
   type TokenIssuer,
@@ -49,6 +50,7 @@ interface RefreshSessionDeps {
   tokenIssuer: TokenIssuer;
   userRepository: UserRepository;
   authorizationRepository?: AuthorizationRepository;
+  authIdentityCache?: AuthIdentityCache;
   clock: Clock;
   tokenTtlSeconds: number;
   refreshTokenTtlSeconds?: number;
@@ -245,16 +247,34 @@ export class RefreshSessionUseCase {
         lastSeenAt,
       })) ?? existingUser;
 
-    const isAdmin = this.deps.authorizationRepository
-      ? await this.deps.authorizationRepository.isAdminUser(user.id)
-      : false;
-    const permissionStrings = this.deps.authorizationRepository
-      ? (
+    let isAdmin = false;
+    let permissionStrings: string[] = [];
+
+    if (this.deps.authorizationRepository) {
+      const cached = this.deps.authIdentityCache
+        ? await this.deps.authIdentityCache.getPermissions(user.id)
+        : null;
+
+      if (cached != null) {
+        isAdmin = cached.isAdmin;
+        permissionStrings = cached.permissions;
+      } else {
+        isAdmin = await this.deps.authorizationRepository.isAdminUser(user.id);
+        permissionStrings = (
           await this.deps.authorizationRepository.findPermissionsForUser(
             user.id,
           )
-        ).map((permission) => `${permission.resource}:${permission.action}`)
-      : [];
+        ).map((permission) => `${permission.resource}:${permission.action}`);
+
+        if (this.deps.authIdentityCache) {
+          await this.deps.authIdentityCache.setPermissions(
+            user.id,
+            { isAdmin, permissions: permissionStrings },
+            60,
+          );
+        }
+      }
+    }
 
     const accessToken = await this.deps.tokenIssuer.issueToken({
       subject: user.id,

@@ -75,6 +75,7 @@ export const registerPlaylistCrudRoutes = (args: {
           q: query.q,
           status: query.status,
         });
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

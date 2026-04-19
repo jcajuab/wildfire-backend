@@ -26,6 +26,7 @@ import {
   UnbanUserUseCase,
 } from "#/application/use-cases/users/ban-user.use-case";
 import { CachedAuthorizationRepository } from "#/infrastructure/db/repositories/cached-authorization.repo";
+import { RedisAuthIdentityCache } from "#/infrastructure/redis/auth-identity.cache";
 import {
   type RbacRouterDeps,
   type RbacRouterUseCases,
@@ -35,6 +36,8 @@ export interface RbacHttpModule {
   deps: RbacRouterDeps;
   useCases: RbacRouterUseCases;
 }
+
+const authIdentityCache = new RedisAuthIdentityCache();
 
 export const createRbacHttpModule = (
   deps: Omit<RbacRouterDeps, "checkPermissionUseCase">,
@@ -82,6 +85,7 @@ export const createRbacHttpModule = (
         userRoleRepository: routerDeps.repositories.userRoleRepository,
         onPermissionsChanged: async (userId) => {
           await CachedAuthorizationRepository.invalidateUser(userId);
+          await authIdentityCache.invalidatePermissions(userId);
           await routerDeps.authSessionRepository.revokeAllForUser(userId);
         },
       }),
@@ -124,6 +128,7 @@ export const createRbacHttpModule = (
           routerDeps.repositories.authorizationRepository,
         onPermissionsChanged: async (userId) => {
           await CachedAuthorizationRepository.invalidateUser(userId);
+          await authIdentityCache.invalidatePermissions(userId);
           await routerDeps.authSessionRepository.revokeAllForUser(userId);
         },
       }),

@@ -115,6 +115,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
     withRouteErrorHandling(
       async (c) => {
         const result = await useCases.listDisplayOutputOptions.execute();
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,
@@ -144,6 +145,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           q: query.q,
           limit: query.limit,
         });
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

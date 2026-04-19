@@ -92,6 +92,7 @@ export const registerRbacRoleReadRoutes = (args: {
           q: query.q,
           limit: query.limit,
         });
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

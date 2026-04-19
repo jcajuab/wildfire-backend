@@ -72,6 +72,7 @@ export const registerContentReadRoutes = (args: {
           type: query.type,
           search: query.q,
         });
+        c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
       },
       ...applicationErrorMappers,

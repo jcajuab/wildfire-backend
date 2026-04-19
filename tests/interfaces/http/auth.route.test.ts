@@ -450,6 +450,11 @@ const buildApp = (opts?: {
       avatarUrlExpiresInSeconds: 3600,
       secureCookies: false,
       csrfCookieName: "wildfire_csrf",
+      authIdentityCache: {
+        getPermissions: async () => null,
+        setPermissions: async () => {},
+        invalidatePermissions: async () => {},
+      },
     }),
   );
 
