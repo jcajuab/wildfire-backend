@@ -29,6 +29,7 @@ const makeRepository = () => {
         };
       },
       list: async () => [],
+      listWithActors: async () => [],
       count: async () => 0,
       deleteByRequestIdPrefix: async () => 0,
     },

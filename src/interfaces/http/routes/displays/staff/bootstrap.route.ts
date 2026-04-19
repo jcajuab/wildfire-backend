@@ -1,5 +1,4 @@
 import { describeRoute } from "hono-openapi";
-import { ListContentOptionsUseCase } from "#/application/use-cases/content";
 import { logger } from "#/infrastructure/observability/logger";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { toApiResponse } from "#/interfaces/http/responses";
@@ -37,10 +36,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
   useCases: DisplaysRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
-  const { router, deps, useCases, authorize } = input;
-  const listEmergencyContentOptionsUseCase = new ListContentOptionsUseCase({
-    contentRepository: deps.repositories.contentRepository,
-  });
+  const { router, useCases, authorize } = input;
 
   router.get(
     "/bootstrap",
@@ -90,7 +86,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
           useCases.listDisplayOutputOptions.execute(),
           useCases.getRuntimeOverrides.execute({ now: new Date() }),
           canLoadEmergencyContentOptions
-            ? listEmergencyContentOptionsUseCase.execute({
+            ? useCases.listEmergencyContentOptions.execute({
                 status: "READY",
               })
             : Promise.resolve([]),

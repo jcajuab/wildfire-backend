@@ -1,3 +1,4 @@
+import { ListContentOptionsUseCase } from "#/application/use-cases/content";
 import {
   ActivateGlobalEmergencyUseCase,
   CloseDisplayRegistrationAttemptUseCase,
@@ -152,6 +153,9 @@ export const createDisplaysHttpModule = (
       getDisplayPreview: new GetDisplayPreviewUseCase({
         displayRepository: deps.repositories.displayRepository,
         displayPreviewRepository: deps.repositories.displayPreviewRepository,
+      }),
+      listEmergencyContentOptions: new ListContentOptionsUseCase({
+        contentRepository: deps.repositories.contentRepository,
       }),
     },
   };

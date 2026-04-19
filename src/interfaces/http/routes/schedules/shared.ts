@@ -12,6 +12,12 @@ import {
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { type ListContentOptionsUseCase } from "#/application/use-cases/content";
+import {
+  type ListDisplayGroupsUseCase,
+  type ListDisplayOptionsUseCase,
+} from "#/application/use-cases/displays";
+import { type ListPlaylistOptionsUseCase } from "#/application/use-cases/playlists";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   type CreateScheduleUseCase,
@@ -51,6 +57,10 @@ export interface SchedulesRouterUseCases {
   updateSchedule: UpdateScheduleUseCase;
   deleteSchedule: DeleteScheduleUseCase;
   getMergedPlaylist: GetMergedPlaylistUseCase;
+  listDisplayOptions: ListDisplayOptionsUseCase;
+  listDisplayGroups: ListDisplayGroupsUseCase | null;
+  listPlaylistOptions: ListPlaylistOptionsUseCase;
+  listFlashContentOptions: ListContentOptionsUseCase;
 }
 
 export type SchedulesRouter = Hono<{ Variables: JwtUserVariables }>;

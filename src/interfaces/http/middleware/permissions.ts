@@ -1,9 +1,12 @@
 import { type MiddlewareHandler } from "hono";
+import { type AuthSessionRepository } from "#/application/ports/auth";
+import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   ADMIN_PERMISSION,
   CANONICAL_STANDARD_RESOURCE_ACTIONS,
   canonicalPermissionKey,
 } from "#/domain/rbac/canonical-permissions";
+import { extractSessionId } from "#/interfaces/http/lib/session-id";
 import { createJwtMiddleware } from "#/interfaces/http/middleware/jwt-auth";
 import {
   type JwtUserVariables,
@@ -14,12 +17,14 @@ import { jwtPayloadSchema } from "#/interfaces/http/validators/jwt.schema";
 
 export const createPermissionMiddleware = (deps: {
   jwtSecret: string;
-  checkPermissionUseCase: unknown;
-  authSessionRepository: unknown;
+  checkPermissionUseCase: CheckPermissionUseCase;
+  authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
 }) => {
   const jwtMiddleware = createJwtMiddleware({
     secret: deps.jwtSecret,
+    authSessionRepository: deps.authSessionRepository,
+    authSessionCookieName: deps.authSessionCookieName,
   });
   const canonicalPermissions = new Set(
     CANONICAL_STANDARD_RESOURCE_ACTIONS.map((permission) =>
@@ -52,10 +57,15 @@ export const createPermissionMiddleware = (deps: {
       if (parsed.data.email) {
         c.set("userEmail", parsed.data.email);
       }
+      const sessionId = extractSessionId(parsed.data);
+      if (sessionId) {
+        c.set("sessionId", sessionId);
+      }
 
-      const allowed =
-        parsed.data.isAdmin ||
-        parsed.data.permissions.includes(requiredPermission);
+      const allowed = await deps.checkPermissionUseCase.execute({
+        userId: parsed.data.sub,
+        required: requiredPermission,
+      });
 
       if (!allowed) {
         c.set("action", "authz.permission.deny");

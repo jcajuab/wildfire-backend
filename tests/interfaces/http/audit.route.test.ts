@@ -153,6 +153,10 @@ const makeApp = async (
       listCalls.push(query);
       return [buildAuditLog("event-1")];
     },
+    listWithActors: async (query: ListAuditLogsQuery) => {
+      listCalls.push(query);
+      return [buildAuditLog("event-1")];
+    },
     count: async (query: ListAuditLogsQuery) => {
       countCalls.push(query);
       return 1;
@@ -326,6 +330,14 @@ describe("Audit routes", () => {
               actorType: "user",
             }),
           ],
+          listWithActors: async () => [
+            buildAuditLog("event-1", {
+              actorId: "deleted-user",
+              actorType: "user",
+              actorName: null,
+              actorEmail: null,
+            }),
+          ],
           count: async () => 1,
           deleteByRequestIdPrefix: async () => 0,
         },
@@ -394,6 +406,9 @@ describe("Audit routes", () => {
         auditLogRepository: {
           create: async () => buildAuditLog("event-created"),
           list: async () => [buildAuditLog("event-1", { userAgent: "=2+5" })],
+          listWithActors: async () => [
+            buildAuditLog("event-1", { userAgent: "=2+5" }),
+          ],
           count: async () => 1,
           deleteByRequestIdPrefix: async () => 0,
         },

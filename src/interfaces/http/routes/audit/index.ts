@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
-import { registerAuditBootstrapRoute } from "./bootstrap.route";
 import { registerAuditExportRoute } from "./export.route";
 import { registerAuditQueryRoutes } from "./query.route";
 import { type AuditRouterDeps, type AuditRouterUseCases } from "./shared";
@@ -22,7 +21,6 @@ export const createAuditRouter = ({ deps, useCases }: AuditRouterModule) => {
     authSessionCookieName: deps.authSessionCookieName,
   });
 
-  registerAuditBootstrapRoute({ router, deps, useCases, authorize });
   registerAuditQueryRoutes({ router, useCases, authorize });
   registerAuditExportRoute({
     router,

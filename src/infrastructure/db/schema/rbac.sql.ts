@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   mysqlTable,
   primaryKey,
   text,
@@ -67,7 +68,10 @@ export const userRoles = mysqlTable(
       .notNull()
       .references(() => roles.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.roleId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.roleId] }),
+    index("user_roles_role_id_idx").on(table.roleId),
+  ],
 );
 
 export const rolePermissions = mysqlTable(

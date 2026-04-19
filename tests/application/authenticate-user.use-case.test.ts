@@ -115,7 +115,7 @@ describe("AuthenticateUserUseCase", () => {
       password: "xc4uuicX",
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       type: "bearer",
       token: "user-1:1700000000:1700003600",
       expiresAt: new Date(

@@ -1,3 +1,9 @@
+import { ListContentOptionsUseCase } from "#/application/use-cases/content";
+import {
+  ListDisplayGroupsUseCase,
+  ListDisplayOptionsUseCase,
+} from "#/application/use-cases/displays";
+import { ListPlaylistOptionsUseCase } from "#/application/use-cases/playlists";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   CreateScheduleUseCase,
@@ -77,6 +83,22 @@ export const createSchedulesHttpModule = (
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         playlistRepository: routerDeps.repositories.playlistRepository,
         scheduleTimeZone: routerDeps.timezone,
+      }),
+      listDisplayOptions: new ListDisplayOptionsUseCase({
+        displayRepository: routerDeps.repositories.displayRepository,
+      }),
+      listDisplayGroups:
+        routerDeps.repositories.displayGroupRepository != null
+          ? new ListDisplayGroupsUseCase({
+              displayGroupRepository:
+                routerDeps.repositories.displayGroupRepository,
+            })
+          : null,
+      listPlaylistOptions: new ListPlaylistOptionsUseCase({
+        playlistRepository: routerDeps.repositories.playlistRepository,
+      }),
+      listFlashContentOptions: new ListContentOptionsUseCase({
+        contentRepository: routerDeps.repositories.contentRepository,
       }),
     },
   };

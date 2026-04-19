@@ -34,6 +34,7 @@ const makeRepository = () => {
           },
         ];
       },
+      listWithActors: async () => [],
       count: async (query: unknown) => {
         countCalls.push(query);
         return 1;

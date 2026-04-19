@@ -1,4 +1,50 @@
 import { type ContentStorage } from "#/application/ports/content";
+import { env } from "#/env";
+import {
+  executeRedisCommand,
+  getRedisCommandClient,
+} from "#/infrastructure/redis/client";
+
+const avatarCacheKey = (avatarKey: string): string =>
+  `${env.REDIS_KEY_PREFIX}:avatar:url:${avatarKey}`;
+
+const avatarCacheTtl = (expiresInSeconds: number): number =>
+  Math.max(60, expiresInSeconds - 60);
+
+const REDIS_TIMEOUT_MS = 500;
+
+/** Race a promise against a timeout so a missing Redis never hangs the request. */
+const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("redis timeout")), REDIS_TIMEOUT_MS),
+    ),
+  ]);
+
+/** Run a single Redis command with connection + timeout guard. */
+const redisGet = async (key: string): Promise<string | null> => {
+  const redis = await withTimeout(getRedisCommandClient());
+  return withTimeout(executeRedisCommand<string | null>(redis, ["GET", key]));
+};
+
+const redisSet = async (
+  key: string,
+  value: string,
+  ttl: number,
+): Promise<void> => {
+  const redis = await withTimeout(getRedisCommandClient());
+  await withTimeout(
+    executeRedisCommand(redis, ["SET", key, value, "EX", String(ttl)]),
+  );
+};
+
+const redisMget = async (keys: string[]): Promise<(string | null)[]> => {
+  const redis = await withTimeout(getRedisCommandClient());
+  return withTimeout(
+    executeRedisCommand<(string | null)[]>(redis, ["MGET", ...keys]),
+  );
+};
 
 /**
  * Returns a copy of the user with `avatarUrl` set (presigned) when `avatarKey` is present,
@@ -15,10 +61,33 @@ export async function addAvatarUrlToUser<
   if (!avatarKey) {
     return rest as Omit<T, "avatarKey"> & { avatarUrl?: string };
   }
+
+  try {
+    const cached = await redisGet(avatarCacheKey(avatarKey));
+    if (cached != null) {
+      return { ...rest, avatarUrl: cached } as Omit<T, "avatarKey"> & {
+        avatarUrl?: string;
+      };
+    }
+  } catch {
+    // Best-effort cache read; fall through to S3.
+  }
+
   const avatarUrl = await storage.getPresignedDownloadUrl({
     key: avatarKey,
     expiresInSeconds,
   });
+
+  try {
+    await redisSet(
+      avatarCacheKey(avatarKey),
+      avatarUrl,
+      avatarCacheTtl(expiresInSeconds),
+    );
+  } catch {
+    // Best-effort cache write.
+  }
+
   return { ...rest, avatarUrl } as Omit<T, "avatarKey"> & {
     avatarUrl?: string;
   };
@@ -42,14 +111,49 @@ export async function addAvatarUrlsToUsers<
   );
 
   const avatarUrlByKey = new Map<string, string>();
+
+  // Attempt MGET from Redis for all keys at once.
+  let missKeys = avatarKeys;
+  if (avatarKeys.length > 0) {
+    try {
+      const cacheKeys = avatarKeys.map(avatarCacheKey);
+      const results = await redisMget(cacheKeys);
+      missKeys = [];
+      for (let i = 0; i < avatarKeys.length; i++) {
+        const avatarKey = avatarKeys[i];
+        const cached = results[i];
+        if (avatarKey == null) continue;
+        if (cached != null) {
+          avatarUrlByKey.set(avatarKey, cached);
+        } else {
+          missKeys.push(avatarKey);
+        }
+      }
+    } catch {
+      // Best-effort cache read; fall through to S3 for all keys.
+      missKeys = avatarKeys;
+    }
+  }
+
+  // Fetch from S3 only for cache misses.
   await Promise.all(
-    avatarKeys.map(async (avatarKey) => {
+    missKeys.map(async (avatarKey) => {
       try {
         const avatarUrl = await storage.getPresignedDownloadUrl({
           key: avatarKey,
           expiresInSeconds,
         });
         avatarUrlByKey.set(avatarKey, avatarUrl);
+
+        try {
+          await redisSet(
+            avatarCacheKey(avatarKey),
+            avatarUrl,
+            avatarCacheTtl(expiresInSeconds),
+          );
+        } catch {
+          // Best-effort cache write.
+        }
       } catch {
         // Best-effort enrichment only.
       }

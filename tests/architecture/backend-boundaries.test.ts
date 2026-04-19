@@ -97,6 +97,7 @@ describe("backend architecture boundaries", () => {
         "src/index.ts",
         "src/infrastructure/media/pdf-crop-session.store.ts",
         "src/infrastructure/db/client.ts",
+        "src/infrastructure/db/repositories/cached-auth-session.repo.ts",
         "src/infrastructure/db/repositories/cached-authorization.repo.ts",
         "src/infrastructure/db/repositories/display-auth-nonce.repo.ts",
         "src/infrastructure/db/repositories/display-pairing-code.repo.ts",
@@ -110,6 +111,7 @@ describe("backend architecture boundaries", () => {
         "src/infrastructure/displays/display-stream.ts",
         "src/infrastructure/displays/registration-attempt-events.ts",
         "src/infrastructure/displays/registration-attempt.store.ts",
+        "src/interfaces/http/lib/avatar-url.ts",
         "src/interfaces/http/security/redis-auth-security.store.ts",
       ].sort(),
     );

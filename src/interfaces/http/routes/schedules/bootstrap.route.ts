@@ -1,10 +1,4 @@
 import { describeRoute } from "hono-openapi";
-import { ListContentOptionsUseCase } from "#/application/use-cases/content";
-import {
-  ListDisplayGroupsUseCase,
-  ListDisplayOptionsUseCase,
-} from "#/application/use-cases/displays";
-import { ListPlaylistOptionsUseCase } from "#/application/use-cases/playlists";
 import { logger } from "#/infrastructure/observability/logger";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { toApiResponse } from "#/interfaces/http/responses";
@@ -41,22 +35,7 @@ export const registerScheduleBootstrapRoutes = (args: {
   useCases: SchedulesRouterUseCases;
   authorize: AuthorizePermission;
 }) => {
-  const { router, deps, useCases, authorize } = args;
-  const listDisplayOptionsUseCase = new ListDisplayOptionsUseCase({
-    displayRepository: deps.repositories.displayRepository,
-  });
-  const listDisplayGroupsUseCase =
-    deps.repositories.displayGroupRepository != null
-      ? new ListDisplayGroupsUseCase({
-          displayGroupRepository: deps.repositories.displayGroupRepository,
-        })
-      : null;
-  const listPlaylistOptionsUseCase = new ListPlaylistOptionsUseCase({
-    playlistRepository: deps.repositories.playlistRepository,
-  });
-  const listFlashContentOptionsUseCase = new ListContentOptionsUseCase({
-    contentRepository: deps.repositories.contentRepository,
-  });
+  const { router, useCases, authorize } = args;
 
   router.get(
     "/bootstrap",
@@ -94,18 +73,18 @@ export const registerScheduleBootstrapRoutes = (args: {
             displayIds: query.displayIds,
           }),
           canReadDisplays
-            ? listDisplayOptionsUseCase.execute({ limit: 100 })
+            ? useCases.listDisplayOptions.execute({ limit: 100 })
             : Promise.resolve([]),
           canReadDisplays
-            ? (listDisplayGroupsUseCase?.execute() ?? Promise.resolve([]))
+            ? (useCases.listDisplayGroups?.execute() ?? Promise.resolve([]))
             : Promise.resolve([]),
           canReadPlaylists
-            ? listPlaylistOptionsUseCase.execute({
+            ? useCases.listPlaylistOptions.execute({
                 ownerId: c.get("userId"),
               })
             : Promise.resolve([]),
           canReadContent
-            ? listFlashContentOptionsUseCase.execute({
+            ? useCases.listFlashContentOptions.execute({
                 ownerId: c.get("userId"),
                 type: "FLASH",
                 status: "READY",

@@ -55,7 +55,7 @@ export class ExportAuditLogsUseCase {
 
     let offset = 0;
     while (offset < total) {
-      const rows = await this.deps.auditLogRepository.list({
+      const rows = await this.deps.auditLogRepository.listWithActors({
         ...baseQuery,
         offset,
       });

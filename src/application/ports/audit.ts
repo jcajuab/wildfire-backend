@@ -54,6 +54,7 @@ export interface ListAuditLogsQuery {
 export interface AuditLogRepository {
   create(input: CreateAuditLogInput): Promise<AuditLogRecord>;
   list(query: ListAuditLogsQuery): Promise<AuditLogRecord[]>;
+  listWithActors(query: ListAuditLogsQuery): Promise<AuditLogRecord[]>;
   count(query: ListAuditLogsQuery): Promise<number>;
   deleteByRequestIdPrefix(prefix: string): Promise<number>;
 }

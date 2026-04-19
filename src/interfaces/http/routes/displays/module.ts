@@ -28,6 +28,7 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
+import { type ListContentOptionsUseCase } from "#/application/use-cases/content";
 import {
   type ActivateGlobalEmergencyUseCase,
   type CloseDisplayRegistrationAttemptUseCase,
@@ -107,6 +108,7 @@ export interface DisplaysRouterUseCases {
   createDisplayRegistrationSession: CreateDisplayRegistrationSessionUseCase;
   registerDisplay: RegisterDisplayUseCase;
   getDisplayPreview: GetDisplayPreviewUseCase;
+  listEmergencyContentOptions: ListContentOptionsUseCase;
 }
 
 export type DisplaysRouter = Hono<{ Variables: JwtUserVariables }>;

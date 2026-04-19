@@ -15,7 +15,8 @@ const makeRepository = () => {
       create: async () => {
         throw new Error("unused");
       },
-      list: async (query: unknown) => {
+      list: async () => [],
+      listWithActors: async (query: unknown) => {
         listCalls.push(query);
         return [
           {
@@ -112,7 +113,8 @@ describe("ExportAuditLogsUseCase", () => {
         create: async () => {
           throw new Error("unused");
         },
-        list: async (query: { offset: number; limit: number }) => {
+        list: async () => [],
+        listWithActors: async (query: { offset: number; limit: number }) => {
           listCalls.push(query);
           const remaining = Math.max(0, 5 - query.offset);
           const count = Math.min(query.limit, remaining);

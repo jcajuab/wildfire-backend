@@ -146,6 +146,37 @@ export class AuditLogDbRepository implements AuditLogRepository {
         ipAddress: auditLogs.ipAddress,
         userAgent: auditLogs.userAgent,
         metadataJson: auditLogs.metadataJson,
+      })
+      .from(auditLogs)
+      .where(where)
+      .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id))
+      .limit(query.limit)
+      .offset(query.offset);
+
+    return rows.map((row) =>
+      mapAuditLogRowToRecord({ ...row, actorName: null, actorEmail: null }),
+    );
+  }
+
+  async listWithActors(query: ListAuditLogsQuery): Promise<AuditLogRecord[]> {
+    const where = buildWhere(query);
+    const rows = await db
+      .select({
+        id: auditLogs.id,
+        occurredAt: auditLogs.occurredAt,
+        requestId: auditLogs.requestId,
+        action: auditLogs.action,
+        route: auditLogs.route,
+        method: auditLogs.method,
+        path: auditLogs.path,
+        status: auditLogs.status,
+        actorId: auditLogs.actorId,
+        actorType: auditLogs.actorType,
+        resourceId: auditLogs.resourceId,
+        resourceType: auditLogs.resourceType,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
+        metadataJson: auditLogs.metadataJson,
         userName: users.name,
         userEmail: users.email,
         displayName: displays.name,

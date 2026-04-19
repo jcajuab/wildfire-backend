@@ -484,6 +484,9 @@ describe("Auth routes", () => {
         sub: "user-1",
         username: "test1",
         email: "test1@example.com",
+        name: "Test One",
+        isAdmin: false,
+        permissions: [],
         iat: nowSeconds,
         exp: nowSeconds + 3600,
         sid: sessionId,
@@ -534,8 +537,8 @@ describe("Auth routes", () => {
         await parseJson<
           ApiData<{
             type: "bearer";
-            token: string;
-            expiresAt: string;
+            accessToken: string;
+            accessTokenExpiresAt: string;
             user: {
               id: string;
               username: string;
@@ -550,7 +553,7 @@ describe("Auth routes", () => {
 
       expect(body.data).toMatchObject({
         type: "bearer",
-        expiresAt: new Date(
+        accessTokenExpiresAt: new Date(
           nowSeconds * 1000 + tokenTtlSeconds * 1000,
         ).toISOString(),
         user: {
@@ -563,7 +566,7 @@ describe("Auth routes", () => {
         },
         permissions: ["roles:read", "roles:create"],
       });
-      expect(typeof body.data.token).toBe("string");
+      expect(typeof body.data.accessToken).toBe("string");
     });
 
     test("returns 401 for invalid credentials", async () => {
@@ -595,14 +598,11 @@ describe("Auth routes", () => {
       const { app, nowSeconds } = buildApp();
 
       const loginResponse = await loginAsDefaultUser(app);
+      const sessionCookie = loginResponse.headers.get("set-cookie") ?? "";
 
-      const loginBody =
-        await parseJson<ApiData<{ token: string }>>(loginResponse);
-      const token = loginBody.data.token;
-
-      const response = await app.request("/auth/session/refresh", {
+      const response = await app.request("/auth/refresh", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Cookie: sessionCookie },
       });
 
       expect(response.status).toBe(200);
@@ -610,8 +610,8 @@ describe("Auth routes", () => {
         await parseJson<
           ApiData<{
             type: "bearer";
-            token: string;
-            expiresAt: string;
+            accessToken: string;
+            accessTokenExpiresAt: string;
             user: {
               id: string;
               username: string;
@@ -626,7 +626,7 @@ describe("Auth routes", () => {
 
       expect(body.data).toMatchObject({
         type: "bearer",
-        expiresAt: new Date(
+        accessTokenExpiresAt: new Date(
           nowSeconds * 1000 + tokenTtlSeconds * 1000,
         ).toISOString(),
         user: {
@@ -639,16 +639,15 @@ describe("Auth routes", () => {
         },
         permissions: ["roles:read", "roles:create"],
       });
-      expect(typeof body.data.token).toBe("string");
+      expect(typeof body.data.accessToken).toBe("string");
     });
 
     test("returns 401 for invalid token payload", async () => {
       const { app } = buildApp();
-      const token = await sign({ sub: 123 }, "test-secret");
 
-      const response = await app.request("/auth/session/refresh", {
+      const response = await app.request("/auth/refresh", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Cookie: "wildfire_session_token=invalid-token-value" },
       });
 
       expect(response.status).toBe(401);
@@ -657,7 +656,7 @@ describe("Auth routes", () => {
     test("returns 401 without token", async () => {
       const { app } = buildApp();
 
-      const response = await app.request("/auth/session/refresh", {
+      const response = await app.request("/auth/refresh", {
         method: "POST",
       });
 
@@ -670,12 +669,11 @@ describe("Auth routes", () => {
       const { app } = buildApp();
 
       const loginResponse = await loginAsDefaultUser(app);
-      const { data } =
-        await parseJson<ApiData<{ token: string }>>(loginResponse);
+      const sessionCookie = loginResponse.headers.get("set-cookie") ?? "";
 
       const response = await app.request("/auth/logout", {
         method: "POST",
-        headers: { Authorization: `Bearer ${data.token}` },
+        headers: { Cookie: sessionCookie },
       });
 
       expect(response.status).toBe(204);
@@ -683,12 +681,17 @@ describe("Auth routes", () => {
 
     test("PATCH /auth/profile updates profile and returns refreshed payload", async () => {
       const { app } = buildApp();
-      const token = await issueToken();
+      const loginResponse = await loginAsDefaultUser(app);
+      const sessionCookie = loginResponse.headers.get("set-cookie") ?? "";
+      const loginBody =
+        await parseJson<ApiData<{ accessToken: string }>>(loginResponse);
+      const token = loginBody.data.accessToken;
 
       const response = await app.request("/auth/profile", {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
+          Cookie: sessionCookie,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -755,7 +758,11 @@ describe("Auth routes", () => {
       };
 
       const { app } = buildApp({ avatarStorage });
-      const token = await issueToken();
+      const loginResponse = await loginAsDefaultUser(app);
+      const sessionCookie = loginResponse.headers.get("set-cookie") ?? "";
+      const loginBody =
+        await parseJson<ApiData<{ accessToken: string }>>(loginResponse);
+      const token = loginBody.data.accessToken;
       const form = new FormData();
       form.set(
         "file",
@@ -766,7 +773,7 @@ describe("Auth routes", () => {
 
       const response = await app.request("/auth/me/avatar", {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, Cookie: sessionCookie },
         body: form,
       });
 
