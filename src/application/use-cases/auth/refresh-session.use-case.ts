@@ -56,6 +56,7 @@ interface RefreshSessionDeps {
   refreshTokenTtlSeconds?: number;
   issuer?: string;
   authSessionRepository: AuthSessionRepository;
+  graceWindowSeconds: number;
 }
 
 export class RefreshSessionUseCase {
@@ -94,14 +95,18 @@ export class RefreshSessionUseCase {
       (this.deps.refreshTokenTtlSeconds ?? this.deps.tokenTtlSeconds);
     const now = new Date(issuedAt * 1000);
     const newExpiresAt = new Date(refreshExpiresAt * 1000);
-    const gracePreviousJtiExpiresAt = new Date(now.getTime() + 10_000);
+    const gracePreviousJtiExpiresAt = new Date(
+      now.getTime() + this.deps.graceWindowSeconds * 1000,
+    );
 
-    let nextRefreshSecret = createRefreshTokenSecret();
-    let nextRefreshToken = buildRefreshTokenValue(
+    const nextRefreshSecret = createRefreshTokenSecret();
+    const nextRefreshToken = buildRefreshTokenValue(
       session.id,
       nextRefreshSecret,
     );
-    let nextRefreshTokenHash = hashRefreshTokenSecret(nextRefreshSecret);
+    const nextRefreshTokenHash = hashRefreshTokenSecret(nextRefreshSecret);
+
+    let graceHit = false;
 
     if (presentedJti === session.currentJti) {
       const updated =
@@ -124,24 +129,14 @@ export class RefreshSessionUseCase {
           refreshed.previousJtiExpiresAt &&
           now < refreshed.previousJtiExpiresAt
         ) {
-          nextRefreshSecret = createRefreshTokenSecret();
-          nextRefreshToken = buildRefreshTokenValue(
-            refreshed.id,
-            nextRefreshSecret,
-          );
-          nextRefreshTokenHash = hashRefreshTokenSecret(nextRefreshSecret);
-          const rotated =
-            await this.deps.authSessionRepository.updateCurrentJtiOptimistic({
+          graceHit = true;
+          logger.info(
+            {
+              event: "auth.refresh.grace_hit",
               sessionId: refreshed.id,
-              expectedCurrentJti: refreshed.currentJti,
-              newJti: nextRefreshTokenHash,
-              previousJti: refreshed.currentJti,
-              previousJtiExpiresAt: gracePreviousJtiExpiresAt,
-              newExpiresAt,
-            });
-          if (!rotated) {
-            throw new InvalidCredentialsError();
-          }
+            },
+            "Refresh grace window hit; returning current tokens idempotently",
+          );
         } else {
           throw new InvalidCredentialsError();
         }
@@ -151,43 +146,14 @@ export class RefreshSessionUseCase {
       session.previousJtiExpiresAt &&
       now < session.previousJtiExpiresAt
     ) {
-      const updated =
-        await this.deps.authSessionRepository.updateCurrentJtiOptimistic({
+      graceHit = true;
+      logger.info(
+        {
+          event: "auth.refresh.grace_hit",
           sessionId: session.id,
-          expectedCurrentJti: session.currentJti,
-          newJti: nextRefreshTokenHash,
-          previousJti: session.currentJti,
-          previousJtiExpiresAt: gracePreviousJtiExpiresAt,
-          newExpiresAt,
-        });
-
-      if (!updated) {
-        const refreshed = await this.deps.authSessionRepository.findBySessionId(
-          session.id,
-        );
-        if (!refreshed) {
-          throw new InvalidCredentialsError();
-        }
-
-        nextRefreshSecret = createRefreshTokenSecret();
-        nextRefreshToken = buildRefreshTokenValue(
-          refreshed.id,
-          nextRefreshSecret,
-        );
-        nextRefreshTokenHash = hashRefreshTokenSecret(nextRefreshSecret);
-        const rotated =
-          await this.deps.authSessionRepository.updateCurrentJtiOptimistic({
-            sessionId: refreshed.id,
-            expectedCurrentJti: refreshed.currentJti,
-            newJti: nextRefreshTokenHash,
-            previousJti: refreshed.currentJti,
-            previousJtiExpiresAt: gracePreviousJtiExpiresAt,
-            newExpiresAt,
-          });
-        if (!rotated) {
-          throw new InvalidCredentialsError();
-        }
-      }
+        },
+        "Refresh grace window hit; returning current tokens idempotently",
+      );
     } else if (
       presentedJti === session.previousJti &&
       session.previousJtiExpiresAt &&
@@ -290,14 +256,12 @@ export class RefreshSessionUseCase {
       permissions: permissionStrings,
     });
 
-    return {
+    const response: RefreshSessionResult = {
       type: "bearer",
       token: accessToken,
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       accessToken,
       accessTokenExpiresAt: new Date(expiresAt * 1000).toISOString(),
-      refreshToken: nextRefreshToken,
-      refreshTokenExpiresAt: newExpiresAt.toISOString(),
       user: {
         id: user.id,
         username: user.username,
@@ -311,5 +275,12 @@ export class RefreshSessionUseCase {
       },
       permissions: permissionStrings,
     };
+
+    if (!graceHit) {
+      response.refreshToken = nextRefreshToken;
+      response.refreshTokenExpiresAt = newExpiresAt.toISOString();
+    }
+
+    return response;
   }
 }

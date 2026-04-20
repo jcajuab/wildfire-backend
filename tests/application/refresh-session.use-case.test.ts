@@ -59,6 +59,7 @@ describe("RefreshSessionUseCase", () => {
         nowSeconds: () => 1_700_000_000,
       },
       tokenTtlSeconds,
+      graceWindowSeconds: 30,
       authSessionRepository: {
         create: async () => {},
         extendExpiry: async () => {},
@@ -170,6 +171,7 @@ describe("RefreshSessionUseCase", () => {
       userRepository,
       clock: { nowSeconds: () => 1_700_000_000 },
       tokenTtlSeconds,
+      graceWindowSeconds: 30,
       authSessionRepository: {
         create: async (input) => {
           createCalls.push({ id: input.id });

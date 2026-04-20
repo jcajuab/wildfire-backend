@@ -126,6 +126,7 @@ const buildAuthActionApp = () => {
         nowSeconds: () => Math.floor(Date.now() / 1000),
       },
       tokenTtlSeconds: 3600,
+      graceWindowSeconds: 30,
       issuer: "wildfire",
       jwtSecret: "test-secret",
       authSessionRepository,

@@ -102,6 +102,7 @@ export const createAuthHttpModule = (
         refreshTokenTtlSeconds: routerDeps.refreshTokenTtlSeconds,
         issuer: routerDeps.issuer,
         authSessionRepository: routerDeps.authSessionRepository,
+        graceWindowSeconds: routerDeps.graceWindowSeconds,
       }),
       createInvitation,
       acceptInvitation: new AcceptInvitationUseCase({

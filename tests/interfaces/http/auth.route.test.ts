@@ -428,6 +428,7 @@ const buildApp = (opts?: {
       tokenIssuer,
       clock,
       tokenTtlSeconds,
+      graceWindowSeconds: 30,
       userRepository,
       authorizationRepository,
       jwtSecret: "test-secret",

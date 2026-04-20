@@ -91,13 +91,18 @@ export const registerAuthSessionRoutes = (args: {
           refreshToken: refreshCookie,
         });
         const body = await buildAuthResponse(deps, result);
-        setAuthSessionCookie(
-          c,
-          deps.authSessionCookieName,
-          result.refreshToken ?? "",
-          result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
-          deps.secureCookies,
-        );
+        if (
+          result.refreshToken != null &&
+          result.refreshTokenExpiresAt != null
+        ) {
+          setAuthSessionCookie(
+            c,
+            deps.authSessionCookieName,
+            result.refreshToken,
+            result.refreshTokenExpiresAt,
+            deps.secureCookies,
+          );
+        }
         c.header("X-RateLimit-Limit", String(refreshStats.limit));
         c.header(
           "X-RateLimit-Remaining",

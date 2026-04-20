@@ -358,6 +358,7 @@ const authModule = createAuthHttpModule({
   clock: container.auth.clock,
   tokenTtlSeconds,
   refreshTokenTtlSeconds,
+  graceWindowSeconds: env.AUTH_REFRESH_GRACE_SECONDS,
   userRepository: container.repositories.userRepository,
   authorizationRepository: container.repositories.authorizationRepository,
   jwtSecret: env.JWT_SECRET,

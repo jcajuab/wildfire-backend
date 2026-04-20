@@ -294,6 +294,7 @@ const buildSpyApp = (opts?: { avatarStorage?: ContentStorage }) => {
     tokenIssuer,
     clock,
     tokenTtlSeconds,
+    graceWindowSeconds: 30,
     userRepository,
     authorizationRepository,
     jwtSecret: "test-secret",

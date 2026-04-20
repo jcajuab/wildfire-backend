@@ -47,6 +47,7 @@ export interface AuthRouterDeps {
   clock: Clock;
   tokenTtlSeconds: number;
   refreshTokenTtlSeconds?: number;
+  graceWindowSeconds: number;
   issuer?: string;
   jwtSecret: string;
   authSessionRepository: AuthSessionRepository;
