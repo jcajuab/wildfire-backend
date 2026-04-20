@@ -24,11 +24,11 @@ export const createAuthRouter = ({ deps, useCases }: AuthRouterModule) => {
     authSessionCookieName: deps.authSessionCookieName,
   });
 
-  registerAuthProfileRoute({ router, deps, useCases, jwtMiddleware });
+  registerAuthProfileRoute({ router, deps, jwtMiddleware });
   registerAuthLoginRoute({ router, deps, useCases });
   registerAuthSessionRoutes({ router, deps, useCases, jwtMiddleware });
   registerAuthPasswordRoute({ router, deps, jwtMiddleware });
-  registerAuthAvatarRoute({ router, deps, useCases, jwtMiddleware });
+  registerAuthAvatarRoute({ router, deps, jwtMiddleware });
   registerAuthInvitationRoutes({ router, deps, useCases });
 
   return router;

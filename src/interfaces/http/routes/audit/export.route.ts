@@ -5,7 +5,10 @@ import { type DisplayRepository } from "#/application/ports/displays";
 import { type UserRepository } from "#/application/ports/rbac";
 import { ExportLimitExceededError } from "#/application/use-cases/audit";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { errorResponseSchema } from "#/interfaces/http/responses";
+import {
+  errorResponseSchema,
+  internalServerError,
+} from "#/interfaces/http/responses";
 import { auditLogExportQuerySchema } from "#/interfaces/http/validators/audit.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -316,7 +319,7 @@ export const registerAuditExportRoute = (args: {
             error.httpStatus,
           );
         }
-        throw error;
+        return internalServerError(c, "Internal server error");
       }
     },
   );

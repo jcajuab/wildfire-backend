@@ -9,7 +9,7 @@ export const hashRefreshTokenSecret = (secret: string): string =>
 export const buildRefreshTokenValue = (
   sessionId: string,
   secret: string,
-): string => sessionId + "." + secret;
+): string => `${sessionId}.${secret}`;
 
 export const parseRefreshTokenValue = (
   value: string,

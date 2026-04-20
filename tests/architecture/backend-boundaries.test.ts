@@ -104,6 +104,7 @@ describe("backend architecture boundaries", () => {
         "src/infrastructure/db/repositories/display-pairing-session.repo.ts",
         "src/infrastructure/db/repositories/display-preview.repo.ts",
         "src/infrastructure/observability/logger.ts",
+        "src/infrastructure/redis/auth-identity.cache.ts",
         "src/infrastructure/redis/client.ts",
         "src/infrastructure/redis/display-heartbeat.store.ts",
         "src/infrastructure/content-jobs/content-job-events.ts",
