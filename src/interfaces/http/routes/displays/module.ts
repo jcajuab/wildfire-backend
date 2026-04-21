@@ -36,6 +36,7 @@ import {
   type CreateDisplayRegistrationSessionUseCase,
   type DeactivateGlobalEmergencyUseCase,
   type DeleteDisplayGroupUseCase,
+  type GetDisplayManifestUseCase,
   type GetDisplayPreviewUseCase,
   type GetDisplayUseCase,
   type GetRuntimeOverridesUseCase,
@@ -91,6 +92,7 @@ export interface DisplaysRouterUseCases {
   listDisplayOptions: ListDisplayOptionsUseCase;
   listDisplayOutputOptions: ListDisplayOutputOptionsUseCase;
   getDisplay: GetDisplayUseCase;
+  getDisplayManifest: GetDisplayManifestUseCase;
   updateDisplay: UpdateDisplayUseCase;
   listDisplayGroups: ListDisplayGroupsUseCase;
   createDisplayGroup: CreateDisplayGroupUseCase;

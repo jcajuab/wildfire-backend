@@ -18,9 +18,11 @@ import {
   displayIdParamSchema,
   displayListQuerySchema,
   displayListResponseSchema,
+  displayManifestSchema,
   displayOptionsQuerySchema,
   displayOutputOptionsSchema,
   displaySchema,
+  displaySlugParamSchema,
   patchDisplayRequestBodySchema,
   patchDisplaySchema,
 } from "#/interfaces/http/validators/displays.schema";
@@ -147,6 +149,56 @@ export const registerDisplayStaffDisplayRoutes = (input: {
         });
         c.header("Cache-Control", "private, max-age=60");
         return c.json(toApiResponse(result));
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/by-slug/:slug/manifest",
+    setAction("displays.display.viewer-manifest", {
+      route: "/displays/by-slug/:slug/manifest",
+      resourceType: "display",
+    }),
+    ...authorize("displays:read"),
+    validateParams(displaySlugParamSchema),
+    describeRoute({
+      description:
+        "Get display manifest by slug (JWT-authenticated viewer mode)",
+      tags: displayTags,
+      responses: {
+        200: {
+          description: "Display manifest",
+          content: {
+            "application/json": {
+              schema: resolver(apiResponseSchema(displayManifestSchema)),
+            },
+          },
+        },
+        404: { ...notFoundResponse },
+        ...authErrorResponses,
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        const display = await useCases.getDisplayManifest.resolveDisplayBySlug(
+          params.slug,
+        );
+        c.set("resourceId", display.id);
+        const result = await useCases.getDisplayManifest.execute({
+          displayId: display.id,
+          now: new Date(),
+          ifNoneMatch:
+            c.req.header("if-none-match") ?? c.req.header("If-None-Match"),
+        });
+        c.header("ETag", `"${result.playlistVersion}"`);
+        c.header("Cache-Control", "private, no-cache");
+        if (result.notModified) {
+          return c.body(null, 304);
+        }
+        const { notModified: _notModified, ...manifest } = result;
+        return c.json(toApiResponse(manifest));
       },
       ...applicationErrorMappers,
     ),

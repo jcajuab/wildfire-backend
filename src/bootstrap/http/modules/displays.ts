@@ -6,6 +6,7 @@ import {
   CreateDisplayRegistrationSessionUseCase,
   DeactivateGlobalEmergencyUseCase,
   DeleteDisplayGroupUseCase,
+  GetDisplayManifestUseCase,
   GetDisplayPreviewUseCase,
   GetDisplayUseCase,
   GetRuntimeOverridesUseCase,
@@ -64,6 +65,18 @@ export const createDisplaysHttpModule = (
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         playlistRepository: routerDeps.repositories.playlistRepository,
         scheduleTimeZone: routerDeps.scheduleTimeZone,
+      }),
+      getDisplayManifest: new GetDisplayManifestUseCase({
+        scheduleRepository: routerDeps.repositories.scheduleRepository,
+        playlistRepository: routerDeps.repositories.playlistRepository,
+        contentRepository: routerDeps.repositories.contentRepository,
+        contentStorage: deps.storage,
+        displayRepository: routerDeps.repositories.displayRepository,
+        runtimeControlRepository:
+          routerDeps.repositories.runtimeControlRepository,
+        downloadUrlExpiresInSeconds: routerDeps.downloadUrlExpiresInSeconds,
+        scheduleTimeZone: routerDeps.scheduleTimeZone,
+        defaultEmergencyContentId: routerDeps.defaultEmergencyContentId,
       }),
       updateDisplay: new UpdateDisplayUseCase({
         displayRepository: routerDeps.repositories.displayRepository,

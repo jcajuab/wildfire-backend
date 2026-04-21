@@ -69,6 +69,14 @@ export const displayIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+export const displaySlugParamSchema = z.object({
+  slug: z
+    .string()
+    .min(3)
+    .max(120)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
+
 export const displayGroupIdParamSchema = z.object({
   groupId: z.string().uuid(),
 });

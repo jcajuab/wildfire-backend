@@ -173,6 +173,14 @@ export class GetDisplayManifestUseCase {
     },
   ) {}
 
+  async resolveDisplayBySlug(
+    slug: string,
+  ): Promise<{ id: string; slug: string }> {
+    const display = await this.deps.displayRepository.findBySlug(slug);
+    if (!display) throw new NotFoundError("Display not found");
+    return { id: display.id, slug: display.slug };
+  }
+
   async execute(input: {
     displayId: string;
     now: Date;

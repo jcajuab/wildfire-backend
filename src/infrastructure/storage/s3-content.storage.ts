@@ -24,6 +24,7 @@ export class S3ContentStorage implements ContentStorage {
   private readonly presignInflight = new Map<string, Promise<string>>();
   private readonly presignCacheMaxEntries = 5_000;
   private readonly presignCacheSafetyWindowMs = 5_000;
+  private readonly presignPathPrefix: string;
 
   constructor(
     private readonly config: {
@@ -47,14 +48,20 @@ export class S3ContentStorage implements ContentStorage {
       credentials,
       forcePathStyle: true,
     });
-    this.presignClient = config.publicEndpoint
-      ? new S3Client({
-          region: config.region,
-          endpoint: config.publicEndpoint,
-          credentials,
-          forcePathStyle: true,
-        })
-      : this.client;
+    if (config.publicEndpoint) {
+      const parsed = new URL(config.publicEndpoint);
+      this.presignPathPrefix =
+        parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
+      this.presignClient = new S3Client({
+        region: config.region,
+        endpoint: parsed.origin,
+        credentials,
+        forcePathStyle: true,
+      });
+    } else {
+      this.presignPathPrefix = "";
+      this.presignClient = this.client;
+    }
   }
 
   async upload(input: {
@@ -322,13 +329,21 @@ export class S3ContentStorage implements ContentStorage {
     const presignTask = (async () => {
       const start = Date.now();
       try {
-        const url = await withTimeout(
+        let url = await withTimeout(
           getSignedUrl(this.presignClient, command, {
             expiresIn: input.expiresInSeconds,
           }),
           this.requestTimeoutMs,
           "getPresignedDownloadUrl",
         );
+        if (this.presignPathPrefix) {
+          const schemeEnd = url.indexOf("://");
+          const pathStart = url.indexOf("/", schemeEnd + 3);
+          url =
+            url.slice(0, pathStart) +
+            this.presignPathPrefix +
+            url.slice(pathStart);
+        }
         this.storePresignedUrl(cacheKey, url, input.expiresInSeconds);
         logger.info(
           {
