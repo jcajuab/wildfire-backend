@@ -169,7 +169,7 @@ export const registerAuthSessionRoutes = (args: {
           }
         }
 
-        deleteCookie(c, deps.authSessionCookieName, { path: "/v1/auth" });
+        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -200,7 +200,7 @@ export const registerAuthSessionRoutes = (args: {
         const userId = c.get("userId");
         c.set("resourceId", userId);
         await deps.authSessionRepository.revokeAllForUser(userId);
-        deleteCookie(c, deps.authSessionCookieName, { path: "/v1/auth" });
+        deleteCookie(c, deps.authSessionCookieName, { path: "/" });
         await deps.deleteCurrentUserUseCase.execute({ userId });
         return c.body(null, 204);
       },

@@ -12,7 +12,7 @@ export const setAuthSessionCookie = (
     httpOnly: true,
     secure: secureCookies,
     sameSite: "Strict",
-    path: "/v1/auth",
+    path: "/",
     expires: new Date(expiresAt),
   });
 };
