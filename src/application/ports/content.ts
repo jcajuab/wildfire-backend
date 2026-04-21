@@ -121,6 +121,7 @@ export interface ContentStorage {
     expiresInSeconds: number;
     responseContentDisposition?: string;
   }): Promise<string>;
+  invalidatePresignedUrl?(key: string): void;
   checkConnectivity(): Promise<{ ok: boolean; error?: string }>;
 }
 

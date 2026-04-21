@@ -367,6 +367,14 @@ export class S3ContentStorage implements ContentStorage {
     return presignTask;
   }
 
+  invalidatePresignedUrl(key: string): void {
+    for (const cacheKey of this.presignCache.keys()) {
+      if (cacheKey.startsWith(key + "|")) {
+        this.presignCache.delete(cacheKey);
+      }
+    }
+  }
+
   private storePresignedUrl(
     cacheKey: string,
     url: string,

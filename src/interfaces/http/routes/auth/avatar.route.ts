@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { logger } from "#/infrastructure/observability/logger";
+import { clearAvatarUrlCache } from "#/interfaces/http/lib/avatar-url";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
@@ -134,6 +135,12 @@ export const registerAuthAvatarRoute = (args: {
           isInvitedUser: user.invitedAt != null,
           permissions,
         });
+
+        // Invalidate presigned URL caches so the response includes a fresh URL
+        // pointing to the newly uploaded avatar object.
+        const avatarKey = user.avatarKey ?? `avatars/${userId}`;
+        deps.avatarStorage.invalidatePresignedUrl?.(avatarKey);
+        await clearAvatarUrlCache(avatarKey);
 
         const body = await buildAuthResponse(deps, {
           type: "bearer",

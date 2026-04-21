@@ -46,6 +46,18 @@ const redisMget = async (keys: string[]): Promise<(string | null)[]> => {
   );
 };
 
+/** Clear the cached presigned avatar URL from Redis so the next request generates a fresh one. */
+export const clearAvatarUrlCache = async (avatarKey: string): Promise<void> => {
+  try {
+    const redis = await withTimeout(getRedisCommandClient());
+    await withTimeout(
+      executeRedisCommand(redis, ["DEL", avatarCacheKey(avatarKey)]),
+    );
+  } catch {
+    // Best-effort cache clear.
+  }
+};
+
 /**
  * Returns a copy of the user with `avatarUrl` set (presigned) when `avatarKey` is present,
  * and without `avatarKey` so internal storage keys are not exposed in API responses.
