@@ -87,6 +87,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
           useCases.getRuntimeOverrides.execute({ now: new Date() }),
           canLoadEmergencyContentOptions
             ? useCases.listEmergencyContentOptions.execute({
+                ownerId: c.get("userId"),
                 status: "READY",
               })
             : Promise.resolve([]),
