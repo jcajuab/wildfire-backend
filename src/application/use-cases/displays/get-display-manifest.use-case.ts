@@ -507,19 +507,30 @@ export class GetDisplayManifestUseCase {
   private async materializeRenderableContent(
     content: ContentRecord & { type: ManifestRenderableType },
   ): Promise<ManifestRenderableContent> {
-    const downloadUrl =
-      content.type === "TEXT"
-        ? ""
-        : await this.deps.contentStorage.getPresignedDownloadUrl({
-            key: content.fileKey,
-            expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-          });
-    const thumbnailUrl = content.thumbnailKey
-      ? await this.deps.contentStorage.getPresignedDownloadUrl({
+    let downloadUrl = "";
+    let thumbnailUrl: string | null = null;
+
+    try {
+      if (content.type !== "TEXT") {
+        downloadUrl = await this.deps.contentStorage.getPresignedDownloadUrl({
+          key: content.fileKey,
+          expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
+        });
+      }
+    } catch {
+      downloadUrl = "";
+    }
+
+    try {
+      if (content.thumbnailKey) {
+        thumbnailUrl = await this.deps.contentStorage.getPresignedDownloadUrl({
           key: content.thumbnailKey,
           expiresInSeconds: this.deps.downloadUrlExpiresInSeconds,
-        })
-      : null;
+        });
+      }
+    } catch {
+      thumbnailUrl = null;
+    }
 
     return {
       id: content.id,
@@ -576,18 +587,22 @@ export class GetDisplayManifestUseCase {
     if (!emergencyContentId) {
       return null;
     }
-    const emergencyAsset =
-      await this.deps.contentRepository.findById(emergencyContentId);
-    if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
+    try {
+      const emergencyAsset =
+        await this.deps.contentRepository.findById(emergencyContentId);
+      if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
+        return null;
+      }
+
+      return {
+        source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
+        startedAt: input.globalEmergencyStartedAt,
+        isGlobal: true,
+        content: emergencyAsset,
+      };
+    } catch {
       return null;
     }
-
-    return {
-      source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
-      startedAt: input.globalEmergencyStartedAt,
-      isGlobal: true,
-      content: emergencyAsset,
-    };
   }
 
   private async computePlaylistVersion(input: {
