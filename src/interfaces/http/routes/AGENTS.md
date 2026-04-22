@@ -35,7 +35,7 @@ Hono route handlers organized by domain module. Each subdirectory defines API en
 
 - Each route module has a `shared.ts` for module-specific types and an `index.ts` that assembles sub-routes
 - Routes receive use cases from bootstrap module factories — no direct infrastructure access
-- Use `@hono/standard-validator` with Zod schemas from `validators/` for request validation
+- Use `hono-openapi`'s `validator` (via the `validators/standard-validator.ts` wrappers) with Zod schemas from `validators/` for request validation
 - Two separate display APIs: `display-runtime/` (display devices call) vs `displays/` (staff manage)
 - `displays/` uses a `staff/` subdirectory for granular route files (groups, events, registration attempts, overrides)
 - `display-runtime/` has its own `deps.ts`, `contracts.ts`, and `middleware.ts` for display auth

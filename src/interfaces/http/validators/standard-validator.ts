@@ -1,4 +1,3 @@
-import { sValidator } from "@hono/standard-validator";
 import { type StandardSchemaV1 } from "@standard-schema/spec";
 import { type Context } from "hono";
 import { validator } from "hono-openapi";
@@ -47,8 +46,8 @@ const validateJson = <Schema extends StandardSchemaV1>(schema: Schema) =>
   validator("json", schema, validationHook as any);
 
 const validateForm = <Schema extends StandardSchemaV1>(schema: Schema) =>
-  // biome-ignore lint/suspicious/noExplicitAny: sValidator returns Handler<Env> incompatible with typed routers in hono 4.12
-  sValidator("form", schema, validationHook as any) as any;
+  // biome-ignore lint/suspicious/noExplicitAny: hook cast required for hono 4.12 validator type compatibility
+  validator("form", schema, validationHook as any);
 
 const validateQuery = <Schema extends StandardSchemaV1>(schema: Schema) =>
   // biome-ignore lint/suspicious/noExplicitAny: hook cast required for hono 4.12 validator type compatibility

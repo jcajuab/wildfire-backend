@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export interface AIToolDefinition {
+  description: string;
+  inputSchema: z.ZodTypeAny;
+  requiresConfirmation: boolean;
+}
+
 const playlistItemInputSchema = z.object({
   contentId: z
     .string()
@@ -235,4 +241,4 @@ export const AI_TOOLS = {
     }),
     requiresConfirmation: false,
   },
-} as const;
+} as const satisfies Record<string, AIToolDefinition>;

@@ -10,7 +10,10 @@ import {
   type UIMessage,
 } from "ai";
 import { type AIStreamResponse } from "#/application/ports/ai";
-import { AI_TOOLS } from "#/application/use-cases/ai/ai-tool-registry";
+import {
+  AI_TOOLS,
+  type AIToolDefinition,
+} from "#/application/use-cases/ai/ai-tool-registry";
 
 export const createAIModel = (config: {
   provider: "openai" | "anthropic" | "google" | "azure" | "mistral";
@@ -50,11 +53,11 @@ const buildTools = (
 ): ToolSet => {
   const tools: ToolSet = {};
 
-  for (const [name, toolDef] of Object.entries(AI_TOOLS)) {
+  const entries = Object.entries(AI_TOOLS) as Array<[string, AIToolDefinition]>;
+  for (const [name, toolDef] of entries) {
     tools[name] = tool({
       description: toolDef.description,
-      // biome-ignore lint/suspicious/noExplicitAny: union of specific Zod schemas cannot be narrowed without per-tool overloads
-      inputSchema: toolDef.inputSchema as any,
+      inputSchema: toolDef.inputSchema,
       needsApproval: toolDef.requiresConfirmation,
       execute: async (args, { toolCallId }: { toolCallId: string }) => {
         return onToolCall(name, toolCallId, args as Record<string, unknown>);

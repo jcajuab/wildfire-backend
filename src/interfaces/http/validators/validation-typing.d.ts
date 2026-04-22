@@ -11,7 +11,6 @@ import {
 } from "hono";
 import { type InputToDataByTarget } from "hono";
 import { validator } from "hono-openapi";
-import { sValidator } from "@hono/standard-validator";
 import {
   parseValidationDetails,
   validationError,
@@ -75,7 +74,7 @@ const validateJson = <Schema extends StandardSchemaV1>(_schema: Schema) =>
   );
 
 const validateForm = <Schema extends StandardSchemaV1>(_schema: Schema) =>
-  sValidator(
+  validator(
     "form",
     _schema,
     validationHook<StandardSchemaV1.InferOutput<Schema>>,

@@ -29,7 +29,7 @@ HTTP interface implementation using Hono framework. Contains all API routes, mid
 
 ### Working In This Directory
 
-- Routes use `@hono/standard-validator` for request validation with Zod schemas
+- Routes use `hono-openapi`'s `validator` for request validation with Zod schemas
 - Auth middleware extracts JWT -> sets `c.var.user` context
 - Permission middleware checks `c.var.user` against required permissions
 - Audit trail middleware auto-logs HTTP requests to the audit queue
