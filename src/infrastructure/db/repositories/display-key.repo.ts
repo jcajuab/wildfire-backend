@@ -8,7 +8,6 @@ import {
   displayActiveKeys,
   displayKeyPairs,
 } from "#/infrastructure/db/schema/display-key.sql";
-import { toIsoString, toNullableIsoString } from "./utils/date";
 
 type DisplayKeyRow = {
   id: string;
@@ -28,9 +27,14 @@ const mapDisplayKeyRowToRecord = (row: DisplayKeyRow): DisplayKeyRecord => ({
   publicKey: row.publicKey,
   status:
     row.activeDisplayId != null && row.revokedAt == null ? "active" : "revoked",
-  revokedAt: toNullableIsoString(row.revokedAt),
-  createdAt: toIsoString(row.createdAt),
-  updatedAt: toIsoString(row.updatedAt),
+  revokedAt:
+    row.revokedAt instanceof Date
+      ? row.revokedAt.toISOString()
+      : (row.revokedAt ?? null),
+  createdAt:
+    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+  updatedAt:
+    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
 });
 
 const buildDisplayKeyQuery = () =>

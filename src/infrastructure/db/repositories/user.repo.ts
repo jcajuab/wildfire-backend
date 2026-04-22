@@ -4,7 +4,6 @@ import { db } from "#/infrastructure/db/client";
 import { users } from "#/infrastructure/db/schema/rbac.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 import { normalizeUsername } from "#/shared/string-utils";
-import { toNullableIsoString } from "./utils/date";
 
 const mapUserRowToRecord = (row: typeof users.$inferSelect): UserRecord => ({
   id: row.id,
@@ -14,9 +13,9 @@ const mapUserRowToRecord = (row: typeof users.$inferSelect): UserRecord => ({
   isActive: row.isActive,
   timezone: row.timezone ?? null,
   avatarKey: row.avatarKey ?? null,
-  lastSeenAt: toNullableIsoString(row.lastSeenAt),
-  invitedAt: toNullableIsoString(row.invitedAt),
-  bannedAt: toNullableIsoString(row.bannedAt),
+  lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+  invitedAt: row.invitedAt?.toISOString() ?? null,
+  bannedAt: row.bannedAt?.toISOString() ?? null,
 });
 
 export class UserDbRepository implements UserRepository {

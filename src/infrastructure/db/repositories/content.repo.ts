@@ -12,7 +12,6 @@ import {
   contentTextContent,
 } from "#/infrastructure/db/schema/content.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
-import { toIsoString } from "./utils/date";
 
 type ContentRow = {
   id: string;
@@ -136,8 +135,14 @@ const mapContentRowToRecord = (row: ContentRow): ContentRecord => {
     textJsonContent: row.textJsonContent,
     textHtmlContent: row.textHtmlContent,
     ownerId: row.ownerId,
-    createdAt: toIsoString(row.createdAt),
-    updatedAt: toIsoString(row.updatedAt),
+    createdAt:
+      row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : row.createdAt,
+    updatedAt:
+      row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : row.updatedAt,
   };
 };
 

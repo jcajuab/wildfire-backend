@@ -444,6 +444,7 @@ describe("Playlists use cases", () => {
 
     const displayRepository: DisplayRepository = {
       list: async () => [],
+      listForReconciliation: async () => [],
       listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
       findByIds: async (ids: string[]) =>
         ids.map((id) => ({
@@ -534,6 +535,7 @@ describe("Playlists use cases", () => {
 
     const displayRepository: DisplayRepository = {
       list: async () => [],
+      listForReconciliation: async () => [],
       listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
       findByIds: async (ids: string[]) =>
         ids.map((id) => ({
@@ -613,6 +615,7 @@ describe("Playlists use cases", () => {
 
     const displayRepository: DisplayRepository = {
       list: async () => [],
+      listForReconciliation: async () => [],
       listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
       findByIds: async () => [],
       findById: async () => null,

@@ -24,7 +24,7 @@ export interface DisplayRepository {
   list(): Promise<DisplayRecord[]>;
   listOptions?(input: { q?: string; limit?: number }): Promise<DisplayRecord[]>;
   listOutputOptions?(): Promise<string[]>;
-  listForReconciliation?(): Promise<DisplayRecord[]>;
+  listForReconciliation(): Promise<DisplayRecord[]>;
   // Pagination convention: { offset, limit } → { items, total } (unified with playlists, content).
   listPage(input: { offset: number; limit: number }): Promise<{
     items: DisplayRecord[];

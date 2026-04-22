@@ -14,7 +14,6 @@ import { db } from "#/infrastructure/db/client";
 import { playlists } from "#/infrastructure/db/schema/playlist.sql";
 import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
-import { toIsoString } from "./utils/date";
 
 const mapPlaylistRowToRecord = (
   row: typeof playlists.$inferSelect,
@@ -29,8 +28,8 @@ const mapPlaylistRowToRecord = (
     description: row.description ?? null,
     status: row.status,
     ownerId: row.ownerId,
-    createdAt: toIsoString(row.createdAt),
-    updatedAt: toIsoString(row.updatedAt),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 };
 

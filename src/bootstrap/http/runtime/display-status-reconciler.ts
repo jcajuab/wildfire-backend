@@ -27,9 +27,7 @@ export const startDisplayStatusReconciler = (input: {
       try {
         const now = new Date();
         const [allDisplays, schedules] = await Promise.all([
-          input.displayRepository.listForReconciliation
-            ? input.displayRepository.listForReconciliation()
-            : input.displayRepository.list(),
+          input.displayRepository.listForReconciliation(),
           input.scheduleRepository.list(),
         ]);
 

@@ -164,6 +164,8 @@ const makeApp = async (
       }
       return displays.map((display) => ({ ...display }));
     },
+    listForReconciliation: async () =>
+      displays.map((display) => ({ ...display })),
     listPage: async ({ offset, limit }: { offset: number; limit: number }) => ({
       items: displays
         .slice(offset, offset + limit)

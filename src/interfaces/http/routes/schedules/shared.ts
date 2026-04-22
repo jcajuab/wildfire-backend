@@ -58,6 +58,10 @@ export interface SchedulesRouterUseCases {
   deleteSchedule: DeleteScheduleUseCase;
   getMergedPlaylist: GetMergedPlaylistUseCase;
   listDisplayOptions: ListDisplayOptionsUseCase;
+  /**
+   * Null when no displayGroupRepository is wired (e.g. deployments without group support).
+   * Callers must guard: `useCases.listDisplayGroups?.execute() ?? Promise.resolve([])`.
+   */
   listDisplayGroups: ListDisplayGroupsUseCase | null;
   listPlaylistOptions: ListPlaylistOptionsUseCase;
   listFlashContentOptions: ListContentOptionsUseCase;

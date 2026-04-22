@@ -11,7 +11,6 @@ import {
   displays,
 } from "#/infrastructure/db/schema/displays.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
-import { toIsoString, toNullableIsoString } from "./utils/date";
 
 const parseDisplayStatus = (
   value: string | null | undefined,
@@ -61,10 +60,15 @@ const mapDisplayRowToRecord = (row: DisplayRow): DisplayRecord => ({
   output: row.output,
   orientation: row.runtimeOrientation,
   emergencyContentId: row.emergencyContentId,
-  lastSeenAt: toNullableIsoString(row.runtimeLastSeenAt),
+  lastSeenAt:
+    row.runtimeLastSeenAt instanceof Date
+      ? row.runtimeLastSeenAt.toISOString()
+      : (row.runtimeLastSeenAt ?? null),
   refreshNonce: row.runtimeRefreshNonce ?? 0,
-  createdAt: toIsoString(row.createdAt),
-  updatedAt: toIsoString(row.updatedAt),
+  createdAt:
+    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+  updatedAt:
+    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
 });
 
 const buildDisplayQuery = () =>

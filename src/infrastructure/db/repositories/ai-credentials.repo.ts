@@ -5,7 +5,6 @@ import {
 } from "#/application/ports/ai";
 import { db } from "#/infrastructure/db/client";
 import { aiCredentials } from "#/infrastructure/db/schema/ai-credentials.sql";
-import { toIsoString } from "./utils/date";
 
 const mapAICredentialRowToRecord = (
   row: typeof aiCredentials.$inferSelect,
@@ -14,8 +13,8 @@ const mapAICredentialRowToRecord = (
   userId: row.userId,
   provider: row.provider as AICredential["provider"],
   keyHint: row.keyHint,
-  createdAt: toIsoString(row.createdAt),
-  updatedAt: toIsoString(row.updatedAt),
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
 });
 
 export class AICredentialsDbRepository implements AICredentialsRepository {

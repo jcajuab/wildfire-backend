@@ -5,7 +5,6 @@ import {
 } from "#/application/ports/runtime-controls";
 import { db } from "#/infrastructure/db/client";
 import { runtimeControl } from "#/infrastructure/db/schema/runtime-control.sql";
-import { toIsoString, toNullableIsoString } from "./utils/date";
 
 const GLOBAL_ID = "global" as const;
 
@@ -14,9 +13,9 @@ const mapRuntimeControlRowToRecord = (
 ): RuntimeControlRecord => ({
   id: GLOBAL_ID,
   globalEmergencyActive: row.globalEmergencyActive,
-  globalEmergencyStartedAt: toNullableIsoString(row.globalEmergencyStartedAt),
-  createdAt: toIsoString(row.createdAt),
-  updatedAt: toIsoString(row.updatedAt),
+  globalEmergencyStartedAt: row.globalEmergencyStartedAt?.toISOString() ?? null,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
 });
 
 export class RuntimeControlDbRepository implements RuntimeControlRepository {

@@ -18,6 +18,7 @@ const makeRepository = () => {
 
   const repo: DisplayRepository = {
     list: async () => [...records],
+    listForReconciliation: async () => [...records],
     listPage: async ({ offset, limit }: { offset: number; limit: number }) => ({
       items: records.slice(offset, offset + limit),
       total: records.length,

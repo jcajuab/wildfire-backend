@@ -11,7 +11,6 @@ import {
   schedulePlaylistTargets,
   schedules,
 } from "#/infrastructure/db/schema/schedule.sql";
-import { toIsoString } from "./utils/date";
 
 type ScheduleRow = {
   id: string;
@@ -52,8 +51,10 @@ const mapScheduleRowToRecord = (row: ScheduleRow): ScheduleRecord => ({
   endDate: row.endDate,
   startTime: row.startTime,
   endTime: row.endTime,
-  createdAt: toIsoString(row.createdAt),
-  updatedAt: toIsoString(row.updatedAt),
+  createdAt:
+    row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+  updatedAt:
+    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
 });
 
 const buildScheduleQuery = () =>

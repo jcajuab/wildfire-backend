@@ -111,6 +111,7 @@ const mockDisplayRepository = {
         updatedAt: "2026-01-01T00:00:00.000Z",
       })),
   list: async () => [],
+  listForReconciliation: async () => [],
   listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
   findById: async () => null,
   findBySlug: async () => null,

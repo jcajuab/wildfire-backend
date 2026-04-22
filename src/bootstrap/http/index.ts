@@ -20,20 +20,24 @@ import {
 import { startDisplayStatusReconciler } from "#/bootstrap/http/runtime/display-status-reconciler";
 import { env } from "#/env";
 import {
-  contentJobEventPublisher,
-  contentJobEventSubscription,
-} from "#/infrastructure/content-jobs/event-publishers";
+  publishContentJobEvent,
+  subscribeToContentJobEvents,
+} from "#/infrastructure/content-jobs/content-job-events";
 import { RedisContentIngestionQueue } from "#/infrastructure/content-jobs/redis-content-ingestion-queue";
 import { closeDbConnection } from "#/infrastructure/db/client";
 import {
-  displayEventPublisher,
-  displayEventSubscription,
-  lifecycleEventPublisher,
-  lifecycleEventSubscription,
-  registrationAttemptEventPublisher,
-  registrationAttemptEventSubscription,
-} from "#/infrastructure/displays/event-publishers";
+  publishAdminDisplayLifecycleEvent,
+  subscribeToAdminDisplayLifecycleEvents,
+} from "#/infrastructure/displays/admin-lifecycle-events";
+import {
+  publishDisplayStreamEvent,
+  subscribeToDisplayStream,
+} from "#/infrastructure/displays/display-stream";
 import { RedisDisplayRegistrationAttemptStore } from "#/infrastructure/displays/registration-attempt.store";
+import {
+  publishRegistrationAttemptEvent,
+  subscribeToRegistrationAttemptEvents,
+} from "#/infrastructure/displays/registration-attempt-events";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -99,6 +103,39 @@ const contentIngestionQueue = new RedisContentIngestionQueue({
 
 const registrationAttemptStore = new RedisDisplayRegistrationAttemptStore();
 const displayHeartbeatStore = new RedisDisplayHeartbeatStore();
+
+const contentJobEventPublisher = { publish: publishContentJobEvent };
+const contentJobEventSubscription = { subscribe: subscribeToContentJobEvents };
+const displayEventPublisher = {
+  publish(input: {
+    type:
+      | "manifest_updated"
+      | "schedule_updated"
+      | "playlist_updated"
+      | "display_refresh_requested";
+    displayId: string;
+    reason?: string;
+    timestamp?: string;
+  }) {
+    publishDisplayStreamEvent({
+      type: input.type,
+      displayId: input.displayId,
+      reason: input.reason,
+      timestamp: input.timestamp ?? new Date().toISOString(),
+    });
+  },
+};
+const displayEventSubscription = { subscribe: subscribeToDisplayStream };
+const lifecycleEventPublisher = { publish: publishAdminDisplayLifecycleEvent };
+const lifecycleEventSubscription = {
+  subscribe: subscribeToAdminDisplayLifecycleEvents,
+};
+const registrationAttemptEventPublisher = {
+  publish: publishRegistrationAttemptEvent,
+};
+const registrationAttemptEventSubscription = {
+  subscribe: subscribeToRegistrationAttemptEvents,
+};
 
 const container = createHttpContainer({
   jwtSecret: env.JWT_SECRET,

@@ -17,6 +17,7 @@ const makeDisplayRepository = (
   displays: DisplayRecord[],
 ): DisplayRepository => ({
   list: async () => displays,
+  listForReconciliation: async () => displays,
   listPage: async ({ offset, limit }) => ({
     items: displays.slice(offset, offset + limit),
     total: displays.length,

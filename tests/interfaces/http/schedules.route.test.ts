@@ -224,6 +224,7 @@ const makeApp = async (
         },
         displayRepository: {
           list: async () => [...displays],
+          listForReconciliation: async () => [...displays],
           listPage: async () => ({
             items: [...displays],
             total: displays.length,

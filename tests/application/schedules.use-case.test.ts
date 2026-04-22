@@ -144,6 +144,7 @@ const makeDeps = () => {
 
   const displayRepository: DisplayRepository = {
     list: async () => [],
+    listForReconciliation: async () => [],
     listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
     findByIds: async (ids: string[]) =>
       ids
@@ -313,6 +314,7 @@ describe("Schedules use cases", () => {
           displayListCalls += 1;
           return [];
         },
+        listForReconciliation: async () => [],
         listPage: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
         findByIds: async (ids: string[]) => {
           displayFindByIdsCalls += 1;

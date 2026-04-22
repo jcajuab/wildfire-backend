@@ -6,7 +6,6 @@ import {
 } from "#/application/ports/content-jobs";
 import { db } from "#/infrastructure/db/client";
 import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql";
-import { toIsoString, toNullableIsoString } from "./utils/date";
 
 const mapContentJobRowToRecord = (
   row: typeof contentIngestionJobs.$inferSelect,
@@ -17,10 +16,10 @@ const mapContentJobRowToRecord = (
   status: toStatus(row.status),
   errorMessage: row.errorMessage ?? null,
   ownerId: row.ownerId,
-  createdAt: toIsoString(row.createdAt),
-  updatedAt: toIsoString(row.updatedAt),
-  startedAt: toNullableIsoString(row.startedAt),
-  completedAt: toNullableIsoString(row.completedAt),
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+  startedAt: row.startedAt?.toISOString() ?? null,
+  completedAt: row.completedAt?.toISOString() ?? null,
 });
 
 const toOperation = (value: string): "UPLOAD" | "REPLACE" => {
@@ -74,8 +73,8 @@ export class ContentIngestionJobDbRepository
       status: input.status,
       errorMessage: input.errorMessage ?? null,
       ownerId: input.ownerId,
-      createdAt: toIsoString(now),
-      updatedAt: toIsoString(now),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
       startedAt: null,
       completedAt: null,
     };

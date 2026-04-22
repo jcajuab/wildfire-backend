@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/mysql2";
-import { createPool } from "mysql2/promise";
+import { createPool, type PoolConnection } from "mysql2/promise";
 import { env } from "#/env";
 import { withTimeout } from "#/shared/retry";
 
@@ -19,19 +19,13 @@ const pool = createPool({
 
 export const db = drizzle({ client: pool, casing: "snake_case" });
 
-type DbConnectivityConnection = {
-  release: () => void;
-  destroy: () => void;
-  query: (input: { sql: string; timeout?: number }) => Promise<unknown>;
-};
-
 export const checkDbConnectivity = async (): Promise<void> => {
   const timeoutMs = Math.max(1, Math.trunc(env.HEALTH_CHECK_TIMEOUT_MS));
 
   await withTimeout(
     async (signal) => {
-      const connection = await withTimeout<DbConnectivityConnection>(
-        pool.getConnection() as Promise<DbConnectivityConnection>,
+      const connection = await withTimeout<PoolConnection>(
+        pool.getConnection(),
         timeoutMs,
         "mysql getConnection",
       );

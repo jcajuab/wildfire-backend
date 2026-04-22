@@ -8,7 +8,6 @@ import {
   displayGroupMembers,
   displayGroups,
 } from "#/infrastructure/db/schema/displays.sql";
-import { toIsoString } from "./utils/date";
 
 const mapRowsToGroupRecords = (
   rows: Array<{
@@ -26,8 +25,14 @@ const mapRowsToGroupRecords = (
       byId.set(row.id, {
         id: row.id,
         name: row.name,
-        createdAt: toIsoString(row.createdAt),
-        updatedAt: toIsoString(row.updatedAt),
+        createdAt:
+          row.createdAt instanceof Date
+            ? row.createdAt.toISOString()
+            : row.createdAt,
+        updatedAt:
+          row.updatedAt instanceof Date
+            ? row.updatedAt.toISOString()
+            : row.updatedAt,
         displayIds: row.displayId ? [row.displayId] : [],
       });
       continue;
