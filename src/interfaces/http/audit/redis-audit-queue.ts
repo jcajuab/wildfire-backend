@@ -48,10 +48,6 @@ export class RedisAuditQueue implements AuditLogQueue {
     this.config = sanitizeConfig(config);
   }
 
-  async flushNow(): Promise<void> {
-    return;
-  }
-
   async stop(): Promise<void> {
     this.isStopped = true;
   }

@@ -11,7 +11,7 @@ import {
 import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 import {
   parseMilliseconds,
-  toScriptString,
+  toRedisValue,
   toUnixSeconds,
 } from "#/infrastructure/redis/utils";
 
@@ -121,7 +121,7 @@ export class DisplayPairingCodeRedisRepository
       "NX",
     ]);
 
-    if (toScriptString(setResult) !== "OK") {
+    if (toRedisValue(setResult) !== "OK") {
       await executeRedisCommand<number>(redis, ["DEL", pairingCodeKey(id)]);
       throw new DisplayPairingCodeCollisionError();
     }
@@ -142,7 +142,7 @@ export class DisplayPairingCodeRedisRepository
     now: Date;
   }): Promise<DisplayPairingCodeRecord | null> {
     const redis = await getRedisCommandClient();
-    const consumedId = toScriptString(
+    const consumedId = toRedisValue(
       await executeRedisCommand<string | null>(redis, [
         "GETDEL",
         pairingCodeLookupKey(input.codeHash),

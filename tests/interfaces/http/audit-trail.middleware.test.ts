@@ -24,7 +24,6 @@ const makeQueue = (opts?: { overflow?: boolean }) => {
       calls.push(event as unknown as Record<string, unknown>);
       return { accepted: true };
     },
-    flushNow: async () => {},
     stop: async () => {},
     getStats: () => ({
       queued: calls.length,

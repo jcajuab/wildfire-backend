@@ -222,61 +222,6 @@ export class S3ContentStorage implements ContentStorage {
         );
       }
 
-      if (body instanceof ReadableStream) {
-        const reader = body.getReader();
-        const chunks: Uint8Array[] = [];
-        let total = 0;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value == null) continue;
-          if (!(value instanceof Uint8Array)) {
-            throw new Error("Unsupported response body chunk type");
-          }
-          const chunk = value;
-          chunks.push(chunk);
-          total += chunk.byteLength;
-        }
-        const output = new Uint8Array(total);
-        let offset = 0;
-        for (const chunk of chunks) {
-          output.set(chunk, offset);
-          offset += chunk.byteLength;
-        }
-        return complete(output);
-      }
-
-      const maybeIterable = body as AsyncIterable<unknown>;
-      if (typeof maybeIterable[Symbol.asyncIterator] === "function") {
-        const chunks: Uint8Array[] = [];
-        let total = 0;
-        for await (const value of maybeIterable) {
-          if (value == null) {
-            continue;
-          }
-          if (value instanceof Uint8Array) {
-            chunks.push(value);
-            total += value.byteLength;
-            continue;
-          }
-          if (value instanceof ArrayBuffer) {
-            const chunk = new Uint8Array(value);
-            chunks.push(chunk);
-            total += chunk.byteLength;
-            continue;
-          }
-
-          throw new Error("Unsupported response body chunk type");
-        }
-        const output = new Uint8Array(total);
-        let offset = 0;
-        for (const chunk of chunks) {
-          output.set(chunk, offset);
-          offset += chunk.byteLength;
-        }
-        return complete(output);
-      }
-
       throw new Error("Unsupported response body type");
     } catch (error) {
       logger.error(
@@ -384,7 +329,7 @@ export class S3ContentStorage implements ContentStorage {
 
   invalidatePresignedUrl(key: string): void {
     for (const cacheKey of this.presignCache.keys()) {
-      if (cacheKey.startsWith(key + "|")) {
+      if (cacheKey.startsWith(`${key}|`)) {
         this.presignCache.delete(cacheKey);
       }
     }

@@ -22,7 +22,6 @@ export interface AuditQueueStats {
 
 export interface AuditLogQueue {
   enqueue(event: CreateAuditLogInput): Promise<AuditQueueEnqueueResult>;
-  flushNow(): Promise<void>;
   stop(): Promise<void>;
   getStats(): AuditQueueStats;
 }

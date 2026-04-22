@@ -12,7 +12,7 @@ import { evalCachedRedisScript } from "#/infrastructure/redis/evalsha-script";
 import { normalizeRedisHash } from "#/infrastructure/redis/hashes";
 import {
   parseMilliseconds,
-  toScriptString,
+  toRedisValue,
   toUnixSecondsMs,
 } from "#/infrastructure/redis/utils";
 
@@ -335,10 +335,10 @@ export class RedisDisplayRegistrationAttemptStore
     });
 
     const createdAttemptId = Array.isArray(result)
-      ? toScriptString(result[0])
+      ? toRedisValue(result[0])
       : attemptId;
     const invalidatedPairingCodeId = Array.isArray(result)
-      ? toScriptString(result[1])
+      ? toRedisValue(result[1])
       : "";
 
     return {
@@ -387,12 +387,12 @@ export class RedisDisplayRegistrationAttemptStore
       return null;
     }
 
-    const status = toScriptString(result[0]);
+    const status = toRedisValue(result[0]);
     if (status !== "ok") {
       return null;
     }
 
-    const invalidatedPairingCodeId = toScriptString(result[1]);
+    const invalidatedPairingCodeId = toRedisValue(result[1]);
     return {
       invalidatedPairingCodeId:
         invalidatedPairingCodeId.length > 0 ? invalidatedPairingCodeId : null,
@@ -421,12 +421,12 @@ export class RedisDisplayRegistrationAttemptStore
       return null;
     }
 
-    const status = toScriptString(result[0]);
+    const status = toRedisValue(result[0]);
     if (status === "not_found") {
       return null;
     }
 
-    const invalidatedPairingCodeId = toScriptString(result[1]);
+    const invalidatedPairingCodeId = toRedisValue(result[1]);
     return {
       invalidatedPairingCodeId:
         invalidatedPairingCodeId.length > 0 ? invalidatedPairingCodeId : null,
@@ -471,8 +471,8 @@ export class RedisDisplayRegistrationAttemptStore
       return null;
     }
 
-    const attemptId = toScriptString(result[0]);
-    const pairingCodeId = toScriptString(result[1]);
+    const attemptId = toRedisValue(result[0]);
+    const pairingCodeId = toRedisValue(result[1]);
 
     if (attemptId.length === 0 || pairingCodeId.length === 0) {
       return null;
@@ -497,7 +497,7 @@ export class RedisDisplayRegistrationAttemptStore
 
   async consumeSessionAttemptId(sessionId: string): Promise<string | null> {
     const redis = await getRedisCommandClient();
-    const reply = toScriptString(
+    const reply = toRedisValue(
       await executeRedisCommand<string | null>(redis, [
         "GETDEL",
         sessionAttemptKey(sessionId),

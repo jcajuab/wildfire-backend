@@ -4,7 +4,7 @@ export const toUnixSeconds = (value: Date): string =>
 export const toUnixSecondsMs = (valueMs: number): string =>
   String(Math.max(1, Math.ceil(valueMs / 1000)));
 
-export const toScriptString = (value: unknown): string =>
+export const toRedisValue = (value: unknown): string =>
   typeof value === "string" ? value : value == null ? "" : String(value);
 
 export const parseMilliseconds = (value: string | undefined): number | null => {

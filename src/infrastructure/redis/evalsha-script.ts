@@ -1,4 +1,5 @@
 import { executeRedisCommand } from "#/infrastructure/redis/client";
+import { toRedisValue } from "#/infrastructure/redis/utils";
 
 interface RedisScriptingClient {
   sendCommand(
@@ -8,18 +9,6 @@ interface RedisScriptingClient {
 }
 
 const scriptShaByName = new Map<string, string>();
-
-const toStringValue = (value: unknown): string => {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value == null) {
-    return "";
-  }
-
-  return String(value);
-};
 
 const isNoScriptError = (error: unknown): boolean => {
   if (!(error instanceof Error)) {
@@ -38,7 +27,7 @@ const loadScript = async (
     "LOAD",
     script,
   ]);
-  const sha = toStringValue(shaReply);
+  const sha = toRedisValue(shaReply);
   if (sha.length === 0) {
     throw new Error(`Failed to load Redis script: ${scriptName}`);
   }
