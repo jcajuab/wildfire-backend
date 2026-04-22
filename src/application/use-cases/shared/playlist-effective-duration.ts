@@ -17,9 +17,6 @@ interface PlaylistDurationComputation {
   readonly items: readonly PlaylistDurationItemBreakdown[];
 }
 
-const toPositiveInteger = (value: number, fallback: number): number =>
-  Number.isFinite(value) && value > 0 ? Math.trunc(value) : fallback;
-
 export const computePlaylistEffectiveDuration = async (input: {
   items: readonly PlaylistDurationItemInput[];
   contentRepository: ContentRepository;
@@ -54,7 +51,10 @@ export const computePlaylistEffectiveDuration = async (input: {
       continue;
     }
 
-    const itemBaseDurationSeconds = toPositiveInteger(item.duration, 1);
+    const itemBaseDurationSeconds =
+      Number.isFinite(item.duration) && item.duration > 0
+        ? Math.trunc(item.duration)
+        : 1;
     baseDurationSeconds += itemBaseDurationSeconds;
     itemBreakdown.push({
       contentId: content.id,

@@ -31,11 +31,18 @@ Test suites organized by architecture layer. Uses Bun's built-in test runner (`b
 
 ## For AI Agents
 
+## Test environment setup
+
+- `bunfig.toml` preloads `tests/helpers/preload-env.ts` before any test file runs.
+- The preload sets safe defaults for every required env var (including a valid 32+ char `JWT_SECRET`).
+- Integration tests (`RUN_INTEGRATION=true`) may call `setTestEnv` from `tests/helpers/env.ts` to override specific values (MySQL host/port, etc.) after the preload has run.
+- Tests should NEVER call `setTestEnv` to override a preload default unless they genuinely need a different value for that specific test.
+
 ### Working In This Directory
 
 - Run all tests: `bun run test`
 - Integration tests: `RUN_INTEGRATION=true bun test tests/infrastructure`
-- Test preload file `helpers/preload-env.ts` sets default env vars (LOG_LEVEL=silent)
+- Test preload file `helpers/preload-env.ts` sets default env vars (LOG_LEVEL=silent, JWT_SECRET, etc.)
 - Use `app.request()` pattern for HTTP route tests (no real server needed)
 - Mock repositories by implementing port interfaces inline
 - `helpers/in-memory-auth-security.store.ts` provides test double for auth security

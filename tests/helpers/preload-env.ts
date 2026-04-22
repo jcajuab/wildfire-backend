@@ -19,7 +19,7 @@ const defaults: Record<string, string> = {
   MINIO_REQUEST_TIMEOUT_MS: "15000",
   CONTENT_MAX_UPLOAD_BYTES: "104857600",
   HTSHADOW_PATH: "/tmp/htshadow",
-  JWT_SECRET: "test-secret",
+  JWT_SECRET: "test-secret-value-for-unit-tests-only-do-not-use",
   JWT_ISSUER: "wildfire",
   AUTH_SESSION_COOKIE_NAME: "wildfire_session_token",
   AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: "10",

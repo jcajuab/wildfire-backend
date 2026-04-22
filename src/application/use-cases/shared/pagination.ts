@@ -1,6 +1,3 @@
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(Math.max(value, min), max);
-
 export interface PaginationInput {
   readonly page?: number;
   readonly pageSize?: number;
@@ -21,8 +18,14 @@ export function paginate<T>(
   all: readonly T[],
   input?: PaginationInput,
 ): PaginatedResult<T> {
-  const page = clamp(Math.trunc(input?.page ?? 1), 1, Number.MAX_SAFE_INTEGER);
-  const pageSize = clamp(Math.trunc(input?.pageSize ?? 50), 1, 100);
+  const page = Math.min(
+    Math.max(Math.trunc(input?.page ?? 1), 1),
+    Number.MAX_SAFE_INTEGER,
+  );
+  const pageSize = Math.min(
+    Math.max(Math.trunc(input?.pageSize ?? 50), 1),
+    100,
+  );
   const offset = (page - 1) * pageSize;
 
   return {

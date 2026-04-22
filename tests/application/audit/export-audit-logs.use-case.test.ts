@@ -12,9 +12,23 @@ const makeRepository = () => {
     listCalls,
     countCalls,
     repository: {
-      create: async () => {
-        throw new Error("unused");
-      },
+      create: async () => ({
+        id: "",
+        occurredAt: "",
+        requestId: null,
+        action: "",
+        route: null,
+        method: "",
+        path: "",
+        status: 0,
+        actorId: null,
+        actorType: null,
+        resourceId: null,
+        resourceType: null,
+        ipAddress: null,
+        userAgent: null,
+        metadataJson: null,
+      }),
       list: async () => [],
       listWithActors: async (query: unknown) => {
         listCalls.push(query);
@@ -110,9 +124,23 @@ describe("ExportAuditLogsUseCase", () => {
     const listCalls: unknown[] = [];
     const useCase = new ExportAuditLogsUseCase({
       auditLogRepository: {
-        create: async () => {
-          throw new Error("unused");
-        },
+        create: async () => ({
+          id: "",
+          occurredAt: "",
+          requestId: null,
+          action: "",
+          route: null,
+          method: "",
+          path: "",
+          status: 0,
+          actorId: null,
+          actorType: null,
+          resourceId: null,
+          resourceType: null,
+          ipAddress: null,
+          userAgent: null,
+          metadataJson: null,
+        }),
         list: async () => [],
         listWithActors: async (query: { offset: number; limit: number }) => {
           listCalls.push(query);

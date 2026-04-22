@@ -9,9 +9,23 @@ const makeRepository = () => {
     listCalls,
     countCalls,
     repository: {
-      create: async () => {
-        throw new Error("unused");
-      },
+      create: async () => ({
+        id: "",
+        occurredAt: "",
+        requestId: null,
+        action: "",
+        route: null,
+        method: "",
+        path: "",
+        status: 0,
+        actorId: null,
+        actorType: null,
+        resourceId: null,
+        resourceType: null,
+        ipAddress: null,
+        userAgent: null,
+        metadataJson: null,
+      }),
       list: async (query: unknown) => {
         listCalls.push(query);
         return [
