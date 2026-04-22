@@ -58,7 +58,17 @@ export class PdftoppmCropRenderer implements PdfCropRenderer {
 
       await new Promise<void>((resolve, reject) => {
         const proc = spawn("pdftoppm", args);
-        proc.once("error", reject);
+        proc.once("error", (err) => {
+          if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+            reject(
+              new Error(
+                "pdftoppm binary not found. Install poppler-utils to enable PDF cropping.",
+              ),
+            );
+          } else {
+            reject(err);
+          }
+        });
         proc.once("close", (code) => {
           if (code === 0) {
             resolve();
