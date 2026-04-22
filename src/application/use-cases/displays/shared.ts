@@ -1,13 +1,10 @@
 import {
-  type DisplayGroupRepository,
   type DisplayRecord,
   type DisplayRepository,
   type DisplayStatus,
 } from "#/application/ports/displays";
 import { type PlaylistRepository } from "#/application/ports/playlists";
-import { paginate } from "#/application/use-cases/shared/pagination";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
-import { normalizeQuery } from "#/shared/string-utils";
 
 export type ManifestRenderableType = "IMAGE" | "VIDEO" | "TEXT";
 
@@ -94,136 +91,27 @@ export const buildNowPlayingMap = async (input: {
   return nowPlayingByDisplayId;
 };
 
-const filterDisplays = (input: {
-  displays: readonly DisplayRecord[];
-  query?: string;
-  status?: DisplayStatus;
-  output?: string;
-  groupIds?: readonly string[];
-  groupIdsByDisplayId: Map<string, Set<string>>;
-}): DisplayRecord[] => {
-  const normalizedQuery = normalizeQuery(input.query);
-  const normalizedOutput = input.output?.trim().toLowerCase();
-
-  return input.displays.filter((display) => {
-    if (input.status && display.status !== input.status) {
-      return false;
-    }
-
-    if (normalizedOutput) {
-      const displayOutput = display.output?.trim().toLowerCase() ?? "";
-      if (displayOutput !== normalizedOutput) {
-        return false;
-      }
-    }
-
-    if (input.groupIds && input.groupIds.length > 0) {
-      const displayGroupIds =
-        input.groupIdsByDisplayId.get(display.id) ?? new Set();
-      if (!input.groupIds.some((groupId) => displayGroupIds.has(groupId))) {
-        return false;
-      }
-    }
-
-    if (!normalizedQuery) {
-      return true;
-    }
-
-    return [
-      display.name,
-      display.slug,
-      display.location ?? "",
-      display.output ?? "",
-    ].some((value) => value.toLowerCase().includes(normalizedQuery));
-  });
-};
-
-const sortDisplays = (
-  displays: readonly DisplayRecord[],
-  input?: {
-    sortBy?: "name" | "status" | "location";
-    sortDirection?: "asc" | "desc";
-  },
-): DisplayRecord[] => {
-  const sortBy = input?.sortBy ?? "name";
-  const direction = input?.sortDirection === "desc" ? -1 : 1;
-
-  return [...displays].sort((left, right) => {
-    const getLocation = (display: DisplayRecord) => display.location ?? "";
-
-    if (sortBy === "status") {
-      const statusDelta = left.status.localeCompare(right.status) * direction;
-      if (statusDelta !== 0) {
-        return statusDelta;
-      }
-      return left.name.localeCompare(right.name) * direction;
-    }
-
-    if (sortBy === "location") {
-      const locationDelta =
-        getLocation(left).localeCompare(getLocation(right)) * direction;
-      if (locationDelta !== 0) {
-        return locationDelta;
-      }
-      return left.name.localeCompare(right.name) * direction;
-    }
-
-    return left.name.localeCompare(right.name) * direction;
-  });
-};
-
-export const listDisplaysWithFallback = async (input: {
+export const listDisplaysWithFallback = (input: {
   displayRepository: DisplayRepository;
-  displayGroupRepository: DisplayGroupRepository;
-  page: number;
-  pageSize: number;
+  offset: number;
+  limit: number;
   q?: string;
   status?: DisplayStatus;
   output?: string;
   groupIds?: string[];
   sortBy?: "name" | "status" | "location";
   sortDirection?: "asc" | "desc";
-}) => {
-  if (input.displayRepository.searchPage != null) {
-    return input.displayRepository.searchPage({
-      page: input.page,
-      pageSize: input.pageSize,
-      q: input.q,
-      status: input.status,
-      output: input.output,
-      groupIds: input.groupIds,
-      sortBy: input.sortBy,
-      sortDirection: input.sortDirection,
-    });
-  }
-
-  const [allDisplays, displayGroups] = await Promise.all([
-    input.displayRepository.list(),
-    input.displayGroupRepository.list(),
-  ]);
-  const groupIdsByDisplayId = new Map<string, Set<string>>();
-  for (const group of displayGroups) {
-    for (const displayId of group.displayIds) {
-      const current = groupIdsByDisplayId.get(displayId) ?? new Set<string>();
-      current.add(group.id);
-      groupIdsByDisplayId.set(displayId, current);
-    }
-  }
-
-  const filtered = filterDisplays({
-    displays: allDisplays,
-    query: input.q,
+}): Promise<{ items: DisplayRecord[]; total: number }> =>
+  input.displayRepository.searchPage({
+    offset: input.offset,
+    limit: input.limit,
+    q: input.q,
     status: input.status,
     output: input.output,
     groupIds: input.groupIds,
-    groupIdsByDisplayId,
+    sortBy: input.sortBy,
+    sortDirection: input.sortDirection,
   });
-
-  return paginate(sortDisplays(filtered, input), {
-    page: input.page,
-    pageSize: input.pageSize,
-  });
-};
 
 export const isRenderableEmergencyAsset = (content: {
   type: string;

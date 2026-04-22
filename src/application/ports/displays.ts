@@ -25,17 +25,14 @@ export interface DisplayRepository {
   listOptions?(input: { q?: string; limit?: number }): Promise<DisplayRecord[]>;
   listOutputOptions?(): Promise<string[]>;
   listForReconciliation?(): Promise<DisplayRecord[]>;
-  // Pagination convention: new repos use { offset, limit } (see playlists, content).
-  // This repo uses { page, pageSize } for historical reasons.
-  listPage(input: { page: number; pageSize: number }): Promise<{
+  // Pagination convention: { offset, limit } → { items, total } (unified with playlists, content).
+  listPage(input: { offset: number; limit: number }): Promise<{
     items: DisplayRecord[];
     total: number;
-    page: number;
-    pageSize: number;
   }>;
-  searchPage?(input: {
-    page: number;
-    pageSize: number;
+  searchPage(input: {
+    offset: number;
+    limit: number;
     q?: string;
     status?: DisplayStatus;
     output?: string;
@@ -45,8 +42,6 @@ export interface DisplayRepository {
   }): Promise<{
     items: DisplayRecord[];
     total: number;
-    page: number;
-    pageSize: number;
   }>;
   findByIds(ids: string[]): Promise<DisplayRecord[]>;
   findById(id: string): Promise<DisplayRecord | null>;

@@ -132,6 +132,7 @@ const mockDisplayRepository = {
   setStatus: async () => {},
   touchSeen: async () => {},
   bumpRefreshNonce: async () => false,
+  searchPage: async () => ({ items: [], total: 0 }),
   delete: async (_id: string) => false,
 };
 

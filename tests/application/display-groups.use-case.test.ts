@@ -17,17 +17,10 @@ const makeDisplayRepository = (
   displays: DisplayRecord[],
 ): DisplayRepository => ({
   list: async () => displays,
-  listPage: async ({ page, pageSize }) => {
-    const safePage = Math.max(1, page);
-    const safePageSize = Math.max(1, pageSize);
-    const offset = (safePage - 1) * safePageSize;
-    return {
-      items: displays.slice(offset, offset + safePageSize),
-      total: displays.length,
-      page: safePage,
-      pageSize: safePageSize,
-    };
-  },
+  listPage: async ({ offset, limit }) => ({
+    items: displays.slice(offset, offset + limit),
+    total: displays.length,
+  }),
   findByIds: async (ids: string[]) =>
     displays.filter((display) => ids.includes(display.id)),
   findById: async (id: string) =>
@@ -46,6 +39,7 @@ const makeDisplayRepository = (
   setStatus: async () => {},
   touchSeen: async () => {},
   bumpRefreshNonce: async () => false,
+  searchPage: async () => ({ items: [], total: 0 }),
   delete: async (_id: string) => false,
 });
 

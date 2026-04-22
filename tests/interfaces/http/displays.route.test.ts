@@ -98,8 +98,8 @@ const makeApp = async (
     groupIds: string[];
   }> = [];
   const searchPageCalls: Array<{
-    page: number;
-    pageSize: number;
+    offset: number;
+    limit: number;
     q?: string;
     status?: string;
     output?: string;
@@ -164,23 +164,15 @@ const makeApp = async (
       }
       return displays.map((display) => ({ ...display }));
     },
-    listPage: async (input: { page: number; pageSize: number }) => {
-      const page = Math.max(1, input.page);
-      const pageSize = Math.max(1, input.pageSize);
-      const offset = (page - 1) * pageSize;
-      const items = displays
-        .slice(offset, offset + pageSize)
-        .map((display) => ({ ...display }));
-      return {
-        items,
-        total: displays.length,
-        page,
-        pageSize,
-      };
-    },
+    listPage: async ({ offset, limit }: { offset: number; limit: number }) => ({
+      items: displays
+        .slice(offset, offset + limit)
+        .map((display) => ({ ...display })),
+      total: displays.length,
+    }),
     searchPage: async (input: {
-      page: number;
-      pageSize: number;
+      offset: number;
+      limit: number;
       q?: string;
       status?: "PROCESSING" | "READY" | "LIVE" | "DOWN";
       output?: string;
@@ -237,17 +229,13 @@ const makeApp = async (
         return left.name.localeCompare(right.name) * direction;
       });
 
-      const page = Math.max(1, input.page);
-      const pageSize = Math.max(1, input.pageSize);
-      const offset = (page - 1) * pageSize;
-
       return {
-        items: sorted.slice(offset, offset + pageSize).map((display) => ({
-          ...display,
-        })),
+        items: sorted
+          .slice(input.offset, input.offset + input.limit)
+          .map((display) => ({
+            ...display,
+          })),
         total: sorted.length,
-        page,
-        pageSize,
       };
     },
     findByIds: async (ids: string[]) =>

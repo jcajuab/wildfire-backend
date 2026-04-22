@@ -1,5 +1,4 @@
 import {
-  type DisplayGroupRepository,
   type DisplayRepository,
   type DisplayStatus,
 } from "#/application/ports/displays";
@@ -15,7 +14,6 @@ export class ListDisplaysUseCase {
   constructor(
     private readonly deps: {
       displayRepository: DisplayRepository;
-      displayGroupRepository: DisplayGroupRepository;
       scheduleRepository: ScheduleRepository;
       playlistRepository: PlaylistRepository;
       scheduleTimeZone?: string;
@@ -33,13 +31,13 @@ export class ListDisplaysUseCase {
     sortDirection?: "asc" | "desc";
   }) {
     const now = new Date();
-    const page = input?.page ?? 1;
-    const pageSize = input?.pageSize ?? 20;
+    const page = Math.max(1, input?.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, input?.pageSize ?? 20));
+    const offset = (page - 1) * pageSize;
     const paged = await listDisplaysWithFallback({
       displayRepository: this.deps.displayRepository,
-      displayGroupRepository: this.deps.displayGroupRepository,
-      page,
-      pageSize,
+      offset,
+      limit: pageSize,
       q: input?.q,
       status: input?.status,
       output: input?.output,
@@ -70,8 +68,8 @@ export class ListDisplaysUseCase {
     return {
       items: withStatus,
       total: paged.total,
-      page: paged.page,
-      pageSize: paged.pageSize,
+      page,
+      pageSize,
     };
   }
 }

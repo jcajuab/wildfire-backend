@@ -49,7 +49,6 @@ export const createDisplaysHttpModule = (
     useCases: {
       listDisplays: new ListDisplaysUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
-        displayGroupRepository: routerDeps.repositories.displayGroupRepository,
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         playlistRepository: routerDeps.repositories.playlistRepository,
         scheduleTimeZone: routerDeps.scheduleTimeZone,

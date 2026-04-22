@@ -18,17 +18,10 @@ const makeRepository = () => {
 
   const repo: DisplayRepository = {
     list: async () => [...records],
-    listPage: async (input: { page: number; pageSize: number }) => {
-      const page = Math.max(1, input.page);
-      const pageSize = Math.max(1, input.pageSize);
-      const offset = (page - 1) * pageSize;
-      return {
-        items: records.slice(offset, offset + pageSize),
-        total: records.length,
-        page,
-        pageSize,
-      };
-    },
+    listPage: async ({ offset, limit }: { offset: number; limit: number }) => ({
+      items: records.slice(offset, offset + limit),
+      total: records.length,
+    }),
     findByIds: async (ids: string[]) =>
       ids
         .map((id) => records.find((record) => record.id === id) ?? null)
@@ -119,6 +112,16 @@ const makeRepository = () => {
       record.lastSeenAt = at.toISOString();
       record.updatedAt = at.toISOString();
     },
+    searchPage: async ({
+      offset,
+      limit,
+    }: {
+      offset: number;
+      limit: number;
+    }) => ({
+      items: records.slice(offset, offset + limit),
+      total: records.length,
+    }),
     delete: async (_id: string) => false,
   };
 
@@ -130,17 +133,6 @@ describe("Displays use cases", () => {
     const { repo } = makeRepository();
     const listDisplays = new ListDisplaysUseCase({
       displayRepository: repo,
-      displayGroupRepository: {
-        list: async () => [],
-        findById: async () => null,
-        findByName: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        delete: async () => false,
-        setDisplayGroups: async () => {},
-      },
       scheduleRepository: {
         list: async () => [],
         listByDisplay: async () => [],
@@ -204,17 +196,6 @@ describe("Displays use cases", () => {
     const { repo, records } = makeRepository();
     const listDisplays = new ListDisplaysUseCase({
       displayRepository: repo,
-      displayGroupRepository: {
-        list: async () => [],
-        findById: async () => null,
-        findByName: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        delete: async () => false,
-        setDisplayGroups: async () => {},
-      },
       scheduleRepository: {
         list: async () => [
           {
@@ -353,79 +334,12 @@ describe("Displays use cases", () => {
   });
 
   test("ListDisplaysUseCase matches displays in any selected group", async () => {
-    const { repo, records } = makeRepository();
-    const listDisplays = new ListDisplaysUseCase({
-      displayRepository: repo,
-      displayGroupRepository: {
-        list: async () => [
-          {
-            id: "group-a",
-            name: "Lobby",
-            colorIndex: 0,
-            displayIds: ["display-1"],
-            createdAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-          {
-            id: "group-b",
-            name: "Hallway",
-            colorIndex: 1,
-            displayIds: ["display-2"],
-            createdAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        ],
-        findById: async () => null,
-        findByName: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        delete: async () => false,
-        setDisplayGroups: async () => {},
-      },
-      scheduleRepository: {
-        list: async () => [],
-        listByDisplay: async () => [],
-        listByPlaylistId: async () => [],
-        findById: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        delete: async () => false,
-        countByPlaylistId: async () => 0,
-      },
-      playlistRepository: {
-        list: async () => [],
-        listForOwner: async () => [],
-        listPageForOwner: async () => ({ items: [], total: 0 }),
-        listPage: async () => ({ items: [], total: 0 }),
-        findByIds: async () => [],
-        findByIdsForOwner: async () => [],
-        findById: async () => null,
-        findByIdForOwner: async () => null,
-        create: async () => {
-          throw new Error("not used");
-        },
-        update: async () => null,
-        updateForOwner: async () => null,
-        updateStatus: async () => undefined,
-        delete: async () => false,
-        deleteForOwner: async () => false,
-        listItems: async () => [],
-        findItemById: async () => null,
-        countItemsByContentId: async () => 0,
-        addItem: async () => {
-          throw new Error("not used");
-        },
-        updateItem: async () => null,
-        reorderItems: async () => true,
-        deleteItem: async () => false,
-      },
-    });
-
-    records.push(
+    // group-a → display-1 (Lobby), group-b → display-2 (Hallway), display-3 in no group
+    const groupIdsByDisplayId = new Map<string, string[]>([
+      ["display-1", ["group-a"]],
+      ["display-2", ["group-b"]],
+    ]);
+    const allRecords: DisplayRecord[] = [
       {
         id: "display-1",
         name: "Lobby",
@@ -471,7 +385,67 @@ describe("Displays use cases", () => {
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
       },
-    );
+    ];
+    const { repo } = makeRepository();
+    const listDisplays = new ListDisplaysUseCase({
+      displayRepository: {
+        ...repo,
+        searchPage: async ({ offset, limit, groupIds }) => {
+          let items = [...allRecords];
+          if (groupIds && groupIds.length > 0) {
+            items = items.filter((d) =>
+              (groupIdsByDisplayId.get(d.id) ?? []).some((gid) =>
+                groupIds.includes(gid),
+              ),
+            );
+          }
+          items = [...items].sort((a, b) => a.name.localeCompare(b.name));
+          return {
+            items: items.slice(offset, offset + limit),
+            total: items.length,
+          };
+        },
+      },
+      scheduleRepository: {
+        list: async () => [],
+        listByDisplay: async () => [],
+        listByPlaylistId: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+      },
+      playlistRepository: {
+        list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [],
+        findByIdsForOwner: async () => [],
+        findById: async () => null,
+        findByIdForOwner: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateForOwner: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        deleteForOwner: async () => false,
+        listItems: async () => [],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
+      },
+    });
 
     const result = await listDisplays.execute({
       groupIds: ["group-a", "group-b"],

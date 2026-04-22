@@ -36,23 +36,23 @@ export type ScheduleWindow = {
   endTime: string;
 };
 
-export const findPlaylistForOwner = async (
+export const findPlaylistForOwner = (
   playlistRepository: PlaylistRepository,
   playlistId: string,
   ownerId?: string,
 ) => {
-  if (ownerId && playlistRepository.findByIdForOwner) {
+  if (ownerId) {
     return playlistRepository.findByIdForOwner(playlistId, ownerId);
   }
   return playlistRepository.findById(playlistId);
 };
 
-export const findContentForOwner = async (
+export const findContentForOwner = (
   contentRepository: ContentRepository,
   contentId: string,
   ownerId?: string,
 ) => {
-  if (ownerId && contentRepository.findByIdForOwner) {
+  if (ownerId) {
     return contentRepository.findByIdForOwner(contentId, ownerId);
   }
   return contentRepository.findById(contentId);
@@ -283,10 +283,10 @@ export const buildScheduleViewMaps = async (input: {
   );
 
   const [playlists, contents, displays] = await Promise.all([
-    input.ownerId && input.playlistRepository.findByIdsForOwner
+    input.ownerId
       ? input.playlistRepository.findByIdsForOwner(playlistIds, input.ownerId)
       : input.playlistRepository.findByIds(playlistIds),
-    input.ownerId && input.contentRepository.findByIdsForOwner
+    input.ownerId
       ? input.contentRepository.findByIdsForOwner(contentIds, input.ownerId)
       : input.contentRepository.findByIds(contentIds),
     input.displayRepository.findByIds(displayIds),

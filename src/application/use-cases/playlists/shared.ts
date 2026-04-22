@@ -52,19 +52,12 @@ export const runPlaylistPostMutationEffects = async (
   }
 };
 
-export const listPlaylistsForOwner = async (
+export const listPlaylistsForOwner = (
   playlistRepository: PlaylistRepository,
   ownerId: string,
-) => {
-  if (playlistRepository.listForOwner) {
-    return playlistRepository.listForOwner(ownerId);
-  }
-  return (await playlistRepository.list()).filter(
-    (playlist) => playlist.ownerId === ownerId,
-  );
-};
+) => playlistRepository.listForOwner(ownerId);
 
-export const listPlaylistPageForOwner = async (
+export const listPlaylistPageForOwner = (
   playlistRepository: PlaylistRepository,
   input: {
     ownerId?: string;
@@ -76,7 +69,7 @@ export const listPlaylistPageForOwner = async (
     sortDirection?: "asc" | "desc";
   },
 ) => {
-  if (input.ownerId && playlistRepository.listPageForOwner) {
+  if (input.ownerId) {
     return playlistRepository.listPageForOwner({
       ownerId: input.ownerId,
       offset: input.offset,
@@ -87,8 +80,7 @@ export const listPlaylistPageForOwner = async (
       sortDirection: input.sortDirection,
     });
   }
-
-  const { items, total } = await playlistRepository.listPage({
+  return playlistRepository.listPage({
     offset: input.offset,
     limit: input.limit,
     status: input.status,
@@ -96,48 +88,29 @@ export const listPlaylistPageForOwner = async (
     sortBy: input.sortBy,
     sortDirection: input.sortDirection,
   });
-
-  const filtered =
-    input.ownerId !== undefined
-      ? items.filter((playlist) => playlist.ownerId === input.ownerId)
-      : items;
-  return {
-    items: filtered,
-    total: input.ownerId !== undefined ? filtered.length : total,
-  };
 };
 
-export const findPlaylistByIdForOwner = async (
+export const findPlaylistByIdForOwner = (
   playlistRepository: PlaylistRepository,
   id: string,
   ownerId?: string,
 ) => {
-  if (ownerId && playlistRepository.findByIdForOwner) {
+  if (ownerId) {
     return playlistRepository.findByIdForOwner(id, ownerId);
   }
-
-  const playlist = await playlistRepository.findById(id);
-  if (ownerId && playlist?.ownerId !== ownerId) {
-    return null;
-  }
-  return playlist;
+  return playlistRepository.findById(id);
 };
 
-export const updatePlaylistForOwner = async (
+export const updatePlaylistForOwner = (
   playlistRepository: PlaylistRepository,
   id: string,
   ownerId: string | undefined,
   input: { name?: string; description?: string | null },
 ) => {
-  if (ownerId && playlistRepository.updateForOwner) {
+  if (ownerId) {
     return playlistRepository.updateForOwner(id, ownerId, input);
   }
-
-  const playlist = await playlistRepository.update(id, input);
-  if (ownerId && playlist?.ownerId !== ownerId) {
-    return null;
-  }
-  return playlist;
+  return playlistRepository.update(id, input);
 };
 
 export const deletePlaylistForOwner = async (
@@ -145,17 +118,8 @@ export const deletePlaylistForOwner = async (
   id: string,
   ownerId?: string,
 ) => {
-  if (ownerId && playlistRepository.deleteForOwner) {
+  if (ownerId) {
     return playlistRepository.deleteForOwner(id, ownerId);
-  }
-
-  const playlist = await findPlaylistByIdForOwner(
-    playlistRepository,
-    id,
-    ownerId,
-  );
-  if (!playlist) {
-    return false;
   }
   return playlistRepository.delete(id);
 };

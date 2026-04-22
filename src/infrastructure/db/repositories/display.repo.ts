@@ -151,37 +151,27 @@ export class DisplayDbRepository implements DisplayRepository {
     return rows.map(mapDisplayRowToRecord);
   }
 
-  async listPage(input: { page: number; pageSize: number }): Promise<{
+  async listPage(input: { offset: number; limit: number }): Promise<{
     items: DisplayRecord[];
     total: number;
-    page: number;
-    pageSize: number;
   }> {
-    const page = Number.isInteger(input.page) ? Math.max(1, input.page) : 1;
-    const pageSize = Number.isInteger(input.pageSize)
-      ? Math.min(100, Math.max(1, input.pageSize))
-      : 20;
-    const offset = (page - 1) * pageSize;
-
     const [rows, totalRows] = await Promise.all([
       buildDisplayQuery()
         .orderBy(desc(displays.createdAt))
-        .limit(pageSize)
-        .offset(offset),
+        .limit(input.limit)
+        .offset(input.offset),
       db.select({ count: sql<number>`count(*)` }).from(displays),
     ]);
 
     return {
       items: rows.map(mapDisplayRowToRecord),
       total: Number(totalRows[0]?.count ?? 0),
-      page,
-      pageSize,
     };
   }
 
   async searchPage(input: {
-    page: number;
-    pageSize: number;
+    offset: number;
+    limit: number;
     q?: string;
     status?: DisplayStatus;
     output?: string;
@@ -191,14 +181,8 @@ export class DisplayDbRepository implements DisplayRepository {
   }): Promise<{
     items: DisplayRecord[];
     total: number;
-    page: number;
-    pageSize: number;
   }> {
-    const page = Number.isInteger(input.page) ? Math.max(1, input.page) : 1;
-    const pageSize = Number.isInteger(input.pageSize)
-      ? Math.min(100, Math.max(1, input.pageSize))
-      : 20;
-    const offset = (page - 1) * pageSize;
+    const { offset, limit } = input;
 
     let filteredDisplayIds: string[] | undefined;
     if (input.groupIds && input.groupIds.length > 0) {
@@ -208,7 +192,7 @@ export class DisplayDbRepository implements DisplayRepository {
         .where(inArray(displayGroupMembers.groupId, [...input.groupIds]));
       filteredDisplayIds = [...new Set(rows.map((row) => row.displayId))];
       if (filteredDisplayIds.length === 0) {
-        return { items: [], total: 0, page, pageSize };
+        return { items: [], total: 0 };
       }
     }
 
@@ -252,7 +236,7 @@ export class DisplayDbRepository implements DisplayRepository {
       buildDisplayQuery()
         .where(whereClause)
         .orderBy(primaryOrder, secondaryOrder)
-        .limit(pageSize)
+        .limit(limit)
         .offset(offset),
       db
         .select({ count: sql<number>`count(*)` })
@@ -267,8 +251,6 @@ export class DisplayDbRepository implements DisplayRepository {
     return {
       items: rows.map(mapDisplayRowToRecord),
       total: Number(totalRows[0]?.count ?? 0),
-      page,
-      pageSize,
     };
   }
 
