@@ -18,13 +18,30 @@ describe("ContentDbRepository (integration)", () => {
       "#/infrastructure/db/repositories/content.repo"
     );
 
+    // Drop + recreate so this test owns the content schema even if a prior
+    // test created the tables with a stale shape (the integration test files
+    // hand-roll DDL independently and do not share state).
+    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+    await db.execute(sql`DROP TABLE IF EXISTS content_assets`);
+    await db.execute(sql`DROP TABLE IF EXISTS content`);
+    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
     await db.execute(
       sql`
-        CREATE TABLE IF NOT EXISTS content (
+        CREATE TABLE content (
           id varchar(36) PRIMARY KEY,
           title varchar(255) NOT NULL,
           type varchar(16) NOT NULL,
           status varchar(16) NOT NULL DEFAULT 'PROCESSING',
+          owner_id varchar(36) NOT NULL,
+          created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `,
+    );
+    await db.execute(
+      sql`
+        CREATE TABLE content_assets (
+          content_id varchar(36) PRIMARY KEY,
           file_key varchar(512) NOT NULL,
           thumbnail_key varchar(512) NULL,
           checksum varchar(128) NOT NULL,
@@ -33,8 +50,8 @@ describe("ContentDbRepository (integration)", () => {
           width int NULL,
           height int NULL,
           duration int NULL,
-          owner_id varchar(36) NOT NULL,
-          created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+          created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
       `,
     );
@@ -45,9 +62,6 @@ describe("ContentDbRepository (integration)", () => {
         ON DUPLICATE KEY UPDATE id = id
       `,
     );
-    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-    await db.execute(sql`DELETE FROM content`);
-    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
 
     const repo = new ContentDbRepository();
     const id = crypto.randomUUID();

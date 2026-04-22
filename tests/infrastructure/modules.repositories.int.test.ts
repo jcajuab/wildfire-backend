@@ -14,32 +14,68 @@ const setup = async () => {
 
   const { db } = await import("#/infrastructure/db/client");
 
+  // Drop any stale tables from prior migrations/runs so the hand-rolled test
+  // DDL below is always authoritative. Without this, CREATE TABLE IF NOT
+  // EXISTS silently skips when an older schema is present, producing "Unknown
+  // column" errors at insert time. FK checks are disabled for the drop
+  // because migrations may have created child tables with FK constraints
+  // pointing at the ones we want to recreate.
+  await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await db.execute(sql`DROP TABLE IF EXISTS schedules`);
+  await db.execute(sql`DROP TABLE IF EXISTS pairing_codes`);
+  await db.execute(sql`DROP TABLE IF EXISTS playlist_items`);
+  await db.execute(sql`DROP TABLE IF EXISTS playlists`);
+  await db.execute(sql`DROP TABLE IF EXISTS content_assets`);
+  await db.execute(sql`DROP TABLE IF EXISTS content`);
+  await db.execute(sql`DROP TABLE IF EXISTS displays`);
+  await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS displays (
+    CREATE TABLE displays (
       id varchar(36) PRIMARY KEY,
       name varchar(255) NOT NULL,
       slug varchar(255) NOT NULL,
+      status varchar(16) NOT NULL DEFAULT 'READY',
+      output varchar(16) NOT NULL DEFAULT 'unknown',
       location varchar(255) NULL,
+      fingerprint varchar(255) NULL,
+      ip_address varchar(64) NULL,
+      mac_address varchar(64) NULL,
+      screen_width int NULL,
+      screen_height int NULL,
+      orientation varchar(16) NULL,
+      emergency_content_id varchar(36) NULL,
+      last_seen_at timestamp NULL,
+      refresh_nonce int NOT NULL DEFAULT 0,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS playlists (
+    CREATE TABLE playlists (
       id varchar(36) PRIMARY KEY,
       name varchar(255) NOT NULL,
       description text NULL,
+      status varchar(16) NOT NULL DEFAULT 'DRAFT',
       owner_id varchar(36) NOT NULL,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS content (
+    CREATE TABLE content (
       id varchar(36) PRIMARY KEY,
       title varchar(255) NOT NULL,
       type varchar(16) NOT NULL,
       status varchar(16) NOT NULL DEFAULT 'PROCESSING',
+      owner_id varchar(36) NOT NULL,
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await db.execute(sql`
+    CREATE TABLE content_assets (
+      content_id varchar(36) PRIMARY KEY,
       file_key varchar(512) NOT NULL,
       thumbnail_key varchar(512) NULL,
       checksum varchar(128) NOT NULL,
@@ -48,12 +84,12 @@ const setup = async () => {
       width int NULL,
       height int NULL,
       duration int NULL,
-      owner_id varchar(36) NOT NULL,
-      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS playlist_items (
+    CREATE TABLE playlist_items (
       id varchar(36) PRIMARY KEY,
       playlist_id varchar(36) NOT NULL,
       content_id varchar(36) NOT NULL,
@@ -62,7 +98,7 @@ const setup = async () => {
     )
   `);
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS pairing_codes (
+    CREATE TABLE pairing_codes (
       id varchar(36) PRIMARY KEY,
       code_hash varchar(64) NOT NULL,
       expires_at timestamp NOT NULL,
@@ -74,29 +110,23 @@ const setup = async () => {
     )
   `);
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS schedules (
+    CREATE TABLE schedules (
       id varchar(36) PRIMARY KEY,
-      series_id varchar(36) NOT NULL,
+      series_id varchar(36) NULL,
       name varchar(255) NOT NULL,
-      playlist_id varchar(36) NOT NULL,
+      playlist_id varchar(36) NULL,
       display_id varchar(36) NOT NULL,
       start_date varchar(10) NOT NULL DEFAULT '1970-01-01',
       end_date varchar(10) NOT NULL DEFAULT '2099-12-31',
       start_time varchar(5) NOT NULL,
       end_time varchar(5) NOT NULL,
-      day_of_week int NOT NULL,
+      day_of_week int NULL,
       is_active boolean NOT NULL DEFAULT true,
+      created_by varchar(36) NOT NULL,
       created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
-
-  await db.execute(sql`DELETE FROM schedules`);
-  await db.execute(sql`DELETE FROM pairing_codes`);
-  await db.execute(sql`DELETE FROM playlist_items`);
-  await db.execute(sql`DELETE FROM playlists`);
-  await db.execute(sql`DELETE FROM content`);
-  await db.execute(sql`DELETE FROM displays`);
 
   return { db };
 };
@@ -141,8 +171,12 @@ describe("Module repositories (integration)", () => {
       ON DUPLICATE KEY UPDATE id = id
     `);
     await db.execute(sql`
-      INSERT INTO content (id, title, type, status, file_key, checksum, mime_type, file_size, owner_id)
-      VALUES ('content-1', 'Welcome', 'IMAGE', 'READY', 'content/images/a.png', 'abc', 'image/png', 100, 'user-1')
+      INSERT INTO content (id, title, type, status, owner_id)
+      VALUES ('content-1', 'Welcome', 'IMAGE', 'READY', 'user-1')
+    `);
+    await db.execute(sql`
+      INSERT INTO content_assets (content_id, file_key, checksum, mime_type, file_size)
+      VALUES ('content-1', 'content/images/a.png', 'abc', 'image/png', 100)
     `);
 
     const repo = new PlaylistDbRepository();

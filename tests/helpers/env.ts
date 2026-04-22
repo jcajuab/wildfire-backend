@@ -1,20 +1,15 @@
 type EnvOverrides = Record<string, string>;
 
+/**
+ * Apply caller-supplied env overrides on top of the preload baseline.
+ *
+ * Preload defaults live in `tests/helpers/preload-env.ts` (registered via
+ * `bunfig.toml`) and are applied once per test run. This helper is only for
+ * integration tests that need to override specific values (e.g. swapping in
+ * the real MySQL coordinates from `getIntegrationMySqlEnv`). It MUST NOT
+ * redefine preload defaults - doing so risks silently overwriting a valid
+ * preload value with a stale local copy.
+ */
 export const setTestEnv = (overrides: EnvOverrides = {}) => {
-  Object.assign(process.env, {
-    PORT: "3000",
-    ADMIN_USERNAME: "admin",
-    ADMIN_EMAIL: "admin@example.com",
-    ADMIN_PASSWORD: "admin-test-password",
-    HTSHADOW_PATH: "/etc/htshadow",
-    MYSQL_HOST: "127.0.0.1",
-    MYSQL_PORT: "3306",
-    MYSQL_DATABASE: "wildfire_test",
-    MYSQL_USER: "wildfire",
-    MYSQL_PASSWORD: "wildfire",
-    JWT_SECRET: "test-secret",
-    EMAIL_CHANGE_TOKEN_TTL_SECONDS: "86400",
-    EMAIL_CHANGE_VERIFY_BASE_URL: "http://localhost:3000/verify-email-change",
-    ...overrides,
-  });
+  Object.assign(process.env, overrides);
 };

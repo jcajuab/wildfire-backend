@@ -162,9 +162,9 @@ export class ListPlaylistsUseCase {
     for (const [playlistId, itemsForPlaylist] of playlistItemsByPlaylistId) {
       previewCandidateItemsByPlaylistId.set(
         playlistId,
-        [...itemsForPlaylist]
-          .sort((left, right) => left.sequence - right.sequence)
-          .slice(0, 3),
+        [...itemsForPlaylist].sort(
+          (left, right) => left.sequence - right.sequence,
+        ),
       );
     }
 
