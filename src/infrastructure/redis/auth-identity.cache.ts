@@ -15,10 +15,9 @@ export class RedisAuthIdentityCache implements AuthIdentityCache {
   ): Promise<{ isAdmin: boolean; permissions: string[] } | null> {
     try {
       const redis = await getRedisCommandClient();
-      const cached = await executeRedisCommand<string | null>(redis, [
-        "GET",
-        identityKey(userId),
-      ]);
+      const cached = await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).get(identityKey(userId)),
+      );
       if (cached != null) {
         return JSON.parse(cached) as {
           isAdmin: boolean;
@@ -41,13 +40,11 @@ export class RedisAuthIdentityCache implements AuthIdentityCache {
   ): Promise<void> {
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand(redis, [
-        "SET",
-        identityKey(userId),
-        JSON.stringify(value),
-        "EX",
-        String(ttlSeconds),
-      ]);
+      await executeRedisCommand((signal) =>
+        redis
+          .withAbortSignal(signal)
+          .set(identityKey(userId), JSON.stringify(value), { EX: ttlSeconds }),
+      );
     } catch {
       // Best-effort cache write — DB result is already available
     }
@@ -56,7 +53,9 @@ export class RedisAuthIdentityCache implements AuthIdentityCache {
   async invalidatePermissions(userId: string): Promise<void> {
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand(redis, ["DEL", identityKey(userId)]);
+      await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).del(identityKey(userId)),
+      );
     } catch {
       logger.warn(
         { event: "auth.identity_cache.invalidation_failed", userId },

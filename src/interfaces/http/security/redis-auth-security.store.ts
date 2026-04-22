@@ -61,11 +61,9 @@ export class RedisAuthSecurityStore implements AuthSecurityStore {
     retryAfterSeconds?: number;
   }> {
     const redis = await getRedisCommandClient();
-    const lockedUntilRaw = await executeRedisCommand<string | null>(redis, [
-      "HGET",
-      loginAttemptKey(key),
-      "lockedUntilMs",
-    ]);
+    const lockedUntilRaw = await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).hGet(loginAttemptKey(key), "lockedUntilMs"),
+    );
     const lockedUntilMs = parseMilliseconds(lockedUntilRaw ?? undefined);
 
     if (lockedUntilMs == null || lockedUntilMs <= nowMs) {
@@ -104,7 +102,9 @@ export class RedisAuthSecurityStore implements AuthSecurityStore {
 
   async clearLoginFailures(key: string): Promise<void> {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand<number>(redis, ["DEL", loginAttemptKey(key)]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).del(loginAttemptKey(key)),
+    );
   }
 
   async consumeEndpointAttempt(input: {

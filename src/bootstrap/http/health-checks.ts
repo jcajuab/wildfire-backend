@@ -69,7 +69,7 @@ export const createDefaultHealthDependencyChecks = (
   checkRedis: async (): Promise<{ ok: boolean; error?: string }> => {
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand<void>(redis, ["PING"], {
+      await executeRedisCommand(() => redis.ping(), {
         timeoutMs: config.healthCheckTimeoutMs,
         operationName: "redis ping",
       });
@@ -84,14 +84,10 @@ export const createDefaultHealthDependencyChecks = (
   checkAuditStream: async (): Promise<{ ok: boolean; error?: string }> => {
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand<void>(
-        redis,
-        ["TYPE", config.redisAuditStreamName],
-        {
-          timeoutMs: config.healthCheckTimeoutMs,
-          operationName: "audit stream health check",
-        },
-      );
+      await executeRedisCommand(() => redis.type(config.redisAuditStreamName), {
+        timeoutMs: config.healthCheckTimeoutMs,
+        operationName: "audit stream health check",
+      });
       return { ok: true };
     } catch (error) {
       return {

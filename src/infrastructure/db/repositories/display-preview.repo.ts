@@ -16,27 +16,26 @@ const previewKey = (displayId: string): string =>
 export class DisplayPreviewRedisRepository implements DisplayPreviewRepository {
   async upsertLatest(input: DisplayPreviewRecord): Promise<void> {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand(redis, [
-      "SET",
-      previewKey(input.displayId),
-      JSON.stringify({
-        displayId: input.displayId,
-        imageDataUrl: input.imageDataUrl,
-        capturedAt: input.capturedAt,
-      }),
-      "EX",
-      String(PREVIEW_TTL_SECONDS),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).set(
+        previewKey(input.displayId),
+        JSON.stringify({
+          displayId: input.displayId,
+          imageDataUrl: input.imageDataUrl,
+          capturedAt: input.capturedAt,
+        }),
+        { EX: PREVIEW_TTL_SECONDS },
+      ),
+    );
   }
 
   async findLatestByDisplayId(
     displayId: string,
   ): Promise<DisplayPreviewRecord | null> {
     const redis = await getRedisCommandClient();
-    const raw = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      previewKey(displayId),
-    ]);
+    const raw = await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).get(previewKey(displayId)),
+    );
     if (typeof raw !== "string" || raw.length === 0) {
       return null;
     }

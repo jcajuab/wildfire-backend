@@ -107,32 +107,25 @@ export class DisplayPairingSessionRedisRepository
     const id = crypto.randomUUID();
     const nowMs = Date.now();
     const challengeExpiresAtMs = input.challengeExpiresAt.getTime();
+    const expiresAtSeconds = Number(toUnixSeconds(input.challengeExpiresAt));
 
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      pairingSessionKey(id),
-      "id",
-      id,
-      "pairingCodeId",
-      input.pairingCodeId,
-      "state",
-      "open",
-      "challengeNonce",
-      input.challengeNonce,
-      "challengeExpiresAtMs",
-      String(challengeExpiresAtMs),
-      "completedAtMs",
-      "",
-      "createdAtMs",
-      String(nowMs),
-      "updatedAtMs",
-      String(nowMs),
-    ]);
-    await executeRedisCommand<number>(redis, [
-      "EXPIREAT",
-      pairingSessionKey(id),
-      toUnixSeconds(input.challengeExpiresAt),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).hSet(pairingSessionKey(id), {
+        id,
+        pairingCodeId: input.pairingCodeId,
+        state: "open",
+        challengeNonce: input.challengeNonce,
+        challengeExpiresAtMs: String(challengeExpiresAtMs),
+        completedAtMs: "",
+        createdAtMs: String(nowMs),
+        updatedAtMs: String(nowMs),
+      }),
+    );
+    await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .expireAt(pairingSessionKey(id), expiresAtSeconds),
+    );
 
     return mapStoredSessionToRecord({
       id,
@@ -153,10 +146,9 @@ export class DisplayPairingSessionRedisRepository
     const redis = await getRedisCommandClient();
     const stored = parseStoredPairingSession(
       normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, [
-          "HGETALL",
-          pairingSessionKey(input.id),
-        ]),
+        await executeRedisCommand((signal) =>
+          redis.withAbortSignal(signal).hGetAll(pairingSessionKey(input.id)),
+        ),
       ),
     );
 
@@ -179,7 +171,9 @@ export class DisplayPairingSessionRedisRepository
     const key = pairingSessionKey(id);
     const stored = parseStoredPairingSession(
       normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, ["HGETALL", key]),
+        await executeRedisCommand((signal) =>
+          redis.withAbortSignal(signal).hGetAll(key),
+        ),
       ),
     );
 
@@ -195,16 +189,13 @@ export class DisplayPairingSessionRedisRepository
       return false;
     }
 
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      key,
-      "state",
-      "completed",
-      "completedAtMs",
-      String(completedAtMs),
-      "updatedAtMs",
-      String(completedAtMs),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).hSet(key, {
+        state: "completed",
+        completedAtMs: String(completedAtMs),
+        updatedAtMs: String(completedAtMs),
+      }),
+    );
 
     return true;
   }

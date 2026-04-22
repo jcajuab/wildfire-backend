@@ -235,10 +235,9 @@ export class RedisDisplayRegistrationAttemptStore
     const redis = await getRedisCommandClient();
     const attempt = parseRegistrationAttempt(
       normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, [
-          "HGETALL",
-          attemptKey(input.attemptId),
-        ]),
+        await executeRedisCommand((signal) =>
+          redis.withAbortSignal(signal).hGetAll(attemptKey(input.attemptId)),
+        ),
       ),
     );
     return attempt?.ownerId === input.ownerId;
@@ -278,22 +277,21 @@ export class RedisDisplayRegistrationAttemptStore
     attemptId: string;
   }): Promise<void> {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand<void>(redis, [
-      "SET",
-      sessionAttemptKey(input.sessionId),
-      input.attemptId,
-      "PX",
-      String(sessionTtlMs),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .set(sessionAttemptKey(input.sessionId), input.attemptId, {
+          PX: sessionTtlMs,
+        }),
+    );
   }
 
   async consumeSessionAttemptId(sessionId: string): Promise<string | null> {
     const redis = await getRedisCommandClient();
     const reply = toRedisValue(
-      await executeRedisCommand<string | null>(redis, [
-        "GETDEL",
-        sessionAttemptKey(sessionId),
-      ]),
+      await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).getDel(sessionAttemptKey(sessionId)),
+      ),
     );
     return reply.length > 0 ? reply : null;
   }

@@ -22,10 +22,9 @@ export class CachedAuthorizationRepository implements AuthorizationRepository {
   async findPermissionsForUser(userId: string): Promise<Permission[]> {
     try {
       const redis = await getRedisCommandClient();
-      const cached = await executeRedisCommand<string | null>(redis, [
-        "GET",
-        permissionsKey(userId),
-      ]);
+      const cached = await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).get(permissionsKey(userId)),
+      );
 
       if (cached != null) {
         const parsed = JSON.parse(cached) as string[];
@@ -45,13 +44,11 @@ export class CachedAuthorizationRepository implements AuthorizationRepository {
       const serialized = JSON.stringify(
         permissions.map((p) => `${p.resource}:${p.action}`),
       );
-      await executeRedisCommand(redis, [
-        "SET",
-        permissionsKey(userId),
-        serialized,
-        "EX",
-        String(PERMISSIONS_TTL_SECONDS),
-      ]);
+      await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).set(permissionsKey(userId), serialized, {
+          EX: PERMISSIONS_TTL_SECONDS,
+        }),
+      );
     } catch {
       // Best-effort cache write -- DB result is already available
     }
@@ -62,10 +59,9 @@ export class CachedAuthorizationRepository implements AuthorizationRepository {
   async isAdminUser(userId: string): Promise<boolean> {
     try {
       const redis = await getRedisCommandClient();
-      const cached = await executeRedisCommand<string | null>(redis, [
-        "GET",
-        adminKey(userId),
-      ]);
+      const cached = await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).get(adminKey(userId)),
+      );
 
       if (cached != null) {
         return cached === "1";
@@ -81,13 +77,13 @@ export class CachedAuthorizationRepository implements AuthorizationRepository {
 
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand(redis, [
-        "SET",
-        adminKey(userId),
-        isAdmin ? "1" : "0",
-        "EX",
-        String(ADMIN_TTL_SECONDS),
-      ]);
+      await executeRedisCommand((signal) =>
+        redis
+          .withAbortSignal(signal)
+          .set(adminKey(userId), isAdmin ? "1" : "0", {
+            EX: ADMIN_TTL_SECONDS,
+          }),
+      );
     } catch {
       // Best-effort cache write
     }
@@ -98,8 +94,11 @@ export class CachedAuthorizationRepository implements AuthorizationRepository {
   static async invalidateUser(userId: string): Promise<void> {
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand(redis, ["DEL", permissionsKey(userId)]);
-      await executeRedisCommand(redis, ["DEL", adminKey(userId)]);
+      await executeRedisCommand((signal) =>
+        redis
+          .withAbortSignal(signal)
+          .del([permissionsKey(userId), adminKey(userId)]),
+      );
     } catch {
       logger.warn(
         { event: "auth.cache.invalidation_failed", userId },

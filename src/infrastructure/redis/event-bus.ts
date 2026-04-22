@@ -146,11 +146,11 @@ export function makeRedisEventBus<TEvent>(config: {
     try {
       const publisher = await getRedisPublisherClient();
       const envelope: Envelope<TEvent> = { origin, event };
-      await executeRedisCommand<number>(publisher, [
-        "PUBLISH",
-        config.channel,
-        JSON.stringify(envelope),
-      ]);
+      await executeRedisCommand((signal) =>
+        publisher
+          .withAbortSignal(signal)
+          .publish(config.channel, JSON.stringify(envelope)),
+      );
     } catch (error) {
       logger.warn(
         addErrorContext(

@@ -75,10 +75,9 @@ export class CachedAuthSessionRepository implements AuthSessionRepository {
   } | null> {
     try {
       const redis = await getRedisCommandClient();
-      const cached = await executeRedisCommand<string | null>(redis, [
-        "GET",
-        sessionKey(sessionId),
-      ]);
+      const cached = await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).get(sessionKey(sessionId)),
+      );
 
       if (cached === NULL_SENTINEL) {
         return null;
@@ -106,13 +105,13 @@ export class CachedAuthSessionRepository implements AuthSessionRepository {
     try {
       const redis = await getRedisCommandClient();
       if (session == null) {
-        await executeRedisCommand(redis, [
-          "SET",
-          sessionKey(sessionId),
-          NULL_SENTINEL,
-          "EX",
-          String(NULL_TTL_SECONDS),
-        ]);
+        await executeRedisCommand((signal) =>
+          redis
+            .withAbortSignal(signal)
+            .set(sessionKey(sessionId), NULL_SENTINEL, {
+              EX: NULL_TTL_SECONDS,
+            }),
+        );
       } else {
         const serialized = JSON.stringify({
           id: session.id,
@@ -124,13 +123,11 @@ export class CachedAuthSessionRepository implements AuthSessionRepository {
             session.previousJtiExpiresAt?.toISOString() ?? null,
           expiresAt: session.expiresAt.toISOString(),
         } satisfies CachedSessionData);
-        await executeRedisCommand(redis, [
-          "SET",
-          sessionKey(sessionId),
-          serialized,
-          "EX",
-          String(SESSION_TTL_SECONDS),
-        ]);
+        await executeRedisCommand((signal) =>
+          redis.withAbortSignal(signal).set(sessionKey(sessionId), serialized, {
+            EX: SESSION_TTL_SECONDS,
+          }),
+        );
       }
     } catch {
       // Best-effort cache write
@@ -164,7 +161,9 @@ export class CachedAuthSessionRepository implements AuthSessionRepository {
   private async deleteKey(sessionId: string): Promise<void> {
     try {
       const redis = await getRedisCommandClient();
-      await executeRedisCommand(redis, ["DEL", sessionKey(sessionId)]);
+      await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).del(sessionKey(sessionId)),
+      );
     } catch {
       logger.warn(
         { event: "auth.session_cache.invalidation_failed", sessionId },

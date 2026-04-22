@@ -41,23 +41,27 @@ export class RedisContentIngestionQueue {
     }
 
     const maxAttempts = this.config.enqueueMaxAttempts;
+    const threshold = this.config.maxStreamLength;
+    const streamName = this.config.streamName;
 
     try {
       await retryWithBackoff(
         async () => {
           const redis = await getRedisCommandClient();
-          await executeRedisCommand<void>(
-            redis,
-            [
-              "XADD",
-              this.config.streamName,
-              "MAXLEN",
-              "~",
-              String(this.config.maxStreamLength),
-              "*",
-              "payload",
-              JSON.stringify({ jobId: input.jobId }),
-            ],
+          await executeRedisCommand(
+            (signal) =>
+              redis.withAbortSignal(signal).xAdd(
+                streamName,
+                "*",
+                { payload: JSON.stringify({ jobId: input.jobId }) },
+                {
+                  TRIM: {
+                    strategy: "MAXLEN",
+                    strategyModifier: "~",
+                    threshold,
+                  },
+                },
+              ),
             {
               timeoutMs: this.config.enqueueTimeoutMs,
               operationName: "content ingestion queue push",

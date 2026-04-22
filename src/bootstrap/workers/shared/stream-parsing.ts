@@ -3,49 +3,31 @@ export interface StreamEntry {
   payload: string;
 }
 
-export const parseStreamEntries = (reply: unknown): StreamEntry[] => {
-  if (!Array.isArray(reply)) {
-    return [];
+const getMessageField = (
+  message: Map<string, string> | Record<string, string>,
+  field: string,
+): string | undefined => {
+  if (message instanceof Map) {
+    return message.get(field);
   }
+  return (message as Record<string, string>)[field];
+};
+
+export const parseStreamEntries = (reply: unknown): StreamEntry[] => {
+  if (!Array.isArray(reply)) return [];
 
   const entries: StreamEntry[] = [];
 
-  for (const rawStream of reply) {
-    if (!Array.isArray(rawStream) || rawStream.length < 2) {
-      continue;
-    }
-
-    const rawEntries = rawStream[1];
-    if (!Array.isArray(rawEntries)) {
-      continue;
-    }
-
-    for (const rawEntry of rawEntries) {
-      if (!Array.isArray(rawEntry) || rawEntry.length < 2) {
-        continue;
-      }
-
-      const entryId = rawEntry[0];
-      const fields = rawEntry[1];
-      if (typeof entryId !== "string" || !Array.isArray(fields)) {
-        continue;
-      }
-
-      let payload: string | null = null;
-      for (let index = 0; index < fields.length; index += 2) {
-        const field = fields[index];
-        const value = fields[index + 1];
-        if (field === "payload" && typeof value === "string") {
-          payload = value;
-          break;
-        }
-      }
-
-      if (payload != null) {
-        entries.push({
-          id: entryId,
-          payload,
-        });
+  for (const stream of reply) {
+    if (!stream || !Array.isArray(stream.messages)) continue;
+    for (const msg of stream.messages) {
+      if (!msg || typeof msg.id !== "string") continue;
+      const message = msg.message as
+        | Map<string, string>
+        | Record<string, string>;
+      const payload = getMessageField(message, "payload");
+      if (typeof payload === "string") {
+        entries.push({ id: msg.id, payload });
       }
     }
   }

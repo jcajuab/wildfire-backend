@@ -18,21 +18,20 @@ const heartbeatKey = (displayId: string): string =>
 export class RedisDisplayHeartbeatStore implements DisplayHeartbeatStore {
   async touchSeen(displayId: string, at: Date): Promise<void> {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand(redis, [
-      "SET",
-      heartbeatKey(displayId),
-      at.toISOString(),
-      "EX",
-      String(HEARTBEAT_TTL_SECONDS),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .set(heartbeatKey(displayId), at.toISOString(), {
+          EX: HEARTBEAT_TTL_SECONDS,
+        }),
+    );
   }
 
   async getLastSeenAt(displayId: string): Promise<string | null> {
     const redis = await getRedisCommandClient();
-    const result = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      heartbeatKey(displayId),
-    ]);
+    const result = await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).get(heartbeatKey(displayId)),
+    );
     return result ?? null;
   }
 
@@ -43,10 +42,9 @@ export class RedisDisplayHeartbeatStore implements DisplayHeartbeatStore {
 
     const redis = await getRedisCommandClient();
     const keys = displayIds.map(heartbeatKey);
-    const results = await executeRedisCommand<(string | null)[]>(redis, [
-      "MGET",
-      ...keys,
-    ]);
+    const results = await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).mGet(keys),
+    );
 
     const map = new Map<string, string>();
     for (let i = 0; i < displayIds.length; i++) {

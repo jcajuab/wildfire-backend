@@ -17,22 +17,19 @@ export const addToDlq = async (
   },
 ): Promise<void> => {
   const redis = await getRedisCommandClient();
-  await executeRedisCommand(redis, [
-    "XADD",
-    streamDlqName,
-    "MAXLEN",
-    "~",
-    String(Math.max(1000, env.CONTENT_INGEST_QUEUE_CAPACITY)),
-    "*",
-    "entryId",
-    input.entry.id,
-    "reason",
-    input.reason,
-    "error",
-    input.error ?? "",
-    "payload",
-    input.entry.payload,
-    "occurredAt",
-    new Date().toISOString(),
-  ]);
+  const threshold = Math.max(1000, env.CONTENT_INGEST_QUEUE_CAPACITY);
+  await executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).xAdd(
+      streamDlqName,
+      "*",
+      {
+        entryId: input.entry.id,
+        reason: input.reason,
+        error: input.error ?? "",
+        payload: input.entry.payload,
+        occurredAt: new Date().toISOString(),
+      },
+      { TRIM: { strategy: "MAXLEN", strategyModifier: "~", threshold } },
+    ),
+  );
 };

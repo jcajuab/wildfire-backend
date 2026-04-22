@@ -92,37 +92,33 @@ export class DisplayPairingCodeRedisRepository
     const id = crypto.randomUUID();
     const nowMs = Date.now();
     const expiresAtMs = input.expiresAt.getTime();
+    const expiresAtSeconds = Number(toUnixSeconds(input.expiresAt));
 
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      pairingCodeKey(id),
-      "id",
-      id,
-      "codeHash",
-      input.codeHash,
-      "expiresAtMs",
-      String(expiresAtMs),
-      "usedAtMs",
-      "",
-      "ownerId",
-      input.ownerId,
-      "createdAtMs",
-      String(nowMs),
-      "updatedAtMs",
-      String(nowMs),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).hSet(pairingCodeKey(id), {
+        id,
+        codeHash: input.codeHash,
+        expiresAtMs: String(expiresAtMs),
+        usedAtMs: "",
+        ownerId: input.ownerId,
+        createdAtMs: String(nowMs),
+        updatedAtMs: String(nowMs),
+      }),
+    );
 
-    const setResult = await executeRedisCommand<string>(redis, [
-      "SET",
-      pairingCodeLookupKey(input.codeHash),
-      id,
-      "EXAT",
-      toUnixSeconds(input.expiresAt),
-      "NX",
-    ]);
+    const setResult = await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .set(pairingCodeLookupKey(input.codeHash), id, {
+          EXAT: expiresAtSeconds,
+          NX: true,
+        }),
+    );
 
     if (toRedisValue(setResult) !== "OK") {
-      await executeRedisCommand<number>(redis, ["DEL", pairingCodeKey(id)]);
+      await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).del(pairingCodeKey(id)),
+      );
       throw new DisplayPairingCodeCollisionError();
     }
 
@@ -143,10 +139,11 @@ export class DisplayPairingCodeRedisRepository
   }): Promise<DisplayPairingCodeRecord | null> {
     const redis = await getRedisCommandClient();
     const consumedId = toRedisValue(
-      await executeRedisCommand<string | null>(redis, [
-        "GETDEL",
-        pairingCodeLookupKey(input.codeHash),
-      ]),
+      await executeRedisCommand((signal) =>
+        redis
+          .withAbortSignal(signal)
+          .getDel(pairingCodeLookupKey(input.codeHash)),
+      ),
     );
 
     if (consumedId.length === 0) {
@@ -156,7 +153,9 @@ export class DisplayPairingCodeRedisRepository
     const key = pairingCodeKey(consumedId);
     const stored = parseStoredPairingCode(
       normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, ["HGETALL", key]),
+        await executeRedisCommand((signal) =>
+          redis.withAbortSignal(signal).hGetAll(key),
+        ),
       ),
     );
     if (!stored) {
@@ -168,14 +167,12 @@ export class DisplayPairingCodeRedisRepository
       return null;
     }
 
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      key,
-      "usedAtMs",
-      String(nowMs),
-      "updatedAtMs",
-      String(nowMs),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).hSet(key, {
+        usedAtMs: String(nowMs),
+        updatedAtMs: String(nowMs),
+      }),
+    );
 
     return mapStoredCodeToRecord({
       ...stored,
@@ -189,7 +186,9 @@ export class DisplayPairingCodeRedisRepository
     const key = pairingCodeKey(input.id);
     const stored = parseStoredPairingCode(
       normalizeRedisHash(
-        await executeRedisCommand<unknown>(redis, ["HGETALL", key]),
+        await executeRedisCommand((signal) =>
+          redis.withAbortSignal(signal).hGetAll(key),
+        ),
       ),
     );
 
@@ -202,17 +201,14 @@ export class DisplayPairingCodeRedisRepository
       return;
     }
 
-    await executeRedisCommand<number>(redis, [
-      "HSET",
-      key,
-      "usedAtMs",
-      String(nowMs),
-      "updatedAtMs",
-      String(nowMs),
-    ]);
-    await executeRedisCommand<number>(redis, [
-      "DEL",
-      pairingCodeLookupKey(stored.codeHash),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).hSet(key, {
+        usedAtMs: String(nowMs),
+        updatedAtMs: String(nowMs),
+      }),
+    );
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).del(pairingCodeLookupKey(stored.codeHash)),
+    );
   }
 }

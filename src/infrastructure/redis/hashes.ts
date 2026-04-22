@@ -5,7 +5,11 @@ const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
     return false;
   }
 
-  return Object.getPrototypeOf(value) === Object.prototype;
+  // Accept both plain objects ({}.prototype) and null-prototype objects,
+  // which node-redis v5 uses for hGetAll replies to avoid prototype
+  // pollution. Reject any other exotic object (Date, Buffer, etc).
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
 };
 
 export const normalizeRedisHash = (value: unknown): Record<string, string> => {

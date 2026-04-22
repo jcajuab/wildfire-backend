@@ -38,20 +38,18 @@ export const createContentIngestionStreamTransport = (input: {
       try {
         const redis = await getRedisCommandClient();
         const reply = await executeRedisCommand(
-          redis,
-          [
-            "XREADGROUP",
-            "GROUP",
-            input.config.streamGroup,
-            input.config.consumerName,
-            "COUNT",
-            String(env.REDIS_STREAM_BATCH_SIZE),
-            "BLOCK",
-            String(env.REDIS_STREAM_BLOCK_MS),
-            "STREAMS",
-            input.config.streamName,
-            ">",
-          ],
+          (signal) =>
+            redis
+              .withAbortSignal(signal)
+              .xReadGroup(
+                input.config.streamGroup,
+                input.config.consumerName,
+                [{ key: input.config.streamName, id: ">" }],
+                {
+                  COUNT: env.REDIS_STREAM_BATCH_SIZE,
+                  BLOCK: env.REDIS_STREAM_BLOCK_MS,
+                },
+              ),
           {
             timeoutMs: Math.max(
               1_000,
@@ -116,14 +114,18 @@ export const createContentIngestionStreamTransport = (input: {
   const ensureGroup = async (): Promise<void> => {
     const redis = await getRedisCommandClient();
     try {
-      await executeRedisCommand(redis, [
-        "XGROUP",
-        "CREATE",
-        input.config.streamName,
-        input.config.streamGroup,
-        "0",
-        "MKSTREAM",
-      ]);
+      await executeRedisCommand((signal) =>
+        redis
+          .withAbortSignal(signal)
+          .xGroupCreate(
+            input.config.streamName,
+            input.config.streamGroup,
+            "0",
+            {
+              MKSTREAM: true,
+            },
+          ),
+      );
       logger.info(
         {
           component: "content",

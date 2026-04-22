@@ -65,18 +65,20 @@ export class RedisAuditQueue implements AuditLogQueue {
       await retryWithBackoff(
         async () => {
           const redis = await getRedisCommandClient();
-          await executeRedisCommand<void>(
-            redis,
-            [
-              "XADD",
-              this.config.streamName,
-              "MAXLEN",
-              "~",
-              String(this.config.maxStreamLength),
-              "*",
-              "payload",
-              JSON.stringify(event),
-            ],
+          await executeRedisCommand(
+            (signal) =>
+              redis.withAbortSignal(signal).xAdd(
+                this.config.streamName,
+                "*",
+                { payload: JSON.stringify(event) },
+                {
+                  TRIM: {
+                    strategy: "MAXLEN",
+                    strategyModifier: "~",
+                    threshold: this.config.maxStreamLength,
+                  },
+                },
+              ),
             {
               timeoutMs: this.config.enqueueTimeoutMs,
               operationName: "audit queue push",

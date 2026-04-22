@@ -7,12 +7,6 @@ import { withTimeout } from "#/shared/retry";
 
 type RedisConnectionKind = "command" | "publisher" | "subscriber";
 type RedisClient = ReturnType<typeof createClient>;
-type RedisCommandClient = {
-  sendCommand(
-    command: readonly string[],
-    options?: { abortSignal?: AbortSignal },
-  ): Promise<unknown>;
-};
 type RedisCommandTimeoutConfig = {
   operationName?: string;
   timeoutMs?: number;
@@ -24,18 +18,12 @@ const REDIS_COMMAND_DEFAULT_TIMEOUT_MS = Math.max(
 );
 
 export const executeRedisCommand = <T>(
-  client: RedisCommandClient,
-  command: readonly string[],
+  run: (signal: AbortSignal) => Promise<T>,
   options: RedisCommandTimeoutConfig = {},
 ): Promise<T> => {
-  const operation =
-    options.operationName ?? `Redis ${String(command[0] ?? "command")}`;
+  const operation = options.operationName ?? "redis command";
   const timeoutMs = options.timeoutMs ?? REDIS_COMMAND_DEFAULT_TIMEOUT_MS;
-  return withTimeout<unknown>(
-    (signal) => client.sendCommand(command, { abortSignal: signal }),
-    timeoutMs,
-    operation,
-  ) as Promise<T>;
+  return withTimeout(run, timeoutMs, operation);
 };
 
 const reconnectStrategy =

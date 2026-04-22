@@ -37,20 +37,18 @@ const readStreamEntriesWithRetry = async (): Promise<StreamEntry[]> => {
     try {
       const redis = await getRedisCommandClient();
       const reply = await executeRedisCommand(
-        redis,
-        [
-          "XREADGROUP",
-          "GROUP",
-          streamGroup,
-          consumerName,
-          "COUNT",
-          String(env.REDIS_STREAM_BATCH_SIZE),
-          "BLOCK",
-          String(env.REDIS_STREAM_BLOCK_MS),
-          "STREAMS",
-          streamName,
-          ">",
-        ],
+        (signal) =>
+          redis
+            .withAbortSignal(signal)
+            .xReadGroup(
+              streamGroup,
+              consumerName,
+              [{ key: streamName, id: ">" }],
+              {
+                COUNT: env.REDIS_STREAM_BATCH_SIZE,
+                BLOCK: env.REDIS_STREAM_BLOCK_MS,
+              },
+            ),
         {
           timeoutMs: Math.max(
             1_000,
@@ -144,14 +142,11 @@ const parseAuditLogPayload = (payload: string): CreateAuditLogInput | null => {
 const ensureGroup = async (): Promise<void> => {
   const redis = await getRedisCommandClient();
   try {
-    await executeRedisCommand(redis, [
-      "XGROUP",
-      "CREATE",
-      streamName,
-      streamGroup,
-      "0",
-      "MKSTREAM",
-    ]);
+    await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .xGroupCreate(streamName, streamGroup, "0", { MKSTREAM: true }),
+    );
     logger.info(
       {
         streamName,
@@ -170,8 +165,12 @@ const ensureGroup = async (): Promise<void> => {
 
 const ackAndDeleteEntry = async (entryId: string): Promise<void> => {
   const redis = await getRedisCommandClient();
-  await executeRedisCommand(redis, ["XACK", streamName, streamGroup, entryId]);
-  await executeRedisCommand(redis, ["XDEL", streamName, entryId]);
+  await executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).xAck(streamName, streamGroup, entryId),
+  );
+  await executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).xDel(streamName, entryId),
+  );
 };
 
 const addToDlq = async (input: {
@@ -180,24 +179,21 @@ const addToDlq = async (input: {
   error?: string;
 }): Promise<void> => {
   const redis = await getRedisCommandClient();
-  await executeRedisCommand(redis, [
-    "XADD",
-    streamDlqName,
-    "MAXLEN",
-    "~",
-    String(Math.max(1000, env.AUDIT_QUEUE_CAPACITY)),
-    "*",
-    "entryId",
-    input.entry.id,
-    "reason",
-    input.reason,
-    "error",
-    input.error ?? "",
-    "payload",
-    input.entry.payload,
-    "occurredAt",
-    new Date().toISOString(),
-  ]);
+  const threshold = Math.max(1000, env.AUDIT_QUEUE_CAPACITY);
+  await executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).xAdd(
+      streamDlqName,
+      "*",
+      {
+        entryId: input.entry.id,
+        reason: input.reason,
+        error: input.error ?? "",
+        payload: input.entry.payload,
+        occurredAt: new Date().toISOString(),
+      },
+      { TRIM: { strategy: "MAXLEN", strategyModifier: "~", threshold } },
+    ),
+  );
 };
 
 const processEntry = async (input: {

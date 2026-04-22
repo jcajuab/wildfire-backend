@@ -14,7 +14,9 @@ const avatarCacheTtl = (expiresInSeconds: number): number =>
 /** Run a single Redis command with connection + timeout guard. */
 const redisGet = async (key: string): Promise<string | null> => {
   const redis = await getRedisCommandClient();
-  return executeRedisCommand<string | null>(redis, ["GET", key]);
+  return executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).get(key),
+  );
 };
 
 const redisSet = async (
@@ -23,19 +25,25 @@ const redisSet = async (
   ttl: number,
 ): Promise<void> => {
   const redis = await getRedisCommandClient();
-  await executeRedisCommand(redis, ["SET", key, value, "EX", String(ttl)]);
+  await executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).set(key, value, { EX: ttl }),
+  );
 };
 
 const redisMget = async (keys: string[]): Promise<(string | null)[]> => {
   const redis = await getRedisCommandClient();
-  return executeRedisCommand<(string | null)[]>(redis, ["MGET", ...keys]);
+  return executeRedisCommand((signal) =>
+    redis.withAbortSignal(signal).mGet(keys),
+  );
 };
 
 /** Clear the cached presigned avatar URL from Redis so the next request generates a fresh one. */
 export const clearAvatarUrlCache = async (avatarKey: string): Promise<void> => {
   try {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand(redis, ["DEL", avatarCacheKey(avatarKey)]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).del(avatarCacheKey(avatarKey)),
+    );
   } catch {
     // Best-effort cache clear.
   }

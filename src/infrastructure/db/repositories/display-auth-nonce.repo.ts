@@ -21,15 +21,16 @@ export class DisplayAuthNonceRedisRepository
     expiresAt: Date;
   }): Promise<boolean> {
     const redis = await getRedisCommandClient();
-    const result = await executeRedisCommand<string>(redis, [
-      "SET",
-      nonceKey(input.displayId, input.nonce),
-      "1",
-      "NX",
-      "EXAT",
-      toUnixSeconds(input.expiresAt),
-    ]);
+    const expiresAtSeconds = Number(toUnixSeconds(input.expiresAt));
+    const result = await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .set(nonceKey(input.displayId, input.nonce), "1", {
+          NX: true,
+          EXAT: expiresAtSeconds,
+        }),
+    );
 
-    return String(result) === "OK";
+    return result === "OK";
   }
 }

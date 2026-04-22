@@ -15,21 +15,20 @@ const sessionKey = (uploadId: string): string =>
 export class RedisPdfCropSessionStore implements PdfCropSessionStore {
   async save(session: PdfCropSession): Promise<void> {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand<string>(redis, [
-      "SET",
-      sessionKey(session.uploadId),
-      JSON.stringify(session),
-      "EX",
-      String(PDF_CROP_SESSION_TTL_SECONDS),
-    ]);
+    await executeRedisCommand((signal) =>
+      redis
+        .withAbortSignal(signal)
+        .set(sessionKey(session.uploadId), JSON.stringify(session), {
+          EX: PDF_CROP_SESSION_TTL_SECONDS,
+        }),
+    );
   }
 
   async findById(uploadId: string): Promise<PdfCropSession | null> {
     const redis = await getRedisCommandClient();
-    const raw = await executeRedisCommand<string | null>(redis, [
-      "GET",
-      sessionKey(uploadId),
-    ]);
+    const raw = await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).get(sessionKey(uploadId)),
+    );
     if (!raw) {
       return null;
     }
@@ -42,6 +41,8 @@ export class RedisPdfCropSessionStore implements PdfCropSessionStore {
 
   async delete(uploadId: string): Promise<void> {
     const redis = await getRedisCommandClient();
-    await executeRedisCommand<number>(redis, ["DEL", sessionKey(uploadId)]);
+    await executeRedisCommand((signal) =>
+      redis.withAbortSignal(signal).del(sessionKey(uploadId)),
+    );
   }
 }
