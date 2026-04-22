@@ -11,21 +11,10 @@ const avatarCacheKey = (avatarKey: string): string =>
 const avatarCacheTtl = (expiresInSeconds: number): number =>
   Math.max(60, expiresInSeconds - 60);
 
-const REDIS_TIMEOUT_MS = 500;
-
-/** Race a promise against a timeout so a missing Redis never hangs the request. */
-const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
-  Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("redis timeout")), REDIS_TIMEOUT_MS),
-    ),
-  ]);
-
 /** Run a single Redis command with connection + timeout guard. */
 const redisGet = async (key: string): Promise<string | null> => {
-  const redis = await withTimeout(getRedisCommandClient());
-  return withTimeout(executeRedisCommand<string | null>(redis, ["GET", key]));
+  const redis = await getRedisCommandClient();
+  return executeRedisCommand<string | null>(redis, ["GET", key]);
 };
 
 const redisSet = async (
@@ -33,26 +22,20 @@ const redisSet = async (
   value: string,
   ttl: number,
 ): Promise<void> => {
-  const redis = await withTimeout(getRedisCommandClient());
-  await withTimeout(
-    executeRedisCommand(redis, ["SET", key, value, "EX", String(ttl)]),
-  );
+  const redis = await getRedisCommandClient();
+  await executeRedisCommand(redis, ["SET", key, value, "EX", String(ttl)]);
 };
 
 const redisMget = async (keys: string[]): Promise<(string | null)[]> => {
-  const redis = await withTimeout(getRedisCommandClient());
-  return withTimeout(
-    executeRedisCommand<(string | null)[]>(redis, ["MGET", ...keys]),
-  );
+  const redis = await getRedisCommandClient();
+  return executeRedisCommand<(string | null)[]>(redis, ["MGET", ...keys]);
 };
 
 /** Clear the cached presigned avatar URL from Redis so the next request generates a fresh one. */
 export const clearAvatarUrlCache = async (avatarKey: string): Promise<void> => {
   try {
-    const redis = await withTimeout(getRedisCommandClient());
-    await withTimeout(
-      executeRedisCommand(redis, ["DEL", avatarCacheKey(avatarKey)]),
-    );
+    const redis = await getRedisCommandClient();
+    await executeRedisCommand(redis, ["DEL", avatarCacheKey(avatarKey)]);
   } catch {
     // Best-effort cache clear.
   }

@@ -4,7 +4,7 @@ import {
   executeRedisCommand,
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
-import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
+import { retryWithBackoff } from "#/shared/retry";
 
 export interface RedisContentIngestionQueueConfig {
   enabled: boolean;
@@ -42,73 +42,65 @@ export class RedisContentIngestionQueue {
 
     const maxAttempts = this.config.enqueueMaxAttempts;
 
-    let lastError: unknown;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        const redis = await getRedisCommandClient();
-        await executeRedisCommand<void>(
-          redis,
-          [
-            "XADD",
-            this.config.streamName,
-            "MAXLEN",
-            "~",
-            String(this.config.maxStreamLength),
-            "*",
-            "payload",
-            JSON.stringify({ jobId: input.jobId }),
-          ],
-          {
-            timeoutMs: this.config.enqueueTimeoutMs,
-            operationName: "content ingestion queue push",
-          },
-        );
-        return;
-      } catch (error) {
-        lastError = error;
-        if (attempt >= maxAttempts) {
-          break;
-        }
-
-        logger.warn(
-          addErrorContext(
+    try {
+      await retryWithBackoff(
+        async () => {
+          const redis = await getRedisCommandClient();
+          await executeRedisCommand<void>(
+            redis,
+            [
+              "XADD",
+              this.config.streamName,
+              "MAXLEN",
+              "~",
+              String(this.config.maxStreamLength),
+              "*",
+              "payload",
+              JSON.stringify({ jobId: input.jobId }),
+            ],
             {
-              component: "content",
-              event: "content.ingestion.queue.retrying",
-              streamName: this.config.streamName,
-              jobId: input.jobId,
-              attempt,
-              maxAttempts,
+              timeoutMs: this.config.enqueueTimeoutMs,
+              operationName: "content ingestion queue push",
             },
-            error,
-          ),
-          "content ingestion queue retrying",
-        );
-
-        await sleep(
-          calculateExponentialDelayMs({
-            attempt,
-            baseDelayMs: this.config.enqueueBaseDelayMs,
-            maxDelayMs: this.config.enqueueMaxDelayMs,
-          }),
-        );
-      }
-    }
-
-    logger.error(
-      addErrorContext(
-        {
-          component: "content",
-          event: "content.ingestion.queue.enqueue_failed",
-          streamName: this.config.streamName,
-          jobId: input.jobId,
-          maxAttempts,
+          );
         },
-        lastError,
-      ),
-      "content ingestion enqueue failed",
-    );
-    throw lastError ?? new Error("Content ingestion queue enqueue failed");
+        {
+          maxAttempts,
+          baseDelayMs: this.config.enqueueBaseDelayMs,
+          maxDelayMs: this.config.enqueueMaxDelayMs,
+          onRetry: (error, attempt) => {
+            logger.warn(
+              addErrorContext(
+                {
+                  component: "content",
+                  event: "content.ingestion.queue.retrying",
+                  streamName: this.config.streamName,
+                  jobId: input.jobId,
+                  attempt,
+                  maxAttempts,
+                },
+                error,
+              ),
+              "content ingestion queue retrying",
+            );
+          },
+        },
+      );
+    } catch (error) {
+      logger.error(
+        addErrorContext(
+          {
+            component: "content",
+            event: "content.ingestion.queue.enqueue_failed",
+            streamName: this.config.streamName,
+            jobId: input.jobId,
+            maxAttempts,
+          },
+          error,
+        ),
+        "content ingestion enqueue failed",
+      );
+      throw error;
+    }
   }
 }

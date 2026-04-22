@@ -19,6 +19,44 @@ export const calculateExponentialDelayMs = (input: {
   return Math.min(maxDelay, Math.floor(nextDelay));
 };
 
+export interface RetryWithBackoffOptions {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  shouldRetry?: (error: unknown, attempt: number) => boolean;
+  onRetry?: (error: unknown, attempt: number, delayMs: number) => void;
+}
+
+export const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  opts: RetryWithBackoffOptions,
+): Promise<T> => {
+  const maxAttempts = Math.max(1, opts.maxAttempts);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const isLast = attempt >= maxAttempts;
+      const retry = opts.shouldRetry ? opts.shouldRetry(error, attempt) : true;
+      if (isLast || !retry) {
+        break;
+      }
+      const delayMs = calculateExponentialDelayMs({
+        attempt,
+        baseDelayMs: opts.baseDelayMs,
+        maxDelayMs: opts.maxDelayMs,
+      });
+      opts.onRetry?.(error, attempt, delayMs);
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+};
+
 export const withTimeout = <T>(
   operation: Promise<T> | ((signal: AbortSignal) => Promise<T>),
   timeoutMs: number,

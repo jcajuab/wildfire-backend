@@ -10,7 +10,7 @@ import {
   type AuditQueueEnqueueResult,
   type AuditQueueStats,
 } from "#/interfaces/http/audit/audit-queue";
-import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
+import { retryWithBackoff } from "#/shared/retry";
 
 export interface RedisAuditQueueConfig {
   enabled: boolean;
@@ -61,81 +61,73 @@ export class RedisAuditQueue implements AuditLogQueue {
   private async pushToStream(event: CreateAuditLogInput): Promise<void> {
     const maxAttempts = this.config.enqueueMaxAttempts;
 
-    let lastError: unknown;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        const redis = await getRedisCommandClient();
-        await executeRedisCommand<void>(
-          redis,
-          [
-            "XADD",
-            this.config.streamName,
-            "MAXLEN",
-            "~",
-            String(this.config.maxStreamLength),
-            "*",
-            "payload",
-            JSON.stringify(event),
-          ],
-          {
-            timeoutMs: this.config.enqueueTimeoutMs,
-            operationName: "audit queue push",
-          },
-        );
-        this.stats.flushed += 1;
-        this.stats.queued = Math.max(0, this.stats.queued - 1);
-        return;
-      } catch (error) {
-        lastError = error;
-        if (attempt >= maxAttempts) {
-          break;
-        }
-
-        logger.warn(
-          addErrorContext(
+    try {
+      await retryWithBackoff(
+        async () => {
+          const redis = await getRedisCommandClient();
+          await executeRedisCommand<void>(
+            redis,
+            [
+              "XADD",
+              this.config.streamName,
+              "MAXLEN",
+              "~",
+              String(this.config.maxStreamLength),
+              "*",
+              "payload",
+              JSON.stringify(event),
+            ],
             {
-              component: "audit",
-              event: "audit.queue.retrying",
-              action: event.action,
-              requestId: event.requestId,
-              attempt,
-              maxAttempts,
-              streamName: this.config.streamName,
+              timeoutMs: this.config.enqueueTimeoutMs,
+              operationName: "audit queue push",
             },
-            error,
-          ),
-          "audit queue retrying enqueue",
-        );
-
-        await sleep(
-          calculateExponentialDelayMs({
-            attempt,
-            baseDelayMs: this.config.enqueueBaseDelayMs,
-            maxDelayMs: this.config.enqueueMaxDelayMs,
-          }),
-        );
-      }
-    }
-
-    this.stats.failed += 1;
-    this.stats.dropped += 1;
-    this.stats.queued = Math.max(0, this.stats.queued - 1);
-    logger.error(
-      addErrorContext(
-        {
-          component: "audit",
-          event: "audit.queue.enqueue_failed",
-          action: event.action,
-          requestId: event.requestId,
-          streamName: this.config.streamName,
-          maxAttempts,
+          );
         },
-        lastError,
-      ),
-      "audit queue enqueue failed",
-    );
-    throw lastError ?? new Error("Unknown error while enqueuing audit event");
+        {
+          maxAttempts,
+          baseDelayMs: this.config.enqueueBaseDelayMs,
+          maxDelayMs: this.config.enqueueMaxDelayMs,
+          onRetry: (error, attempt) => {
+            logger.warn(
+              addErrorContext(
+                {
+                  component: "audit",
+                  event: "audit.queue.retrying",
+                  action: event.action,
+                  requestId: event.requestId,
+                  attempt,
+                  maxAttempts,
+                  streamName: this.config.streamName,
+                },
+                error,
+              ),
+              "audit queue retrying enqueue",
+            );
+          },
+        },
+      );
+      this.stats.flushed += 1;
+      this.stats.queued = Math.max(0, this.stats.queued - 1);
+    } catch (error) {
+      this.stats.failed += 1;
+      this.stats.dropped += 1;
+      this.stats.queued = Math.max(0, this.stats.queued - 1);
+      logger.error(
+        addErrorContext(
+          {
+            component: "audit",
+            event: "audit.queue.enqueue_failed",
+            action: event.action,
+            requestId: event.requestId,
+            streamName: this.config.streamName,
+            maxAttempts,
+          },
+          error,
+        ),
+        "audit queue enqueue failed",
+      );
+      throw error;
+    }
   }
 
   async enqueue(event: CreateAuditLogInput): Promise<AuditQueueEnqueueResult> {
