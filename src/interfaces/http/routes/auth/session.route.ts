@@ -105,6 +105,7 @@ export const registerAuthSessionRoutes = (args: {
           "X-RateLimit-Remaining",
           String(Math.max(0, refreshStats.remaining)),
         );
+        c.set("userId", body.user.id);
         logger.info(
           {
             event: "auth.refresh.completed",
