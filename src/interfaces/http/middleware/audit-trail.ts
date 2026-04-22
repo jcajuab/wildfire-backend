@@ -110,41 +110,43 @@ export const createAuditTrailMiddleware = (deps: {
     });
     const userAgent = c.req.header("user-agent");
 
-    const result = await deps.auditQueue.enqueue({
-      requestId,
-      action,
-      route,
-      method,
-      path: c.req.path,
-      status: c.res.status,
-      actorId,
-      actorType,
-      resourceId,
-      resourceType,
-      ipAddress,
-      userAgent,
-      metadataJson: buildSafeAuditMetadata({
-        sessionId,
-        fileId,
-        rbacAssignmentCount,
-        deniedPermission,
-        denyErrorCode,
-        denyErrorType,
-      }),
-    });
-
-    if (!result.accepted) {
-      logger.warn(
-        {
-          component: "audit",
-          event: "audit.event.dropped",
-          requestId,
-          action,
-          reason: result.reason,
-          error: result.error,
-        },
-        "audit event dropped",
-      );
-    }
+    void deps.auditQueue
+      .enqueue({
+        requestId,
+        action,
+        route,
+        method,
+        path: c.req.path,
+        status: c.res.status,
+        actorId,
+        actorType,
+        resourceId,
+        resourceType,
+        ipAddress,
+        userAgent,
+        metadataJson: buildSafeAuditMetadata({
+          sessionId,
+          fileId,
+          rbacAssignmentCount,
+          deniedPermission,
+          denyErrorCode,
+          denyErrorType,
+        }),
+      })
+      .then((result) => {
+        if (!result.accepted) {
+          logger.warn(
+            {
+              component: "audit",
+              event: "audit.event.dropped",
+              requestId,
+              action,
+              reason: result.reason,
+              error: result.error,
+            },
+            "audit event dropped",
+          );
+        }
+      });
   };
 };
