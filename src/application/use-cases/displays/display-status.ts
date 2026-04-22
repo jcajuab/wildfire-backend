@@ -17,7 +17,7 @@ export const deriveDisplayStatus = (input: {
   now: Date;
 }): DisplayStatus => {
   if (!isRecentlySeen(input.lastSeenAt, input.now)) {
-    return input.lastSeenAt ? "DOWN" : "PROCESSING";
+    return "DOWN";
   }
   return input.hasActivePlayback ? "LIVE" : "READY";
 };

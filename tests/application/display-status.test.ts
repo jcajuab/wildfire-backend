@@ -5,7 +5,7 @@ import {
 } from "#/application/use-cases/displays/display-status";
 
 describe("display status derivation", () => {
-  test("returns PROCESSING when the display has never been seen", () => {
+  test("returns DOWN when the display has never been seen", () => {
     const now = new Date("2026-03-10T00:00:00.000Z");
 
     expect(
@@ -14,7 +14,7 @@ describe("display status derivation", () => {
         hasActivePlayback: false,
         now,
       }),
-    ).toBe("PROCESSING");
+    ).toBe("DOWN");
   });
 
   test("returns READY when recently seen without active playback", () => {
