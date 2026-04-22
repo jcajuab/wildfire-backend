@@ -118,6 +118,12 @@ export class DefaultContentThumbnailGenerator
       mimeType: input.mimeType,
       data: input.data,
       ...defaults,
-    }).catch(() => null);
+    }).catch((error) => {
+      logger.warn(
+        { error, type: mediaType, mimeType: input.mimeType },
+        "Thumbnail generation failed",
+      );
+      return null;
+    });
   }
 }

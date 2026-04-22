@@ -32,7 +32,18 @@ const runWithThumbnailRetries = async (input: {
       if (thumbnail) {
         return thumbnail;
       }
-    } catch {
+    } catch (error) {
+      logger.warn(
+        addErrorContext(
+          {
+            attempt,
+            maxRetries: THUMBNAIL_MAX_RETRIES,
+            mimeType: input.mimeType,
+          },
+          error,
+        ),
+        "Thumbnail generation attempt failed",
+      );
       if (attempt < THUMBNAIL_MAX_RETRIES) {
         await sleep(THUMBNAIL_RETRY_DELAY_MS);
       }
@@ -86,6 +97,18 @@ export const processContentIngestionJob = async (
     data,
     generateThumbnail: (args) => thumbnailGenerator.generate(args),
   });
+
+  if (!generatedThumbnail) {
+    logger.warn(
+      {
+        contentId: content.id,
+        mimeType: content.mimeType,
+        contentType,
+        operation: "thumbnail_generation",
+      },
+      "Thumbnail generation returned null after retries; content will have no thumbnail",
+    );
+  }
 
   let thumbnailKey: string | null = null;
   if (generatedThumbnail) {
