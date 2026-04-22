@@ -3,7 +3,6 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   toApiListResponse,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -118,7 +117,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       async (c) => {
         const result = await useCases.listDisplayOutputOptions.execute();
         c.header("Cache-Control", "private, max-age=60");
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -148,7 +147,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           limit: query.limit,
         });
         c.header("Cache-Control", "private, max-age=60");
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -198,7 +197,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           return c.body(null, 304);
         }
         const { notModified: _notModified, ...manifest } = result;
-        return c.json(toApiResponse(manifest));
+        return c.json({ data: manifest });
       },
       ...applicationErrorMappers,
     ),
@@ -278,7 +277,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         const result = await useCases.getDisplay.execute({ id: params.id });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -335,7 +334,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           orientation: payload.orientation,
           emergencyContentId: payload.emergencyContentId,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

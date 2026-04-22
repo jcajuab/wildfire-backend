@@ -5,7 +5,6 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -100,7 +99,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
       },
     }),
     withRouteErrorHandling(async (c) => {
-      return c.json(toApiResponse(DISPLAY_REGISTRATION_CONSTRAINTS));
+      return c.json({ data: DISPLAY_REGISTRATION_CONSTRAINTS });
     }),
   );
 
@@ -143,10 +142,12 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
           `${c.req.path}/${encodeURIComponent(session.registrationSessionId)}`,
         );
         return c.json(
-          toApiResponse({
-            ...session,
-            constraints: DISPLAY_REGISTRATION_CONSTRAINTS,
-          }),
+          {
+            data: {
+              ...session,
+              constraints: DISPLAY_REGISTRATION_CONSTRAINTS,
+            },
+          },
           201,
         );
       },
@@ -195,7 +196,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
           "Location",
           `/v1/displays/${encodeURIComponent(registered.displayId)}`,
         );
-        return c.json(toApiResponse(registered), 201);
+        return c.json({ data: registered }, 201);
       },
       ...applicationErrorMappers,
     ),

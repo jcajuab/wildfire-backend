@@ -1,7 +1,7 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
+import { apiResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -74,7 +74,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
           "Location",
           `${c.req.path}/${encodeURIComponent(created.attemptId)}`,
         );
-        return c.json(toApiResponse(created), 201);
+        return c.json({ data: created }, 201);
       },
       ...applicationErrorMappers,
     ),
@@ -114,7 +114,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
           attemptId: params.attemptId,
           ownerId: c.get("userId"),
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

@@ -5,7 +5,6 @@ import {
   apiResponseSchema,
   errorResponseSchema,
   toApiListResponse,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -108,7 +107,7 @@ export const registerScheduleQueryRoutes = (args: {
           to: query.to,
           displayIds: query.displayIds,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -141,7 +140,7 @@ export const registerScheduleQueryRoutes = (args: {
           displayId: query.displayId,
           time: query.time ? new Date(query.time) : undefined,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -185,7 +184,7 @@ export const registerScheduleQueryRoutes = (args: {
           id: params.id,
           ownerId: c.get("userId"),
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

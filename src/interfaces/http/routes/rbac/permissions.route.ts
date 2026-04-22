@@ -1,6 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiListResponse, toApiResponse } from "#/interfaces/http/responses";
+import { toApiListResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -108,7 +108,7 @@ export const registerRbacPermissionRoutes = (args: {
           roleId: params.id,
           permissionIds: payload.permissionIds,
         });
-        return c.json(toApiResponse(permissions));
+        return c.json({ data: permissions });
       },
       ...applicationErrorMappers,
     ),
@@ -175,7 +175,7 @@ export const registerRbacPermissionRoutes = (args: {
           q: query.q,
         });
         c.header("Cache-Control", "private, max-age=60");
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

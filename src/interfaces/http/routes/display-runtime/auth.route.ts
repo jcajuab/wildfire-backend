@@ -1,7 +1,6 @@
 import { type Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -96,7 +95,7 @@ export const registerDisplayRuntimeAuthRoutes = (input: {
         const payload = c.req.valid("json");
         const result =
           await useCases.issueDisplayAuthChallenge.execute(payload);
-        return c.json(toApiResponse(result), 201);
+        return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
     ),

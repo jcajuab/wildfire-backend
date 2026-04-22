@@ -1,4 +1,5 @@
 import { type Context } from "hono";
+import { type ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 
 type AppContextVariables = {
@@ -91,10 +92,6 @@ export interface ApiListResponse<T> {
   meta: ApiMeta;
   links?: ApiLinks;
 }
-
-export const toApiResponse = <T>(data: T): ApiResponse<T> => ({
-  data,
-});
 
 export const apiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
@@ -294,30 +291,35 @@ export const parseValidationDetails = (
   });
 };
 
+const errorResponse = (
+  c: ResponseContext,
+  status: ContentfulStatusCode,
+  code: string,
+  message: string,
+  details?: unknown,
+) =>
+  c.json<ErrorResponse>(buildErrorPayload(c, code, message, details), status);
+
 export const badRequest = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "invalid_request", message), 400);
+  errorResponse(c, 400, "invalid_request", message);
 
 export const validationError = (
   c: ResponseContext,
   message: string,
   details: ApiFieldError[] = [],
-) =>
-  c.json<ErrorResponse>(
-    buildErrorPayload(c, "validation_error", message, details),
-    422,
-  );
+) => errorResponse(c, 422, "validation_error", message, details);
 
 export const unauthorized = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "unauthorized", message), 401);
+  errorResponse(c, 401, "unauthorized", message);
 
 export const forbidden = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "forbidden", message), 403);
+  errorResponse(c, 403, "forbidden", message);
 
 export const notFound = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "not_found", message), 404);
+  errorResponse(c, 404, "not_found", message);
 
 export const conflict = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "conflict", message), 409);
+  errorResponse(c, 409, "conflict", message);
 
 export const tooManyRequests = (c: ResponseContext, message: string) =>
   (() => {
@@ -333,11 +335,8 @@ export const tooManyRequests = (c: ResponseContext, message: string) =>
     }
     c.header("Retry-After", String(retryAfter));
 
-    return c.json<ErrorResponse>(
-      buildErrorPayload(c, "rate_limit_exceeded", message),
-      429,
-    );
+    return errorResponse(c, 429, "rate_limit_exceeded", message);
   })();
 
 export const internalServerError = (c: ResponseContext, message: string) =>
-  c.json<ErrorResponse>(buildErrorPayload(c, "internal_error", message), 500);
+  errorResponse(c, 500, "internal_error", message);

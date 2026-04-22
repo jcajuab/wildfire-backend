@@ -1,7 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { logger } from "#/infrastructure/observability/logger";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -101,15 +100,15 @@ export const registerScheduleBootstrapRoutes = (args: {
           "Schedules bootstrap completed",
         );
 
-        return c.json(
-          toApiResponse({
+        return c.json({
+          data: {
             schedules,
             displayOptions,
             displayGroups,
             playlistOptions,
             flashContentOptions,
-          }),
-        );
+          },
+        });
       },
       ...applicationErrorMappers,
     ),

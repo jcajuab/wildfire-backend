@@ -7,7 +7,6 @@ import {
   apiResponseSchema,
   errorResponseSchema,
   toApiListResponse,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -115,10 +114,12 @@ export const registerAuthInvitationRoutes = (args: {
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
 
         return c.json(
-          toApiResponse({
-            id: result.id,
-            expiresAt: result.expiresAt,
-          }),
+          {
+            data: {
+              id: result.id,
+              expiresAt: result.expiresAt,
+            },
+          },
           201,
         );
       },
@@ -204,10 +205,12 @@ export const registerAuthInvitationRoutes = (args: {
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
 
         return c.json(
-          toApiResponse({
-            id: result.id,
-            expiresAt: result.expiresAt,
-          }),
+          {
+            data: {
+              id: result.id,
+              expiresAt: result.expiresAt,
+            },
+          },
           201,
         );
       },
@@ -245,7 +248,7 @@ export const registerAuthInvitationRoutes = (args: {
           id: params.id,
         });
         c.header("Cache-Control", "no-store");
-        return c.json(toApiResponse({ inviteUrl: result.inviteUrl }));
+        return c.json({ data: { inviteUrl: result.inviteUrl } });
       },
       ...applicationErrorMappers,
     ),

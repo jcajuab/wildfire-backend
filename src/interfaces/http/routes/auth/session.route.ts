@@ -1,4 +1,4 @@
-import { deleteCookie, getCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import {
   hashRefreshTokenSecret,
@@ -6,12 +6,11 @@ import {
 } from "#/application/auth/refresh-token";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { logger } from "#/infrastructure/observability/logger";
-import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
+import { AUTH_SESSION_COOKIE_OPTIONS } from "#/interfaces/http/lib/constants";
 import { requireJwtUser } from "#/interfaces/http/middleware/jwt-user";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
-  toApiResponse,
   tooManyRequests,
   unauthorized,
 } from "#/interfaces/http/responses";
@@ -95,13 +94,11 @@ export const registerAuthSessionRoutes = (args: {
           result.refreshToken != null &&
           result.refreshTokenExpiresAt != null
         ) {
-          setAuthSessionCookie(
-            c,
-            deps.authSessionCookieName,
-            result.refreshToken,
-            result.refreshTokenExpiresAt,
-            deps.secureCookies,
-          );
+          setCookie(c, deps.authSessionCookieName, result.refreshToken, {
+            ...AUTH_SESSION_COOKIE_OPTIONS,
+            secure: deps.secureCookies,
+            expires: new Date(result.refreshTokenExpiresAt),
+          });
         }
         c.header("X-RateLimit-Limit", String(refreshStats.limit));
         c.header(
@@ -116,7 +113,7 @@ export const registerAuthSessionRoutes = (args: {
           },
           "Auth refresh completed",
         );
-        return c.json(toApiResponse(body));
+        return c.json({ data: body });
       },
       ...applicationErrorMappers,
       mapErrorToResponse(InvalidCredentialsError, unauthorized),

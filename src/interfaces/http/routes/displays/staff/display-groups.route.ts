@@ -2,11 +2,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { DisplayGroupConflictError } from "#/application/use-cases/displays";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import {
-  apiResponseSchema,
-  conflict,
-  toApiResponse,
-} from "#/interfaces/http/responses";
+import { apiResponseSchema, conflict } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -65,7 +61,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
     withRouteErrorHandling(
       async (c) => {
         const items = await useCases.listDisplayGroups.execute();
-        return c.json(toApiResponse(items));
+        return c.json({ data: items });
       },
       ...applicationErrorMappers,
     ),
@@ -110,7 +106,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        return c.json(toApiResponse(result), 201);
+        return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DisplayGroupConflictError, conflict),
@@ -158,7 +154,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
           name: payload.name,
         });
         c.set("resourceId", result.id);
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DisplayGroupConflictError, conflict),

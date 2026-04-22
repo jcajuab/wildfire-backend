@@ -7,7 +7,6 @@ import {
   conflict,
   errorResponseSchema,
   toApiListResponse,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -76,7 +75,7 @@ export const registerPlaylistCrudRoutes = (args: {
           status: query.status,
         });
         c.header("Cache-Control", "private, max-age=60");
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -158,7 +157,7 @@ export const registerPlaylistCrudRoutes = (args: {
           ownerId: c.get("userId"),
           ...payload,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -196,7 +195,7 @@ export const registerPlaylistCrudRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        return c.json(toApiResponse(result), 201);
+        return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
     ),
@@ -240,7 +239,7 @@ export const registerPlaylistCrudRoutes = (args: {
           id: params.id,
           ownerId: c.get("userId"),
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -280,7 +279,7 @@ export const registerPlaylistCrudRoutes = (args: {
           name: payload.name,
           description: payload.description,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

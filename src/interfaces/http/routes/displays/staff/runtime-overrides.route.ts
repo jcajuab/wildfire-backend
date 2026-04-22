@@ -1,6 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
+import { apiResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -58,7 +58,7 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
         const result = await useCases.getRuntimeOverrides.execute({
           now: new Date(),
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

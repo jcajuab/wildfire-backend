@@ -1,12 +1,12 @@
+import { setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
-import { setAuthSessionCookie } from "#/interfaces/http/lib/auth-cookie";
+import { AUTH_SESSION_COOKIE_OPTIONS } from "#/interfaces/http/lib/constants";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
-  toApiResponse,
   tooManyRequests,
   unauthorized,
 } from "#/interfaces/http/responses";
@@ -143,17 +143,17 @@ export const registerAuthLoginRoute = (args: {
           throw error;
         }
         const body = await buildAuthResponse(deps, result);
-        setAuthSessionCookie(
-          c,
-          deps.authSessionCookieName,
-          result.refreshToken ?? "",
-          result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
-          deps.secureCookies,
-        );
+        setCookie(c, deps.authSessionCookieName, result.refreshToken ?? "", {
+          ...AUTH_SESSION_COOKIE_OPTIONS,
+          secure: deps.secureCookies,
+          expires: new Date(
+            result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
+          ),
+        });
         c.set("resourceId", body.user.id);
         c.set("actorId", body.user.id);
         c.set("actorType", "user");
-        return c.json(toApiResponse(body));
+        return c.json({ data: body });
       },
       ...applicationErrorMappers,
       mapErrorToResponse(InvalidCredentialsError, unauthorized),

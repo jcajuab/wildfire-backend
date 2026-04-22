@@ -10,7 +10,6 @@ import {
   conflict,
   errorResponseSchema,
   parseValidationDetails,
-  toApiResponse,
   validationError,
 } from "#/interfaces/http/responses";
 import {
@@ -117,7 +116,7 @@ export const registerContentWriteRoutes = (args: {
           "Location",
           `/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
         );
-        return c.json(toApiResponse(result), 202);
+        return c.json({ data: result }, 202);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
@@ -175,7 +174,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(created.id)}`);
-        return c.json(toApiResponse(created), 201);
+        return c.json({ data: created }, 201);
       },
       ...applicationErrorMappers,
     ),
@@ -231,7 +230,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(created.id)}`);
-        return c.json(toApiResponse(created), 201);
+        return c.json({ data: created }, 201);
       },
       ...applicationErrorMappers,
     ),
@@ -307,7 +306,7 @@ export const registerContentWriteRoutes = (args: {
           textJsonContent: body.textJsonContent,
           textHtmlContent: body.textHtmlContent,
         });
-        return c.json(toApiResponse(result), 200);
+        return c.json({ data: result }, 200);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),
@@ -403,7 +402,7 @@ export const registerContentWriteRoutes = (args: {
           "Location",
           `/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
         );
-        return c.json(toApiResponse(result), 202);
+        return c.json({ data: result }, 202);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(ContentInUseError, conflict),

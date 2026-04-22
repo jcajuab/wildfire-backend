@@ -3,7 +3,6 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -77,7 +76,7 @@ export const registerPlaylistItemRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        return c.json(toApiResponse(result), 201);
+        return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
     ),
@@ -121,7 +120,7 @@ export const registerPlaylistItemRoutes = (args: {
           sequence: payload.sequence,
           duration: payload.duration,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -165,7 +164,7 @@ export const registerPlaylistItemRoutes = (args: {
           playlistId: params.id,
           items: payload.items,
         });
-        return c.json(toApiResponse(result), 200);
+        return c.json({ data: result }, 200);
       },
       ...applicationErrorMappers,
     ),

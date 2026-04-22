@@ -1,7 +1,7 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { createSseResponse, createSseStream } from "#/interfaces/http/lib/sse";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
+import { apiResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -65,7 +65,7 @@ export const registerContentJobRoutes = (args: {
           id: params.id,
           ownerId: c.get("userId"),
         });
-        return c.json(toApiResponse(result), 200);
+        return c.json({ data: result }, 200);
       },
       ...applicationErrorMappers,
     ),

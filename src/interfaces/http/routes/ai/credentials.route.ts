@@ -1,5 +1,4 @@
 import { setAction } from "#/interfaces/http/middleware/observability";
-import { toApiResponse } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -46,13 +45,15 @@ export const registerAICredentialRoutes = (args: {
         });
 
         return c.json(
-          toApiResponse({
-            id: credential.id,
-            provider: credential.provider,
-            keyHint: credential.keyHint,
-            createdAt: credential.createdAt,
-            updatedAt: credential.updatedAt,
-          }),
+          {
+            data: {
+              id: credential.id,
+              provider: credential.provider,
+              keyHint: credential.keyHint,
+              createdAt: credential.createdAt,
+              updatedAt: credential.updatedAt,
+            },
+          },
           201,
         );
       },
@@ -72,17 +73,15 @@ export const registerAICredentialRoutes = (args: {
       async (c) => {
         const userId = c.get("userId");
         const credentials = await useCases.listCredentials.execute(userId);
-        return c.json(
-          toApiResponse(
-            credentials.map((cred) => ({
-              id: cred.id,
-              provider: cred.provider,
-              keyHint: cred.keyHint,
-              createdAt: cred.createdAt,
-              updatedAt: cred.updatedAt,
-            })),
-          ),
-        );
+        return c.json({
+          data: credentials.map((cred) => ({
+            id: cred.id,
+            provider: cred.provider,
+            keyHint: cred.keyHint,
+            createdAt: cred.createdAt,
+            updatedAt: cred.updatedAt,
+          })),
+        });
       },
       ...applicationErrorMappers,
     ),
@@ -104,7 +103,7 @@ export const registerAICredentialRoutes = (args: {
 
         await useCases.deleteCredential.execute({ userId, provider });
 
-        return c.json(toApiResponse({ deleted: true }));
+        return c.json({ data: { deleted: true } });
       },
       ...applicationErrorMappers,
     ),

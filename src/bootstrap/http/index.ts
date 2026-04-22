@@ -65,7 +65,7 @@ import { createRbacRouter } from "#/interfaces/http/routes/rbac";
 import { createSchedulesRouter } from "#/interfaces/http/routes/schedules";
 import { RedisAuthSecurityStore } from "#/interfaces/http/security/redis-auth-security.store";
 import { runStartupAuthIdentitySync } from "#/interfaces/http/startup/auth-identity.sync";
-import { startHtshadowFileWatcher } from "#/interfaces/http/startup/htshadow-file-watcher.service";
+import { startHtshadowFileWatcher } from "#/interfaces/http/startup/htshadow-sync.service";
 import packageJSON from "#/package.json" with { type: "json" };
 import { createHttpContainer } from "./container";
 

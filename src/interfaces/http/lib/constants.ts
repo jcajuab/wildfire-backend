@@ -2,3 +2,9 @@ export const MAX_DISPLAY_TOKEN_FIELD_BYTES = 256;
 export const MAX_KEY_ID_BYTES = 64;
 export const MAX_SIGNED_SIGNATURE_BYTES = 2_048;
 export const MAX_BODY_HASH_BYTES = 128;
+
+export const AUTH_SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: "Strict",
+  path: "/",
+} as const;

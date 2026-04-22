@@ -4,7 +4,6 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -75,7 +74,7 @@ export const registerDisplayRuntimeManifestRoutes = (input: {
           return c.body(null, 304);
         }
         const { notModified: _notModified, ...manifest } = result;
-        return c.json(toApiResponse(manifest));
+        return c.json({ data: manifest });
       },
       ...applicationErrorMappers,
     ),

@@ -1,9 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { setAction } from "#/interfaces/http/middleware/observability";
-import {
-  errorResponseSchema,
-  toApiResponse,
-} from "#/interfaces/http/responses";
+import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   withRouteErrorHandling,
@@ -91,7 +88,7 @@ export const registerScheduleCommandRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        return c.json(toApiResponse(result), 201);
+        return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
     ),
@@ -141,7 +138,7 @@ export const registerScheduleCommandRoutes = (args: {
           startTime: payload.startTime,
           endTime: payload.endTime,
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),

@@ -9,7 +9,6 @@ import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
   errorResponseSchema,
-  toApiResponse,
 } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -102,7 +101,7 @@ export const registerPdfCropRoutes = (args: {
           file,
           ownerId: c.get("userId"),
         });
-        return c.json(toApiResponse(result));
+        return c.json({ data: result });
       },
       ...applicationErrorMappers,
     ),
@@ -151,7 +150,7 @@ export const registerPdfCropRoutes = (args: {
           contentName: body.contentName,
           ownerId: c.get("userId"),
         });
-        return c.json(toApiResponse(result), 201);
+        return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
     ),

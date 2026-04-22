@@ -19,20 +19,24 @@ import {
 } from "#/infrastructure/observability/startup-logging";
 import {
   type AdminRolePermissionSyncMetrics,
-  type AdminUserSyncMetrics,
   ensureAdminRoleAndPermission,
+} from "./admin-role-seeder";
+import {
+  type AdminUserSyncMetrics,
   ensureAdminUser,
-} from "./admin-identity-manager.service";
-import { readHtshadowMap } from "./htshadow-file.adapter";
+} from "./admin-user-bootstrapper";
 import {
   type HtshadowUserImportMetrics,
   importHtshadowUsers,
-} from "./htshadow-user-importer.service";
+  readHtshadowMap,
+} from "./htshadow-sync.service";
 import {
   CANONICAL_PERMISSION_SEEDS,
   ensureCanonicalStandardPermissions,
+  ensurePredefinedSystemRoles,
   type PermissionSyncMetrics,
-} from "./permission-seeder.service";
+  type SystemRoleSyncMetrics,
+} from "./rbac-seeders.service";
 import {
   buildStartupContext,
   normalizeAdminIdentity,
@@ -40,10 +44,6 @@ import {
   type StartupAdminIdentity,
   validateAdminIdentity,
 } from "./startup-orchestration.helpers";
-import {
-  ensurePredefinedSystemRoles,
-  type SystemRoleSyncMetrics,
-} from "./system-role-seeder.service";
 
 interface AuthIdentitySyncRepositories {
   userRepository: UserRepository;

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
-import { apiResponseSchema, toApiResponse } from "#/interfaces/http/responses";
+import { apiResponseSchema } from "#/interfaces/http/responses";
 
 export type HealthDependencyCheck = () => Promise<{
   ok: boolean;
@@ -86,7 +86,7 @@ export const createHealthRouter = (
         },
       },
     }),
-    (c) => c.json(toApiResponse({ status: "ok" })),
+    (c) => c.json({ data: { status: "ok" } }),
   );
 
   router.get(
@@ -126,15 +126,17 @@ export const createHealthRouter = (
 
       const isReady = mysql.ok && redis.ok && auditStream.ok && storage.ok;
       return c.json(
-        toApiResponse({
-          status: isReady ? "ok" : "degraded",
-          dependencies: {
-            mysql,
-            redis,
-            auditStream,
-            storage,
+        {
+          data: {
+            status: isReady ? "ok" : "degraded",
+            dependencies: {
+              mysql,
+              redis,
+              auditStream,
+              storage,
+            },
           },
-        }),
+        },
         isReady ? 200 : 503,
       );
     },
