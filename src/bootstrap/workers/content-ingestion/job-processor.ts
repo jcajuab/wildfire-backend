@@ -3,10 +3,10 @@ import {
   type ContentType,
   resolveContentType,
 } from "#/domain/content/content";
-import { publishContentJobEvent } from "#/infrastructure/content-jobs/content-job-events";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { sleep } from "#/shared/retry";
+import { markJobProcessing, markJobSucceeded } from "./job-state";
 import { contentIngestionContainer } from "./runtime";
 
 const THUMBNAIL_MAX_RETRIES = 3;
@@ -58,21 +58,7 @@ export const processContentIngestionJob = async (
   if (!job) {
     return;
   }
-  const startedAt = new Date().toISOString();
-  await jobRepository.update(job.id, {
-    status: "PROCESSING",
-    errorMessage: null,
-    startedAt,
-    completedAt: null,
-  });
-  publishContentJobEvent({
-    type: "processing",
-    jobId: job.id,
-    contentId: job.contentId,
-    timestamp: startedAt,
-    status: "PROCESSING",
-    message: "Content ingestion started",
-  });
+  await markJobProcessing(job);
 
   const content = await contentRepository.findById(job.contentId);
   if (!content) {
@@ -156,18 +142,5 @@ export const processContentIngestionJob = async (
     duration: metadata.duration,
   });
 
-  const completedAt = new Date().toISOString();
-  await jobRepository.update(job.id, {
-    status: "SUCCEEDED",
-    errorMessage: null,
-    completedAt,
-  });
-  publishContentJobEvent({
-    type: "succeeded",
-    jobId: job.id,
-    contentId: job.contentId,
-    timestamp: completedAt,
-    status: "SUCCEEDED",
-    message: "Content ingestion completed",
-  });
+  await markJobSucceeded(job);
 };

@@ -1,3 +1,4 @@
+import { type AuthIdentityCache } from "#/application/ports/auth";
 import {
   CheckPermissionUseCase,
   CreateRoleUseCase,
@@ -26,24 +27,73 @@ import {
   UnbanUserUseCase,
 } from "#/application/use-cases/users/ban-user.use-case";
 import { CachedAuthorizationRepository } from "#/infrastructure/db/repositories/cached-authorization.repo";
-import { RedisAuthIdentityCache } from "#/infrastructure/redis/auth-identity.cache";
+import { logger } from "#/infrastructure/observability/logger";
+import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
   type RbacRouterDeps,
   type RbacRouterUseCases,
 } from "#/interfaces/http/routes/rbac/shared";
+import { retryWithBackoff } from "#/shared/retry";
 
 export interface RbacHttpModule {
   deps: RbacRouterDeps;
   useCases: RbacRouterUseCases;
 }
 
-const authIdentityCache = new RedisAuthIdentityCache();
+const invalidateUserPermissions = async (
+  userId: string,
+  authIdentityCache: AuthIdentityCache,
+  authSessionRepository: RbacRouterDeps["authSessionRepository"],
+): Promise<void> => {
+  try {
+    await CachedAuthorizationRepository.invalidateUser(userId);
+  } catch (error) {
+    logger.warn(
+      addErrorContext(
+        { event: "rbac.invalidate.authorization_cache_failed", userId },
+        error,
+      ),
+      "Failed to invalidate authorization cache for user",
+    );
+  }
+
+  try {
+    await retryWithBackoff(
+      () => authIdentityCache.invalidatePermissions(userId),
+      { maxAttempts: 2, baseDelayMs: 50, maxDelayMs: 200 },
+    );
+  } catch (error) {
+    logger.warn(
+      addErrorContext(
+        { event: "rbac.invalidate.identity_cache_failed", userId },
+        error,
+      ),
+      "Failed to invalidate identity cache for user",
+    );
+  }
+
+  try {
+    await authSessionRepository.revokeAllForUser(userId);
+  } catch (error) {
+    logger.warn(
+      addErrorContext(
+        { event: "rbac.invalidate.session_revoke_failed", userId },
+        error,
+      ),
+      "Failed to revoke sessions for user",
+    );
+  }
+};
 
 export const createRbacHttpModule = (
-  deps: Omit<RbacRouterDeps, "checkPermissionUseCase">,
+  deps: Omit<RbacRouterDeps, "checkPermissionUseCase"> & {
+    authIdentityCache: AuthIdentityCache;
+  },
 ): RbacHttpModule => {
+  const { authIdentityCache, ...routerDepsCandidates } = deps;
+
   const routerDeps: RbacRouterDeps = {
-    ...deps,
+    ...routerDepsCandidates,
     checkPermissionUseCase: new CheckPermissionUseCase({
       authorizationRepository: deps.repositories.authorizationRepository,
     }),
@@ -83,11 +133,12 @@ export const createRbacHttpModule = (
           routerDeps.repositories.rolePermissionRepository,
         permissionRepository: routerDeps.repositories.permissionRepository,
         userRoleRepository: routerDeps.repositories.userRoleRepository,
-        onPermissionsChanged: async (userId) => {
-          await CachedAuthorizationRepository.invalidateUser(userId);
-          await authIdentityCache.invalidatePermissions(userId);
-          await routerDeps.authSessionRepository.revokeAllForUser(userId);
-        },
+        onPermissionsChanged: (userId) =>
+          invalidateUserPermissions(
+            userId,
+            authIdentityCache,
+            routerDeps.authSessionRepository,
+          ),
       }),
       listPermissions: new ListPermissionsUseCase({
         permissionRepository: routerDeps.repositories.permissionRepository,
@@ -126,11 +177,12 @@ export const createRbacHttpModule = (
           routerDeps.repositories.rolePermissionRepository,
         authorizationRepository:
           routerDeps.repositories.authorizationRepository,
-        onPermissionsChanged: async (userId) => {
-          await CachedAuthorizationRepository.invalidateUser(userId);
-          await authIdentityCache.invalidatePermissions(userId);
-          await routerDeps.authSessionRepository.revokeAllForUser(userId);
-        },
+        onPermissionsChanged: (userId) =>
+          invalidateUserPermissions(
+            userId,
+            authIdentityCache,
+            routerDeps.authSessionRepository,
+          ),
       }),
       getUserRoles: new GetUserRolesUseCase({
         userRepository: routerDeps.repositories.userRepository,

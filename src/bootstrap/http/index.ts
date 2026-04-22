@@ -393,6 +393,7 @@ const authModule = createAuthHttpModule({
   passwordHasher: container.auth.passwordHasher,
   tokenIssuer: container.auth.tokenIssuer,
   clock: container.auth.clock,
+  authIdentityCache: container.auth.authIdentityCache,
   tokenTtlSeconds,
   refreshTokenTtlSeconds,
   graceWindowSeconds: env.AUTH_REFRESH_GRACE_SECONDS,
@@ -570,6 +571,7 @@ const rbacModule = createRbacHttpModule({
   },
   avatarStorage: container.storage.contentStorage,
   avatarUrlExpiresInSeconds,
+  authIdentityCache: container.auth.authIdentityCache,
 });
 const rbacRouter = createRbacRouter(rbacModule);
 

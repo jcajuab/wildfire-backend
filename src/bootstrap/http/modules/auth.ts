@@ -16,7 +16,6 @@ import {
   DeleteCurrentUserUseCase,
 } from "#/application/use-cases/rbac";
 import { AIKeyEncryptionService } from "#/infrastructure/crypto/ai-key-encryption.service";
-import { RedisAuthIdentityCache } from "#/infrastructure/redis/auth-identity.cache";
 import {
   type AuthRouterDeps,
   type AuthRouterUseCases,
@@ -35,7 +34,7 @@ export const createAuthHttpModule = (
     | "deleteCurrentUserUseCase"
     | "setCurrentUserAvatarUseCase"
     | "updateCurrentUserProfileUseCase"
-  > & { inviteEncryptionKey: string; authIdentityCache?: AuthIdentityCache },
+  > & { inviteEncryptionKey: string; authIdentityCache: AuthIdentityCache },
 ): AuthHttpModule => {
   const routerDeps: AuthRouterDeps = {
     ...deps,
@@ -95,8 +94,7 @@ export const createAuthHttpModule = (
         tokenIssuer: routerDeps.tokenIssuer,
         userRepository: routerDeps.userRepository,
         authorizationRepository: routerDeps.authorizationRepository,
-        authIdentityCache:
-          deps.authIdentityCache ?? new RedisAuthIdentityCache(),
+        authIdentityCache: deps.authIdentityCache,
         clock: routerDeps.clock,
         tokenTtlSeconds: routerDeps.tokenTtlSeconds,
         refreshTokenTtlSeconds: routerDeps.refreshTokenTtlSeconds,

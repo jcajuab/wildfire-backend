@@ -298,6 +298,11 @@ const buildApp = (
           hash: async (p: string) => p,
         },
         repositories,
+        authIdentityCache: {
+          getPermissions: async () => null,
+          setPermissions: async () => {},
+          invalidatePermissions: async () => {},
+        },
         ...(appOptions?.avatar != null
           ? {
               avatarStorage: appOptions.avatar.storage,

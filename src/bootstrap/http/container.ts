@@ -1,5 +1,6 @@
 import { type AuditLogRepository } from "#/application/ports/audit";
 import {
+  type AuthIdentityCache,
   type AuthSessionRepository,
   type Clock,
   type CredentialsReader,
@@ -76,6 +77,7 @@ import { DefaultContentThumbnailGenerator } from "#/infrastructure/media/content
 import { PdftoppmCropRenderer } from "#/infrastructure/media/pdf-crop.renderer";
 import { RedisPdfCropSessionStore } from "#/infrastructure/media/pdf-crop-session.store";
 import { PdfLibPageExtractor } from "#/infrastructure/media/pdf-page.extractor";
+import { RedisAuthIdentityCache } from "#/infrastructure/redis/auth-identity.cache";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
 import { SystemClock } from "#/infrastructure/time/system.clock";
 
@@ -134,6 +136,7 @@ export interface HttpContainer {
     passwordHasher: PasswordHasher;
     tokenIssuer: TokenIssuer;
     clock: Clock;
+    authIdentityCache: AuthIdentityCache;
   };
   storage: {
     contentStorage: ContentStorage;
@@ -188,6 +191,8 @@ export const createHttpContainer = (
 
   // Audit
   const auditLogRepository = new AuditLogDbRepository();
+
+  const authIdentityCache = new RedisAuthIdentityCache();
 
   const credentialsRepository = new HtshadowCredentialsRepository({
     filePath: config.htshadowPath,
@@ -247,6 +252,7 @@ export const createHttpContainer = (
       passwordHasher,
       tokenIssuer,
       clock,
+      authIdentityCache,
     },
     storage: {
       contentStorage,

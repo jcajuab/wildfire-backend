@@ -440,6 +440,11 @@ const buildRbacActionApp = async () => {
           isAdminUser: async () => false,
         },
       },
+      authIdentityCache: {
+        getPermissions: async () => null,
+        setPermissions: async () => {},
+        invalidatePermissions: async () => {},
+      },
     }),
   );
 

@@ -1,11 +1,4 @@
-import { eq } from "drizzle-orm";
-import { type ContentRepository } from "#/application/ports/content";
-import { type ContentIngestionJobRepository } from "#/application/ports/content-jobs";
 import { env } from "#/env";
-import { publishContentJobEvent } from "#/infrastructure/content-jobs/content-job-events";
-import { db } from "#/infrastructure/db/client";
-import { content } from "#/infrastructure/db/schema/content.sql";
-import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { calculateExponentialDelayMs, sleep } from "#/shared/retry";
@@ -15,10 +8,8 @@ import {
   DLQ_REASON_PROCESSING_FAILED,
 } from "./dlq-manager";
 import { ackAndDeleteEntry } from "./entry-acknowledger";
-import {
-  type ContentIngestionWorkerConfig,
-  contentIngestionContainer,
-} from "./runtime";
+import { markJobFailed } from "./job-state";
+import { type ContentIngestionWorkerConfig } from "./runtime";
 import { type StreamEntry } from "./stream-transport";
 
 const parseJobPayload = (
@@ -37,70 +28,6 @@ const parseJobPayload = (
   } catch {
     return null;
   }
-};
-
-const sanitizeErrorMessage = (message: string): string => {
-  return message.replace(/[<>'"]/g, "").slice(0, 500);
-};
-
-const markJobAsFailed = async (
-  jobId: string,
-  errorMessage: string,
-  repositories: {
-    contentRepository: ContentRepository;
-    contentIngestionJobRepository: ContentIngestionJobRepository;
-  },
-) => {
-  const sanitizedErrorMessage = sanitizeErrorMessage(errorMessage);
-  const job = await repositories.contentIngestionJobRepository.findById(jobId);
-
-  if (!job) {
-    return;
-  }
-
-  await db.transaction(async (tx) => {
-    try {
-      await tx
-        .update(content)
-        .set({ status: "FAILED", updatedAt: new Date() })
-        .where(eq(content.id, job.contentId));
-    } catch (error) {
-      logger.error(
-        addErrorContext(
-          {
-            component: "content",
-            event: "content.ingestion.mark_failed.content_update_error",
-            jobId: job.id,
-            contentId: job.contentId,
-          },
-          error,
-        ),
-        "Failed to update content status to FAILED",
-      );
-      throw error;
-    }
-
-    const now = new Date();
-    await tx
-      .update(contentIngestionJobs)
-      .set({
-        status: "FAILED",
-        errorMessage: sanitizedErrorMessage,
-        completedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(contentIngestionJobs.id, job.id));
-  });
-
-  publishContentJobEvent({
-    type: "failed",
-    jobId: job.id,
-    contentId: job.contentId,
-    timestamp: new Date().toISOString(),
-    status: "FAILED",
-    errorMessage: sanitizedErrorMessage,
-    message: "Content ingestion failed",
-  });
 };
 
 export interface EntryProcessor {
@@ -169,13 +96,7 @@ export const createEntryProcessor = (input: {
 
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        await markJobAsFailed(payload.jobId, errorMessage, {
-          contentRepository:
-            contentIngestionContainer.repositories.contentRepository,
-          contentIngestionJobRepository:
-            contentIngestionContainer.repositories
-              .contentIngestionJobRepository,
-        });
+        await markJobFailed(payload.jobId, errorMessage);
 
         await addToDlq(input.config.streamDlqName, {
           entry: processInput.entry,
