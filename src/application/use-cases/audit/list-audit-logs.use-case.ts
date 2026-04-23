@@ -32,7 +32,7 @@ export class ListAuditLogsUseCase {
     });
 
     const [items, total] = await Promise.all([
-      this.deps.auditLogRepository.list(query),
+      this.deps.auditLogRepository.listWithActors(query),
       this.deps.auditLogRepository.count(query),
     ]);
 
