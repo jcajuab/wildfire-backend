@@ -157,8 +157,10 @@ export const registerAuthSessionRoutes = (args: {
                 now < session.previousJtiExpiresAt;
 
               if (matchesCurrent || matchesGracePrevious) {
+                c.set("userId", session.userId);
                 await deps.authSessionRepository.revokeById(session.id);
               } else {
+                c.set("userId", session.userId);
                 await deps.authSessionRepository.revokeByFamilyId(
                   session.familyId,
                 );
