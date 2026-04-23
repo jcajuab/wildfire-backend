@@ -78,13 +78,10 @@ export const registerScheduleBootstrapRoutes = (args: {
             ? (useCases.listDisplayGroups?.execute() ?? Promise.resolve([]))
             : Promise.resolve([]),
           canReadPlaylists
-            ? useCases.listPlaylistOptions.execute({
-                ownerId: c.get("userId"),
-              })
+            ? useCases.listPlaylistOptions.execute({})
             : Promise.resolve([]),
           canReadContent
             ? useCases.listFlashContentOptions.execute({
-                ownerId: c.get("userId"),
                 type: "FLASH",
                 status: "READY",
               })
