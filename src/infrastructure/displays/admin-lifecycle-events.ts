@@ -7,7 +7,8 @@ export type AdminDisplayLifecycleEventType =
   | "display_registered"
   | "display_unregistered"
   | "display_status_changed"
-  | "playlist_status_changed";
+  | "playlist_status_changed"
+  | "content_status_changed";
 
 export type AdminDisplayLifecycleEvent =
   | {
@@ -35,6 +36,12 @@ export type AdminDisplayLifecycleEvent =
       playlistId: string;
       status: "DRAFT" | "IN_USE";
       occurredAt: string;
+    }
+  | {
+      type: "content_status_changed";
+      contentId: string;
+      status: "PROCESSING" | "READY" | "FAILED";
+      occurredAt: string;
     };
 
 const MAX_FIELD_BYTES = 256;
@@ -47,6 +54,11 @@ const isDisplayStatus = (value: unknown): value is DisplayStatus =>
 
 const isPlaylistStatus = (value: unknown): value is "DRAFT" | "IN_USE" =>
   value === "DRAFT" || value === "IN_USE";
+
+const isContentStatus = (
+  value: unknown,
+): value is "PROCESSING" | "READY" | "FAILED" =>
+  value === "PROCESSING" || value === "READY" || value === "FAILED";
 
 const parseLifecycleEvent = (
   value: unknown,
@@ -61,7 +73,22 @@ const parseLifecycleEvent = (
     previousStatus?: unknown;
     status?: unknown;
     playlistId?: unknown;
+    contentId?: unknown;
   };
+
+  if (
+    candidate.type === "content_status_changed" &&
+    isStringField(candidate.contentId, MAX_FIELD_BYTES) &&
+    isContentStatus(candidate.status) &&
+    isStringField(candidate.occurredAt, MAX_FIELD_BYTES)
+  ) {
+    return {
+      type: "content_status_changed",
+      contentId: candidate.contentId,
+      status: candidate.status,
+      occurredAt: candidate.occurredAt,
+    };
+  }
 
   if (
     candidate.type === "playlist_status_changed" &&

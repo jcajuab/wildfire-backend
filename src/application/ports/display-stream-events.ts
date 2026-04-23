@@ -59,6 +59,12 @@ export interface AdminDisplayLifecycleEventPublisher {
           playlistId: string;
           status: "DRAFT" | "IN_USE";
           occurredAt: string;
+        }
+      | {
+          type: "content_status_changed";
+          contentId: string;
+          status: "PROCESSING" | "READY" | "FAILED";
+          occurredAt: string;
         },
   ): void;
 }
@@ -88,6 +94,12 @@ export type AdminDisplayLifecycleEvent =
       type: "playlist_status_changed";
       playlistId: string;
       status: "DRAFT" | "IN_USE";
+      occurredAt: string;
+    }
+  | {
+      type: "content_status_changed";
+      contentId: string;
+      status: "PROCESSING" | "READY" | "FAILED";
       occurredAt: string;
     };
 

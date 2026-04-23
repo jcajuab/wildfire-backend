@@ -4,6 +4,7 @@ import { publishContentJobEvent } from "#/infrastructure/content-jobs/content-jo
 import { db } from "#/infrastructure/db/client";
 import { content } from "#/infrastructure/db/schema/content.sql";
 import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql";
+import { publishAdminDisplayLifecycleEvent } from "#/infrastructure/displays/admin-lifecycle-events";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { contentIngestionContainer } from "./runtime";
@@ -32,6 +33,12 @@ export const markJobProcessing = async (
     status: "PROCESSING",
     message: "Content ingestion started",
   });
+  publishAdminDisplayLifecycleEvent({
+    type: "content_status_changed",
+    contentId: job.contentId,
+    status: "PROCESSING",
+    occurredAt: startedAt,
+  });
   return startedAt;
 };
 
@@ -53,6 +60,12 @@ export const markJobSucceeded = async (
     timestamp: completedAt,
     status: "SUCCEEDED",
     message: "Content ingestion completed",
+  });
+  publishAdminDisplayLifecycleEvent({
+    type: "content_status_changed",
+    contentId: job.contentId,
+    status: "READY",
+    occurredAt: completedAt,
   });
 };
 
@@ -103,13 +116,20 @@ export const markJobFailed = async (
       .where(eq(contentIngestionJobs.id, job.id));
   });
 
+  const failedAt = new Date().toISOString();
   publishContentJobEvent({
     type: "failed",
     jobId: job.id,
     contentId: job.contentId,
-    timestamp: new Date().toISOString(),
+    timestamp: failedAt,
     status: "FAILED",
     errorMessage: sanitizedErrorMessage,
     message: "Content ingestion failed",
+  });
+  publishAdminDisplayLifecycleEvent({
+    type: "content_status_changed",
+    contentId: job.contentId,
+    status: "FAILED",
+    occurredAt: failedAt,
   });
 };
