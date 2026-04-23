@@ -82,9 +82,8 @@ export class UploadContentUseCase {
 
     const id = crypto.randomUUID();
     const fileKey = buildContentFileKey({ id, type, mimeType });
-    const buffer = await input.file.arrayBuffer();
-    const checksum = await sha256Hex(buffer);
-    const data = new Uint8Array(buffer);
+    const data = new Uint8Array(await input.file.arrayBuffer());
+    const checksum = await sha256Hex(data.buffer);
     const created = await this.deps.contentRepository.create({
       id,
       title: input.title,
