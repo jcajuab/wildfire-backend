@@ -80,6 +80,7 @@ export interface RoleRepository {
   }): Promise<{ items: RoleWithUserCount[]; total: number }>;
   findById(id: string): Promise<RoleRecord | null>;
   findByIds(ids: string[]): Promise<RoleRecord[]>;
+  findByName(name: string): Promise<RoleRecord | null>;
   create(input: {
     name: string;
     description?: string | null;

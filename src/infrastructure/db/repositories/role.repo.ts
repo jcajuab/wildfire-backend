@@ -119,6 +119,15 @@ export class RoleDbRepository implements RoleRepository {
     return rows.map(withIsSystem);
   }
 
+  async findByName(name: string): Promise<RoleRecord | null> {
+    const result = await db
+      .select()
+      .from(roles)
+      .where(eq(roles.name, name))
+      .limit(1);
+    return result[0] ? withIsSystem(result[0]) : null;
+  }
+
   async create(input: {
     name: string;
     description?: string | null;

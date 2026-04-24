@@ -404,6 +404,7 @@ const buildRbacActionApp = async () => {
           list: async () => [],
           findById: async () => null,
           findByIds: async () => [],
+          findByName: async () => null,
           create: async () => ({
             id: "role-1",
             name: "Role",

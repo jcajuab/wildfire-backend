@@ -160,6 +160,8 @@ const buildApp = (
         store.roles.find((role) => role.id === id) ?? null,
       findByIds: async (ids) =>
         store.roles.filter((role) => ids.includes(role.id)),
+      findByName: async (name) =>
+        store.roles.find((role) => role.name === name) ?? null,
       create: async (input) => {
         const created = {
           id: crypto.randomUUID(),
