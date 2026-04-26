@@ -110,6 +110,7 @@ export const createDisplaysHttpModule = (
       unregisterDisplay: new UnregisterDisplayUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
         displayKeyRepository: routerDeps.repositories.displayKeyRepository,
+        displayEventPublisher: routerDeps.displayEventPublisher,
         lifecycleEventPublisher: routerDeps.lifecycleEventPublisher,
       }),
       listDisplayGroups: new ListDisplayGroupsUseCase({

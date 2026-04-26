@@ -12,7 +12,8 @@ export type DisplayStreamEventType =
   | "manifest_updated"
   | "schedule_updated"
   | "playlist_updated"
-  | "display_refresh_requested";
+  | "display_refresh_requested"
+  | "display_unregistered";
 
 export interface DisplayStreamEvent {
   type: DisplayStreamEventType;
@@ -36,7 +37,8 @@ const isDisplayStreamEventType = (
   value === "manifest_updated" ||
   value === "schedule_updated" ||
   value === "playlist_updated" ||
-  value === "display_refresh_requested";
+  value === "display_refresh_requested" ||
+  value === "display_unregistered";
 
 const parseDisplayStreamEvent = (value: unknown): DisplayStreamEvent | null => {
   if (value == null || typeof value !== "object") {

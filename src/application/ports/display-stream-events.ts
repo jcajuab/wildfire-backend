@@ -4,7 +4,8 @@ export type DisplayStreamEventType =
   | "manifest_updated"
   | "schedule_updated"
   | "playlist_updated"
-  | "display_refresh_requested";
+  | "display_refresh_requested"
+  | "display_unregistered";
 
 export interface DisplayStreamEvent {
   type: DisplayStreamEventType;
