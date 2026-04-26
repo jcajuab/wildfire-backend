@@ -3,6 +3,7 @@ export {
   AuthorizeSignedDisplayRequestUseCase,
   toSignedRequestBodyHash,
 } from "./authorize-signed-display-request.use-case";
+export { ClaimRegistrationLinkUseCase } from "./claim-registration-link.use-case";
 export { CloseDisplayRegistrationAttemptUseCase } from "./close-display-registration-attempt.use-case";
 export { CreateDisplayGroupUseCase } from "./create-display-group.use-case";
 export { CreateDisplayRegistrationSessionUseCase } from "./create-display-registration-session.use-case";
@@ -24,6 +25,7 @@ export { GetDisplayPreviewUseCase } from "./get-display-preview.use-case";
 export { GetRuntimeOverridesUseCase } from "./get-runtime-overrides.use-case";
 export { IssueDisplayAuthChallengeUseCase } from "./issue-display-auth-challenge.use-case";
 export { IssueDisplayRegistrationAttemptUseCase } from "./issue-display-registration-attempt.use-case";
+export { IssueRegistrationLinkUseCase } from "./issue-registration-link.use-case";
 export { ListDisplayGroupsUseCase } from "./list-display-groups.use-case";
 export { ListDisplayOptionsUseCase } from "./list-display-options.use-case";
 export { ListDisplayOutputOptionsUseCase } from "./list-display-output-options.use-case";

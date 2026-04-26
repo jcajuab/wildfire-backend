@@ -38,6 +38,7 @@ import {
   publishRegistrationAttemptEvent,
   subscribeToRegistrationAttemptEvents,
 } from "#/infrastructure/displays/registration-attempt-events";
+import { RedisDisplayRegistrationLinkStore } from "#/infrastructure/displays/registration-link.store";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -102,6 +103,7 @@ const contentIngestionQueue = new RedisContentIngestionQueue({
 });
 
 const registrationAttemptStore = new RedisDisplayRegistrationAttemptStore();
+const registrationLinkStore = new RedisDisplayRegistrationLinkStore();
 const displayHeartbeatStore = new RedisDisplayHeartbeatStore();
 
 const contentJobEventPublisher = { publish: publishContentJobEvent };
@@ -483,6 +485,7 @@ const displaysModule = createDisplaysHttpModule({
   },
   storage: container.storage.contentStorage,
   registrationAttemptStore,
+  registrationLinkStore,
   displayEventPublisher,
   lifecycleEventPublisher,
   lifecycleEventSubscription,

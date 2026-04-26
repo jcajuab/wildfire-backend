@@ -1,6 +1,7 @@
 import { ListContentOptionsUseCase } from "#/application/use-cases/content";
 import {
   ActivateGlobalEmergencyUseCase,
+  ClaimRegistrationLinkUseCase,
   CloseDisplayRegistrationAttemptUseCase,
   CreateDisplayGroupUseCase,
   CreateDisplayRegistrationSessionUseCase,
@@ -11,6 +12,7 @@ import {
   GetDisplayUseCase,
   GetRuntimeOverridesUseCase,
   IssueDisplayRegistrationAttemptUseCase,
+  IssueRegistrationLinkUseCase,
   ListDisplayGroupsUseCase,
   ListDisplayOptionsUseCase,
   ListDisplayOutputOptionsUseCase,
@@ -157,6 +159,23 @@ export const createDisplaysHttpModule = (
           deps.repositories.displayPairingSessionRepository,
         displayRepository: deps.repositories.displayRepository,
         displayKeyRepository: deps.repositories.displayKeyRepository,
+        registrationAttemptStore: deps.registrationAttemptStore,
+        registrationAttemptEventPublisher:
+          deps.registrationAttemptEventPublisher,
+        lifecycleEventPublisher: deps.lifecycleEventPublisher,
+      }),
+      issueRegistrationLink: new IssueRegistrationLinkUseCase({
+        registrationLinkStore: deps.registrationLinkStore,
+        registrationAttemptStore: deps.registrationAttemptStore,
+        displayPairingCodeRepository:
+          deps.repositories.displayPairingCodeRepository,
+        displayRepository: deps.repositories.displayRepository,
+      }),
+      claimRegistrationLink: new ClaimRegistrationLinkUseCase({
+        registrationLinkStore: deps.registrationLinkStore,
+        displayRepository: deps.repositories.displayRepository,
+        displayKeyRepository: deps.repositories.displayKeyRepository,
+        displayGroupRepository: deps.repositories.displayGroupRepository,
         registrationAttemptStore: deps.registrationAttemptStore,
         registrationAttemptEventPublisher:
           deps.registrationAttemptEventPublisher,

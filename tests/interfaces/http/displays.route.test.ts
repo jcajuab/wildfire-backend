@@ -808,6 +808,11 @@ const makeApp = async (
       registrationAttemptEventSubscription: {
         subscribe: () => () => {},
       },
+      registrationLinkStore: {
+        create: async () => {},
+        peek: async () => null,
+        consume: async () => null,
+      },
     }),
   );
 

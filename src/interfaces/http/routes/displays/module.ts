@@ -14,6 +14,7 @@ import {
   type DisplayRegistrationAttemptEventSubscription,
   type DisplayRegistrationAttemptStore,
 } from "#/application/ports/display-registration-attempt";
+import { type DisplayRegistrationLinkStore } from "#/application/ports/display-registration-link";
 import {
   type AdminDisplayLifecycleEventPublisher,
   type AdminDisplayLifecycleEventSubscription,
@@ -31,6 +32,7 @@ import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type ListContentOptionsUseCase } from "#/application/use-cases/content";
 import {
   type ActivateGlobalEmergencyUseCase,
+  type ClaimRegistrationLinkUseCase,
   type CloseDisplayRegistrationAttemptUseCase,
   type CreateDisplayGroupUseCase,
   type CreateDisplayRegistrationSessionUseCase,
@@ -41,6 +43,7 @@ import {
   type GetDisplayUseCase,
   type GetRuntimeOverridesUseCase,
   type IssueDisplayRegistrationAttemptUseCase,
+  type IssueRegistrationLinkUseCase,
   type ListDisplayGroupsUseCase,
   type ListDisplayOptionsUseCase,
   type ListDisplayOutputOptionsUseCase,
@@ -79,6 +82,7 @@ export interface DisplaysRouterDeps {
   storage: ContentStorage;
   defaultEmergencyContentId?: string;
   registrationAttemptStore: DisplayRegistrationAttemptStore;
+  registrationLinkStore: DisplayRegistrationLinkStore;
   displayEventPublisher: DisplayStreamEventPublisher;
   lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
   lifecycleEventSubscription: AdminDisplayLifecycleEventSubscription;
@@ -109,6 +113,8 @@ export interface DisplaysRouterUseCases {
   closeDisplayRegistrationAttempt: CloseDisplayRegistrationAttemptUseCase;
   createDisplayRegistrationSession: CreateDisplayRegistrationSessionUseCase;
   registerDisplay: RegisterDisplayUseCase;
+  issueRegistrationLink: IssueRegistrationLinkUseCase;
+  claimRegistrationLink: ClaimRegistrationLinkUseCase;
   getDisplayPreview: GetDisplayPreviewUseCase;
   listEmergencyContentOptions: ListContentOptionsUseCase;
 }
