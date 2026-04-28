@@ -50,21 +50,21 @@ export class ActivateGlobalEmergencyUseCase {
     const assets = await this.deps.contentRepository.findByIds(assetIds);
     const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
 
-    const missingDisplay = displays.find((display) => {
+    const hasAtLeastOneValid = displays.some((display) => {
       const selectedAssetId = pickDisplayEmergencyAssetId({
         display,
         defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
       });
       if (!selectedAssetId) {
-        return true;
+        return false;
       }
       const asset = assetsById.get(selectedAssetId);
-      return !asset || !isRenderableEmergencyAsset(asset);
+      return asset && isRenderableEmergencyAsset(asset);
     });
 
-    if (missingDisplay) {
+    if (!hasAtLeastOneValid) {
       throw new ValidationError(
-        `Display ${missingDisplay.slug} has no valid emergency content asset`,
+        "You must have at least one display with an emergency content.",
       );
     }
 

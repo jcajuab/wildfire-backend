@@ -54,6 +54,12 @@ export class UpdateScheduleUseCase {
       startTime: input.startTime ?? existing.startTime,
       endTime: input.endTime ?? existing.endTime,
     });
+    const nextStartTime = input.startTime ?? existing.startTime;
+    const nextEndTime = input.endTime ?? existing.endTime;
+    if (nextEndTime <= nextStartTime) {
+      throw new ValidationError("End time must be later than start time.");
+    }
+
     const nextDisplayId = input.displayId ?? existing.displayId;
     const nextPlaylistId =
       input.playlistId === undefined ? existing.playlistId : input.playlistId;

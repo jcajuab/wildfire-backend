@@ -52,6 +52,10 @@ export class CreateScheduleUseCase {
         throw new ValidationError("Schedule start time cannot be in the past.");
       }
     }
+    if (input.endTime <= input.startTime) {
+      throw new ValidationError("End time must be later than start time.");
+    }
+
     const display = await this.deps.displayRepository.findById(input.displayId);
     if (!display) {
       throw new NotFoundError("Display not found");
