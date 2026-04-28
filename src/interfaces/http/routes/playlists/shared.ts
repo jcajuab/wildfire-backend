@@ -46,6 +46,7 @@ export interface PlaylistsRouterDeps {
   thumbnailUrlExpiresInSeconds: number;
   displayEventPublisher: DisplayStreamEventPublisher;
   checkPermissionUseCase: CheckPermissionUseCase;
+  timezone?: string;
 }
 
 export interface PlaylistsRouterUseCases {

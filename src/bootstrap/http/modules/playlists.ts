@@ -42,6 +42,8 @@ export const createPlaylistsHttpModule = (
         userRepository: routerDeps.repositories.userRepository,
         contentStorage: routerDeps.storage,
         thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
+        scheduleRepository: routerDeps.repositories.scheduleRepository,
+        timezone: routerDeps.timezone,
       }),
       listPlaylistOptions: new ListPlaylistOptionsUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
