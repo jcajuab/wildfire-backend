@@ -645,6 +645,7 @@ export class GetDisplayManifestUseCase {
           ? {
               scheduleId: input.playback.flash.scheduleId,
               contentId: input.playback.flash.contentId,
+              message: input.playback.flash.message,
               tone: input.playback.flash.tone,
               region: input.playback.flash.region,
               heightPx: input.playback.flash.heightPx,
