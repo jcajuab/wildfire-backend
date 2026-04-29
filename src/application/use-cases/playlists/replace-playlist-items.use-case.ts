@@ -1,7 +1,10 @@
 import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
-import { type PlaylistRepository } from "#/application/ports/playlists";
+import {
+  type PlaylistItemAtomicWriteInput,
+  type PlaylistRepository,
+} from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   isValidDuration,
@@ -27,18 +30,7 @@ export class ReplacePlaylistItemsAtomicUseCase {
   async execute(input: {
     ownerId?: string;
     playlistId: string;
-    items: readonly (
-      | {
-          kind: "existing";
-          itemId: string;
-          duration: number;
-        }
-      | {
-          kind: "new";
-          contentId: string;
-          duration: number;
-        }
-    )[];
+    items: readonly PlaylistItemAtomicWriteInput[];
   }) {
     if (!this.deps.playlistRepository.replaceItemsAtomic) {
       throw new Error("Atomic playlist item replacement is not supported");
@@ -122,6 +114,26 @@ export class ReplacePlaylistItemsAtomicUseCase {
       if (content.status !== "READY") {
         throw new ValidationError(
           "Only ready content can be added to playlists.",
+        );
+      }
+    }
+
+    for (const item of input.items) {
+      const contentId =
+        item.kind === "existing"
+          ? (existingById.get(item.itemId)?.contentId ?? null)
+          : item.contentId;
+      if (!contentId) {
+        continue;
+      }
+      const content = contentById.get(contentId);
+      if (!content) {
+        continue;
+      }
+      const loop = item.loop ?? false;
+      if (loop && content.type !== "VIDEO") {
+        throw new ValidationError(
+          "Loop is only supported for video playlist items.",
         );
       }
     }

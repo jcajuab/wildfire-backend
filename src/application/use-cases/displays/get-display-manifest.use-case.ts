@@ -74,6 +74,7 @@ interface ManifestRenderableItem {
   id: string;
   sequence: number;
   duration: number;
+  loop: boolean;
   content: ManifestRenderableContent;
 }
 
@@ -122,6 +123,7 @@ type ManifestSourceItem = {
   id: string;
   sequence: number;
   duration: number;
+  loop: boolean;
   content: ContentRecord & {
     type: ManifestRenderableType;
   };
@@ -264,6 +266,7 @@ export class GetDisplayManifestUseCase {
             id: `emergency:${emergency.content.id}`,
             sequence: 1,
             duration: emergencyDuration,
+            loop: false,
             content: {
               id: emergency.content.id,
               checksum: emergency.content.checksum,
@@ -297,6 +300,7 @@ export class GetDisplayManifestUseCase {
           id: `emergency:${emergencyContent.id}`,
           sequence: 1,
           duration: emergencyDuration,
+          loop: false,
           content: emergencyContent,
         },
       ];
@@ -430,6 +434,7 @@ export class GetDisplayManifestUseCase {
           id: item.id,
           sequence: index + 1,
           duration: item.duration,
+          loop: item.loop,
           content: content as ContentRecord & {
             type: ManifestRenderableType;
           },
@@ -445,6 +450,7 @@ export class GetDisplayManifestUseCase {
         id: item.id,
         sequence: item.sequence,
         duration: item.duration,
+        loop: item.loop,
         content: {
           id: item.content.id,
           checksum: item.content.checksum,
@@ -476,6 +482,7 @@ export class GetDisplayManifestUseCase {
         id: item.id,
         sequence: item.sequence,
         duration: item.duration,
+        loop: item.loop,
         content: await this.materializeRenderableContent(item.content),
       }),
     );
@@ -621,6 +628,7 @@ export class GetDisplayManifestUseCase {
       id: string;
       sequence: number;
       duration: number;
+      loop: boolean;
       content: {
         id: string;
         checksum: string;
@@ -657,6 +665,7 @@ export class GetDisplayManifestUseCase {
         id: item.id,
         sequence: item.sequence,
         duration: item.duration,
+        loop: item.loop,
         contentId: item.content.id,
         checksum: item.content.checksum,
       })),

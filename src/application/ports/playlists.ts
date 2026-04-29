@@ -18,6 +18,7 @@ export interface PlaylistItemRecord {
   contentId: string;
   sequence: number;
   duration: number;
+  loop: boolean;
 }
 
 export type PlaylistItemAtomicWriteInput =
@@ -25,11 +26,13 @@ export type PlaylistItemAtomicWriteInput =
       kind: "existing";
       itemId: string;
       duration: number;
+      loop?: boolean;
     }
   | {
       kind: "new";
       contentId: string;
       duration: number;
+      loop?: boolean;
     };
 
 export interface PlaylistRepository {
@@ -85,10 +88,11 @@ export interface PlaylistRepository {
     contentId: string;
     sequence: number;
     duration: number;
+    loop?: boolean;
   }): Promise<PlaylistItemRecord>;
   updateItem(
     id: string,
-    input: { sequence?: number; duration?: number },
+    input: { sequence?: number; duration?: number; loop?: boolean },
   ): Promise<PlaylistItemRecord | null>;
   reorderItems(input: {
     playlistId: string;

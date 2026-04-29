@@ -58,6 +58,7 @@ const makeApp = async (
     contentId: string;
     sequence: number;
     duration: number;
+    loop: boolean;
   }> = [];
   const contents: ContentRecord[] = [
     {
@@ -233,6 +234,7 @@ const makeApp = async (
             const record = {
               id: `item-${items.length + 1}`,
               ...input,
+              loop: input.loop ?? false,
             };
             items.push(record);
             return record;
@@ -452,6 +454,7 @@ describe("Playlists routes", () => {
         contentId: contentId3,
         sequence: 30,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-2",
@@ -459,6 +462,7 @@ describe("Playlists routes", () => {
         contentId: contentId,
         sequence: 10,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-3",
@@ -466,6 +470,7 @@ describe("Playlists routes", () => {
         contentId: contentId2,
         sequence: 20,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-4",
@@ -473,6 +478,7 @@ describe("Playlists routes", () => {
         contentId: contentId4,
         sequence: 40,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-5",
@@ -480,6 +486,7 @@ describe("Playlists routes", () => {
         contentId: contentId5,
         sequence: 50,
         duration: 10,
+        loop: false,
       },
     );
 
@@ -564,6 +571,7 @@ describe("Playlists routes", () => {
         contentId: "missing-content-1",
         sequence: 10,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-2",
@@ -571,6 +579,7 @@ describe("Playlists routes", () => {
         contentId: "missing-content-2",
         sequence: 20,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-3",
@@ -578,6 +587,7 @@ describe("Playlists routes", () => {
         contentId,
         sequence: 30,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-4",
@@ -585,6 +595,7 @@ describe("Playlists routes", () => {
         contentId: contentId2,
         sequence: 40,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-5",
@@ -592,6 +603,7 @@ describe("Playlists routes", () => {
         contentId: contentId3,
         sequence: 50,
         duration: 10,
+        loop: false,
       },
     );
 
@@ -643,6 +655,7 @@ describe("Playlists routes", () => {
         contentId,
         sequence: 1,
         duration: 10,
+        loop: false,
       },
       {
         id: "item-2",
@@ -650,6 +663,7 @@ describe("Playlists routes", () => {
         contentId: contentId2,
         sequence: 2,
         duration: 10,
+        loop: false,
       },
     );
 

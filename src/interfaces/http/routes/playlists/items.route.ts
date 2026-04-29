@@ -73,6 +73,7 @@ export const registerPlaylistItemRoutes = (args: {
           contentId: payload.contentId,
           sequence: payload.sequence,
           duration: payload.duration,
+          loop: payload.loop,
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
@@ -119,6 +120,7 @@ export const registerPlaylistItemRoutes = (args: {
           id: params.itemId,
           sequence: payload.sequence,
           duration: payload.duration,
+          loop: payload.loop,
         });
         await invalidateServerCache(["playlists", "schedules", "displays"]);
         return c.json({ data: result });

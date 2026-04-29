@@ -104,6 +104,7 @@ export const mergedPlaylistItemSchema = z.object({
   contentId: z.string(),
   sequence: z.number(),
   duration: z.number(),
+  loop: z.boolean(),
 });
 
 export const mergedPlaylistResponseSchema = apiResponseSchema(

@@ -31,6 +31,7 @@ export class UpdatePlaylistItemUseCase {
     id: string;
     sequence?: number;
     duration?: number;
+    loop?: boolean;
   }) {
     if (input.sequence !== undefined && !isValidSequence(input.sequence)) {
       throw new ValidationError("Invalid sequence");
@@ -52,6 +53,22 @@ export class UpdatePlaylistItemUseCase {
     const existingItem = existingItems.find((item) => item.id === input.id);
     if (!existingItem) throw new NotFoundError("Playlist item not found");
 
+    if (input.loop !== undefined) {
+      const content =
+        input.ownerId && this.deps.contentRepository.findByIdForOwner
+          ? await this.deps.contentRepository.findByIdForOwner(
+              existingItem.contentId,
+              input.ownerId,
+            )
+          : await this.deps.contentRepository.findById(existingItem.contentId);
+      if (!content) throw new NotFoundError("Content not found");
+      if (input.loop && content.type !== "VIDEO") {
+        throw new ValidationError(
+          "Loop is only supported for video playlist items.",
+        );
+      }
+    }
+
     if (input.duration !== undefined) {
       const otherItemsBaseDuration = existingItems
         .filter((item) => item.id !== input.id)
@@ -69,6 +86,7 @@ export class UpdatePlaylistItemUseCase {
     const item = await this.deps.playlistRepository.updateItem(input.id, {
       sequence: input.sequence,
       duration: input.duration,
+      loop: input.loop,
     });
     if (!item) throw new NotFoundError("Playlist item not found");
 

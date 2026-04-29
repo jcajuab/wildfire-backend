@@ -399,6 +399,7 @@ describe("Schedules use cases", () => {
             contentId: "content-1",
             sequence: 10,
             duration: 30,
+            loop: false,
           },
         ],
       },

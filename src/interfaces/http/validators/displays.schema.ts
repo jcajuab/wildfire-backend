@@ -245,6 +245,7 @@ export const displayManifestItemSchema = z.object({
   id: z.string(),
   sequence: z.number().int(),
   duration: z.number().int(),
+  loop: z.boolean(),
   content: z.object({
     id: z.string(),
     type: z.enum(["IMAGE", "VIDEO", "TEXT"]),

@@ -112,6 +112,7 @@ const makeDeps = () => {
         contentId: input.contentId,
         sequence: input.sequence,
         duration: input.duration,
+        loop: input.loop ?? false,
       };
       items.push(record);
       return record;

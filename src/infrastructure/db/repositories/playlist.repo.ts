@@ -42,6 +42,7 @@ const mapPlaylistItemRowToRecord = (
   contentId: row.contentId,
   sequence: row.sequence,
   duration: row.duration,
+  loop: Boolean(row.loop),
 });
 
 const PLAYLIST_SEQUENCE_UNIQUE_INDEX =
@@ -387,8 +388,10 @@ export class PlaylistDbRepository implements PlaylistRepository {
     contentId: string;
     sequence: number;
     duration: number;
+    loop?: boolean;
   }): Promise<PlaylistItemRecord> {
     const id = crypto.randomUUID();
+    const loop = input.loop ?? false;
     try {
       await db.insert(playlistItems).values({
         id,
@@ -396,6 +399,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
         contentId: input.contentId,
         sequence: input.sequence,
         duration: input.duration,
+        loop,
       });
     } catch (error) {
       throw mapPlaylistItemInsertError(error);
@@ -407,12 +411,13 @@ export class PlaylistDbRepository implements PlaylistRepository {
       contentId: input.contentId,
       sequence: input.sequence,
       duration: input.duration,
+      loop,
     };
   }
 
   async updateItem(
     id: string,
-    input: { sequence?: number; duration?: number },
+    input: { sequence?: number; duration?: number; loop?: boolean },
   ): Promise<PlaylistItemRecord | null> {
     const existing = await this.findItemById(id);
     if (!existing) return null;
@@ -422,6 +427,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .set({
         sequence: input.sequence ?? existing.sequence,
         duration: input.duration ?? existing.duration,
+        loop: input.loop !== undefined ? input.loop : existing.loop,
       })
       .where(eq(playlistItems.id, id));
 
@@ -558,11 +564,18 @@ export class PlaylistDbRepository implements PlaylistRepository {
             (item) =>
               sql`WHEN ${playlistItems.id} = ${item.itemId} THEN ${item.duration}`,
           );
+          const loopCaseChunks = existingItems.map((item) => {
+            const prev = existingById.get(item.itemId);
+            const loopVal =
+              item.loop !== undefined ? item.loop : (prev?.loop ?? false);
+            return sql`WHEN ${playlistItems.id} = ${item.itemId} THEN ${loopVal}`;
+          });
           await tx
             .update(playlistItems)
             .set({
               sequence: sql`CASE ${sql.join(seqCaseChunks, sql` `)} END`,
               duration: sql`CASE ${sql.join(durCaseChunks, sql` `)} END`,
+              loop: sql`CASE ${sql.join(loopCaseChunks, sql` `)} END`,
             })
             .where(inArray(playlistItems.id, existingIds));
         }
@@ -576,6 +589,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
               contentId: item.contentId,
               sequence: index + 1,
               duration: item.duration,
+              loop: item.loop ?? false,
             })),
           );
         }

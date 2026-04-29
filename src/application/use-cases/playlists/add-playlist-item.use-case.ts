@@ -31,6 +31,7 @@ export class AddPlaylistItemUseCase {
     contentId: string;
     sequence: number;
     duration: number;
+    loop?: boolean;
   }) {
     if (!isValidSequence(input.sequence)) {
       throw new ValidationError("Invalid sequence");
@@ -60,6 +61,13 @@ export class AddPlaylistItemUseCase {
       );
     }
 
+    const loop = input.loop ?? false;
+    if (loop && content.type !== "VIDEO") {
+      throw new ValidationError(
+        "Loop is only supported for video playlist items.",
+      );
+    }
+
     const existingItems = await this.deps.playlistRepository.listItems(
       input.playlistId,
     );
@@ -85,6 +93,7 @@ export class AddPlaylistItemUseCase {
       contentId: input.contentId,
       sequence: input.sequence,
       duration: input.duration,
+      loop,
     });
     await runPlaylistPostMutationEffects(
       this.deps,

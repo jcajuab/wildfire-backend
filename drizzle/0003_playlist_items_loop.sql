@@ -1,0 +1,1 @@
+ALTER TABLE `playlist_items` ADD `loop` boolean DEFAULT false NOT NULL;

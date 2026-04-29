@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   int,
   mysqlTable,
@@ -20,6 +21,7 @@ export const playlistItems = mysqlTable(
       .references(() => content.id, { onDelete: "restrict" }),
     sequence: int("sequence").notNull(),
     duration: int("duration").notNull(),
+    loop: boolean("loop").notNull().default(false),
   },
   (table) => [
     uniqueIndex("playlist_items_playlist_id_sequence_unique").on(

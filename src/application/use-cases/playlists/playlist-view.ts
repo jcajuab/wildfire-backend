@@ -39,6 +39,7 @@ export const toPlaylistItemView = (
   id: item.id,
   sequence: item.sequence,
   duration: item.duration,
+  loop: item.loop,
   content: {
     id: content.id,
     title: content.title,

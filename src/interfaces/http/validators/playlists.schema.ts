@@ -20,6 +20,7 @@ export const playlistItemSchema = z.object({
   id: z.string(),
   sequence: z.number().int(),
   duration: z.number().int(),
+  loop: z.boolean(),
   content: z.object({
     id: z.string(),
     title: z.string(),
@@ -86,11 +87,13 @@ export const addPlaylistItemSchema = z.object({
   contentId: z.string().uuid(),
   sequence: z.number().int(),
   duration: z.number().int(),
+  loop: z.boolean().default(false),
 });
 
 export const updatePlaylistItemSchema = z.object({
   sequence: z.number().int().optional(),
   duration: z.number().int().optional(),
+  loop: z.boolean().optional(),
 });
 
 export const reorderPlaylistItemsSchema = z.object({
@@ -104,11 +107,13 @@ export const replacePlaylistItemsAtomicSchema = z.object({
         kind: z.literal("existing"),
         itemId: z.string().uuid(),
         duration: z.number().int().positive(),
+        loop: z.boolean().default(false),
       }),
       z.object({
         kind: z.literal("new"),
         contentId: z.string().uuid(),
         duration: z.number().int().positive(),
+        loop: z.boolean().default(false),
       }),
     ]),
   ),

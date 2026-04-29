@@ -11,6 +11,7 @@ export interface MergedPlaylistItem {
   contentId: string;
   sequence: number;
   duration: number;
+  loop: boolean;
 }
 
 export interface MergedPlaylistResult {
@@ -80,6 +81,7 @@ export class GetMergedPlaylistUseCase {
           contentId: item.contentId,
           sequence: item.sequence,
           duration: item.duration,
+          loop: item.loop,
         });
       }
     }
