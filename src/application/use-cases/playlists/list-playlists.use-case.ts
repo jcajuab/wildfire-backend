@@ -5,6 +5,7 @@ import {
 } from "#/application/ports/content";
 import {
   type PlaylistItemRecord,
+  type PlaylistListSortBy,
   type PlaylistRepository,
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
@@ -67,7 +68,7 @@ export class ListPlaylistsUseCase {
     pageSize?: number;
     status?: PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   }) {
     const page = Math.max(Math.trunc(input?.page ?? 1), 1);

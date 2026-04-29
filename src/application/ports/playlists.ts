@@ -1,5 +1,7 @@
 import { type PlaylistStatus } from "#/domain/playlists/playlist";
 
+export type PlaylistListSortBy = "createdAt" | "updatedAt" | "name";
+
 export interface PlaylistRecord {
   id: string;
   name: string;
@@ -39,7 +41,7 @@ export interface PlaylistRepository {
     limit: number;
     status?: PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }>;
   listPage(input: {
@@ -47,7 +49,7 @@ export interface PlaylistRepository {
     limit: number;
     status?: PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }>;
   findByIds(ids: string[]): Promise<PlaylistRecord[]>;

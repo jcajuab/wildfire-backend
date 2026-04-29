@@ -3,6 +3,7 @@ import { ValidationError } from "#/application/errors/validation";
 import {
   type PlaylistItemAtomicWriteInput,
   type PlaylistItemRecord,
+  type PlaylistListSortBy,
   type PlaylistRecord,
   type PlaylistRepository,
 } from "#/application/ports/playlists";
@@ -76,7 +77,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
     const rows = await db
       .select()
       .from(playlists)
-      .orderBy(desc(playlists.updatedAt));
+      .orderBy(desc(playlists.createdAt));
     return rows.map(mapPlaylistRowToRecord);
   }
 
@@ -85,7 +86,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .select()
       .from(playlists)
       .where(eq(playlists.ownerId, ownerId))
-      .orderBy(desc(playlists.updatedAt));
+      .orderBy(desc(playlists.createdAt));
     return rows.map(mapPlaylistRowToRecord);
   }
 
@@ -94,7 +95,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
     limit: number;
     status?: PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }> {
     return this.listPageInternal(input);
@@ -106,7 +107,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
     limit: number;
     status?: PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }> {
     return this.listPageInternal(input);
@@ -118,7 +119,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
     limit: number;
     status?: PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: PlaylistRecord[]; total: number }> {
     const conditions = [
@@ -131,7 +132,11 @@ export class PlaylistDbRepository implements PlaylistRepository {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const orderColumn =
-      input.sortBy === "name" ? playlists.name : playlists.updatedAt;
+      input.sortBy === "name"
+        ? playlists.name
+        : input.sortBy === "updatedAt"
+          ? playlists.updatedAt
+          : playlists.createdAt;
     const orderBy =
       input.sortDirection === "asc" ? asc(orderColumn) : desc(orderColumn);
 

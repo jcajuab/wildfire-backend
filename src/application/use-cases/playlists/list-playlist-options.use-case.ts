@@ -35,7 +35,11 @@ export class ListPlaylistOptionsUseCase {
             false)
         );
       })
-      .sort((left, right) => left.name.localeCompare(right.name))
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime(),
+      )
       .map((playlist) => ({
         id: playlist.id,
         name: playlist.name,

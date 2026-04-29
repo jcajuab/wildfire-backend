@@ -46,7 +46,7 @@ export const playlistListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(["DRAFT", "IN_USE"]).optional(),
   search: z.string().trim().min(1).max(255).optional(),
-  sortBy: z.enum(["updatedAt", "name"]).default("updatedAt"),
+  sortBy: z.enum(["createdAt", "updatedAt", "name"]).default("createdAt"),
   sortDirection: z.enum(["asc", "desc"]).default("desc"),
 });
 

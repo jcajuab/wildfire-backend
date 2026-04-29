@@ -1,5 +1,8 @@
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
-import { type PlaylistRepository } from "#/application/ports/playlists";
+import {
+  type PlaylistListSortBy,
+  type PlaylistRepository,
+} from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
@@ -65,7 +68,7 @@ export const listPlaylistPageForOwner = (
     limit: number;
     status?: import("#/domain/playlists/playlist").PlaylistStatus;
     search?: string;
-    sortBy?: "updatedAt" | "name";
+    sortBy?: PlaylistListSortBy;
     sortDirection?: "asc" | "desc";
   },
 ) => {

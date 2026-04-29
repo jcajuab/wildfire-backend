@@ -47,8 +47,8 @@ export class CreateScheduleUseCase {
         }),
       );
       const startLocal = new Date(startDateTimeStr);
-      const fiveMinutesMs = 5 * 60 * 1000;
-      if (startLocal.getTime() < nowInTimezone.getTime() - fiveMinutesMs) {
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      if (startLocal.getTime() < nowInTimezone.getTime() - oneDayMs) {
         throw new ValidationError("Schedule start time cannot be in the past.");
       }
     }
