@@ -117,12 +117,7 @@ export const registerContentWriteRoutes = (args: {
           "Location",
           `/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
         );
-        await invalidateServerCache([
-          "content",
-          "playlists",
-          "schedules",
-          "displays",
-        ]);
+        await invalidateServerCache(["content"]);
         return c.json({ data: result }, 202);
       },
       ...applicationErrorMappers,
@@ -181,12 +176,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(created.id)}`);
-        await invalidateServerCache([
-          "content",
-          "playlists",
-          "schedules",
-          "displays",
-        ]);
+        await invalidateServerCache(["content"]);
         return c.json({ data: created }, 201);
       },
       ...applicationErrorMappers,
@@ -243,12 +233,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(created.id)}`);
-        await invalidateServerCache([
-          "content",
-          "playlists",
-          "schedules",
-          "displays",
-        ]);
+        await invalidateServerCache(["content"]);
         return c.json({ data: created }, 201);
       },
       ...applicationErrorMappers,
@@ -324,12 +309,7 @@ export const registerContentWriteRoutes = (args: {
           textJsonContent: body.textJsonContent,
           textHtmlContent: body.textHtmlContent,
         });
-        await invalidateServerCache([
-          "content",
-          "playlists",
-          "schedules",
-          "displays",
-        ]);
+        await invalidateServerCache(["content", "playlists"]);
         return c.json({ data: result }, 200);
       },
       ...applicationErrorMappers,
@@ -425,12 +405,7 @@ export const registerContentWriteRoutes = (args: {
           "Location",
           `/v1/content-jobs/${encodeURIComponent(result.job.id)}`,
         );
-        await invalidateServerCache([
-          "content",
-          "playlists",
-          "schedules",
-          "displays",
-        ]);
+        await invalidateServerCache(["content"]);
         return c.json({ data: result }, 202);
       },
       ...applicationErrorMappers,
@@ -486,12 +461,7 @@ export const registerContentWriteRoutes = (args: {
         await useCases.deleteContent.execute({
           id: params.id,
         });
-        await invalidateServerCache([
-          "content",
-          "playlists",
-          "schedules",
-          "displays",
-        ]);
+        await invalidateServerCache(["content", "playlists"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

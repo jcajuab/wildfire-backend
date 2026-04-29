@@ -40,12 +40,7 @@ export const markJobProcessing = async (
     status: "PROCESSING",
     occurredAt: startedAt,
   });
-  await invalidateServerCache([
-    "content",
-    "playlists",
-    "schedules",
-    "displays",
-  ]);
+  await invalidateServerCache(["content"]);
   return startedAt;
 };
 
@@ -74,12 +69,7 @@ export const markJobSucceeded = async (
     status: "READY",
     occurredAt: completedAt,
   });
-  await invalidateServerCache([
-    "content",
-    "playlists",
-    "schedules",
-    "displays",
-  ]);
+  await invalidateServerCache(["content"]);
 };
 
 export const markJobFailed = async (
@@ -145,10 +135,5 @@ export const markJobFailed = async (
     status: "FAILED",
     occurredAt: failedAt,
   });
-  await invalidateServerCache([
-    "content",
-    "playlists",
-    "schedules",
-    "displays",
-  ]);
+  await invalidateServerCache(["content"]);
 };
