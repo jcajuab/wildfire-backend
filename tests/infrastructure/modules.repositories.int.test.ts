@@ -94,7 +94,8 @@ const setup = async () => {
       playlist_id varchar(36) NOT NULL,
       content_id varchar(36) NOT NULL,
       sequence int NOT NULL,
-      duration int NOT NULL
+      duration int NOT NULL,
+      \`loop\` boolean NOT NULL DEFAULT false
     )
   `);
   await db.execute(sql`

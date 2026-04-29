@@ -48,7 +48,29 @@ const makeRepository = () => {
           },
         ];
       },
-      listWithActors: async () => [],
+      listWithActors: async (query: unknown) => {
+        listCalls.push(query);
+        return [
+          {
+            id: "event-1",
+            occurredAt: "2026-01-01T00:00:00.000Z",
+            requestId: "req-1",
+            action: "rbac.user.update",
+            route: "/users/:id",
+            method: "PATCH",
+            path: "/users/1",
+            status: 200,
+            actorId: "user-1",
+            actorType: "user" as const,
+            actorName: "User 1",
+            resourceId: "user-2",
+            resourceType: "user",
+            ipAddress: "127.0.0.1",
+            userAgent: "agent",
+            metadataJson: null,
+          },
+        ];
+      },
       count: async (query: unknown) => {
         countCalls.push(query);
         return 1;

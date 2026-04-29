@@ -11,6 +11,7 @@ import {
 import { NotFoundError } from "./errors";
 import { toPlaylistItemView } from "./playlist-view";
 import {
+  assertPlaylistEligibleContent,
   findPlaylistByIdForOwner,
   runPlaylistPostMutationEffects,
 } from "./shared";
@@ -60,6 +61,7 @@ export class AddPlaylistItemUseCase {
         "Only ready content can be added to playlists.",
       );
     }
+    assertPlaylistEligibleContent(content);
 
     const loop = input.loop ?? false;
     if (loop && content.type !== "VIDEO") {

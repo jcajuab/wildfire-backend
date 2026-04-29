@@ -60,6 +60,7 @@ export class ListContentUseCase {
     pageSize?: number;
     status?: ContentStatus;
     type?: ContentType;
+    excludeType?: ContentType;
     search?: string;
     sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
@@ -76,6 +77,7 @@ export class ListContentUseCase {
             limit: pageSize,
             status: input.status,
             type: input.type,
+            excludeType: input.excludeType,
             search: input.search,
             sortBy: input.sortBy,
             sortDirection: input.sortDirection,
@@ -85,6 +87,7 @@ export class ListContentUseCase {
             limit: pageSize,
             status: input.status,
             type: input.type,
+            excludeType: input.excludeType,
             search: input.search,
             sortBy: input.sortBy,
             sortDirection: input.sortDirection,

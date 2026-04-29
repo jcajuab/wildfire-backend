@@ -31,6 +31,7 @@ describe("UpdateRoleUseCase", () => {
           description: null,
           isSystem: false,
         }),
+        findByName: async () => null,
         update: async (
           id: string,
           data: { name?: string; description?: string | null },

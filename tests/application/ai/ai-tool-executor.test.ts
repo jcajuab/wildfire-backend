@@ -43,6 +43,15 @@ const baseContentView = {
   updatedAt: "2025-01-01T00:00:00.000Z",
 };
 
+const flashContentView = {
+  ...baseContentView,
+  id: "content-2",
+  title: "Flash Alert",
+  type: "FLASH" as const,
+  flashMessage: "Alert",
+  flashTone: "WARNING" as const,
+};
+
 const basePlaylistView = {
   id: "playlist-1",
   name: "Test Playlist",
@@ -114,6 +123,16 @@ const makeDeps = () => {
   };
 
   const noopUseCase = { execute: async () => ({ id: "x" }) };
+  const listContent = makeSpyUseCase<
+    Record<string, unknown>,
+    {
+      items: Array<typeof baseContentView | typeof flashContentView>;
+      total: number;
+    }
+  >({
+    items: [baseContentView, flashContentView],
+    total: 2,
+  });
 
   const executor = new AIToolExecutor({
     createFlashContentUseCase: noopUseCase as never,
@@ -130,9 +149,7 @@ const makeDeps = () => {
     listDisplaysUseCase: {
       execute: async () => ({ items: [], total: 0 }),
     } as never,
-    listContentUseCase: {
-      execute: async () => ({ items: [], total: 0 }),
-    } as never,
+    listContentUseCase: listContent as never,
     listPlaylistsUseCase: {
       execute: async () => ({ items: [], total: 0 }),
     } as never,
@@ -150,6 +167,7 @@ const makeDeps = () => {
     deletePlaylist,
     updateSchedule,
     deleteSchedule,
+    listContent,
   };
 };
 
@@ -320,5 +338,69 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
     );
     expect(result.success).toBe(false);
     expect(result.error).toContain("Invalid parameters");
+  });
+
+  describe("list_content", () => {
+    test("lists only non-flash content for the current user", async () => {
+      const { executor, listContent } = makeDeps();
+      const result = await executor.execute(
+        { id: "tc-list-content", toolName: "list_content", args: {} },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(listContent.lastInput).toMatchObject({
+        ownerId: "user-42",
+        pageSize: 100,
+        excludeType: "FLASH",
+      });
+    });
+
+    test("filters listed non-flash content by search term", async () => {
+      const { executor } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-list-content-search",
+          toolName: "list_content",
+          args: { search: "test" },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([baseContentView]);
+    });
+  });
+
+  describe("list_flash_content", () => {
+    test("lists only flash content for the current user", async () => {
+      const { executor, listContent } = makeDeps();
+      const result = await executor.execute(
+        { id: "tc-list-flash", toolName: "list_flash_content", args: {} },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(listContent.lastInput).toMatchObject({
+        ownerId: "user-42",
+        pageSize: 100,
+        type: "FLASH",
+      });
+    });
+
+    test("filters listed flash content by search term", async () => {
+      const { executor } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-list-flash-search",
+          toolName: "list_flash_content",
+          args: { search: "flash" },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([flashContentView]);
+    });
   });
 });

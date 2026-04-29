@@ -41,6 +41,7 @@ export interface ContentRepository {
     limit: number;
     status?: ContentStatus;
     type?: ContentType;
+    excludeType?: ContentType;
     search?: string;
     sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
@@ -51,6 +52,7 @@ export interface ContentRepository {
     limit: number;
     status?: ContentStatus;
     type?: ContentType;
+    excludeType?: ContentType;
     search?: string;
     sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";

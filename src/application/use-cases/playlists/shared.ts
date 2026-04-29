@@ -1,3 +1,5 @@
+import { ValidationError } from "#/application/errors/validation";
+import { type ContentRecord } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
   type PlaylistListSortBy,
@@ -6,6 +8,15 @@ import {
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
+
+const FLASH_PLAYLIST_ERROR =
+  "Flash content cannot be added to playlists. Schedule flash content with a flash schedule.";
+
+export const assertPlaylistEligibleContent = (content: ContentRecord) => {
+  if (content.type === "FLASH") {
+    throw new ValidationError(FLASH_PLAYLIST_ERROR);
+  }
+};
 
 export const publishPlaylistUpdateEvents = async (
   deps: {

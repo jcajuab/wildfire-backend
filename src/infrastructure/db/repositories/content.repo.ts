@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, ne, sql } from "drizzle-orm";
 import {
   type ContentRecord,
   type ContentRepository,
@@ -41,6 +41,7 @@ type ContentListInput = {
   limit: number;
   status?: ContentRecord["status"];
   type?: ContentRecord["type"];
+  excludeType?: ContentRecord["type"];
   search?: string;
   sortBy?: "createdAt" | "title" | "fileSize" | "type";
   sortDirection?: "asc" | "desc";
@@ -200,6 +201,7 @@ export class ContentDbRepository implements ContentRepository {
     limit: number;
     status?: ContentRecord["status"];
     type?: ContentRecord["type"];
+    excludeType?: ContentRecord["type"];
     search?: string;
     sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
@@ -213,6 +215,7 @@ export class ContentDbRepository implements ContentRepository {
     limit: number;
     status?: ContentRecord["status"];
     type?: ContentRecord["type"];
+    excludeType?: ContentRecord["type"];
     search?: string;
     sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
@@ -226,6 +229,7 @@ export class ContentDbRepository implements ContentRepository {
     limit,
     status,
     type,
+    excludeType,
     search,
     sortBy = "createdAt",
     sortDirection = "desc",
@@ -234,6 +238,7 @@ export class ContentDbRepository implements ContentRepository {
       ownerId ? eq(content.ownerId, ownerId) : undefined,
       status ? eq(content.status, status) : undefined,
       type ? eq(content.type, type) : undefined,
+      excludeType ? ne(content.type, excludeType) : undefined,
       search && search.length > 0
         ? like(content.title, buildLikeContainsPattern(search))
         : undefined,

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ValidationError } from "#/application/errors/validation";
 import { type ContentRecord } from "#/application/ports/content";
 import { type DisplayRepository } from "#/application/ports/displays";
 import {
@@ -12,10 +13,12 @@ import {
   AddPlaylistItemUseCase,
   CreatePlaylistUseCase,
   DeletePlaylistUseCase,
+  EstimatePlaylistDurationUseCase,
   GetPlaylistUseCase,
   ListPlaylistsUseCase,
   NotFoundError,
   PlaylistInUseError,
+  ReplacePlaylistItemsAtomicUseCase,
 } from "#/application/use-cases/playlists";
 
 const makeDeps = () => {
@@ -119,6 +122,37 @@ const makeDeps = () => {
     },
     updateItem: async () => null,
     reorderItems: async () => true,
+    replaceItemsAtomic: async (input) => {
+      items.splice(
+        0,
+        items.length,
+        ...input.items.map((item, index) => {
+          if (item.kind === "existing") {
+            const existing = items.find(
+              (existingItem) => existingItem.id === item.itemId,
+            );
+            if (!existing) {
+              throw new Error("missing existing item");
+            }
+            return {
+              ...existing,
+              sequence: (index + 1) * 10,
+              duration: item.duration,
+              loop: item.loop ?? false,
+            };
+          }
+          return {
+            id: `item-${index + 1}`,
+            playlistId: input.playlistId,
+            contentId: item.contentId,
+            sequence: (index + 1) * 10,
+            duration: item.duration,
+            loop: item.loop ?? false,
+          };
+        }),
+      );
+      return items.filter((item) => item.playlistId === input.playlistId);
+    },
     deleteItem: async () => false,
   };
 
@@ -178,6 +212,7 @@ const makeDeps = () => {
   return {
     playlists,
     items,
+    contents,
     playlistRepository,
     contentRepository,
     userRepository,
@@ -407,6 +442,167 @@ describe("Playlists use cases", () => {
         duration: 7,
       }),
     ).rejects.toBeInstanceOf(Error);
+  });
+
+  test("AddPlaylistItemUseCase rejects flash content", async () => {
+    const deps = makeDeps();
+    deps.contents.push({
+      id: "flash-1",
+      title: "Alert",
+      type: "FLASH",
+      status: "READY",
+      fileKey: "content/flash/flash-1.txt",
+      checksum: "flash",
+      mimeType: "text/plain",
+      fileSize: 5,
+      width: null,
+      height: null,
+      duration: null,
+      flashMessage: "Alert",
+      flashTone: "WARNING",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      ownerId: "user-1",
+    });
+    const useCase = new AddPlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        contentId: "flash-1",
+        sequence: 10,
+        duration: 5,
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  test("ReplacePlaylistItemsAtomicUseCase rejects new flash content", async () => {
+    const deps = makeDeps();
+    deps.contents.push({
+      id: "flash-1",
+      title: "Alert",
+      type: "FLASH",
+      status: "READY",
+      fileKey: "content/flash/flash-1.txt",
+      checksum: "flash",
+      mimeType: "text/plain",
+      fileSize: 5,
+      width: null,
+      height: null,
+      duration: null,
+      flashMessage: "Alert",
+      flashTone: "WARNING",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      ownerId: "user-1",
+    });
+    const useCase = new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        items: [{ kind: "new", contentId: "flash-1", duration: 5 }],
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  test("ReplacePlaylistItemsAtomicUseCase rejects existing flash content", async () => {
+    const deps = makeDeps();
+    deps.contents.push({
+      id: "flash-1",
+      title: "Alert",
+      type: "FLASH",
+      status: "READY",
+      fileKey: "content/flash/flash-1.txt",
+      checksum: "flash",
+      mimeType: "text/plain",
+      fileSize: 5,
+      width: null,
+      height: null,
+      duration: null,
+      flashMessage: "Alert",
+      flashTone: "WARNING",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      ownerId: "user-1",
+    });
+    await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "flash-1",
+      sequence: 10,
+      duration: 5,
+    });
+    const useCase = new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        items: [{ kind: "existing", itemId: "item-1", duration: 5 }],
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  test("EstimatePlaylistDurationUseCase rejects flash content", async () => {
+    const deps = makeDeps();
+    deps.contents.push({
+      id: "flash-1",
+      title: "Alert",
+      type: "FLASH",
+      status: "READY",
+      fileKey: "content/flash/flash-1.txt",
+      checksum: "flash",
+      mimeType: "text/plain",
+      fileSize: 5,
+      width: null,
+      height: null,
+      duration: null,
+      flashMessage: "Alert",
+      flashTone: "WARNING",
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    const useCase = new EstimatePlaylistDurationUseCase({
+      contentRepository: deps.contentRepository,
+      displayRepository: {
+        findById: async () => ({
+          id: "display-1",
+          name: "Lobby",
+          slug: "lobby",
+          status: "READY",
+          location: null,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        }),
+      } as never,
+    });
+
+    await expect(
+      useCase.execute({
+        displayId: "display-1",
+        items: [{ contentId: "flash-1", duration: 5, sequence: 10 }],
+      }),
+    ).rejects.toThrow(ValidationError);
   });
 
   test("DeletePlaylistUseCase throws PlaylistInUseError when playlist is in use by one display", async () => {

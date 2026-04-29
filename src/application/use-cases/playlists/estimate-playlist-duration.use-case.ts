@@ -4,6 +4,7 @@ import { type DisplayRepository } from "#/application/ports/displays";
 import { computePlaylistEffectiveDuration } from "#/application/use-cases/shared/playlist-effective-duration";
 import { isValidDuration, isValidSequence } from "#/domain/playlists/playlist";
 import { NotFoundError } from "./errors";
+import { assertPlaylistEligibleContent } from "./shared";
 
 export class EstimatePlaylistDurationUseCase {
   constructor(
@@ -34,6 +35,20 @@ export class EstimatePlaylistDurationUseCase {
       if (!isValidDuration(item.duration)) {
         throw new ValidationError("Invalid duration");
       }
+    }
+
+    const contentIds = Array.from(
+      new Set(input.items.map((item) => item.contentId)),
+    );
+    const contents =
+      input.ownerId && this.deps.contentRepository.findByIdsForOwner
+        ? await this.deps.contentRepository.findByIdsForOwner(
+            contentIds,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findByIds(contentIds);
+    for (const content of contents) {
+      assertPlaylistEligibleContent(content);
     }
 
     const result = await computePlaylistEffectiveDuration({

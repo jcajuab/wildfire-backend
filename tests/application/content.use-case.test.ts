@@ -534,6 +534,64 @@ describe("Content use cases", () => {
     expect(observedSortDirection).toBe("asc");
   });
 
+  test("passes excludeType to repository for list queries", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([{ id: "user-1", name: "Ada" }]);
+    let observedExcludeType: string | undefined;
+    const trackedRepository = {
+      ...repository,
+      listForOwner: async (input: {
+        ownerId: string;
+        offset: number;
+        limit: number;
+        status?: "PROCESSING" | "READY" | "FAILED";
+        type?: "IMAGE" | "VIDEO" | "FLASH" | "TEXT";
+        excludeType?: "IMAGE" | "VIDEO" | "FLASH" | "TEXT";
+        search?: string;
+        sortBy?: "createdAt" | "title" | "fileSize" | "type";
+        sortDirection?: "asc" | "desc";
+      }) => {
+        observedExcludeType = input.excludeType;
+        const owned = records.filter((item) => item.ownerId === input.ownerId);
+        return {
+          items: owned.slice(input.offset, input.offset + input.limit),
+          total: owned.length,
+        };
+      },
+    } satisfies ContentRepository;
+
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "Item 1",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const useCase = new ListContentUseCase({
+      contentRepository: trackedRepository,
+      userRepository,
+      contentStorage: storage.storage,
+      thumbnailUrlExpiresInSeconds: 3600,
+    });
+
+    await useCase.execute({
+      ownerId: "user-1",
+      excludeType: "FLASH",
+    });
+
+    expect(observedExcludeType).toBe("FLASH");
+  });
+
   test("gets content by id", async () => {
     const { repository, records } = makeContentRepository();
     const storage = makeStorage();

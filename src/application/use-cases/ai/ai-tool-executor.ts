@@ -42,6 +42,9 @@ type CreateFlashScheduleArgs = z.infer<
 >;
 type ListDisplaysArgs = z.infer<typeof AI_TOOLS.list_displays.inputSchema>;
 type ListContentArgs = z.infer<typeof AI_TOOLS.list_content.inputSchema>;
+type ListFlashContentArgs = z.infer<
+  typeof AI_TOOLS.list_flash_content.inputSchema
+>;
 type CreateFlashContentArgs = z.infer<
   typeof AI_TOOLS.create_flash_content.inputSchema
 >;
@@ -251,6 +254,22 @@ export class AIToolExecutor {
         const result = await this.deps.listContentUseCase.execute({
           ownerId: context.userId,
           pageSize: 100,
+          excludeType: "FLASH",
+        });
+        const items = typedArgs.search
+          ? result.items.filter((c) =>
+              fuzzyMatch(c.title, typedArgs.search ?? ""),
+            )
+          : result.items;
+        return { success: true, data: items };
+      }
+
+      case "list_flash_content": {
+        const typedArgs = args as ListFlashContentArgs;
+        const result = await this.deps.listContentUseCase.execute({
+          ownerId: context.userId,
+          pageSize: 100,
+          type: "FLASH",
         });
         const items = typedArgs.search
           ? result.items.filter((c) =>

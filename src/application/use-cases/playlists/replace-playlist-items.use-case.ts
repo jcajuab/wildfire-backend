@@ -13,6 +13,7 @@ import {
 import { NotFoundError } from "./errors";
 import { toPlaylistItemView } from "./playlist-view";
 import {
+  assertPlaylistEligibleContent,
   findPlaylistByIdForOwner,
   runPlaylistPostMutationEffects,
 } from "./shared";
@@ -101,6 +102,9 @@ export class ReplacePlaylistItemsAtomicUseCase {
       if (!contentById.has(contentId)) {
         throw new NotFoundError("Content not found");
       }
+    }
+    for (const content of contentById.values()) {
+      assertPlaylistEligibleContent(content);
     }
 
     for (const item of input.items) {

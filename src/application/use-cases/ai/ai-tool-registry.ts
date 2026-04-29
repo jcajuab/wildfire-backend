@@ -208,12 +208,24 @@ export const AI_TOOLS = {
 
   list_content: {
     description:
-      "List content owned by the current user with full details. Use this to find existing content before adding to playlists or scheduling.",
+      "List non-flash content owned by the current user with full details. Returns TEXT, IMAGE, and VIDEO content only. Use this to find existing content before adding to playlists.",
     inputSchema: z.object({
       search: z
         .string()
         .optional()
         .describe("Optional search term to filter content by title"),
+    }),
+    requiresConfirmation: false,
+  },
+
+  list_flash_content: {
+    description:
+      "List flash content owned by the current user with full details. Use this to find flash alert IDs before creating or editing flash schedules.",
+    inputSchema: z.object({
+      search: z
+        .string()
+        .optional()
+        .describe("Optional search term to filter flash content by title"),
     }),
     requiresConfirmation: false,
   },
