@@ -32,6 +32,7 @@
     "@ai-sdk/openai": "^3.0.41",
     "@aws-sdk/client-s3": "^3.1013.0",
     "@aws-sdk/s3-request-presigner": "^3.1013.0",
+    "@hono/standard-validator": "^0.2.2",
     "@scalar/hono-api-reference": "^0.9.40",
     "@t3-oss/env-core": "^0.13.10",
     "ai": "^6.0.116",
