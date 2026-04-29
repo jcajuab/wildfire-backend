@@ -34,6 +34,7 @@ const makeApp = async (
   options?: {
     createScheduleError?: Error;
     failOnBroadWindowRead?: boolean;
+    playlistOwnerId?: string;
     schedules?: Array<{
       id: string;
       name: string;
@@ -57,7 +58,7 @@ const makeApp = async (
       id: playlistId,
       name: "Morning",
       description: null,
-      ownerId: "user-1",
+      ownerId: options?.playlistOwnerId ?? "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     },
@@ -321,6 +322,40 @@ describe("Schedules routes", () => {
     expect(typeof body.meta.total).toBe("number");
     expect(body.meta.page).toBe(1);
     expect(body.meta.pageSize).toBe(50);
+  });
+
+  test("GET /schedules/:id hydrates shared playlist targets from other creators", async () => {
+    const scheduleId = "00000000-0000-4000-8000-000000000001";
+    const { app, issueToken } = await makeApp(["schedules:read"], {
+      playlistOwnerId: "user-2",
+      schedules: [
+        {
+          id: scheduleId,
+          name: "Shared Morning",
+          kind: "PLAYLIST",
+          playlistId,
+          contentId: null,
+          displayId,
+          startDate: "2027-01-02",
+          endDate: "2027-01-05",
+          startTime: "08:00",
+          endTime: "10:00",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request(`/schedules/${scheduleId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: { playlist: { id: string; name: string } | null };
+    }>(response);
+    expect(body.data.playlist).toEqual({ id: playlistId, name: "Morning" });
   });
 
   test("GET /schedules/window returns schedules intersecting the requested range", async () => {

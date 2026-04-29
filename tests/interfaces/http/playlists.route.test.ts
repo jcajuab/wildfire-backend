@@ -411,6 +411,27 @@ describe("Playlists routes", () => {
     expect(body.meta.pageSize).toBe(20);
   });
 
+  test("GET /playlists returns authorized shared playlists from other creators", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:read"]);
+    const token = await issueToken();
+    playlists.push({
+      id: playlistId,
+      name: "Shared Loop",
+      description: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const response = await app.request("/playlists", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ name: string }> }>(response);
+    expect(body.data.map((item) => item.name)).toContain("Shared Loop");
+  });
+
   test("GET /playlists returns first 3 previewItems in sequence order", async () => {
     const { app, issueToken, playlists, items } = await makeApp([
       "playlists:read",

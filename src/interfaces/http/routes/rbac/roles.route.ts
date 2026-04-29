@@ -1,5 +1,9 @@
 import { describeRoute } from "hono-openapi";
 import { logger } from "#/infrastructure/observability/logger";
+import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
 import { maybeEnrichUsersForResponse } from "#/interfaces/http/lib/user-response-enricher";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { toApiListResponse } from "#/interfaces/http/responses";
@@ -74,52 +78,62 @@ export const registerRbacRoleRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const startedAt = Date.now();
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const canReadUsers = hasPermission(c, "users:read");
+        return jsonWithServerCache(
+          c,
+          {
+            domains: ["roles", "permissions", "users"],
+            ttl: "reference",
+            varyByPermissions: true,
+          },
+          async () => {
+            const startedAt = Date.now();
+            const canReadUsers = hasPermission(c, "users:read");
 
-        const [role, permissions, rolePermissions, roleUsers] =
-          await Promise.all([
-            useCases.getRole.execute({ id: params.id }),
-            useCases.listPermissionOptions.execute(),
-            useCases.getRolePermissions.execute({
-              roleId: params.id,
-              page: 1,
-              pageSize: 1000,
-            }),
-            canReadUsers
-              ? useCases.getRoleUsers.execute({
+            const [role, permissions, rolePermissions, roleUsers] =
+              await Promise.all([
+                useCases.getRole.execute({ id: params.id }),
+                useCases.listPermissionOptions.execute(),
+                useCases.getRolePermissions.execute({
                   roleId: params.id,
                   page: 1,
                   pageSize: 1000,
-                })
-              : Promise.resolve({
-                  items: [],
-                  total: 0,
-                  page: 1,
-                  pageSize: 1000,
                 }),
-          ]);
+                canReadUsers
+                  ? useCases.getRoleUsers.execute({
+                      roleId: params.id,
+                      page: 1,
+                      pageSize: 1000,
+                    })
+                  : Promise.resolve({
+                      items: [],
+                      total: 0,
+                      page: 1,
+                      pageSize: 1000,
+                    }),
+              ]);
 
-        logger.info(
-          {
-            event: "http.bootstrap.role_edit.completed",
-            durationMs: Date.now() - startedAt,
-            permissionCount: permissions.length,
-            roleUserCount: roleUsers.items.length,
+            logger.info(
+              {
+                event: "http.bootstrap.role_edit.completed",
+                durationMs: Date.now() - startedAt,
+                permissionCount: permissions.length,
+                roleUserCount: roleUsers.items.length,
+              },
+              "Role edit bootstrap completed",
+            );
+
+            return {
+              data: {
+                role,
+                permissions,
+                rolePermissions: rolePermissions.items,
+                roleUsers: roleUsers.items,
+              },
+            };
           },
-          "Role edit bootstrap completed",
         );
-
-        return c.json({
-          data: {
-            role,
-            permissions,
-            rolePermissions: rolePermissions.items,
-            roleUsers: roleUsers.items,
-          },
-        });
       },
       ...applicationErrorMappers,
     ),
@@ -142,22 +156,26 @@ export const registerRbacRoleRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listRoles.execute({
-          page: query.page,
-          pageSize: query.pageSize,
-          q: query.q,
-          sortBy: query.sortBy,
-          sortDirection: query.sortDirection,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["roles"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listRoles.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+              q: query.q,
+              sortBy: query.sortBy,
+              sortDirection: query.sortDirection,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -182,13 +200,18 @@ export const registerRbacRoleRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listRoleOptions.execute({
-          q: query.q,
-          limit: query.limit,
-        });
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["roles"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listRoleOptions.execute({
+              q: query.q,
+              limit: query.limit,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -215,8 +238,14 @@ export const registerRbacRoleRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const role = await useCases.getRole.execute({ id: params.id });
-        return c.json({ data: role });
+        return jsonWithServerCache(
+          c,
+          { domains: ["roles"], ttl: "reference" },
+          async () => {
+            const role = await useCases.getRole.execute({ id: params.id });
+            return { data: role };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -243,6 +272,7 @@ export const registerRbacRoleRoutes = (args: {
         const role = await useCases.createRole.execute(payload);
         c.set("resourceId", role.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(role.id)}`);
+        await invalidateServerCache(["roles", "permissions", "users"]);
         return c.json({ data: role }, 201);
       },
       ...applicationErrorMappers,
@@ -276,6 +306,7 @@ export const registerRbacRoleRoutes = (args: {
           id: params.id,
           ...payload,
         });
+        await invalidateServerCache(["roles", "permissions", "users"]);
         return c.json({ data: role });
       },
       ...applicationErrorMappers,
@@ -307,6 +338,7 @@ export const registerRbacRoleRoutes = (args: {
           id: params.id,
           callerUserId: c.get("userId"),
         });
+        await invalidateServerCache(["roles", "permissions", "users"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -338,20 +370,27 @@ export const registerRbacRoleRoutes = (args: {
         const params = c.req.valid("param");
         const query = c.req.valid("query");
         c.set("resourceId", params.id);
-        const result = await useCases.getRoleUsers.execute({
-          roleId: params.id,
-          page: query.page,
-          pageSize: query.pageSize,
-        });
-        const enriched = await maybeEnrichUsersForResponse(result.items, deps);
-        return c.json(
-          toApiListResponse({
-            items: enriched,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["roles", "users"], ttl: "reference" },
+          async () => {
+            const result = await useCases.getRoleUsers.execute({
+              roleId: params.id,
+              page: query.page,
+              pageSize: query.pageSize,
+            });
+            const enriched = await maybeEnrichUsersForResponse(
+              result.items,
+              deps,
+            );
+            return toApiListResponse({
+              items: enriched,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,

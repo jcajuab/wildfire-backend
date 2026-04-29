@@ -1,4 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { invalidateServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { errorResponseSchema } from "#/interfaces/http/responses";
 import {
@@ -88,6 +89,7 @@ export const registerScheduleCommandRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        await invalidateServerCache(["schedules", "displays", "playlists"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
@@ -127,7 +129,6 @@ export const registerScheduleCommandRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.updateSchedule.execute({
           id: params.id,
-          ownerId: c.get("userId"),
           name: payload.name,
           kind: payload.kind,
           playlistId: payload.playlistId,
@@ -138,6 +139,7 @@ export const registerScheduleCommandRoutes = (args: {
           startTime: payload.startTime,
           endTime: payload.endTime,
         });
+        await invalidateServerCache(["schedules", "displays", "playlists"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -173,8 +175,8 @@ export const registerScheduleCommandRoutes = (args: {
         c.set("resourceId", params.id);
         await useCases.deleteSchedule.execute({
           id: params.id,
-          ownerId: c.get("userId"),
         });
+        await invalidateServerCache(["schedules", "displays", "playlists"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

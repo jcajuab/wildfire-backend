@@ -69,6 +69,15 @@ export const env = createEnv({
     REDIS_RETRY_BASE_DELAY_MS: z.coerce.number().default(100),
     REDIS_RETRY_MAX_DELAY_MS: z.coerce.number().default(30_000),
 
+    // Server-side response cache
+    SERVER_CACHE_ENABLED: z.string().default("true").pipe(z.stringbool()),
+    SERVER_CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().positive().default(120),
+    SERVER_CACHE_DYNAMIC_TTL_SECONDS: z.coerce.number().positive().default(30),
+    SERVER_CACHE_REFERENCE_TTL_SECONDS: z.coerce
+      .number()
+      .positive()
+      .default(300),
+
     // Redis streams
     REDIS_STREAM_AUDIT_NAME: z.string().default("wf:stream:audit"),
     REDIS_STREAM_AUDIT_GROUP: z.string().default("wf-audit-writers"),

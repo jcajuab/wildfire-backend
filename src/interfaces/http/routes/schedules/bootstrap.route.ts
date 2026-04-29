@@ -1,5 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { logger } from "#/infrastructure/observability/logger";
+import { jsonWithServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   applicationErrorMappers,
@@ -52,59 +53,69 @@ export const registerScheduleBootstrapRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const startedAt = Date.now();
-        const query = c.req.valid("query");
-        const canReadDisplays = hasPermission(c, "displays:read");
-        const canReadPlaylists = hasPermission(c, "playlists:read");
-        const canReadContent = hasPermission(c, "content:read");
-
-        const [
-          schedules,
-          displayOptions,
-          displayGroups,
-          playlistOptions,
-          flashContentOptions,
-        ] = await Promise.all([
-          useCases.listScheduleWindow.execute({
-            from: query.from,
-            to: query.to,
-            displayIds: query.displayIds,
-          }),
-          canReadDisplays
-            ? useCases.listDisplayOptions.execute({ limit: 100 })
-            : Promise.resolve([]),
-          canReadDisplays
-            ? (useCases.listDisplayGroups?.execute() ?? Promise.resolve([]))
-            : Promise.resolve([]),
-          canReadPlaylists
-            ? useCases.listPlaylistOptions.execute({})
-            : Promise.resolve([]),
-          canReadContent
-            ? useCases.listFlashContentOptions.execute({
-                type: "FLASH",
-                status: "READY",
-              })
-            : Promise.resolve([]),
-        ]);
-
-        logger.info(
+        return jsonWithServerCache(
+          c,
           {
-            event: "http.bootstrap.schedules.completed",
-            durationMs: Date.now() - startedAt,
-            scheduleCount: schedules.length,
+            domains: ["schedules", "displays", "playlists", "content"],
+            ttl: "dynamic",
+            varyByPermissions: true,
           },
-          "Schedules bootstrap completed",
-        );
+          async () => {
+            const startedAt = Date.now();
+            const query = c.req.valid("query");
+            const canReadDisplays = hasPermission(c, "displays:read");
+            const canReadPlaylists = hasPermission(c, "playlists:read");
+            const canReadContent = hasPermission(c, "content:read");
 
-        return c.json({
-          data: {
-            schedules,
-            displayOptions,
-            displayGroups,
-            playlistOptions,
-            flashContentOptions,
+            const [
+              schedules,
+              displayOptions,
+              displayGroups,
+              playlistOptions,
+              flashContentOptions,
+            ] = await Promise.all([
+              useCases.listScheduleWindow.execute({
+                from: query.from,
+                to: query.to,
+                displayIds: query.displayIds,
+              }),
+              canReadDisplays
+                ? useCases.listDisplayOptions.execute({ limit: 100 })
+                : Promise.resolve([]),
+              canReadDisplays
+                ? (useCases.listDisplayGroups?.execute() ?? Promise.resolve([]))
+                : Promise.resolve([]),
+              canReadPlaylists
+                ? useCases.listPlaylistOptions.execute({})
+                : Promise.resolve([]),
+              canReadContent
+                ? useCases.listFlashContentOptions.execute({
+                    type: "FLASH",
+                    status: "READY",
+                  })
+                : Promise.resolve([]),
+            ]);
+
+            logger.info(
+              {
+                event: "http.bootstrap.schedules.completed",
+                durationMs: Date.now() - startedAt,
+                scheduleCount: schedules.length,
+              },
+              "Schedules bootstrap completed",
+            );
+
+            return {
+              data: {
+                schedules,
+                displayOptions,
+                displayGroups,
+                playlistOptions,
+                flashContentOptions,
+              },
+            };
           },
-        });
+        );
       },
       ...applicationErrorMappers,
     ),

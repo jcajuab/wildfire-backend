@@ -1,5 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { jsonWithServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -59,20 +60,23 @@ export const registerScheduleQueryRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listSchedules.execute({
-          ownerId: c.get("userId"),
-          page: query.page,
-          pageSize: query.pageSize,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["schedules", "playlists", "content"], ttl: "dynamic" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listSchedules.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -100,14 +104,19 @@ export const registerScheduleQueryRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listScheduleWindow.execute({
-          ownerId: c.get("userId"),
-          from: query.from,
-          to: query.to,
-          displayIds: query.displayIds,
-        });
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["schedules", "playlists", "content"], ttl: "dynamic" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listScheduleWindow.execute({
+              from: query.from,
+              to: query.to,
+              displayIds: query.displayIds,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -180,11 +189,16 @@ export const registerScheduleQueryRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getSchedule.execute({
-          id: params.id,
-          ownerId: c.get("userId"),
-        });
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["schedules", "playlists", "content"], ttl: "default" },
+          async () => {
+            const result = await useCases.getSchedule.execute({
+              id: params.id,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),

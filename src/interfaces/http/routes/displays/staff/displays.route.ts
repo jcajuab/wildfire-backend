@@ -1,4 +1,8 @@
 import { describeRoute, resolver } from "hono-openapi";
+import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -66,25 +70,29 @@ export const registerDisplayStaffDisplayRoutes = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listDisplays.execute({
-          page: query.page,
-          pageSize: query.pageSize,
-          q: query.q,
-          status: query.status,
-          output: query.output,
-          groupIds: query.groupIds,
-          sortBy: query.sortBy,
-          sortDirection: query.sortDirection,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["displays", "schedules", "playlists"], ttl: "dynamic" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listDisplays.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+              q: query.q,
+              status: query.status,
+              output: query.output,
+              groupIds: query.groupIds,
+              sortBy: query.sortBy,
+              sortDirection: query.sortDirection,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -115,9 +123,14 @@ export const registerDisplayStaffDisplayRoutes = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const result = await useCases.listDisplayOutputOptions.execute();
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["displays"], ttl: "reference" },
+          async () => {
+            const result = await useCases.listDisplayOutputOptions.execute();
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -141,13 +154,18 @@ export const registerDisplayStaffDisplayRoutes = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listDisplayOptions.execute({
-          q: query.q,
-          limit: query.limit,
-        });
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["displays"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listDisplayOptions.execute({
+              q: query.q,
+              limit: query.limit,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -276,8 +294,14 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getDisplay.execute({ id: params.id });
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["displays", "schedules", "playlists"], ttl: "dynamic" },
+          async () => {
+            const result = await useCases.getDisplay.execute({ id: params.id });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -323,7 +347,6 @@ export const registerDisplayStaffDisplayRoutes = (input: {
         c.set("resourceId", params.id);
         const result = await useCases.updateDisplay.execute({
           id: params.id,
-          ownerId: c.get("userId"),
           name: payload.name,
           location: payload.location,
           ipAddress: payload.ipAddress,
@@ -334,6 +357,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           orientation: payload.orientation,
           emergencyContentId: payload.emergencyContentId,
         });
+        await invalidateServerCache(["displays", "schedules"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -393,6 +417,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           id: params.id,
           actorId: c.get("userId"),
         });
+        await invalidateServerCache(["displays", "schedules"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

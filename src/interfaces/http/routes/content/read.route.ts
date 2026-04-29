@@ -1,5 +1,6 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
+import { jsonWithServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -64,15 +65,19 @@ export const registerContentReadRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listContentOptions.execute({
-          ownerId: c.get("userId"),
-          status: query.status,
-          type: query.type,
-          search: query.q,
-        });
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["content"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listContentOptions.execute({
+              status: query.status,
+              type: query.type,
+              search: query.q,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -103,19 +108,20 @@ export const registerContentReadRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listContent.execute({
-          ownerId: c.get("userId"),
-          ...query,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["content"], ttl: "default" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listContent.execute(query);
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -155,11 +161,16 @@ export const registerContentReadRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
-        const result = await useCases.getContent.execute({
-          id: params.id,
-          ownerId: c.get("userId"),
-        });
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["content"], ttl: "default" },
+          async () => {
+            const result = await useCases.getContent.execute({
+              id: params.id,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),

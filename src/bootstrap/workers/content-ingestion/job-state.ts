@@ -7,6 +7,7 @@ import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql
 import { publishAdminDisplayLifecycleEvent } from "#/infrastructure/displays/admin-lifecycle-events";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
+import { invalidateServerCache } from "#/infrastructure/redis/server-cache";
 import { contentIngestionContainer } from "./runtime";
 
 export const sanitizeErrorMessage = (message: string): string => {
@@ -39,6 +40,12 @@ export const markJobProcessing = async (
     status: "PROCESSING",
     occurredAt: startedAt,
   });
+  await invalidateServerCache([
+    "content",
+    "playlists",
+    "schedules",
+    "displays",
+  ]);
   return startedAt;
 };
 
@@ -67,6 +74,12 @@ export const markJobSucceeded = async (
     status: "READY",
     occurredAt: completedAt,
   });
+  await invalidateServerCache([
+    "content",
+    "playlists",
+    "schedules",
+    "displays",
+  ]);
 };
 
 export const markJobFailed = async (
@@ -132,4 +145,10 @@ export const markJobFailed = async (
     status: "FAILED",
     occurredAt: failedAt,
   });
+  await invalidateServerCache([
+    "content",
+    "playlists",
+    "schedules",
+    "displays",
+  ]);
 };

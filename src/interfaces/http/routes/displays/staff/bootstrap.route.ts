@@ -1,5 +1,6 @@
 import { describeRoute } from "hono-openapi";
 import { logger } from "#/infrastructure/observability/logger";
+import { jsonWithServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   applicationErrorMappers,
@@ -52,65 +53,74 @@ export const registerDisplayStaffBootstrapRoute = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const startedAt = Date.now();
-        const query = c.req.valid("query");
-        const canLoadEmergencyContentOptions =
-          hasPermission(c, "displays:update") ||
-          hasPermission(c, "content:read");
-
-        const displayGroups = await useCases.listDisplayGroups.execute();
-        const derivedGroupIds =
-          query.groupNames && query.groupNames.length > 0
-            ? displayGroups
-                .filter((group) => query.groupNames?.includes(group.name))
-                .map((group) => group.id)
-            : query.groupIds;
-
-        const [
-          displays,
-          displayOutputOptions,
-          runtimeOverrides,
-          emergencyContentOptions,
-        ] = await Promise.all([
-          useCases.listDisplays.execute({
-            page: query.page,
-            pageSize: query.pageSize,
-            q: query.q,
-            status: query.status,
-            output: query.output,
-            groupIds: derivedGroupIds,
-            sortBy: query.sortBy,
-            sortDirection: query.sortDirection,
-          }),
-          useCases.listDisplayOutputOptions.execute(),
-          useCases.getRuntimeOverrides.execute({ now: new Date() }),
-          canLoadEmergencyContentOptions
-            ? useCases.listEmergencyContentOptions.execute({
-                ownerId: c.get("userId"),
-                status: "READY",
-              })
-            : Promise.resolve([]),
-        ]);
-
-        logger.info(
+        return jsonWithServerCache(
+          c,
           {
-            event: "http.bootstrap.displays.completed",
-            durationMs: Date.now() - startedAt,
-            resultCount: displays.items.length,
-            groupCount: displayGroups.length,
+            domains: ["displays", "schedules", "playlists", "content"],
+            ttl: "dynamic",
+            varyByPermissions: true,
           },
-          "Displays bootstrap completed",
-        );
+          async () => {
+            const startedAt = Date.now();
+            const query = c.req.valid("query");
+            const canLoadEmergencyContentOptions =
+              hasPermission(c, "displays:update") ||
+              hasPermission(c, "content:read");
 
-        return c.json({
-          data: {
-            displays,
-            displayGroups,
-            displayOutputOptions,
-            runtimeOverrides,
-            emergencyContentOptions,
+            const displayGroups = await useCases.listDisplayGroups.execute();
+            const derivedGroupIds =
+              query.groupNames && query.groupNames.length > 0
+                ? displayGroups
+                    .filter((group) => query.groupNames?.includes(group.name))
+                    .map((group) => group.id)
+                : query.groupIds;
+
+            const [
+              displays,
+              displayOutputOptions,
+              runtimeOverrides,
+              emergencyContentOptions,
+            ] = await Promise.all([
+              useCases.listDisplays.execute({
+                page: query.page,
+                pageSize: query.pageSize,
+                q: query.q,
+                status: query.status,
+                output: query.output,
+                groupIds: derivedGroupIds,
+                sortBy: query.sortBy,
+                sortDirection: query.sortDirection,
+              }),
+              useCases.listDisplayOutputOptions.execute(),
+              useCases.getRuntimeOverrides.execute({ now: new Date() }),
+              canLoadEmergencyContentOptions
+                ? useCases.listEmergencyContentOptions.execute({
+                    status: "READY",
+                  })
+                : Promise.resolve([]),
+            ]);
+
+            logger.info(
+              {
+                event: "http.bootstrap.displays.completed",
+                durationMs: Date.now() - startedAt,
+                resultCount: displays.items.length,
+                groupCount: displayGroups.length,
+              },
+              "Displays bootstrap completed",
+            );
+
+            return {
+              data: {
+                displays,
+                displayGroups,
+                displayOutputOptions,
+                runtimeOverrides,
+                emergencyContentOptions,
+              },
+            };
           },
-        });
+        );
       },
       ...applicationErrorMappers,
     ),

@@ -1,4 +1,8 @@
 import { describeRoute } from "hono-openapi";
+import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { toApiListResponse } from "#/interfaces/http/responses";
 import {
@@ -59,20 +63,24 @@ export const registerRbacPermissionRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const query = c.req.valid("query");
-        const result = await useCases.getRolePermissions.execute({
-          roleId: params.id,
-          page: query.page,
-          pageSize: query.pageSize,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["roles", "permissions"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.getRolePermissions.execute({
+              roleId: params.id,
+              page: query.page,
+              pageSize: query.pageSize,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -108,6 +116,7 @@ export const registerRbacPermissionRoutes = (args: {
           roleId: params.id,
           permissionIds: payload.permissionIds,
         });
+        await invalidateServerCache(["roles", "permissions", "users"]);
         return c.json({ data: permissions });
       },
       ...applicationErrorMappers,
@@ -132,20 +141,24 @@ export const registerRbacPermissionRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listPermissions.execute({
-          page: query.page,
-          pageSize: query.pageSize,
-          q: query.q,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["permissions"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listPermissions.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+              q: query.q,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -170,12 +183,17 @@ export const registerRbacPermissionRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listPermissionOptions.execute({
-          q: query.q,
-        });
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["permissions"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listPermissionOptions.execute({
+              q: query.q,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),

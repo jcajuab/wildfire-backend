@@ -4,6 +4,10 @@ import {
   DuplicateUsernameError,
 } from "#/application/use-cases/rbac/errors";
 import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
+import {
   addRoleSummariesToUsers,
   maybeEnrichUserForResponse,
   maybeEnrichUsersForResponse,
@@ -68,23 +72,30 @@ export const registerRbacUserRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listUsers.execute({
-          page: query.page,
-          pageSize: query.pageSize,
-          q: query.q,
-          sortBy: query.sortBy,
-          sortDirection: query.sortDirection,
-        });
-        const enrichedItems = await addRoleSummariesToUsers(result.items, deps);
-        return c.json(
-          toApiListResponse({
-            items: enrichedItems,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["users", "roles"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listUsers.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+              q: query.q,
+              sortBy: query.sortBy,
+              sortDirection: query.sortDirection,
+            });
+            const enrichedItems = await addRoleSummariesToUsers(
+              result.items,
+              deps,
+            );
+            return toApiListResponse({
+              items: enrichedItems,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -109,23 +120,29 @@ export const registerRbacUserRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const users = await useCases.listUserOptions.execute({
-          q: query.q,
-          limit: query.limit,
-        });
-        const enriched = await maybeEnrichUsersForResponse(users, deps);
-        const options = enriched.map((user) => ({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          name: user.name,
-          ...(typeof user.avatarUrl === "string" && user.avatarUrl.length > 0
-            ? { avatarUrl: user.avatarUrl }
-            : {}),
-        }));
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: options });
+        return jsonWithServerCache(
+          c,
+          { domains: ["users"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const users = await useCases.listUserOptions.execute({
+              q: query.q,
+              limit: query.limit,
+            });
+            const enriched = await maybeEnrichUsersForResponse(users, deps);
+            const options = enriched.map((user) => ({
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              name: user.name,
+              ...(typeof user.avatarUrl === "string" &&
+              user.avatarUrl.length > 0
+                ? { avatarUrl: user.avatarUrl }
+                : {}),
+            }));
+            return { data: options };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -154,6 +171,7 @@ export const registerRbacUserRoutes = (args: {
         const user = await useCases.createUser.execute(payload);
         c.set("resourceId", user.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(user.id)}`);
+        await invalidateServerCache(["users", "roles", "permissions"]);
         return c.json({ data: user }, 201);
       },
       ...applicationErrorMappers,
@@ -183,9 +201,15 @@ export const registerRbacUserRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const user = await useCases.getUser.execute({ id: params.id });
-        const enriched = await maybeEnrichUserForResponse(user, deps);
-        return c.json({ data: enriched });
+        return jsonWithServerCache(
+          c,
+          { domains: ["users"], ttl: "reference" },
+          async () => {
+            const user = await useCases.getUser.execute({ id: params.id });
+            const enriched = await maybeEnrichUserForResponse(user, deps);
+            return { data: enriched };
+          },
+        );
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DuplicateEmailError, conflict),
@@ -221,6 +245,7 @@ export const registerRbacUserRoutes = (args: {
           ...payload,
           callerUserId: c.get("userId"),
         });
+        await invalidateServerCache(["users", "roles", "permissions"]);
         return c.json({ data: user });
       },
       ...applicationErrorMappers,
@@ -252,6 +277,7 @@ export const registerRbacUserRoutes = (args: {
           id: params.id,
           callerUserId: c.get("userId"),
         });
+        await invalidateServerCache(["users", "roles", "permissions"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -293,6 +319,7 @@ export const registerRbacUserRoutes = (args: {
             callerUserId: c.get("userId"),
           });
         }
+        await invalidateServerCache(["users", "roles", "permissions"]);
         return c.json({ data: { success: true } });
       },
       ...applicationErrorMappers,
@@ -324,6 +351,7 @@ export const registerRbacUserRoutes = (args: {
           id: params.id,
           callerUserId: c.get("userId"),
         });
+        await invalidateServerCache(["users"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -355,19 +383,23 @@ export const registerRbacUserRoutes = (args: {
         const params = c.req.valid("param");
         const query = c.req.valid("query");
         c.set("resourceId", params.id);
-        const result = await useCases.getUserRoles.execute({
-          userId: params.id,
-          page: query.page,
-          pageSize: query.pageSize,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["users", "roles"], ttl: "reference" },
+          async () => {
+            const result = await useCases.getUserRoles.execute({
+              userId: params.id,
+              page: query.page,
+              pageSize: query.pageSize,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -403,6 +435,7 @@ export const registerRbacUserRoutes = (args: {
           userId: params.id,
           roleIds: payload.roleIds,
         });
+        await invalidateServerCache(["users", "roles", "permissions"]);
         return c.json({ data: roles });
       },
       ...applicationErrorMappers,

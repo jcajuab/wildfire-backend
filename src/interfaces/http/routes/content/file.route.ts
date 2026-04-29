@@ -72,7 +72,6 @@ export const registerContentFileRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.getDownloadUrl.execute({
           id: params.id,
-          ownerId: c.get("userId"),
         });
         return c.json({ data: result });
       },

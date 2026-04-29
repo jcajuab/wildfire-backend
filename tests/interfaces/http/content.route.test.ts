@@ -349,6 +349,34 @@ describe("Content routes", () => {
     expect(body.data).toHaveLength(1);
   });
 
+  test("GET /content returns authorized shared content from other creators", async () => {
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const token = await issueToken();
+    records.push({
+      id: "22222222-2222-4222-8222-222222222222",
+      title: "Shared Poster",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/22222222-2222-4222-8222-222222222222.png",
+      checksum: "shared",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const response = await app.request("/content", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ title: string }> }>(response);
+    expect(body.data.map((item) => item.title)).toContain("Shared Poster");
+  });
+
   test("GET /content/options returns filtered content options", async () => {
     const { app, issueToken, records } = await makeApp(["content:read"]);
     const token = await issueToken();

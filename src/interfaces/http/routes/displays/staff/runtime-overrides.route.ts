@@ -1,4 +1,8 @@
 import { describeRoute, resolver } from "hono-openapi";
+import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { apiResponseSchema } from "#/interfaces/http/responses";
 import {
@@ -55,10 +59,16 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const result = await useCases.getRuntimeOverrides.execute({
-          now: new Date(),
-        });
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["displays"], ttl: "dynamic" },
+          async () => {
+            const result = await useCases.getRuntimeOverrides.execute({
+              now: new Date(),
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -101,6 +111,7 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
             reason: payload.reason,
           });
         }
+        await invalidateServerCache(["displays", "schedules"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

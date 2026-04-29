@@ -1,6 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { DisplayGroupConflictError } from "#/application/use-cases/displays";
+import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { apiResponseSchema, conflict } from "#/interfaces/http/responses";
 import {
@@ -60,8 +64,14 @@ export const registerDisplayStaffGroupRoutes = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const items = await useCases.listDisplayGroups.execute();
-        return c.json({ data: items });
+        return jsonWithServerCache(
+          c,
+          { domains: ["displays"], ttl: "reference" },
+          async () => {
+            const items = await useCases.listDisplayGroups.execute();
+            return { data: items };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -106,6 +116,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        await invalidateServerCache(["displays", "schedules"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
@@ -154,6 +165,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
           name: payload.name,
         });
         c.set("resourceId", result.id);
+        await invalidateServerCache(["displays", "schedules"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -180,6 +192,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
       async (c) => {
         const params = c.req.valid("param");
         await useCases.deleteDisplayGroup.execute({ id: params.groupId });
+        await invalidateServerCache(["displays", "schedules"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -219,6 +232,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
           groupIds: payload.groupIds,
         });
         c.set("resourceId", params.id);
+        await invalidateServerCache(["displays", "schedules"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

@@ -67,13 +67,7 @@ export class CreateScheduleUseCase {
       if (!input.playlistId || input.contentId) {
         throw new ValidationError("Playlist schedules require playlistId only");
       }
-      playlist =
-        input.ownerId && this.deps.playlistRepository.findByIdForOwner
-          ? await this.deps.playlistRepository.findByIdForOwner(
-              input.playlistId,
-              input.ownerId,
-            )
-          : await this.deps.playlistRepository.findById(input.playlistId);
+      playlist = await this.deps.playlistRepository.findById(input.playlistId);
       if (!playlist) {
         throw new NotFoundError("Playlist not found");
       }
@@ -104,13 +98,7 @@ export class CreateScheduleUseCase {
       if (!input.contentId || input.playlistId) {
         throw new ValidationError("Flash schedules require contentId only");
       }
-      content =
-        input.ownerId && this.deps.contentRepository.findByIdForOwner
-          ? await this.deps.contentRepository.findByIdForOwner(
-              input.contentId,
-              input.ownerId,
-            )
-          : await this.deps.contentRepository.findById(input.contentId);
+      content = await this.deps.contentRepository.findById(input.contentId);
       if (!content) {
         throw new NotFoundError("Content not found");
       }

@@ -1,6 +1,10 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { PlaylistInUseError } from "#/application/use-cases/playlists";
+import {
+  invalidateServerCache,
+  jsonWithServerCache,
+} from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -68,14 +72,18 @@ export const registerPlaylistCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listPlaylistOptions.execute({
-          ownerId: c.get("userId"),
-          q: query.q,
-          status: query.status,
-        });
-        c.header("Cache-Control", "private, max-age=60");
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["playlists"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listPlaylistOptions.execute({
+              q: query.q,
+              status: query.status,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -102,24 +110,27 @@ export const registerPlaylistCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const query = c.req.valid("query");
-        const result = await useCases.listPlaylists.execute({
-          ownerId: c.get("userId"),
-          page: query.page,
-          pageSize: query.pageSize,
-          status: query.status,
-          search: query.search,
-          sortBy: query.sortBy,
-          sortDirection: query.sortDirection,
-        });
-        return c.json(
-          toApiListResponse({
-            items: result.items,
-            total: result.total,
-            page: result.page,
-            pageSize: result.pageSize,
-            requestUrl: c.req.url,
-          }),
+        return jsonWithServerCache(
+          c,
+          { domains: ["playlists", "schedules", "content"], ttl: "dynamic" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listPlaylists.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+              status: query.status,
+              search: query.search,
+              sortBy: query.sortBy,
+              sortDirection: query.sortDirection,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
         );
       },
       ...applicationErrorMappers,
@@ -154,7 +165,6 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const payload = c.req.valid("json");
         const result = await useCases.estimatePlaylistDuration.execute({
-          ownerId: c.get("userId"),
           ...payload,
         });
         return c.json({ data: result });
@@ -195,6 +205,7 @@ export const registerPlaylistCrudRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
+        await invalidateServerCache(["playlists", "schedules", "displays"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
@@ -235,11 +246,16 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const result = await useCases.getPlaylist.execute({
-          id: params.id,
-          ownerId: c.get("userId"),
-        });
-        return c.json({ data: result });
+        return jsonWithServerCache(
+          c,
+          { domains: ["playlists", "content"], ttl: "default" },
+          async () => {
+            const result = await useCases.getPlaylist.execute({
+              id: params.id,
+            });
+            return { data: result };
+          },
+        );
       },
       ...applicationErrorMappers,
     ),
@@ -275,10 +291,10 @@ export const registerPlaylistCrudRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.updatePlaylist.execute({
           id: params.id,
-          ownerId: c.get("userId"),
           name: payload.name,
           description: payload.description,
         });
+        await invalidateServerCache(["playlists", "schedules", "displays"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -322,8 +338,8 @@ export const registerPlaylistCrudRoutes = (args: {
         c.set("resourceId", params.id);
         await useCases.deletePlaylist.execute({
           id: params.id,
-          ownerId: c.get("userId"),
         });
+        await invalidateServerCache(["playlists", "schedules", "displays"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
