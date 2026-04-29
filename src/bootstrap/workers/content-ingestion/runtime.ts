@@ -55,7 +55,9 @@ export const contentIngestionContainer: {
       secretAccessKey: env.MINIO_ROOT_PASSWORD,
       requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
     }),
-    contentMetadataExtractor: new DefaultContentMetadataExtractor(),
+    contentMetadataExtractor: new DefaultContentMetadataExtractor({
+      ffprobePath: env.FFPROBE_PATH,
+    }),
     contentThumbnailGenerator: new DefaultContentThumbnailGenerator(),
   },
 };

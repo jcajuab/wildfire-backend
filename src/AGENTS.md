@@ -24,7 +24,7 @@ Application source code organized in Clean Architecture layers. Each layer has s
 | `interfaces/`     | HTTP routes, middleware, validators, startup services (see `interfaces/AGENTS.md`)          |
 | `bootstrap/`      | Dependency wiring and server initialization (see `bootstrap/AGENTS.md`)                     |
 | `shared/`         | Cross-cutting utilities (retry logic, event utils, string utils)                            |
-| `types/`          | Ambient type declarations for untyped packages (`ffprobe-static`)                           |
+| `types/`          | Ambient type declarations for untyped packages                                              |
 
 ## For AI Agents
 

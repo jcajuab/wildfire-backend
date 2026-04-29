@@ -96,6 +96,7 @@ export interface HttpContainerConfig {
     requestTimeoutMs: number;
     publicEndpoint?: string;
   };
+  ffprobePath: string;
 }
 
 export interface HttpContainer {
@@ -215,7 +216,9 @@ export const createHttpContainer = (
     secretAccessKey: config.minio.rootPassword,
     requestTimeoutMs: config.minio.requestTimeoutMs,
   });
-  const contentMetadataExtractor = new DefaultContentMetadataExtractor();
+  const contentMetadataExtractor = new DefaultContentMetadataExtractor({
+    ffprobePath: config.ffprobePath,
+  });
   const contentThumbnailGenerator = new DefaultContentThumbnailGenerator();
   const pdfCropSessionStore = new RedisPdfCropSessionStore();
   const pdfPageExtractor = new PdfLibPageExtractor();

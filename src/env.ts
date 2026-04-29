@@ -127,6 +127,7 @@ export const env = createEnv({
     CONTENT_INGEST_QUEUE_ENQUEUE_MAX_DELAY_MS: z.coerce.number().default(4_000),
     CONTENT_INGEST_QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().default(5_000),
     PRESIGNED_URL_TTL_SECONDS: z.coerce.number().default(3600),
+    FFPROBE_PATH: z.string().min(1).default("/usr/bin/ffprobe"),
 
     // Audit queue
     AUDIT_QUEUE_ENABLED: z.string().default("true").pipe(z.stringbool()),

@@ -154,6 +154,7 @@ const container = createHttpContainer({
     requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
     publicEndpoint: env.MINIO_PUBLIC_ENDPOINT,
   },
+  ffprobePath: env.FFPROBE_PATH,
 });
 
 const storageStartupContext = {

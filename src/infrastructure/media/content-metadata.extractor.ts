@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import ffprobeStatic from "ffprobe-static";
 import ffmpeg from "fluent-ffmpeg";
 import { imageSize } from "image-size";
 import {
@@ -9,8 +8,6 @@ import {
   type ExtractedContentMetadata,
 } from "#/application/ports/content";
 import { type ContentType } from "#/domain/content/content";
-
-ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 const toPositiveInt = (value: number, label: string): number => {
   if (!Number.isFinite(value) || value <= 0) {
@@ -67,6 +64,10 @@ const inspectVideo = async (
 export class DefaultContentMetadataExtractor
   implements ContentMetadataExtractor
 {
+  constructor(input: { ffprobePath: string }) {
+    ffmpeg.setFfprobePath(input.ffprobePath);
+  }
+
   async extract(input: {
     type: ContentType;
     mimeType: string;
