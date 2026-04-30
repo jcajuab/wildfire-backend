@@ -381,3 +381,128 @@ describe("RefreshSessionUseCase grace window", () => {
     expect(graceLogs).toHaveLength(1);
   });
 });
+
+describe("RefreshSessionUseCase skipRotation (server-side RSC refresh)", () => {
+  const loggerInfoSpy = mock(() => {});
+  let originalLoggerInfo: typeof logger.info;
+
+  beforeEach(() => {
+    loggerInfoSpy.mockClear();
+    originalLoggerInfo = logger.info;
+    (logger as unknown as { info: typeof logger.info }).info =
+      loggerInfoSpy as unknown as typeof logger.info;
+  });
+
+  afterEach(() => {
+    (logger as unknown as { info: typeof logger.info }).info =
+      originalLoggerInfo;
+  });
+
+  test("skipRotation with currentJti issues access token and does not rotate", async () => {
+    const initialSecret = createRefreshTokenSecret();
+    const initialHash = hashRefreshTokenSecret(initialSecret);
+    const refreshToken = buildRefreshTokenValue(sessionId, initialSecret);
+
+    const fake = makeSessionRepository({
+      id: sessionId,
+      userId,
+      familyId,
+      currentJti: initialHash,
+      previousJti: null,
+      previousJtiExpiresAt: null,
+      expiresAt: new Date((nowSeconds + tokenTtlSeconds) * 1000),
+    });
+
+    const useCase = makeUseCase(fake.repo);
+    const result = await useCase.execute({ refreshToken, skipRotation: true });
+
+    expect(result.accessToken).toBeDefined();
+    expect(result.refreshToken).toBeUndefined();
+    expect(result.refreshTokenExpiresAt).toBeUndefined();
+    expect(fake.calls.updateCurrentJtiOptimistic).toHaveLength(0);
+    expect(fake.calls.revokeByFamilyId).toBe(0);
+    expect(fake.state.session.currentJti).toBe(initialHash);
+  });
+
+  test("skipRotation with previousJti within grace issues access token without rotation", async () => {
+    const oldSecret = createRefreshTokenSecret();
+    const oldHash = hashRefreshTokenSecret(oldSecret);
+    const currentHash = hashRefreshTokenSecret(createRefreshTokenSecret());
+    const refreshToken = buildRefreshTokenValue(sessionId, oldSecret);
+    const graceExpiresAt = new Date((nowSeconds + graceWindowSeconds) * 1000);
+
+    const fake = makeSessionRepository({
+      id: sessionId,
+      userId,
+      familyId,
+      currentJti: currentHash,
+      previousJti: oldHash,
+      previousJtiExpiresAt: graceExpiresAt,
+      expiresAt: new Date((nowSeconds + tokenTtlSeconds) * 1000),
+    });
+
+    const useCase = makeUseCase(fake.repo);
+    const result = await useCase.execute({ refreshToken, skipRotation: true });
+
+    expect(result.accessToken).toBeDefined();
+    expect(result.refreshToken).toBeUndefined();
+    expect(fake.calls.updateCurrentJtiOptimistic).toHaveLength(0);
+    expect(fake.calls.revokeByFamilyId).toBe(0);
+
+    const graceLogs = loggerInfoSpy.mock.calls.filter((call) => {
+      const payload = (call as unknown as Array<{ event?: string }>)[0];
+      return payload?.event === "auth.refresh.grace_hit";
+    });
+    expect(graceLogs).toHaveLength(1);
+  });
+
+  test("skipRotation with expired previousJti throws without revoking family", async () => {
+    const oldSecret = createRefreshTokenSecret();
+    const oldHash = hashRefreshTokenSecret(oldSecret);
+    const currentHash = hashRefreshTokenSecret(createRefreshTokenSecret());
+    const refreshToken = buildRefreshTokenValue(sessionId, oldSecret);
+    const graceExpiresAt = new Date((nowSeconds - 1) * 1000);
+
+    const fake = makeSessionRepository({
+      id: sessionId,
+      userId,
+      familyId,
+      currentJti: currentHash,
+      previousJti: oldHash,
+      previousJtiExpiresAt: graceExpiresAt,
+      expiresAt: new Date((nowSeconds + tokenTtlSeconds) * 1000),
+    });
+
+    const useCase = makeUseCase(fake.repo);
+
+    await expect(
+      useCase.execute({ refreshToken, skipRotation: true }),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    expect(fake.calls.revokeByFamilyId).toBe(0);
+    expect(fake.calls.updateCurrentJtiOptimistic).toHaveLength(0);
+  });
+
+  test("skipRotation with unknown JTI throws without revoking family", async () => {
+    const unknownSecret = createRefreshTokenSecret();
+    const refreshToken = buildRefreshTokenValue(sessionId, unknownSecret);
+    const currentHash = hashRefreshTokenSecret(createRefreshTokenSecret());
+
+    const fake = makeSessionRepository({
+      id: sessionId,
+      userId,
+      familyId,
+      currentJti: currentHash,
+      previousJti: null,
+      previousJtiExpiresAt: null,
+      expiresAt: new Date((nowSeconds + tokenTtlSeconds) * 1000),
+    });
+
+    const useCase = makeUseCase(fake.repo);
+
+    await expect(
+      useCase.execute({ refreshToken, skipRotation: true }),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    expect(fake.calls.revokeByFamilyId).toBe(0);
+    expect(fake.calls.updateCurrentJtiOptimistic).toHaveLength(0);
+  });
+});

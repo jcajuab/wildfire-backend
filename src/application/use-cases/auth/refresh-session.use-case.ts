@@ -22,6 +22,13 @@ export interface RefreshSessionInput {
   userId?: string;
   currentSessionId?: string;
   currentJti?: string;
+  /**
+   * When true (e.g. Next.js RSC server-side refresh), validate the refresh
+   * cookie and issue an access token only — do not rotate the refresh token
+   * or mutate session JTIs. The browser cannot receive Set-Cookie from
+   * server-side fetch(), so rotation there would strand the client cookie.
+   */
+  skipRotation?: boolean;
 }
 
 export interface RefreshSessionResult {
@@ -107,8 +114,29 @@ export class RefreshSessionUseCase {
     const nextRefreshTokenHash = hashRefreshTokenSecret(nextRefreshSecret);
 
     let graceHit = false;
+    const skipRotation = input.skipRotation === true;
 
-    if (presentedJti === session.currentJti) {
+    if (skipRotation) {
+      const isCurrentMatch = presentedJti === session.currentJti;
+      const isGraceMatch =
+        presentedJti === session.previousJti &&
+        session.previousJtiExpiresAt != null &&
+        now < session.previousJtiExpiresAt;
+
+      if (isGraceMatch) {
+        graceHit = true;
+        logger.info(
+          {
+            event: "auth.refresh.grace_hit",
+            sessionId: session.id,
+          },
+          "Refresh grace window hit; returning current tokens idempotently",
+        );
+      } else if (!isCurrentMatch) {
+        // Read-only refresh: never revoke the family on mismatch / replay.
+        throw new InvalidCredentialsError();
+      }
+    } else if (presentedJti === session.currentJti) {
       const updated =
         await this.deps.authSessionRepository.updateCurrentJtiOptimistic({
           sessionId: session.id,
@@ -276,7 +304,7 @@ export class RefreshSessionUseCase {
       permissions: permissionStrings,
     };
 
-    if (!graceHit) {
+    if (!graceHit && !skipRotation) {
       response.refreshToken = nextRefreshToken;
       response.refreshTokenExpiresAt = newExpiresAt.toISOString();
     }

@@ -86,8 +86,10 @@ export const registerAuthSessionRoutes = (args: {
           return tooManyRequests(c, "Too many requests");
         }
 
+        const isServerRefresh = c.req.header("x-server-refresh") === "true";
         const result = await useCases.refreshSession.execute({
           refreshToken: refreshCookie,
+          skipRotation: isServerRefresh,
         });
         const body = await buildAuthResponse(deps, result);
         if (
