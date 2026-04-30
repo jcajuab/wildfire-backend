@@ -116,7 +116,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        await invalidateServerCache(["displays", "schedules"]);
+        await invalidateServerCache(["displays"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
@@ -165,7 +165,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
           name: payload.name,
         });
         c.set("resourceId", result.id);
-        await invalidateServerCache(["displays", "schedules"]);
+        await invalidateServerCache(["displays"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -192,7 +192,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
       async (c) => {
         const params = c.req.valid("param");
         await useCases.deleteDisplayGroup.execute({ id: params.groupId });
-        await invalidateServerCache(["displays", "schedules"]);
+        await invalidateServerCache(["displays"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -232,7 +232,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
           groupIds: payload.groupIds,
         });
         c.set("resourceId", params.id);
-        await invalidateServerCache(["displays", "schedules"]);
+        await invalidateServerCache(["displays"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

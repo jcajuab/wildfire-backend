@@ -71,8 +71,8 @@ export const env = createEnv({
 
     // Server-side response cache
     SERVER_CACHE_ENABLED: z.string().default("true").pipe(z.stringbool()),
-    SERVER_CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().positive().default(120),
-    SERVER_CACHE_DYNAMIC_TTL_SECONDS: z.coerce.number().positive().default(30),
+    SERVER_CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().positive().default(300),
+    SERVER_CACHE_DYNAMIC_TTL_SECONDS: z.coerce.number().positive().default(120),
     SERVER_CACHE_REFERENCE_TTL_SECONDS: z.coerce
       .number()
       .positive()

@@ -77,7 +77,7 @@ export const registerPlaylistItemRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
@@ -122,7 +122,7 @@ export const registerPlaylistItemRoutes = (args: {
           duration: payload.duration,
           loop: payload.loop,
         });
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -166,7 +166,7 @@ export const registerPlaylistItemRoutes = (args: {
           playlistId: params.id,
           items: payload.items,
         });
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.json({ data: result }, 200);
       },
       ...applicationErrorMappers,
@@ -198,7 +198,7 @@ export const registerPlaylistItemRoutes = (args: {
           playlistId: params.id,
           orderedItemIds: payload.orderedItemIds,
         });
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
@@ -236,7 +236,7 @@ export const registerPlaylistItemRoutes = (args: {
           playlistId: params.id,
           id: params.itemId,
         });
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,

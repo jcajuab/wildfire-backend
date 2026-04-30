@@ -205,7 +205,7 @@ export const registerPlaylistCrudRoutes = (args: {
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
@@ -294,7 +294,7 @@ export const registerPlaylistCrudRoutes = (args: {
           name: payload.name,
           description: payload.description,
         });
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists"]);
         return c.json({ data: result });
       },
       ...applicationErrorMappers,
@@ -339,7 +339,7 @@ export const registerPlaylistCrudRoutes = (args: {
         await useCases.deletePlaylist.execute({
           id: params.id,
         });
-        await invalidateServerCache(["playlists", "schedules", "displays"]);
+        await invalidateServerCache(["playlists", "schedules"]);
         return c.body(null, 204);
       },
       ...applicationErrorMappers,
