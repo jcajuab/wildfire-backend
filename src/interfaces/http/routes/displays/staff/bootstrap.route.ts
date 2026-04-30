@@ -17,19 +17,6 @@ import {
   type DisplaysRouterUseCases,
 } from "../module";
 
-const hasPermission = (
-  c: { get: (name: string) => unknown },
-  permission: string,
-): boolean => {
-  const payload = c.get("jwtPayload") as
-    | { isAdmin?: boolean; permissions?: string[] }
-    | undefined;
-  return (
-    payload?.isAdmin === true ||
-    payload?.permissions?.includes(permission) === true
-  );
-};
-
 export const registerDisplayStaffBootstrapRoute = (input: {
   router: DisplaysRouter;
   deps: DisplaysRouterDeps;
@@ -58,14 +45,10 @@ export const registerDisplayStaffBootstrapRoute = (input: {
           {
             domains: ["displays", "schedules", "playlists", "content"],
             ttl: "dynamic",
-            varyByPermissions: true,
           },
           async () => {
             const startedAt = Date.now();
             const query = c.req.valid("query");
-            const canLoadEmergencyContentOptions =
-              hasPermission(c, "displays:update") ||
-              hasPermission(c, "content:read");
 
             const displayGroups = await useCases.listDisplayGroups.execute();
             const derivedGroupIds =
@@ -93,11 +76,9 @@ export const registerDisplayStaffBootstrapRoute = (input: {
               }),
               useCases.listDisplayOutputOptions.execute(),
               useCases.getRuntimeOverrides.execute({ now: new Date() }),
-              canLoadEmergencyContentOptions
-                ? useCases.listEmergencyContentOptions.execute({
-                    status: "READY",
-                  })
-                : Promise.resolve([]),
+              useCases.listEmergencyContentOptions.execute({
+                status: "READY",
+              }),
             ]);
 
             logger.info(

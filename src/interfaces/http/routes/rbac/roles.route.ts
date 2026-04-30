@@ -36,19 +36,6 @@ import {
   roleTags,
 } from "./shared";
 
-const hasPermission = (
-  c: { get: (name: string) => unknown },
-  permission: string,
-): boolean => {
-  const payload = c.get("jwtPayload") as
-    | { isAdmin?: boolean; permissions?: string[] }
-    | undefined;
-  return (
-    payload?.isAdmin === true ||
-    payload?.permissions?.includes(permission) === true
-  );
-};
-
 export const registerRbacRoleRoutes = (args: {
   router: RbacRouter;
   deps: RbacRouterDeps;
@@ -85,11 +72,9 @@ export const registerRbacRoleRoutes = (args: {
           {
             domains: ["roles", "permissions", "users"],
             ttl: "reference",
-            varyByPermissions: true,
           },
           async () => {
             const startedAt = Date.now();
-            const canReadUsers = hasPermission(c, "users:read");
 
             const [role, permissions, rolePermissions, roleUsers] =
               await Promise.all([
@@ -100,18 +85,11 @@ export const registerRbacRoleRoutes = (args: {
                   page: 1,
                   pageSize: 1000,
                 }),
-                canReadUsers
-                  ? useCases.getRoleUsers.execute({
-                      roleId: params.id,
-                      page: 1,
-                      pageSize: 1000,
-                    })
-                  : Promise.resolve({
-                      items: [],
-                      total: 0,
-                      page: 1,
-                      pageSize: 1000,
-                    }),
+                useCases.getRoleUsers.execute({
+                  roleId: params.id,
+                  page: 1,
+                  pageSize: 1000,
+                }),
               ]);
 
             logger.info(

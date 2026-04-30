@@ -16,19 +16,6 @@ import {
   scheduleTags,
 } from "./shared";
 
-const hasPermission = (
-  c: { get: (name: string) => unknown },
-  permission: string,
-): boolean => {
-  const payload = c.get("jwtPayload") as
-    | { isAdmin?: boolean; permissions?: string[] }
-    | undefined;
-  return (
-    payload?.isAdmin === true ||
-    payload?.permissions?.includes(permission) === true
-  );
-};
-
 export const registerScheduleBootstrapRoutes = (args: {
   router: SchedulesRouter;
   deps: SchedulesRouterDeps;
@@ -58,14 +45,10 @@ export const registerScheduleBootstrapRoutes = (args: {
           {
             domains: ["schedules", "displays", "playlists", "content"],
             ttl: "dynamic",
-            varyByPermissions: true,
           },
           async () => {
             const startedAt = Date.now();
             const query = c.req.valid("query");
-            const canReadDisplays = hasPermission(c, "displays:read");
-            const canReadPlaylists = hasPermission(c, "playlists:read");
-            const canReadContent = hasPermission(c, "content:read");
 
             const [
               schedules,
@@ -79,21 +62,13 @@ export const registerScheduleBootstrapRoutes = (args: {
                 to: query.to,
                 displayIds: query.displayIds,
               }),
-              canReadDisplays
-                ? useCases.listDisplayOptions.execute({ limit: 100 })
-                : Promise.resolve([]),
-              canReadDisplays
-                ? (useCases.listDisplayGroups?.execute() ?? Promise.resolve([]))
-                : Promise.resolve([]),
-              canReadPlaylists
-                ? useCases.listPlaylistOptions.execute({})
-                : Promise.resolve([]),
-              canReadContent
-                ? useCases.listFlashContentOptions.execute({
-                    type: "FLASH",
-                    status: "READY",
-                  })
-                : Promise.resolve([]),
+              useCases.listDisplayOptions.execute({ limit: 100 }),
+              useCases.listDisplayGroups?.execute() ?? Promise.resolve([]),
+              useCases.listPlaylistOptions.execute({}),
+              useCases.listFlashContentOptions.execute({
+                type: "FLASH",
+                status: "READY",
+              }),
             ]);
 
             logger.info(
