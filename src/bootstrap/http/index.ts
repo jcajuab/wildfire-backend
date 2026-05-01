@@ -649,6 +649,8 @@ app.use(
       "X-Display-Nonce",
       "X-Display-Body-Sha256",
       "X-Display-Signature",
+      "If-None-Match",
+      "Accept",
     ],
     exposeHeaders: [
       "X-Request-Id",
@@ -656,6 +658,7 @@ app.use(
       "X-RateLimit-Remaining",
       "X-RateLimit-Reset",
       "Retry-After",
+      "ETag",
     ],
   }),
 );
