@@ -99,6 +99,7 @@ export const registerAuthSessionRoutes = (args: {
           setCookie(c, deps.authSessionCookieName, result.refreshToken, {
             ...AUTH_SESSION_COOKIE_OPTIONS,
             secure: deps.secureCookies,
+            sameSite: deps.secureCookies ? "Strict" : "Lax",
             expires: new Date(result.refreshTokenExpiresAt),
           });
         }

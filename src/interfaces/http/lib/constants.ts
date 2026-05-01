@@ -5,6 +5,5 @@ export const MAX_BODY_HASH_BYTES = 128;
 
 export const AUTH_SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: "Strict",
   path: "/",
 } as const;

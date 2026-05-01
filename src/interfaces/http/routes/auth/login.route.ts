@@ -1,5 +1,6 @@
-import { setCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import { describeRoute, resolver } from "hono-openapi";
+import { parseRefreshTokenValue } from "#/application/auth/refresh-token";
 import { InvalidCredentialsError } from "#/application/use-cases/auth";
 import { AUTH_SESSION_COOKIE_OPTIONS } from "#/interfaces/http/lib/constants";
 import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
@@ -142,10 +143,20 @@ export const registerAuthLoginRoute = (args: {
           }
           throw error;
         }
+        const staleRefreshCookie = getCookie(c, deps.authSessionCookieName);
+        if (staleRefreshCookie) {
+          const parsed = parseRefreshTokenValue(staleRefreshCookie);
+          if (parsed) {
+            await deps.authSessionRepository
+              .revokeById(parsed.sessionId)
+              .catch(() => {});
+          }
+        }
         const body = await buildAuthResponse(deps, result);
         setCookie(c, deps.authSessionCookieName, result.refreshToken ?? "", {
           ...AUTH_SESSION_COOKIE_OPTIONS,
           secure: deps.secureCookies,
+          sameSite: deps.secureCookies ? "Strict" : "Lax",
           expires: new Date(
             result.refreshTokenExpiresAt ?? new Date(0).toISOString(),
           ),
