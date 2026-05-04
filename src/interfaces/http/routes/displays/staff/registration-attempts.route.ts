@@ -1,6 +1,7 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import { apiResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -48,6 +49,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    requireAdmin,
     describeRoute({
       description: "Create or replace an active display registration attempt",
       tags: displayTags,
@@ -87,6 +89,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    requireAdmin,
     validateParams(registrationAttemptParamSchema),
     describeRoute({
       description:
@@ -127,6 +130,7 @@ export const registerDisplayStaffRegistrationAttemptRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    requireAdmin,
     validateParams(registrationAttemptParamSchema),
     describeRoute({
       description: "Close an active registration attempt",

@@ -4,6 +4,7 @@ import {
   jsonWithServerCache,
 } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import { apiResponseSchema } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -81,6 +82,7 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateJson(runtimeOverrideEmergencyActionSchema),
     describeRoute({
       description:

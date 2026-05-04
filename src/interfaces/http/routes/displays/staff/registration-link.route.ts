@@ -2,6 +2,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { DISPLAY_REGISTRATION_CONSTRAINTS } from "#/application/use-cases/displays";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import {
   apiResponseSchema,
   errorResponseSchema,
@@ -81,6 +82,7 @@ export const registerDisplayStaffRegistrationLinkRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    requireAdmin,
     validateJson(registrationLinkBodySchema),
     describeRoute({
       description: "Create a registration link with pre-filled display details",

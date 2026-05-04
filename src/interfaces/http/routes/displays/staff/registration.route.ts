@@ -2,6 +2,7 @@ import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { DISPLAY_REGISTRATION_CONSTRAINTS } from "#/application/use-cases/displays";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import {
   apiResponseSchema,
   errorResponseSchema,
@@ -110,6 +111,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    requireAdmin,
     validateJson(registrationSessionBodySchema),
     describeRoute({
       description: "Create a display registration session from a pairing code",
@@ -162,6 +164,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:create"),
+    requireAdmin,
     validateJson(displayRegistrationBodySchema),
     describeRoute({
       description: "Register a display using a valid registration session",

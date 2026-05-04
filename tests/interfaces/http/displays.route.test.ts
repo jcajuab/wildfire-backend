@@ -878,7 +878,7 @@ describe("Displays routes", () => {
 
   test("POST /displays/registration-attempts issues code with displays:create permission", async () => {
     const { app, issueToken } = await makeApp(["displays:create"]);
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
 
     const response = await app.request("/displays/registration-attempts", {
       method: "POST",
