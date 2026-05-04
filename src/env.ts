@@ -119,7 +119,7 @@ export const env = createEnv({
     EMAIL_CHANGE_TOKEN_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24),
 
     // Content
-    CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(100 * 1024 * 1024),
+    CONTENT_MAX_UPLOAD_BYTES: z.coerce.number().default(10 * 1024 * 1024),
     VIDEO_MAX_UPLOAD_BYTES: z.coerce.number().default(10 * 1024 * 1024),
     CONTENT_INGEST_QUEUE_CAPACITY: z.coerce.number().default(5000),
     CONTENT_INGEST_QUEUE_ENQUEUE_MAX_ATTEMPTS: z.coerce.number().default(3),

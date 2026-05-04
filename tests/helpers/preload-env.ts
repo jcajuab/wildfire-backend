@@ -17,7 +17,7 @@ const defaults: Record<string, string> = {
   MINIO_BUCKET: "content",
   MINIO_REGION: "us-east-1",
   MINIO_REQUEST_TIMEOUT_MS: "15000",
-  CONTENT_MAX_UPLOAD_BYTES: "104857600",
+  CONTENT_MAX_UPLOAD_BYTES: "10485760",
   HTSHADOW_PATH: "/tmp/htshadow",
   JWT_SECRET: "test-secret-value-for-unit-tests-only-do-not-use",
   JWT_ISSUER: "wildfire",
