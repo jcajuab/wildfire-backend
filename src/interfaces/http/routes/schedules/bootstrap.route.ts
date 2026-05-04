@@ -6,6 +6,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import { scheduleWindowQuerySchema } from "#/interfaces/http/validators/schedules.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import {
@@ -40,11 +41,13 @@ export const registerScheduleBootstrapRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
           {
             domains: ["schedules", "displays", "playlists", "content"],
             ttl: "dynamic",
+            varyByOwner: true,
           },
           async () => {
             const startedAt = Date.now();
@@ -58,14 +61,16 @@ export const registerScheduleBootstrapRoutes = (args: {
               flashContentOptions,
             ] = await Promise.all([
               useCases.listScheduleWindow.execute({
+                ownerId,
                 from: query.from,
                 to: query.to,
                 displayIds: query.displayIds,
               }),
               useCases.listDisplayOptions.execute({ limit: 100 }),
               useCases.listDisplayGroups?.execute() ?? Promise.resolve([]),
-              useCases.listPlaylistOptions.execute({}),
+              useCases.listPlaylistOptions.execute({ ownerId }),
               useCases.listFlashContentOptions.execute({
+                ownerId,
                 type: "FLASH",
                 status: "READY",
               }),

@@ -12,6 +12,8 @@ import {
   DEFAULT_SCHEDULE_TIMEZONE,
   ensureFlashContentIsSchedulable,
   ensureNoScheduleConflicts,
+  findContentForOwner,
+  findPlaylistForOwner,
   getValidatedWindow,
   type ScheduleMutationDeps,
   toScheduleWindow,
@@ -27,6 +29,7 @@ export class CreateScheduleUseCase {
 
   async execute(input: {
     ownerId?: string;
+    actorIsAdmin?: boolean;
     name: string;
     kind: ScheduleKind;
     playlistId: string | null;
@@ -37,6 +40,7 @@ export class CreateScheduleUseCase {
     startTime: string;
     endTime: string;
   }) {
+    const ownerScope = input.actorIsAdmin ? undefined : input.ownerId;
     const { startDate, endDate } = getValidatedWindow(input);
 
     if (input.startDate && input.startTime) {
@@ -67,7 +71,11 @@ export class CreateScheduleUseCase {
       if (!input.playlistId || input.contentId) {
         throw new ValidationError("Playlist schedules require playlistId only");
       }
-      playlist = await this.deps.playlistRepository.findById(input.playlistId);
+      playlist = await findPlaylistForOwner(
+        this.deps.playlistRepository,
+        input.playlistId,
+        ownerScope,
+      );
       if (!playlist) {
         throw new NotFoundError("Playlist not found");
       }
@@ -98,7 +106,11 @@ export class CreateScheduleUseCase {
       if (!input.contentId || input.playlistId) {
         throw new ValidationError("Flash schedules require contentId only");
       }
-      content = await this.deps.contentRepository.findById(input.contentId);
+      content = await findContentForOwner(
+        this.deps.contentRepository,
+        input.contentId,
+        ownerScope,
+      );
       if (!content) {
         throw new NotFoundError("Content not found");
       }

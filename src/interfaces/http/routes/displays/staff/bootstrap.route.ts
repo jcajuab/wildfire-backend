@@ -7,6 +7,7 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { authErrorResponses } from "#/interfaces/http/routes/shared/openapi-responses";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import { displayListQuerySchema } from "#/interfaces/http/validators/displays.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import { displayTags } from "../contracts";
@@ -40,11 +41,13 @@ export const registerDisplayStaffBootstrapRoute = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
           {
             domains: ["displays", "schedules", "playlists", "content"],
             ttl: "dynamic",
+            varyByOwner: true,
           },
           async () => {
             const startedAt = Date.now();
@@ -77,6 +80,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
               useCases.listDisplayOutputOptions.execute(),
               useCases.getRuntimeOverrides.execute({ now: new Date() }),
               useCases.listEmergencyContentOptions.execute({
+                ownerId,
                 status: "READY",
               }),
             ]);

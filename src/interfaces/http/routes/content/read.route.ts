@@ -15,6 +15,7 @@ import {
   notFoundResponse,
   validationErrorResponse,
 } from "#/interfaces/http/routes/shared/openapi-responses";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import {
   contentIdParamSchema,
   contentListQuerySchema,
@@ -65,12 +66,14 @@ export const registerContentReadRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["content"], ttl: "reference" },
+          { domains: ["content"], ttl: "reference", varyByOwner: true },
           async () => {
             const query = c.req.valid("query");
             const result = await useCases.listContentOptions.execute({
+              ownerId,
               status: query.status,
               type: query.type,
               search: query.q,
@@ -108,12 +111,16 @@ export const registerContentReadRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["content"], ttl: "default" },
+          { domains: ["content"], ttl: "default", varyByOwner: true },
           async () => {
             const query = c.req.valid("query");
-            const result = await useCases.listContent.execute(query);
+            const result = await useCases.listContent.execute({
+              ...query,
+              ownerId,
+            });
             return toApiListResponse({
               items: result.items,
               total: result.total,
@@ -161,12 +168,14 @@ export const registerContentReadRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
         c.set("fileId", params.id);
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["content"], ttl: "default" },
+          { domains: ["content"], ttl: "default", varyByOwner: true },
           async () => {
             const result = await useCases.getContent.execute({
               id: params.id,
+              ownerId,
             });
             return { data: result };
           },

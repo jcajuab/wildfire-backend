@@ -11,6 +11,7 @@ import {
   applicationErrorMappers,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import {
   mergedPlaylistQuerySchema,
   mergedPlaylistResponseSchema,
@@ -60,12 +61,18 @@ export const registerScheduleQueryRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["schedules", "playlists", "content"], ttl: "dynamic" },
+          {
+            domains: ["schedules", "playlists", "content"],
+            ttl: "dynamic",
+            varyByOwner: true,
+          },
           async () => {
             const query = c.req.valid("query");
             const result = await useCases.listSchedules.execute({
+              ownerId,
               page: query.page,
               pageSize: query.pageSize,
             });
@@ -104,12 +111,18 @@ export const registerScheduleQueryRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["schedules", "playlists", "content"], ttl: "dynamic" },
+          {
+            domains: ["schedules", "playlists", "content"],
+            ttl: "dynamic",
+            varyByOwner: true,
+          },
           async () => {
             const query = c.req.valid("query");
             const result = await useCases.listScheduleWindow.execute({
+              ownerId,
               from: query.from,
               to: query.to,
               displayIds: query.displayIds,
@@ -189,12 +202,18 @@ export const registerScheduleQueryRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["schedules", "playlists", "content"], ttl: "default" },
+          {
+            domains: ["schedules", "playlists", "content"],
+            ttl: "default",
+            varyByOwner: true,
+          },
           async () => {
             const result = await useCases.getSchedule.execute({
               id: params.id,
+              ownerId,
             });
             return { data: result };
           },

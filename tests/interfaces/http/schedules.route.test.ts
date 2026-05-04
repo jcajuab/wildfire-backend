@@ -282,7 +282,7 @@ const makeApp = async (
   app.route("/schedules", router);
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const issueToken = async () =>
+  const issueToken = async (options?: { isAdmin?: boolean }) =>
     tokenIssuer.issueToken({
       subject: "user-1",
       username: "user",
@@ -291,6 +291,7 @@ const makeApp = async (
       expiresAt: nowSeconds + 3600,
       sessionId: crypto.randomUUID(),
       issuer: undefined,
+      isAdmin: options?.isAdmin ?? false,
     });
 
   return { app, issueToken };
@@ -345,7 +346,7 @@ describe("Schedules routes", () => {
         },
       ],
     });
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
 
     const response = await app.request(`/schedules/${scheduleId}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -656,5 +657,61 @@ describe("Schedules routes", () => {
 
     // PLAYLIST overlaps are now allowed - playlists merge at runtime
     expect(overlap.status).toBe(200);
+  });
+
+  test("POST /schedules returns 404 when normal user references another user's playlist", async () => {
+    const { app, issueToken } = await makeApp(["schedules:create"], {
+      playlistOwnerId: "user-2",
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Hijack",
+        kind: "PLAYLIST",
+        playlistId,
+        contentId: null,
+        displayId,
+        startDate: "2027-01-02",
+        endDate: "2027-01-05",
+        startTime: "08:00",
+        endTime: "10:00",
+      }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("ADMIN can POST /schedules referencing any user's playlist", async () => {
+    const { app, issueToken } = await makeApp(["schedules:create"], {
+      playlistOwnerId: "user-2",
+    });
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Admin schedule",
+        kind: "PLAYLIST",
+        playlistId,
+        contentId: null,
+        displayId,
+        startDate: "2027-01-02",
+        endDate: "2027-01-05",
+        startTime: "08:00",
+        endTime: "10:00",
+      }),
+    });
+
+    expect(response.status).toBe(201);
   });
 });

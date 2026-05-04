@@ -4,6 +4,7 @@ import {
   jsonWithServerCache,
 } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import {
   apiResponseSchema,
   toApiListResponse,
@@ -314,6 +315,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateParams(displayIdParamSchema),
     validateJson(patchDisplaySchema),
     describeRoute({
@@ -371,6 +373,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateParams(displayIdParamSchema),
     describeRoute({
       description: "Queue a refresh signal for a display",
@@ -399,6 +402,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:delete"),
+    requireAdmin,
     validateParams(displayIdParamSchema),
     describeRoute({
       description: "Unregister display and revoke display authentication",

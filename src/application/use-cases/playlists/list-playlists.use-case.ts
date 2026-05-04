@@ -243,7 +243,8 @@ export class ListPlaylistsUseCase {
     await Promise.all(
       playlistIds.map(async (playlistId) => {
         const schedules =
-          await this.deps.scheduleRepository?.listByPlaylistId(playlistId);
+          (await this.deps.scheduleRepository?.listByPlaylistId(playlistId)) ??
+          [];
         const active = selectActiveSchedule(schedules, now, tz);
         if (active) {
           activeIds.add(playlistId);

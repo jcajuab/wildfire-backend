@@ -7,6 +7,7 @@ export type JwtUserVariables = {
   userId: string;
   username?: string;
   userEmail?: string;
+  isAdmin: boolean;
   sessionId?: string;
   jti?: string;
   deniedPermission?: string;
@@ -32,6 +33,7 @@ export const requireJwtUser: MiddlewareHandler<{
 
   c.set("userId", parsed.data.sub);
   c.set("username", parsed.data.username);
+  c.set("isAdmin", parsed.data.isAdmin);
   if (parsed.data.email) {
     c.set("userEmail", parsed.data.email);
   }

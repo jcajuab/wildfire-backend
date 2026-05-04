@@ -4,6 +4,7 @@ import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { NotFoundError } from "./errors";
 import { toScheduleView } from "./schedule-view";
+import { ensureScheduleVisibleToOwner } from "./shared";
 
 export class GetScheduleUseCase {
   constructor(
@@ -18,6 +19,12 @@ export class GetScheduleUseCase {
   async execute(input: { id: string; ownerId?: string }) {
     const schedule = await this.deps.scheduleRepository.findById(input.id);
     if (!schedule) throw new NotFoundError("Schedule not found");
+    await ensureScheduleVisibleToOwner({
+      ownerId: input.ownerId,
+      schedule,
+      playlistRepository: this.deps.playlistRepository,
+      contentRepository: this.deps.contentRepository,
+    });
 
     const [playlist, content, display] = await Promise.all([
       schedule.playlistId

@@ -819,7 +819,7 @@ const makeApp = async (
   app.route("/displays", router);
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const issueToken = async () =>
+  const issueToken = async (options?: { isAdmin?: boolean }) =>
     tokenIssuer.issueToken({
       subject: "user-1",
       username: "user",
@@ -828,6 +828,7 @@ const makeApp = async (
       expiresAt: nowSeconds + 3600,
       sessionId: crypto.randomUUID(),
       issuer: undefined,
+      isAdmin: options?.isAdmin ?? false,
     });
 
   return {
@@ -1104,7 +1105,7 @@ describe("Displays routes", () => {
     const { app, issueToken } = await makeApp(["displays:update"], {
       displays: [makeDisplay()],
     });
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
 
     const response = await app.request(`/displays/${displayId}`, {
       method: "PATCH",
@@ -1132,7 +1133,7 @@ describe("Displays routes", () => {
     const { app, issueToken, displays } = await makeApp(["displays:update"], {
       displays: [display],
     });
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
 
     const response = await app.request(`/displays/${displayId}/refresh`, {
       method: "POST",
@@ -1150,7 +1151,7 @@ describe("Displays routes", () => {
         displays: [makeDisplay({ status: "READY" })],
       },
     );
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
 
     const response = await app.request(`/displays/${displayId}/unregister`, {
       method: "POST",
@@ -1169,7 +1170,7 @@ describe("Displays routes", () => {
         displays: [makeDisplay()],
       },
     );
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
 
     const create = await app.request("/displays/groups", {
       method: "POST",

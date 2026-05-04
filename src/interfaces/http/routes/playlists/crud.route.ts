@@ -17,6 +17,7 @@ import {
   mapErrorToResponse,
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import {
   createPlaylistSchema,
   estimatePlaylistDurationSchema,
@@ -72,14 +73,16 @@ export const registerPlaylistCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["playlists"], ttl: "reference" },
+          { domains: ["playlists"], ttl: "reference", varyByOwner: true },
           async () => {
             const query = c.req.valid("query");
             const result = await useCases.listPlaylistOptions.execute({
               q: query.q,
               status: query.status,
+              ownerId,
             });
             return { data: result };
           },
@@ -110,12 +113,18 @@ export const registerPlaylistCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["playlists", "schedules", "content"], ttl: "dynamic" },
+          {
+            domains: ["playlists", "schedules", "content"],
+            ttl: "dynamic",
+            varyByOwner: true,
+          },
           async () => {
             const query = c.req.valid("query");
             const result = await useCases.listPlaylists.execute({
+              ownerId,
               page: query.page,
               pageSize: query.pageSize,
               status: query.status,
@@ -166,6 +175,7 @@ export const registerPlaylistCrudRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.estimatePlaylistDuration.execute({
           ...payload,
+          ownerId: getOwnerScope(c),
         });
         return c.json({ data: result });
       },
@@ -246,12 +256,18 @@ export const registerPlaylistCrudRoutes = (args: {
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
+        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
-          { domains: ["playlists", "content"], ttl: "default" },
+          {
+            domains: ["playlists", "content"],
+            ttl: "default",
+            varyByOwner: true,
+          },
           async () => {
             const result = await useCases.getPlaylist.execute({
               id: params.id,
+              ownerId,
             });
             return { data: result };
           },
@@ -291,6 +307,7 @@ export const registerPlaylistCrudRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.updatePlaylist.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
           name: payload.name,
           description: payload.description,
         });
@@ -338,6 +355,7 @@ export const registerPlaylistCrudRoutes = (args: {
         c.set("resourceId", params.id);
         await useCases.deletePlaylist.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
         });
         await invalidateServerCache(["playlists", "schedules"]);
         return c.body(null, 204);

@@ -7,6 +7,7 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import {
   createScheduleSchema,
   scheduleIdParamSchema,
@@ -77,6 +78,7 @@ export const registerScheduleCommandRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.createSchedule.execute({
           ownerId: c.get("userId"),
+          actorIsAdmin: c.get("isAdmin") === true,
           name: payload.name,
           kind: payload.kind,
           playlistId: payload.playlistId,
@@ -129,6 +131,7 @@ export const registerScheduleCommandRoutes = (args: {
         const payload = c.req.valid("json");
         const result = await useCases.updateSchedule.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
           name: payload.name,
           kind: payload.kind,
           playlistId: payload.playlistId,
@@ -175,6 +178,7 @@ export const registerScheduleCommandRoutes = (args: {
         c.set("resourceId", params.id);
         await useCases.deleteSchedule.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
         });
         await invalidateServerCache(["schedules", "displays", "playlists"]);
         return c.body(null, 204);

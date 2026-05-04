@@ -6,6 +6,7 @@ import {
   jsonWithServerCache,
 } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
+import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import { apiResponseSchema, conflict } from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
@@ -84,6 +85,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
       resourceType: "display-group",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateJson(createDisplayGroupSchema),
     describeRoute({
       description: "Create display group",
@@ -131,6 +133,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
       resourceType: "display-group",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateParams(displayGroupIdParamSchema),
     validateJson(updateDisplayGroupSchema),
     describeRoute({
@@ -180,6 +183,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
       resourceType: "display-group",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateParams(displayGroupIdParamSchema),
     describeRoute({
       description: "Delete display group",
@@ -206,6 +210,7 @@ export const registerDisplayStaffGroupRoutes = (input: {
       resourceType: "display",
     }),
     ...authorize("displays:update"),
+    requireAdmin,
     validateParams(displayIdParamSchema),
     validateJson(setDisplayGroupsSchema),
     describeRoute({

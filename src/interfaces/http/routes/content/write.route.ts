@@ -19,6 +19,7 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { authValidationErrorResponses } from "#/interfaces/http/routes/shared/openapi-responses";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import {
   contentIdParamSchema,
   contentIngestionAcceptedSchema,
@@ -303,6 +304,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.updateContent.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
           title: body.title,
           flashMessage: body.flashMessage,
           flashTone: body.flashTone,
@@ -398,6 +400,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", params.id);
         const result = await useCases.replaceContentFile.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
           file: body.file,
           title: body.title,
         });
@@ -460,6 +463,7 @@ export const registerContentWriteRoutes = (args: {
         c.set("fileId", params.id);
         await useCases.deleteContent.execute({
           id: params.id,
+          ownerId: getOwnerScope(c),
         });
         await invalidateServerCache(["content", "playlists"]);
         return c.body(null, 204);

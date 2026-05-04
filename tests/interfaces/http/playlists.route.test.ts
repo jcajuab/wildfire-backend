@@ -374,7 +374,7 @@ const makeApp = async (
   app.route("/playlists", router);
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const issueToken = async () =>
+  const issueToken = async (options?: { isAdmin?: boolean }) =>
     tokenIssuer.issueToken({
       subject: "user-1",
       username: "user",
@@ -383,6 +383,7 @@ const makeApp = async (
       expiresAt: nowSeconds + 3600,
       sessionId: crypto.randomUUID(),
       issuer: undefined,
+      isAdmin: options?.isAdmin ?? false,
     });
 
   return { app, issueToken, playlists, items, contents };
@@ -415,7 +416,7 @@ describe("Playlists routes", () => {
 
   test("GET /playlists returns authorized shared playlists from other creators", async () => {
     const { app, issueToken, playlists } = await makeApp(["playlists:read"]);
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
     playlists.push({
       id: playlistId,
       name: "Shared Loop",
@@ -880,5 +881,113 @@ describe("Playlists routes", () => {
     });
 
     expect(response.status).toBe(500);
+  });
+
+  test("GET /playlists/:id returns 404 when normal user requests another user's playlist", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:read"]);
+    playlists.push({
+      id: playlistId,
+      name: "Other User Playlist",
+      description: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/playlists/${playlistId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("PATCH /playlists/:id returns 404 when normal user edits another user's playlist", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:update"]);
+    playlists.push({
+      id: playlistId,
+      name: "Other User Playlist",
+      description: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/playlists/${playlistId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "hijack attempt" }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("POST /playlists/:id/items returns 404 when normal user adds another user's content", async () => {
+    const { app, issueToken, playlists, contents } = await makeApp([
+      "playlists:update",
+    ]);
+    playlists.push({
+      id: playlistId,
+      name: "Mine",
+      description: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const stolenContentId = "11111111-aaaa-4aaa-8aaa-111111111111";
+    contents.push({
+      id: stolenContentId,
+      title: "Owned by user-2",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/x.png",
+      checksum: "x",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: 10,
+      height: 10,
+      duration: null,
+      thumbnailKey: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/playlists/${playlistId}/items`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contentId: stolenContentId,
+        sequence: 10,
+        duration: 10,
+      }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("POST /playlists assigns owner from session and ignores any body field", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:create"]);
+    const token = await issueToken();
+
+    const response = await app.request("/playlists", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Mine", ownerId: "user-2" }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(playlists[0]?.ownerId).toBe("user-1");
   });
 });

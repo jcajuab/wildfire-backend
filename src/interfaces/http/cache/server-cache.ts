@@ -33,6 +33,7 @@ export const jsonWithServerCache = async <T>(
     domains: readonly ServerCacheDomain[];
     ttl?: ServerCacheTtl;
     varyByPermissions?: boolean;
+    varyByOwner?: boolean;
   },
   compute: () => Promise<T>,
 ): Promise<Response> => {
@@ -47,14 +48,22 @@ export const jsonWithServerCache = async <T>(
   let computeError: unknown;
   try {
     const versions = await getServerCacheVersions(store, options.domains);
+    const varyParts: string[] = [];
+    if (options.varyByPermissions) {
+      varyParts.push(permissionShape(c.get("jwtPayload")));
+    }
+    if (options.varyByOwner) {
+      const isAdmin = c.get("isAdmin") === true;
+      const userId =
+        typeof c.get("userId") === "string" ? c.get("userId") : "anonymous";
+      varyParts.push(isAdmin ? "admin" : `owner:${userId}`);
+    }
     const key = makeServerResponseCacheKey({
       method: c.req.method,
       url: c.req.url,
       domains: options.domains,
       versions,
-      vary: options.varyByPermissions
-        ? [permissionShape(c.get("jwtPayload"))]
-        : undefined,
+      vary: varyParts.length > 0 ? varyParts : undefined,
     });
     const result = await getOrSetJson({
       store,

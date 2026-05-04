@@ -270,7 +270,7 @@ const makeApp = async (permissions: string[]) => {
   app.route("/content", router);
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const issueToken = async () =>
+  const issueToken = async (options?: { isAdmin?: boolean }) =>
     tokenIssuer.issueToken({
       subject: "user-1",
       username: "user",
@@ -279,6 +279,7 @@ const makeApp = async (permissions: string[]) => {
       expiresAt: nowSeconds + 3600,
       sessionId: crypto.randomUUID(),
       issuer: undefined,
+      isAdmin: options?.isAdmin ?? false,
     });
 
   return { app, issueToken, records };
@@ -351,7 +352,7 @@ describe("Content routes", () => {
 
   test("GET /content returns authorized shared content from other creators", async () => {
     const { app, issueToken, records } = await makeApp(["content:read"]);
-    const token = await issueToken();
+    const token = await issueToken({ isAdmin: true });
     records.push({
       id: "22222222-2222-4222-8222-222222222222",
       title: "Shared Poster",
@@ -762,5 +763,133 @@ describe("Content routes", () => {
     });
 
     expect(response.status).toBe(409);
+  });
+
+  test("GET /content scopes list to owner for normal users", async () => {
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    records.push({
+      id: "33333333-3333-4333-8333-333333333333",
+      title: "Mine",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/33333333-3333-4333-8333-333333333333.png",
+      checksum: "mine",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    records.push({
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Theirs",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/44444444-4444-4444-8444-444444444444.png",
+      checksum: "theirs",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request("/content", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ title: string }> }>(response);
+    expect(body.data.map((item) => item.title)).toEqual(["Mine"]);
+  });
+
+  test("GET /content/:id returns 404 when normal user requests another user's content", async () => {
+    const otherId = "55555555-5555-4555-8555-555555555555";
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    records.push({
+      id: otherId,
+      title: "Theirs",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: `content/images/${otherId}.png`,
+      checksum: "theirs",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/content/${otherId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("DELETE /content/:id returns 404 when normal user deletes another user's content", async () => {
+    const otherId = "66666666-6666-4666-8666-666666666666";
+    const { app, issueToken, records } = await makeApp(["content:delete"]);
+    records.push({
+      id: otherId,
+      title: "Theirs",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: `content/images/${otherId}.png`,
+      checksum: "theirs",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken();
+    const response = await app.request(`/content/${otherId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(404);
+    expect(records.some((r) => r.id === otherId)).toBe(true);
+  });
+
+  test("ADMIN can DELETE another user's content", async () => {
+    const otherId = "77777777-7777-4777-8777-777777777777";
+    const { app, issueToken, records } = await makeApp(["content:delete"]);
+    records.push({
+      id: otherId,
+      title: "Theirs",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: `content/images/${otherId}.png`,
+      checksum: "theirs",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-2",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken({ isAdmin: true });
+    const response = await app.request(`/content/${otherId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(204);
+    expect(records.some((r) => r.id === otherId)).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { validationErrorResponse } from "#/interfaces/http/routes/shared/openapi-responses";
+import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import {
   addPlaylistItemSchema,
   playlistIdParamSchema,
@@ -69,6 +70,7 @@ export const registerPlaylistItemRoutes = (args: {
         const params = c.req.valid("param");
         const payload = c.req.valid("json");
         const result = await useCases.addPlaylistItem.execute({
+          ownerId: getOwnerScope(c),
           playlistId: params.id,
           contentId: payload.contentId,
           sequence: payload.sequence,
@@ -116,6 +118,7 @@ export const registerPlaylistItemRoutes = (args: {
         c.set("resourceId", params.itemId);
         const payload = c.req.valid("json");
         const result = await useCases.updatePlaylistItem.execute({
+          ownerId: getOwnerScope(c),
           playlistId: params.id,
           id: params.itemId,
           sequence: payload.sequence,
@@ -163,6 +166,7 @@ export const registerPlaylistItemRoutes = (args: {
         const payload = c.req.valid("json");
         c.set("resourceId", params.id);
         const result = await useCases.replacePlaylistItemsAtomic.execute({
+          ownerId: getOwnerScope(c),
           playlistId: params.id,
           items: payload.items,
         });
@@ -195,6 +199,7 @@ export const registerPlaylistItemRoutes = (args: {
         const payload = c.req.valid("json");
         c.set("resourceId", params.id);
         await useCases.reorderPlaylistItems.execute({
+          ownerId: getOwnerScope(c),
           playlistId: params.id,
           orderedItemIds: payload.orderedItemIds,
         });
@@ -233,6 +238,7 @@ export const registerPlaylistItemRoutes = (args: {
         const params = c.req.valid("param");
         c.set("resourceId", params.itemId);
         await useCases.deletePlaylistItem.execute({
+          ownerId: getOwnerScope(c),
           playlistId: params.id,
           id: params.itemId,
         });
