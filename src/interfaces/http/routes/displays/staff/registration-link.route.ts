@@ -30,8 +30,20 @@ const registrationLinkBodySchema = z.object({
   displayName: z.string().min(1).max(255),
   outputType: z.string().min(1).max(64),
   outputIndex: z.number().int().min(0),
-  resolutionWidth: z.number().int().positive(),
-  resolutionHeight: z.number().int().positive(),
+  resolutionWidth: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .default(null),
+  resolutionHeight: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .default(null),
   displayGroups: z.array(z.string().min(1).max(120)).default([]),
 });
 

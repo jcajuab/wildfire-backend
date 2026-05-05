@@ -3,8 +3,8 @@ export interface RegistrationLinkRecord {
   slug: string;
   displayName: string;
   output: string;
-  resolutionWidth: number;
-  resolutionHeight: number;
+  resolutionWidth: number | null;
+  resolutionHeight: number | null;
   displayGroups: string[];
   challengeNonce: string;
   attemptId: string;

@@ -14,6 +14,10 @@ const LINK_TTL_MS = 5 * 60 * 1_000;
 const KEY_PREFIX = `${env.REDIS_KEY_PREFIX}:display-registration-link`;
 
 const linkKey = (token: string): string => `${KEY_PREFIX}:${token}`;
+const serializeOptionalDimension = (value: number | null): string =>
+  value === null ? "" : String(value);
+const parseOptionalDimension = (value: string | undefined): number | null =>
+  value ? parseMilliseconds(value) : null;
 
 const parseRecord = (
   raw: Record<string, string>,
@@ -25,8 +29,8 @@ const parseRecord = (
   const challengeNonce = raw.challengeNonce;
   const attemptId = raw.attemptId;
   const ownerId = raw.ownerId;
-  const resolutionWidth = parseMilliseconds(raw.resolutionWidth);
-  const resolutionHeight = parseMilliseconds(raw.resolutionHeight);
+  const resolutionWidth = parseOptionalDimension(raw.resolutionWidth);
+  const resolutionHeight = parseOptionalDimension(raw.resolutionHeight);
   const expiresAtMs = parseMilliseconds(raw.expiresAtMs);
 
   if (
@@ -36,8 +40,6 @@ const parseRecord = (
     !challengeNonce ||
     !attemptId ||
     !ownerId ||
-    resolutionWidth == null ||
-    resolutionHeight == null ||
     expiresAtMs == null
   ) {
     return null;
@@ -78,8 +80,8 @@ export class RedisDisplayRegistrationLinkStore
       slug: record.slug,
       displayName: record.displayName,
       output: record.output,
-      resolutionWidth: String(record.resolutionWidth),
-      resolutionHeight: String(record.resolutionHeight),
+      resolutionWidth: serializeOptionalDimension(record.resolutionWidth),
+      resolutionHeight: serializeOptionalDimension(record.resolutionHeight),
       displayGroups: JSON.stringify(record.displayGroups),
       challengeNonce: record.challengeNonce,
       attemptId: record.attemptId,

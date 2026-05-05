@@ -341,8 +341,8 @@ export class DisplayDbRepository implements DisplayRepository {
     name: string;
     fingerprint: string;
     output: string;
-    screenWidth: number;
-    screenHeight: number;
+    screenWidth: number | null;
+    screenHeight: number | null;
     orientation?: "LANDSCAPE" | "PORTRAIT" | null;
     ipAddress?: string | null;
     macAddress?: string | null;

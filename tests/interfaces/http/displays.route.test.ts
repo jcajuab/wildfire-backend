@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { type ContentRecord } from "#/application/ports/content";
 import { type DisplayRegistrationAttemptStore } from "#/application/ports/display-registration-attempt";
+import { type RegistrationLinkRecord } from "#/application/ports/display-registration-link";
 import { type DisplayRecord } from "#/application/ports/displays";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { createDisplaysHttpModule } from "#/bootstrap/http/modules";
@@ -119,6 +120,7 @@ const makeApp = async (
   const openAttemptByUserId = new Map<string, string>();
   const attemptIdByCodeHash = new Map<string, string>();
   const sessionAttemptIdBySessionId = new Map<string, string>();
+  const registrationLinks: RegistrationLinkRecord[] = [];
 
   const playlists = [
     {
@@ -291,8 +293,8 @@ const makeApp = async (
       name: string;
       fingerprint: string;
       output: string;
-      screenWidth: number;
-      screenHeight: number;
+      screenWidth: number | null;
+      screenHeight: number | null;
       now: Date;
     }) => {
       const created = makeDisplay({
@@ -809,7 +811,9 @@ const makeApp = async (
         subscribe: () => () => {},
       },
       registrationLinkStore: {
-        create: async () => {},
+        create: async (record) => {
+          registrationLinks.push({ ...record });
+        },
         peek: async () => null,
         consume: async () => null,
       },
@@ -838,6 +842,7 @@ const makeApp = async (
     setDisplayGroupsCalls,
     revokedDisplayIds,
     searchPageCalls,
+    registrationLinks,
   };
 };
 
@@ -910,6 +915,39 @@ describe("Displays routes", () => {
     });
 
     expect(response.status).toBe(403);
+  });
+
+  test("POST /displays/registration-links accepts nullable resolution", async () => {
+    const { app, issueToken, registrationLinks } = await makeApp([
+      "displays:create",
+    ]);
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request("/displays/registration-links", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        slug: "lobby-display",
+        displayName: "Lobby Display",
+        outputType: "HDMI",
+        outputIndex: 0,
+        resolutionWidth: null,
+        resolutionHeight: null,
+        displayGroups: [],
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(registrationLinks[0]).toMatchObject({
+      slug: "lobby-display",
+      displayName: "Lobby Display",
+      output: "hdmi-0",
+      resolutionWidth: null,
+      resolutionHeight: null,
+    });
   });
 
   test("GET /displays requires permission", async () => {

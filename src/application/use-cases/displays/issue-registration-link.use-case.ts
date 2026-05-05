@@ -29,8 +29,8 @@ export class IssueRegistrationLinkUseCase {
     displayName: string;
     outputType: string;
     outputIndex: number;
-    resolutionWidth: number;
-    resolutionHeight: number;
+    resolutionWidth: number | null;
+    resolutionHeight: number | null;
     displayGroups: string[];
     now?: Date;
   }) {
