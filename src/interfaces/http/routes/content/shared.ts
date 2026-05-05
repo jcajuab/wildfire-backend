@@ -93,4 +93,17 @@ export type RequirePermission = (
   permission: string,
 ) => MiddlewareHandler<{ Variables: JwtUserVariables }>;
 
+export const getCurrentUserOwnerFallback = (c: {
+  get: (key: string) => unknown;
+}): { id: string; username: string } | undefined => {
+  const id = c.get("userId");
+  const username = c.get("username");
+
+  if (typeof id !== "string" || typeof username !== "string") {
+    return undefined;
+  }
+
+  return { id, username };
+};
+
 export const contentTags = ["Content"];

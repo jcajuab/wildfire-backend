@@ -134,7 +134,7 @@ export class SubmitPdfCropUseCase {
         ownerId: user.id,
       });
 
-      contentItems.push(toContentView(record, user.name));
+      contentItems.push(toContentView(record, user));
     }
 
     await this.deps.contentStorage

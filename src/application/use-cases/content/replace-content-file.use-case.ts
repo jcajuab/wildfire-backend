@@ -46,6 +46,10 @@ export class ReplaceContentFileUseCase {
     file: File;
     title?: string;
     status?: ContentStatus;
+    currentUser?: {
+      id: string;
+      username: string;
+    };
   }) {
     const contentIngestionJobRepository = this.deps
       .contentIngestionJobRepository ?? {
@@ -209,7 +213,9 @@ export class ReplaceContentFileUseCase {
 
       const owner = await this.deps.userRepository.findById(updated.ownerId);
       return {
-        content: toContentView(updated, owner?.name ?? null),
+        content: toContentView(updated, owner, {
+          fallbackOwner: input.currentUser,
+        }),
         job: toContentJobView(job),
       };
     } catch (error) {

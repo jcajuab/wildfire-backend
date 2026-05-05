@@ -44,6 +44,7 @@ import {
   type ContentRouter,
   type ContentRouterUseCases,
   contentTags,
+  getCurrentUserOwnerFallback,
   type RequirePermission,
 } from "./shared";
 
@@ -173,6 +174,7 @@ export const registerContentWriteRoutes = (args: {
           message: payload.message,
           tone: payload.tone,
           ownerId: c.get("userId"),
+          ownerUsername: getCurrentUserOwnerFallback(c)?.username,
         });
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
@@ -230,6 +232,7 @@ export const registerContentWriteRoutes = (args: {
           jsonContent: payload.jsonContent,
           htmlContent: payload.htmlContent,
           ownerId: c.get("userId"),
+          ownerUsername: getCurrentUserOwnerFallback(c)?.username,
         });
         c.set("resourceId", created.id);
         c.set("fileId", created.id);
@@ -310,6 +313,7 @@ export const registerContentWriteRoutes = (args: {
           flashTone: body.flashTone,
           textJsonContent: body.textJsonContent,
           textHtmlContent: body.textHtmlContent,
+          currentUser: getCurrentUserOwnerFallback(c),
         });
         await invalidateServerCache(["content", "playlists"]);
         return c.json({ data: result }, 200);
@@ -403,6 +407,7 @@ export const registerContentWriteRoutes = (args: {
           ownerId: getOwnerScope(c),
           file: body.file,
           title: body.title,
+          currentUser: getCurrentUserOwnerFallback(c),
         });
         c.header(
           "Location",

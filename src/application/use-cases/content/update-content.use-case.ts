@@ -35,6 +35,10 @@ export class UpdateContentUseCase {
     flashTone?: "INFO" | "WARNING" | "CRITICAL";
     textJsonContent?: string;
     textHtmlContent?: string;
+    currentUser?: {
+      id: string;
+      username: string;
+    };
   }) {
     if (
       input.title === undefined &&
@@ -190,6 +194,8 @@ export class UpdateContentUseCase {
     }
 
     const user = await this.deps.userRepository.findById(updated.ownerId);
-    return toContentView(updated, user?.name ?? null);
+    return toContentView(updated, user, {
+      fallbackOwner: input.currentUser,
+    });
   }
 }
