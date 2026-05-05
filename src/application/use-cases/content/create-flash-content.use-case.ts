@@ -5,6 +5,7 @@ import {
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import { sha256Hex } from "#/domain/content/checksum";
+import { FLASH_MESSAGE_MAX_LENGTH } from "#/domain/content/content";
 import { toContentView } from "./content-view";
 
 const createFlashFileKey = (contentId: string): string =>
@@ -40,9 +41,9 @@ export class CreateFlashContentUseCase {
     if (title.length === 0) {
       throw new ValidationError("Title is required");
     }
-    if (message.length === 0 || message.length > 240) {
+    if (message.length === 0 || message.length > FLASH_MESSAGE_MAX_LENGTH) {
       throw new ValidationError(
-        "Flash message must be between 1 and 240 characters",
+        `Flash message must be between 1 and ${FLASH_MESSAGE_MAX_LENGTH} characters`,
       );
     }
 

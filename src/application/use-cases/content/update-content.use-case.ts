@@ -7,7 +7,10 @@ import { type DisplayStreamEventPublisher } from "#/application/ports/display-st
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { sha256Hex } from "#/domain/content/checksum";
-import { type ContentStatus } from "#/domain/content/content";
+import {
+  type ContentStatus,
+  FLASH_MESSAGE_MAX_LENGTH,
+} from "#/domain/content/content";
 import {
   countTextContentCharacters,
   TEXT_CONTENT_MAX_CHARS,
@@ -88,9 +91,13 @@ export class UpdateContentUseCase {
           ? (existing.flashMessage ?? null)
           : input.flashMessage.trim();
       flashTone = input.flashTone ?? existing.flashTone ?? null;
-      if (!flashMessage || flashMessage.length > 240 || !flashTone) {
+      if (
+        !flashMessage ||
+        flashMessage.length > FLASH_MESSAGE_MAX_LENGTH ||
+        !flashTone
+      ) {
         throw new ValidationError(
-          "Flash content requires a message between 1 and 240 characters and a tone",
+          `Flash content requires a message between 1 and ${FLASH_MESSAGE_MAX_LENGTH} characters and a tone`,
         );
       }
       const body = new TextEncoder().encode(flashMessage);

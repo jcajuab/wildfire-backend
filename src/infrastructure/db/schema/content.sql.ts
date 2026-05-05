@@ -68,7 +68,7 @@ export const contentFlashMessages = mysqlTable("content_flash_messages", {
   contentId: varchar("content_id", { length: 36 })
     .primaryKey()
     .references(() => content.id, { onDelete: "cascade" }),
-  message: varchar("message", { length: 240 }).notNull(),
+  message: varchar("message", { length: 120 }).notNull(),
   tone: mysqlEnum("tone", ["INFO", "WARNING", "CRITICAL"])
     .notNull()
     .default("INFO"),

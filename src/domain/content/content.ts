@@ -78,3 +78,6 @@ export const buildContentFileKey = (input: {
 
 export const buildContentThumbnailKey = (id: string): string =>
   `content/thumbnails/${id}.jpg`;
+
+/** Max length for `content_flash_messages.message` / API flash body text. */
+export const FLASH_MESSAGE_MAX_LENGTH = 120;

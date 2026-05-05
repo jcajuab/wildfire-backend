@@ -1,6 +1,9 @@
 import { type OpenAPIV3_1 } from "openapi-types";
 import { z } from "zod";
-import { isSupportedMimeType } from "#/domain/content/content";
+import {
+  FLASH_MESSAGE_MAX_LENGTH,
+  isSupportedMimeType,
+} from "#/domain/content/content";
 import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "FLASH", "TEXT"]);
@@ -63,7 +66,7 @@ export const contentOptionSchema = z.object({
 
 export const createFlashContentSchema = z.object({
   title: z.string().trim().min(1).max(255),
-  message: z.string().trim().min(1).max(240),
+  message: z.string().trim().min(1).max(FLASH_MESSAGE_MAX_LENGTH),
   tone: flashToneSchema.default("INFO"),
 });
 
@@ -71,7 +74,11 @@ export const createFlashContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     title: { type: "string", minLength: 1, maxLength: 255 },
-    message: { type: "string", minLength: 1, maxLength: 240 },
+    message: {
+      type: "string",
+      minLength: 1,
+      maxLength: FLASH_MESSAGE_MAX_LENGTH,
+    },
     tone: {
       type: "string",
       enum: ["INFO", "WARNING", "CRITICAL"],
@@ -139,7 +146,12 @@ export const downloadUrlResponseSchema = z.object({
 export const updateContentSchema = z
   .object({
     title: z.string().min(1).optional(),
-    flashMessage: z.string().trim().min(1).max(240).optional(),
+    flashMessage: z
+      .string()
+      .trim()
+      .min(1)
+      .max(FLASH_MESSAGE_MAX_LENGTH)
+      .optional(),
     flashTone: flashToneSchema.optional(),
     textJsonContent: z.string().min(1).optional(),
     textHtmlContent: z.string().min(1).max(10000).optional(),
@@ -158,7 +170,11 @@ export const updateContentRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     title: { type: "string", minLength: 1 },
-    flashMessage: { type: "string", minLength: 1, maxLength: 240 },
+    flashMessage: {
+      type: "string",
+      minLength: 1,
+      maxLength: FLASH_MESSAGE_MAX_LENGTH,
+    },
     flashTone: {
       type: "string",
       enum: ["INFO", "WARNING", "CRITICAL"],

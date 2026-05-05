@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FLASH_MESSAGE_MAX_LENGTH } from "#/domain/content/content";
 
 export interface AIToolDefinition {
   description: string;
@@ -86,9 +87,9 @@ export const AI_TOOLS = {
       text: z
         .string()
         .min(1)
-        .max(240)
+        .max(FLASH_MESSAGE_MAX_LENGTH)
         .describe(
-          "Flash message text (max 240 characters). Keep it short and impactful.",
+          `Flash message text (max ${FLASH_MESSAGE_MAX_LENGTH} characters). Keep it short and impactful.`,
         ),
       tone: z
         .enum(["INFO", "WARNING", "CRITICAL"])
