@@ -17,6 +17,7 @@ export interface ContentView {
   flashTone: "INFO" | "WARNING" | "CRITICAL" | null;
   textJsonContent: string | null;
   textHtmlContent: string | null;
+  textPreviewText: string | null;
   createdAt: string;
   updatedAt: string;
   owner: {
@@ -25,6 +26,11 @@ export interface ContentView {
     name: string;
   };
 }
+
+export type ContentListItemView = Omit<
+  ContentView,
+  "textJsonContent" | "textHtmlContent"
+>;
 
 interface ContentOwnerViewInput {
   name: string;
@@ -37,25 +43,80 @@ interface ContentOwnerFallbackInput {
   username: string;
 }
 
-export const toContentView = (
+function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (entity, token) => {
+    const normalized = String(token).toLowerCase();
+    const namedEntities: Record<string, string> = {
+      amp: "&",
+      lt: "<",
+      gt: ">",
+      quot: '"',
+      apos: "'",
+      nbsp: " ",
+    };
+    if (normalized in namedEntities) {
+      return namedEntities[normalized] ?? entity;
+    }
+    if (normalized.startsWith("#x")) {
+      const parsed = Number.parseInt(normalized.slice(2), 16);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : entity;
+    }
+    if (normalized.startsWith("#")) {
+      const parsed = Number.parseInt(normalized.slice(1), 10);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : entity;
+    }
+    return entity;
+  });
+}
+
+function getTextPreviewText(html: string | null | undefined): string | null {
+  if (!html) return null;
+  const compactHtml = html.replace(/>\s+</g, "><");
+  const withBreaks = compactHtml
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|section|article|li|ul|ol|h[1-6])>/gi, "\n");
+  const text = decodeHtmlEntities(withBreaks.replace(/<[^>]*>/g, ""))
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (text.length === 0) return null;
+  return text.length > 500 ? `${text.slice(0, 497).trimEnd()}...` : text;
+}
+
+function resolveOwner(
+  record: ContentRecord,
+  owner: ContentOwnerViewInput | null,
+  fallbackOwner?: ContentOwnerFallbackInput | null,
+) {
+  const fallback = fallbackOwner?.id === record.ownerId ? fallbackOwner : null;
+  const resolvedOwner =
+    owner ??
+    (fallback
+      ? {
+          username: fallback.username,
+          name: fallback.name ?? fallback.username,
+        }
+      : null);
+
+  return {
+    id: record.ownerId,
+    username: resolvedOwner?.username ?? "unknown",
+    name: resolvedOwner?.name ?? "Unknown",
+  };
+}
+
+function contentViewBase(
   record: ContentRecord,
   owner: ContentOwnerViewInput | null,
   input?: {
     fallbackOwner?: ContentOwnerFallbackInput | null;
     thumbnailUrl?: string;
   },
-): ContentView => {
-  const fallbackOwner =
-    input?.fallbackOwner?.id === record.ownerId ? input.fallbackOwner : null;
-  const resolvedOwner =
-    owner ??
-    (fallbackOwner
-      ? {
-          username: fallbackOwner.username,
-          name: fallbackOwner.name ?? fallbackOwner.username,
-        }
-      : null);
-
+) {
   return {
     id: record.id,
     title: record.title,
@@ -70,14 +131,33 @@ export const toContentView = (
     duration: record.duration,
     flashMessage: record.flashMessage ?? null,
     flashTone: record.flashTone ?? null,
-    textJsonContent: record.textJsonContent ?? null,
-    textHtmlContent: record.textHtmlContent ?? null,
+    textPreviewText: getTextPreviewText(record.textHtmlContent),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt ?? record.createdAt,
-    owner: {
-      id: record.ownerId,
-      username: resolvedOwner?.username ?? "unknown",
-      name: resolvedOwner?.name ?? "Unknown",
-    },
+    owner: resolveOwner(record, owner, input?.fallbackOwner),
+  };
+}
+
+export const toContentView = (
+  record: ContentRecord,
+  owner: ContentOwnerViewInput | null,
+  input?: {
+    fallbackOwner?: ContentOwnerFallbackInput | null;
+    thumbnailUrl?: string;
+  },
+): ContentView => {
+  return {
+    ...contentViewBase(record, owner, input),
+    textJsonContent: record.textJsonContent ?? null,
+    textHtmlContent: record.textHtmlContent ?? null,
   };
 };
+
+export const toContentListItemView = (
+  record: ContentRecord,
+  owner: ContentOwnerViewInput | null,
+  input?: {
+    fallbackOwner?: ContentOwnerFallbackInput | null;
+    thumbnailUrl?: string;
+  },
+): ContentListItemView => contentViewBase(record, owner, input);

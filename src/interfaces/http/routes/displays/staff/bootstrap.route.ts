@@ -59,26 +59,21 @@ export const registerDisplayStaffBootstrapRoute = (input: {
                     .map((group) => group.id)
                 : query.groupIds;
 
-            const [
-              displays,
-              displayOutputOptions,
-              runtimeOverrides,
-              emergencySlots,
-            ] = await Promise.all([
-              useCases.listDisplays.execute({
-                page: query.page,
-                pageSize: query.pageSize,
-                q: query.q,
-                status: query.status,
-                output: query.output,
-                groupIds: derivedGroupIds,
-                sortBy: query.sortBy,
-                sortDirection: query.sortDirection,
-              }),
-              useCases.listDisplayOutputOptions.execute(),
-              useCases.getRuntimeOverrides.execute({ now: new Date() }),
-              useCases.listEmergencySlots.execute(),
-            ]);
+            const [displays, displayOutputOptions, runtimeOverrides] =
+              await Promise.all([
+                useCases.listDisplays.execute({
+                  page: query.page,
+                  pageSize: query.pageSize,
+                  q: query.q,
+                  status: query.status,
+                  output: query.output,
+                  groupIds: derivedGroupIds,
+                  sortBy: query.sortBy,
+                  sortDirection: query.sortDirection,
+                }),
+                useCases.listDisplayOutputOptions.execute(),
+                useCases.getRuntimeOverrides.execute({ now: new Date() }),
+              ]);
 
             logger.info(
               {
@@ -96,7 +91,6 @@ export const registerDisplayStaffBootstrapRoute = (input: {
                 displayGroups,
                 displayOutputOptions,
                 runtimeOverrides,
-                emergencySlots,
               },
             };
           },

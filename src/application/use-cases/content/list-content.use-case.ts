@@ -5,7 +5,7 @@ import {
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ContentStatus, type ContentType } from "#/domain/content/content";
-import { toContentView } from "./content-view";
+import { toContentListItemView } from "./content-view";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -105,7 +105,7 @@ export class ListContentUseCase {
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
     const views = items.map((item) =>
-      toContentView(item, creatorsById.get(item.ownerId) ?? null, {
+      toContentListItemView(item, creatorsById.get(item.ownerId) ?? null, {
         fallbackOwner: input.currentUser,
         thumbnailUrl: item.thumbnailKey
           ? thumbnailUrlByKey.get(item.thumbnailKey)

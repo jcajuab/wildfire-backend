@@ -26,6 +26,7 @@ export const contentSchema = z.object({
   flashTone: flashToneSchema.nullable(),
   textJsonContent: z.string().nullable(),
   textHtmlContent: z.string().nullable(),
+  textPreviewText: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   owner: z.object({
@@ -35,7 +36,14 @@ export const contentSchema = z.object({
   }),
 });
 
-export const contentListResponseSchema = apiListResponseSchema(contentSchema);
+export const contentListItemSchema = contentSchema.omit({
+  textJsonContent: true,
+  textHtmlContent: true,
+});
+
+export const contentListResponseSchema = apiListResponseSchema(
+  contentListItemSchema,
+);
 
 export const contentIdParamSchema = z.object({
   id: z.string().uuid(),

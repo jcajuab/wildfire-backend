@@ -319,16 +319,19 @@ describe("Content routes", () => {
     const token = await issueToken();
     records.push({
       id: "11111111-1111-4111-8111-111111111111",
-      title: "Poster",
-      type: "IMAGE",
+      title: "Daily Briefing",
+      type: "TEXT",
       status: "READY",
-      fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+      fileKey: "content/text/11111111-1111-4111-8111-111111111111.json",
       checksum: "abc",
-      mimeType: "image/png",
+      mimeType: "application/json",
       fileSize: 10,
       width: null,
       height: null,
       duration: null,
+      textJsonContent: '{"type":"doc","content":[]}',
+      textHtmlContent:
+        "<p>Morning announcements for the east campus displays.</p>",
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
@@ -339,7 +342,7 @@ describe("Content routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      data: unknown[];
+      data: Array<Record<string, unknown>>;
       meta: {
         total: number;
         page: number;
@@ -348,6 +351,11 @@ describe("Content routes", () => {
       };
     }>(response);
     expect(body.data).toHaveLength(1);
+    expect(body.data[0]?.textJsonContent).toBeUndefined();
+    expect(body.data[0]?.textHtmlContent).toBeUndefined();
+    expect(body.data[0]?.textPreviewText).toBe(
+      "Morning announcements for the east campus displays.",
+    );
   });
 
   test("GET /content returns authorized shared content from other creators", async () => {
