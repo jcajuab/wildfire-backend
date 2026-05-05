@@ -152,6 +152,7 @@ export const createContentHttpModule = (
         pdfCropRenderer: routerDeps.pdfCropRenderer,
         contentThumbnailGenerator: routerDeps.contentThumbnailGenerator,
         userRepository: routerDeps.repositories.userRepository,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
       cancelPdfCrop: new CancelPdfCropUseCase({
         contentStorage: routerDeps.storage,

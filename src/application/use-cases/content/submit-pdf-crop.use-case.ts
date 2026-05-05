@@ -1,4 +1,5 @@
 import {
+  type ContentRecord,
   type ContentRepository,
   type ContentStorage,
   type ContentThumbnailGenerator,
@@ -33,8 +34,25 @@ export class SubmitPdfCropUseCase {
       pdfCropRenderer: PdfCropRenderer;
       contentThumbnailGenerator: ContentThumbnailGenerator;
       userRepository: UserRepository;
+      thumbnailUrlExpiresInSeconds: number;
     },
   ) {}
+
+  private async buildThumbnailUrl(
+    record: ContentRecord,
+  ): Promise<string | undefined> {
+    if (!record.thumbnailKey) {
+      return undefined;
+    }
+    try {
+      return await this.deps.contentStorage.getPresignedDownloadUrl({
+        key: record.thumbnailKey,
+        expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds,
+      });
+    } catch {
+      return undefined;
+    }
+  }
 
   async execute(input: {
     uploadId: string;
@@ -134,7 +152,8 @@ export class SubmitPdfCropUseCase {
         ownerId: user.id,
       });
 
-      contentItems.push(toContentView(record, user));
+      const thumbnailUrl = await this.buildThumbnailUrl(record);
+      contentItems.push(toContentView(record, user, { thumbnailUrl }));
     }
 
     await this.deps.contentStorage
