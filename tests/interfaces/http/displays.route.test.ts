@@ -190,8 +190,15 @@ const makeApp = async (
         if (input.status && display.status !== input.status) {
           return false;
         }
-        if (input.output && display.output !== input.output) {
-          return false;
+        if (input.output) {
+          const outputTypeMatch = /^([a-z0-9]+)-\*$/i.exec(input.output);
+          if (outputTypeMatch?.[1]) {
+            if (!display.output?.startsWith(`${outputTypeMatch[1]}-`)) {
+              return false;
+            }
+          } else if (display.output !== input.output) {
+            return false;
+          }
         }
         if (input.groupIds && input.groupIds.length > 0) {
           const matchesGroup = displayGroups.some(
@@ -1119,6 +1126,36 @@ describe("Displays routes", () => {
     expect(response.status).toBe(200);
     expect(searchPageCalls).toHaveLength(1);
     expect(searchPageCalls[0]?.q).toBe("Lobby");
+  });
+
+  test("GET /displays accepts output type wildcard filters", async () => {
+    const { app, issueToken, searchPageCalls } = await makeApp(
+      ["displays:read"],
+      {
+        failOnBroadReads: true,
+        displays: [
+          makeDisplay({ id: "display-1", output: "hdmi-0" }),
+          makeDisplay({ id: "display-2", output: "hdmi-1" }),
+          makeDisplay({ id: "display-3", output: "dp-0" }),
+        ],
+      },
+    );
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/displays?output=hdmi-*&page=1&pageSize=10",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ output: string }> }>(response);
+    expect(body.data.map((display) => display.output)).toEqual([
+      "hdmi-0",
+      "hdmi-1",
+    ]);
+    expect(searchPageCalls[0]?.output).toBe("hdmi-*");
   });
 
   test("GET /displays/:id returns display", async () => {
