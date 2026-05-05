@@ -58,6 +58,19 @@ const makeApp = async (
       createdAt: string;
       updatedAt: string;
     }>;
+    emergencySlots?: Array<{
+      slotIndex: number;
+      label: string;
+      contentId: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    runtimeControl?: {
+      globalEmergencyActive: boolean;
+      globalEmergencyStartedAt: string | null;
+      activeSlotIndex: number | null;
+    };
+    contents?: ContentRecord[];
     failOnBroadReads?: boolean;
   },
 ) => {
@@ -121,6 +134,7 @@ const makeApp = async (
   const attemptIdByCodeHash = new Map<string, string>();
   const sessionAttemptIdBySessionId = new Map<string, string>();
   const registrationLinks: RegistrationLinkRecord[] = [];
+  const emergencySlots = [...(options?.emergencySlots ?? [])];
 
   const playlists = [
     {
@@ -149,7 +163,18 @@ const makeApp = async (
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     },
+    ...(options?.contents ?? []),
   ];
+  const runtimeControl = {
+    id: "global" as const,
+    globalEmergencyActive:
+      options?.runtimeControl?.globalEmergencyActive ?? false,
+    globalEmergencyStartedAt:
+      options?.runtimeControl?.globalEmergencyStartedAt ?? null,
+    activeSlotIndex: options?.runtimeControl?.activeSlotIndex ?? null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 
   const schedules = options?.schedules ?? [];
 
@@ -769,30 +794,51 @@ const makeApp = async (
           updateForOwner: async () => null,
         },
         runtimeControlRepository: {
-          getGlobal: async () => ({
-            id: "global",
-            globalEmergencyActive: false,
-            globalEmergencyStartedAt: null,
-            activeSlotIndex: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }),
-          setGlobalEmergencyState: async () => ({
-            id: "global",
-            globalEmergencyActive: false,
-            globalEmergencyStartedAt: null,
-            activeSlotIndex: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }),
+          getGlobal: async () => ({ ...runtimeControl }),
+          setGlobalEmergencyState: async (input) => {
+            runtimeControl.globalEmergencyActive = input.active;
+            runtimeControl.globalEmergencyStartedAt =
+              input.startedAt?.toISOString() ?? null;
+            runtimeControl.activeSlotIndex = input.activeSlotIndex;
+            runtimeControl.updatedAt = input.at.toISOString();
+            return { ...runtimeControl };
+          },
         } as RuntimeControlRepository,
         emergencySlotRepository: {
-          list: async () => [],
-          findByIndex: async () => null,
-          upsert: async () => {
-            throw new Error("not used");
+          list: async () => emergencySlots.map((slot) => ({ ...slot })),
+          findByIndex: async (slotIndex: number) =>
+            emergencySlots.find((slot) => slot.slotIndex === slotIndex) ?? null,
+          upsert: async (input) => {
+            const next = {
+              slotIndex: input.slotIndex,
+              label: input.label,
+              contentId: input.contentId,
+              createdAt:
+                emergencySlots.find(
+                  (slot) => slot.slotIndex === input.slotIndex,
+                )?.createdAt ?? input.at.toISOString(),
+              updatedAt: input.at.toISOString(),
+            };
+            const index = emergencySlots.findIndex(
+              (slot) => slot.slotIndex === input.slotIndex,
+            );
+            if (index >= 0) {
+              emergencySlots[index] = next;
+            } else {
+              emergencySlots.push(next);
+            }
+            return { ...next };
           },
-          delete: async () => false,
+          delete: async (slotIndex: number) => {
+            const index = emergencySlots.findIndex(
+              (slot) => slot.slotIndex === slotIndex,
+            );
+            if (index === -1) {
+              return false;
+            }
+            emergencySlots.splice(index, 1);
+            return true;
+          },
         },
         authorizationRepository,
         displayGroupRepository,
@@ -1114,6 +1160,185 @@ describe("Displays routes", () => {
       response,
     );
     expect(body.data).toEqual([{ id: "display-1", name: "Lobby East" }]);
+  });
+
+  test("PUT /displays/runtime-overrides/emergency activates global emergency with slot index", async () => {
+    const { app, issueToken } = await makeApp(
+      ["displays:update", "displays:read"],
+      {
+        displays: [makeDisplay()],
+        emergencySlots: [
+          {
+            slotIndex: 3,
+            label: "Earthquake",
+            contentId,
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    );
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request(
+      "/displays/runtime-overrides/emergency",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ active: true, slotIndex: 3 }),
+      },
+    );
+
+    expect(response.status).toBe(204);
+
+    const runtimeResponse = await app.request("/displays/runtime-overrides", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(runtimeResponse.status).toBe(200);
+    const runtimeJson = await parseJson<{
+      data: {
+        globalEmergency: {
+          active: boolean;
+          startedAt: string | null;
+          activeSlotIndex: number | null;
+        };
+      };
+    }>(runtimeResponse);
+    expect(runtimeJson.data.globalEmergency.active).toBe(true);
+    expect(runtimeJson.data.globalEmergency.startedAt).not.toBeNull();
+    expect(runtimeJson.data.globalEmergency.activeSlotIndex).toBe(3);
+  });
+
+  test("PUT /displays/runtime-overrides/emergency rejects activation without slot index", async () => {
+    const { app, issueToken } = await makeApp(["displays:update"]);
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request(
+      "/displays/runtime-overrides/emergency",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ active: true }),
+      },
+    );
+
+    expect(response.status).toBe(422);
+    const json = await parseJson<{
+      error: { message: string };
+    }>(response);
+    expect(json.error.message).toBe(
+      "slotIndex is required when active is true",
+    );
+  });
+
+  test("PUT /displays/runtime-overrides/emergency rejects activation with no registered displays", async () => {
+    const { app, issueToken } = await makeApp(
+      ["displays:update", "displays:read"],
+      {
+        displays: [],
+        emergencySlots: [
+          {
+            slotIndex: 3,
+            label: "Earthquake",
+            contentId,
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    );
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request(
+      "/displays/runtime-overrides/emergency",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ active: true, slotIndex: 3 }),
+      },
+    );
+
+    expect(response.status).toBe(422);
+    const json = await parseJson<{
+      error: { message: string };
+    }>(response);
+    expect(json.error.message).toBe(
+      "Cannot start an emergency with no registered displays",
+    );
+
+    const runtimeResponse = await app.request("/displays/runtime-overrides", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(runtimeResponse.status).toBe(200);
+    const runtimeJson = await parseJson<{
+      data: {
+        globalEmergency: {
+          active: boolean;
+          startedAt: string | null;
+          activeSlotIndex: number | null;
+        };
+      };
+    }>(runtimeResponse);
+    expect(runtimeJson.data.globalEmergency).toEqual({
+      active: false,
+      startedAt: null,
+      activeSlotIndex: null,
+    });
+  });
+
+  test("PUT /displays/runtime-overrides/emergency deactivates without slot index", async () => {
+    const { app, issueToken } = await makeApp(
+      ["displays:update", "displays:read"],
+      {
+        runtimeControl: {
+          globalEmergencyActive: true,
+          globalEmergencyStartedAt: "2025-01-01T00:00:00.000Z",
+          activeSlotIndex: 3,
+        },
+      },
+    );
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request(
+      "/displays/runtime-overrides/emergency",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ active: false }),
+      },
+    );
+
+    expect(response.status).toBe(204);
+
+    const runtimeResponse = await app.request("/displays/runtime-overrides", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const runtimeJson = await parseJson<{
+      data: {
+        globalEmergency: {
+          active: boolean;
+          startedAt: string | null;
+          activeSlotIndex: number | null;
+        };
+      };
+    }>(runtimeResponse);
+    expect(runtimeJson.data.globalEmergency).toEqual({
+      active: false,
+      startedAt: null,
+      activeSlotIndex: null,
+    });
   });
 
   test("GET /displays uses repository-backed paged search path", async () => {

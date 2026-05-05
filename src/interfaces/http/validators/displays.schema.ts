@@ -177,11 +177,13 @@ export const displayRuntimeOverridesSchema = z.object({
   globalEmergency: z.object({
     active: z.boolean(),
     startedAt: z.string().nullable(),
+    activeSlotIndex: z.number().int().min(1).max(5).nullable(),
   }),
 });
 
 export const runtimeOverrideEmergencyActionSchema = z.object({
   active: z.boolean(),
+  slotIndex: z.number().int().min(1).max(5).optional(),
   reason: z.string().trim().min(1).max(64).optional(),
 });
 
@@ -190,6 +192,7 @@ export const runtimeOverrideEmergencyActionBodySchema: OpenAPIV3_1.SchemaObject 
     type: "object",
     properties: {
       active: { type: "boolean" },
+      slotIndex: { type: "integer", minimum: 1, maximum: 5 },
       reason: { type: "string", minLength: 1, maxLength: 64 },
     },
     required: ["active"],

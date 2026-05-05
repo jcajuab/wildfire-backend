@@ -44,6 +44,13 @@ export class ActivateGlobalEmergencyUseCase {
       );
     }
 
+    const displays = await this.deps.displayRepository.list();
+    if (displays.length === 0) {
+      throw new ValidationError(
+        "Cannot start an emergency with no registered displays",
+      );
+    }
+
     await this.deps.runtimeControlRepository.setGlobalEmergencyState({
       active: true,
       startedAt: now,
@@ -51,7 +58,6 @@ export class ActivateGlobalEmergencyUseCase {
       at: now,
     });
 
-    const displays = await this.deps.displayRepository.list();
     for (const display of displays) {
       this.deps.displayEventPublisher?.publish({
         type: "manifest_updated",
