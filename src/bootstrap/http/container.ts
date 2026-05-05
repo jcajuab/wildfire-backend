@@ -28,6 +28,7 @@ import {
   type DisplayPreviewRepository,
   type DisplayRepository,
 } from "#/application/ports/displays";
+import { type EmergencySlotRepository } from "#/application/ports/emergency-slots";
 import {
   type PdfCropRenderer,
   type PdfCropSessionStore,
@@ -62,6 +63,7 @@ import { DisplayKeyDbRepository } from "#/infrastructure/db/repositories/display
 import { DisplayPairingCodeRedisRepository } from "#/infrastructure/db/repositories/display-pairing-code.repo";
 import { DisplayPairingSessionRedisRepository } from "#/infrastructure/db/repositories/display-pairing-session.repo";
 import { DisplayPreviewRedisRepository } from "#/infrastructure/db/repositories/display-preview.repo";
+import { EmergencySlotDbRepository } from "#/infrastructure/db/repositories/emergency-slot.repo";
 import { InvitationDbRepository } from "#/infrastructure/db/repositories/invitation.repo";
 import { DbCredentialsRepository } from "#/infrastructure/db/repositories/password-hashes.repo";
 import { PermissionDbRepository } from "#/infrastructure/db/repositories/permission.repo";
@@ -126,6 +128,7 @@ export interface HttpContainer {
     displayAuthNonceRepository: DisplayAuthNonceRepository;
     displayPreviewRepository: DisplayPreviewRepository;
     runtimeControlRepository: RuntimeControlRepository;
+    emergencySlotRepository: EmergencySlotRepository;
     // Audit
     auditLogRepository: AuditLogRepository;
   };
@@ -189,6 +192,7 @@ export const createHttpContainer = (
   const displayAuthNonceRepository = new DisplayAuthNonceRedisRepository();
   const displayPreviewRepository = new DisplayPreviewRedisRepository();
   const runtimeControlRepository = new RuntimeControlDbRepository();
+  const emergencySlotRepository = new EmergencySlotDbRepository();
 
   // Audit
   const auditLogRepository = new AuditLogDbRepository();
@@ -246,6 +250,7 @@ export const createHttpContainer = (
       displayAuthNonceRepository,
       displayPreviewRepository,
       runtimeControlRepository,
+      emergencySlotRepository,
       auditLogRepository,
     },
     auth: {

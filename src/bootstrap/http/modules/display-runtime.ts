@@ -15,6 +15,7 @@ import {
   type DisplayPreviewRepository,
   type DisplayRepository,
 } from "#/application/ports/displays";
+import { type EmergencySlotRepository } from "#/application/ports/emergency-slots";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -43,12 +44,12 @@ interface CreateDisplayRuntimeHttpModuleDeps extends DisplayRuntimeRouterDeps {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     runtimeControlRepository: RuntimeControlRepository;
+    emergencySlotRepository: EmergencySlotRepository;
     displayKeyRepository: DisplayKeyRepository;
     displayAuthNonceRepository: DisplayAuthNonceRepository;
     displayPreviewRepository: DisplayPreviewRepository;
   };
   storage: ContentStorage;
-  defaultEmergencyContentId?: string;
   displayEventPublisher: DisplayStreamEventPublisher;
   lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
   displayEventSubscription: DisplayStreamEventSubscription;
@@ -91,9 +92,9 @@ export const createDisplayRuntimeHttpModule = (
         contentStorage: deps.storage,
         displayRepository: deps.repositories.displayRepository,
         runtimeControlRepository: deps.repositories.runtimeControlRepository,
+        emergencySlotRepository: deps.repositories.emergencySlotRepository,
         downloadUrlExpiresInSeconds: deps.downloadUrlExpiresInSeconds,
         scheduleTimeZone: deps.scheduleTimeZone,
-        defaultEmergencyContentId: deps.defaultEmergencyContentId,
       }),
       storeDisplaySnapshot: new StoreDisplaySnapshotUseCase({
         displayPreviewRepository: deps.repositories.displayPreviewRepository,

@@ -7,6 +7,7 @@ import {
 import { registerDisplayStaffBootstrapRoute } from "./bootstrap.route";
 import { registerDisplayStaffGroupRoutes } from "./display-groups.route";
 import { registerDisplayStaffDisplayRoutes } from "./displays.route";
+import { registerEmergencySlotRoutes } from "./emergency-slots.route";
 import { registerDisplayStaffEventRoutes } from "./events.route";
 import { registerDisplayStaffRegistrationRoutes } from "./registration.route";
 import { registerDisplayStaffRegistrationAttemptRoutes } from "./registration-attempts.route";
@@ -24,6 +25,7 @@ export const registerDisplayStaffRoutes = (input: {
   registerDisplayStaffRegistrationRoutes(input);
   registerDisplayStaffRegistrationLinkRoutes(input);
   registerDisplayStaffRuntimeOverrideRoutes(input);
+  registerEmergencySlotRoutes(input);
   registerDisplayStaffBootstrapRoute(input);
   registerDisplayStaffDisplayRoutes(input);
   registerDisplayStaffGroupRoutes(input);

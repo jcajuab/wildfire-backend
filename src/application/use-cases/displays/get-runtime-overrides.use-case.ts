@@ -14,6 +14,7 @@ export class GetRuntimeOverridesUseCase {
       globalEmergency: {
         active: global.globalEmergencyActive,
         startedAt: global.globalEmergencyStartedAt,
+        activeSlotIndex: global.activeSlotIndex,
       },
     };
   }

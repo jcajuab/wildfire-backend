@@ -13,7 +13,6 @@ export interface DisplayRecord {
   screenHeight?: number | null;
   output?: string | null;
   orientation?: "LANDSCAPE" | "PORTRAIT" | null;
-  emergencyContentId?: string | null;
   lastSeenAt?: string | null;
   refreshNonce?: number;
   createdAt: string;
@@ -70,7 +69,6 @@ export interface DisplayRepository {
       screenHeight?: number | null;
       output?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
-      emergencyContentId?: string | null;
     },
   ): Promise<DisplayRecord | null>;
   createRegisteredDisplay(input: {

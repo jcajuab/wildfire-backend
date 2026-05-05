@@ -14,7 +14,6 @@ export const displaySchema = z.object({
   screenHeight: z.number().int().nullable(),
   output: z.string().nullable(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
-  emergencyContentId: z.string().uuid().nullable().optional(),
   lastSeenAt: z.string().nullable(),
   status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]),
   nowPlaying: z
@@ -93,7 +92,6 @@ export const registerDisplaySchema = z.object({
   screenHeight: z.number().int().positive(),
   output: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
-  emergencyContentId: z.string().uuid().nullable().optional(),
 });
 
 export const patchDisplaySchema = z.object({
@@ -105,7 +103,6 @@ export const patchDisplaySchema = z.object({
   screenHeight: z.number().int().positive().nullable().optional(),
   output: z.string().min(1).max(64).nullable().optional(),
   orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
-  emergencyContentId: z.string().uuid().nullable().optional(),
 });
 
 export const createDisplayGroupSchema = z.object({
@@ -172,9 +169,6 @@ export const patchDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
         { type: "string", enum: ["LANDSCAPE", "PORTRAIT"] },
         { type: "null" },
       ],
-    },
-    emergencyContentId: {
-      oneOf: [{ type: "string", format: "uuid" }, { type: "null" }],
     },
   },
 };
@@ -277,7 +271,7 @@ export const displayManifestSchema = z.object({
     mode: z.enum(["SCHEDULE", "EMERGENCY"]),
     emergency: z
       .object({
-        source: z.enum(["DISPLAY", "DEFAULT"]),
+        source: z.literal("SLOT"),
         startedAt: z.string().nullable(),
         isGlobal: z.boolean(),
         content: z.object({

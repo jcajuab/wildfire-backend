@@ -43,7 +43,6 @@ type DisplayRow = {
   runtimeOrientation: "LANDSCAPE" | "PORTRAIT" | null;
   runtimeLastSeenAt: Date | string | null;
   runtimeRefreshNonce: number | null;
-  emergencyContentId: string | null;
 };
 
 const mapDisplayRowToRecord = (row: DisplayRow): DisplayRecord => ({
@@ -59,7 +58,6 @@ const mapDisplayRowToRecord = (row: DisplayRow): DisplayRecord => ({
   screenHeight: row.runtimeScreenHeight,
   output: row.output,
   orientation: row.runtimeOrientation,
-  emergencyContentId: row.emergencyContentId,
   lastSeenAt:
     row.runtimeLastSeenAt instanceof Date
       ? row.runtimeLastSeenAt.toISOString()
@@ -90,7 +88,6 @@ const buildDisplayQuery = () =>
       runtimeOrientation: displayRuntimeStates.orientation,
       runtimeLastSeenAt: displayRuntimeStates.lastSeenAt,
       runtimeRefreshNonce: displayRuntimeStates.refreshNonce,
-      emergencyContentId: displays.emergencyContentId,
     })
     .from(displays)
     .leftJoin(
@@ -397,7 +394,6 @@ export class DisplayDbRepository implements DisplayRepository {
       screenHeight?: number | null;
       output?: string | null;
       orientation?: "LANDSCAPE" | "PORTRAIT" | null;
-      emergencyContentId?: string | null;
     },
   ): Promise<DisplayRecord | null> {
     const existing = await this.findById(id);
@@ -419,10 +415,6 @@ export class DisplayDbRepository implements DisplayRepository {
         : (existing.output ?? "unknown");
     const nextLocation =
       input.location !== undefined ? input.location : existing.location;
-    const nextEmergencyContentId =
-      input.emergencyContentId !== undefined
-        ? input.emergencyContentId
-        : (existing.emergencyContentId ?? null);
 
     const runtimePatch = {
       ipAddress:
@@ -457,7 +449,6 @@ export class DisplayDbRepository implements DisplayRepository {
           fingerprint: nextFingerprint,
           output: nextOutput,
           location: nextLocation,
-          emergencyContentId: nextEmergencyContentId,
           updatedAt: now,
         })
         .where(eq(displays.id, id));
@@ -497,7 +488,6 @@ export class DisplayDbRepository implements DisplayRepository {
       screenHeight: runtimePatch.screenHeight,
       output: nextOutput,
       orientation: runtimePatch.orientation,
-      emergencyContentId: nextEmergencyContentId,
       lastSeenAt: existing.lastSeenAt ?? null,
       refreshNonce: existing.refreshNonce ?? 0,
       updatedAt: now.toISOString(),

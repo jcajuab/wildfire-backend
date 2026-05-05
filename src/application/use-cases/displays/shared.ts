@@ -18,7 +18,6 @@ export function withTelemetry(display: DisplayRecord) {
     screenHeight: display.screenHeight ?? null,
     output: display.output ?? null,
     orientation: display.orientation ?? null,
-    emergencyContentId: display.emergencyContentId ?? null,
     lastSeenAt,
     status: display.status,
   } as const;

@@ -357,7 +357,6 @@ export const registerDisplayStaffDisplayRoutes = (input: {
           screenHeight: payload.screenHeight,
           output: payload.output,
           orientation: payload.orientation,
-          emergencyContentId: payload.emergencyContentId,
         });
         await invalidateServerCache(["displays", "schedules"]);
         return c.json({ data: result });

@@ -7,7 +7,6 @@ import {
   withRouteErrorHandling,
 } from "#/interfaces/http/routes/shared/error-handling";
 import { authErrorResponses } from "#/interfaces/http/routes/shared/openapi-responses";
-import { getOwnerScope } from "#/interfaces/http/routes/shared/ownership";
 import { displayListQuerySchema } from "#/interfaces/http/validators/displays.schema";
 import { validateQuery } from "#/interfaces/http/validators/standard-validator";
 import { displayTags } from "../contracts";
@@ -41,7 +40,6 @@ export const registerDisplayStaffBootstrapRoute = (input: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const ownerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
           {
@@ -65,7 +63,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
               displays,
               displayOutputOptions,
               runtimeOverrides,
-              emergencyContentOptions,
+              emergencySlots,
             ] = await Promise.all([
               useCases.listDisplays.execute({
                 page: query.page,
@@ -79,10 +77,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
               }),
               useCases.listDisplayOutputOptions.execute(),
               useCases.getRuntimeOverrides.execute({ now: new Date() }),
-              useCases.listEmergencyContentOptions.execute({
-                ownerId,
-                status: "READY",
-              }),
+              useCases.listEmergencySlots.execute(),
             ]);
 
             logger.info(
@@ -101,7 +96,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
                 displayGroups,
                 displayOutputOptions,
                 runtimeOverrides,
-                emergencyContentOptions,
+                emergencySlots,
               },
             };
           },

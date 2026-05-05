@@ -16,6 +16,7 @@ export class DeactivateGlobalEmergencyUseCase {
     await this.deps.runtimeControlRepository.setGlobalEmergencyState({
       active: false,
       startedAt: null,
+      activeSlotIndex: null,
       at: now,
     });
     const displays = await this.deps.displayRepository.list();

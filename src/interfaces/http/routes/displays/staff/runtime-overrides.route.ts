@@ -1,4 +1,5 @@
 import { describeRoute, resolver } from "hono-openapi";
+import { ValidationError } from "#/application/errors/validation";
 import {
   invalidateServerCache,
   jsonWithServerCache,
@@ -105,7 +106,13 @@ export const registerDisplayStaffRuntimeOverrideRoutes = (input: {
       async (c) => {
         const payload = c.req.valid("json");
         if (payload.active) {
+          if (typeof payload.slotIndex !== "number") {
+            throw new ValidationError(
+              "slotIndex is required when active is true",
+            );
+          }
           await useCases.activateGlobalEmergency.execute({
+            slotIndex: payload.slotIndex,
             reason: payload.reason,
           });
         } else {

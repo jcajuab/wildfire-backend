@@ -1,16 +1,14 @@
 import { ValidationError } from "#/application/errors/validation";
-import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayRepository } from "#/application/ports/displays";
 import { type ScheduleRepository } from "#/application/ports/schedules";
 import { NotFoundError } from "./errors";
-import { isRenderableEmergencyAsset, withTelemetry } from "./shared";
+import { withTelemetry } from "./shared";
 
 export class UpdateDisplayUseCase {
   constructor(
     private readonly deps: {
       displayRepository: DisplayRepository;
       scheduleRepository: ScheduleRepository;
-      contentRepository: ContentRepository;
       scheduleTimeZone?: string;
     },
   ) {}
@@ -26,7 +24,6 @@ export class UpdateDisplayUseCase {
     screenHeight?: number | null;
     output?: string | null;
     orientation?: "LANDSCAPE" | "PORTRAIT" | null;
-    emergencyContentId?: string | null;
   }) {
     const normalizedName =
       input.name === undefined ? undefined : input.name.trim();
@@ -65,22 +62,6 @@ export class UpdateDisplayUseCase {
 
     const screenWidth = normalizeDimension(input.screenWidth, "screenWidth");
     const screenHeight = normalizeDimension(input.screenHeight, "screenHeight");
-    if (input.emergencyContentId !== undefined && input.emergencyContentId) {
-      const emergencyAsset =
-        input.ownerId && this.deps.contentRepository.findByIdForOwner
-          ? await this.deps.contentRepository.findByIdForOwner(
-              input.emergencyContentId,
-              input.ownerId,
-            )
-          : await this.deps.contentRepository.findById(
-              input.emergencyContentId,
-            );
-      if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
-        throw new ValidationError(
-          "emergencyContentId must reference a READY IMAGE, VIDEO, or TEXT asset",
-        );
-      }
-    }
 
     const updated = await this.deps.displayRepository.update(input.id, {
       name: normalizedName,
@@ -91,7 +72,6 @@ export class UpdateDisplayUseCase {
       screenHeight,
       output: normalizedOutputType,
       orientation: input.orientation,
-      emergencyContentId: input.emergencyContentId,
     });
     if (!updated) throw new NotFoundError("Display not found");
     return withTelemetry(updated);

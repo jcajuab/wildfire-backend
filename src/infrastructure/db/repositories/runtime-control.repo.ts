@@ -14,6 +14,7 @@ const mapRuntimeControlRowToRecord = (
   id: GLOBAL_ID,
   globalEmergencyActive: row.globalEmergencyActive,
   globalEmergencyStartedAt: row.globalEmergencyStartedAt?.toISOString() ?? null,
+  activeSlotIndex: row.activeSlotIndex ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });
@@ -27,6 +28,7 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
         id: GLOBAL_ID,
         globalEmergencyActive: false,
         globalEmergencyStartedAt: null,
+        activeSlotIndex: null,
         createdAt: now,
         updatedAt: now,
       })
@@ -46,6 +48,7 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
   async setGlobalEmergencyState(input: {
     active: boolean;
     startedAt: Date | null;
+    activeSlotIndex: number | null;
     at: Date;
   }): Promise<RuntimeControlRecord> {
     const existing = await this.getGlobal();
@@ -55,6 +58,7 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
       .set({
         globalEmergencyActive: input.active,
         globalEmergencyStartedAt: input.startedAt,
+        activeSlotIndex: input.activeSlotIndex,
         updatedAt: input.at,
       })
       .where(eq(runtimeControl.id, GLOBAL_ID));
@@ -63,6 +67,7 @@ export class RuntimeControlDbRepository implements RuntimeControlRepository {
       ...existing,
       globalEmergencyActive: input.active,
       globalEmergencyStartedAt: input.startedAt?.toISOString() ?? null,
+      activeSlotIndex: input.activeSlotIndex,
       updatedAt: input.at.toISOString(),
     };
   }

@@ -9,7 +9,6 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
-import { content } from "./content.sql";
 
 export const displays = mysqlTable(
   "displays",
@@ -19,18 +18,12 @@ export const displays = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     fingerprint: varchar("fingerprint", { length: 255 }),
     output: varchar("output", { length: 64 }).notNull().default("unknown"),
-    emergencyContentId: varchar("emergency_content_id", {
-      length: 36,
-    }).references(() => content.id, { onDelete: "set null" }),
     location: varchar("location", { length: 255 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
     slugUniqueIdx: uniqueIndex("displays_slug_unique").on(table.slug),
-    emergencyContentIdIdx: index("displays_emergency_content_id_idx").on(
-      table.emergencyContentId,
-    ),
     fingerprintOutputUniqueIdx: uniqueIndex(
       "displays_fingerprint_output_unique",
     ).on(table.fingerprint, table.output),

@@ -25,11 +25,11 @@ import {
   type DisplayPreviewRepository,
   type DisplayRepository,
 } from "#/application/ports/displays";
+import { type EmergencySlotRepository } from "#/application/ports/emergency-slots";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type AuthorizationRepository } from "#/application/ports/rbac";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
-import { type ListContentOptionsUseCase } from "#/application/use-cases/content";
 import {
   type ActivateGlobalEmergencyUseCase,
   type ClaimRegistrationLinkUseCase,
@@ -56,6 +56,11 @@ import {
   type UpdateDisplayGroupUseCase,
   type UpdateDisplayUseCase,
 } from "#/application/use-cases/displays";
+import {
+  type ClearEmergencySlotUseCase,
+  type ListEmergencySlotsUseCase,
+  type SetEmergencySlotUseCase,
+} from "#/application/use-cases/emergency-slots";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { type AuthorizePermission } from "#/interfaces/http/routes/shared/error-handling";
@@ -72,6 +77,7 @@ export interface DisplaysRouterDeps {
     playlistRepository: PlaylistRepository;
     contentRepository: ContentRepository;
     runtimeControlRepository: RuntimeControlRepository;
+    emergencySlotRepository: EmergencySlotRepository;
     authorizationRepository: AuthorizationRepository;
     displayGroupRepository: DisplayGroupRepository;
     displayPairingCodeRepository: DisplayPairingCodeRepository;
@@ -80,7 +86,6 @@ export interface DisplaysRouterDeps {
     displayPreviewRepository: DisplayPreviewRepository;
   };
   storage: ContentStorage;
-  defaultEmergencyContentId?: string;
   registrationAttemptStore: DisplayRegistrationAttemptStore;
   registrationLinkStore: DisplayRegistrationLinkStore;
   displayEventPublisher: DisplayStreamEventPublisher;
@@ -116,7 +121,9 @@ export interface DisplaysRouterUseCases {
   issueRegistrationLink: IssueRegistrationLinkUseCase;
   claimRegistrationLink: ClaimRegistrationLinkUseCase;
   getDisplayPreview: GetDisplayPreviewUseCase;
-  listEmergencyContentOptions: ListContentOptionsUseCase;
+  listEmergencySlots: ListEmergencySlotsUseCase;
+  setEmergencySlot: SetEmergencySlotUseCase;
+  clearEmergencySlot: ClearEmergencySlotUseCase;
 }
 
 export type DisplaysRouter = Hono<{ Variables: JwtUserVariables }>;

@@ -766,6 +766,7 @@ const makeApp = async (
             id: "global",
             globalEmergencyActive: false,
             globalEmergencyStartedAt: null,
+            activeSlotIndex: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }),
@@ -773,10 +774,19 @@ const makeApp = async (
             id: "global",
             globalEmergencyActive: false,
             globalEmergencyStartedAt: null,
+            activeSlotIndex: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }),
         } as RuntimeControlRepository,
+        emergencySlotRepository: {
+          list: async () => [],
+          findByIndex: async () => null,
+          upsert: async () => {
+            throw new Error("not used");
+          },
+          delete: async () => false,
+        },
         authorizationRepository,
         displayGroupRepository,
         displayPairingCodeRepository,

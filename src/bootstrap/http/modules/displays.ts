@@ -1,4 +1,3 @@
-import { ListContentOptionsUseCase } from "#/application/use-cases/content";
 import {
   ActivateGlobalEmergencyUseCase,
   ClaimRegistrationLinkUseCase,
@@ -25,6 +24,11 @@ import {
   UpdateDisplayGroupUseCase,
   UpdateDisplayUseCase,
 } from "#/application/use-cases/displays";
+import {
+  ClearEmergencySlotUseCase,
+  ListEmergencySlotsUseCase,
+  SetEmergencySlotUseCase,
+} from "#/application/use-cases/emergency-slots";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
 import {
   type DisplaysRouterDeps,
@@ -75,14 +79,14 @@ export const createDisplaysHttpModule = (
         displayRepository: routerDeps.repositories.displayRepository,
         runtimeControlRepository:
           routerDeps.repositories.runtimeControlRepository,
+        emergencySlotRepository:
+          routerDeps.repositories.emergencySlotRepository,
         downloadUrlExpiresInSeconds: routerDeps.downloadUrlExpiresInSeconds,
         scheduleTimeZone: routerDeps.scheduleTimeZone,
-        defaultEmergencyContentId: routerDeps.defaultEmergencyContentId,
       }),
       updateDisplay: new UpdateDisplayUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
         scheduleRepository: routerDeps.repositories.scheduleRepository,
-        contentRepository: routerDeps.repositories.contentRepository,
         scheduleTimeZone: routerDeps.scheduleTimeZone,
       }),
       activateGlobalEmergency: new ActivateGlobalEmergencyUseCase({
@@ -90,8 +94,9 @@ export const createDisplaysHttpModule = (
         contentRepository: routerDeps.repositories.contentRepository,
         runtimeControlRepository:
           routerDeps.repositories.runtimeControlRepository,
+        emergencySlotRepository:
+          routerDeps.repositories.emergencySlotRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
-        defaultEmergencyContentId: routerDeps.defaultEmergencyContentId,
       }),
       deactivateGlobalEmergency: new DeactivateGlobalEmergencyUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
@@ -186,8 +191,16 @@ export const createDisplaysHttpModule = (
         displayRepository: deps.repositories.displayRepository,
         displayPreviewRepository: deps.repositories.displayPreviewRepository,
       }),
-      listEmergencyContentOptions: new ListContentOptionsUseCase({
+      listEmergencySlots: new ListEmergencySlotsUseCase({
+        emergencySlotRepository: deps.repositories.emergencySlotRepository,
         contentRepository: deps.repositories.contentRepository,
+      }),
+      setEmergencySlot: new SetEmergencySlotUseCase({
+        emergencySlotRepository: deps.repositories.emergencySlotRepository,
+        contentRepository: deps.repositories.contentRepository,
+      }),
+      clearEmergencySlot: new ClearEmergencySlotUseCase({
+        emergencySlotRepository: deps.repositories.emergencySlotRepository,
       }),
     },
   };

@@ -8,6 +8,7 @@ import {
   type DisplayRecord,
   type DisplayRepository,
 } from "#/application/ports/displays";
+import { type EmergencySlotRepository } from "#/application/ports/emergency-slots";
 import { type PlaylistRepository } from "#/application/ports/playlists";
 import { type RuntimeControlRepository } from "#/application/ports/runtime-controls";
 import { type ScheduleRepository } from "#/application/ports/schedules";
@@ -100,7 +101,7 @@ interface ManifestScheduleWindow {
 interface ManifestPlaybackState {
   mode: "SCHEDULE" | "EMERGENCY";
   emergency: {
-    source: "DISPLAY" | "DEFAULT";
+    source: "SLOT";
     startedAt: string | null;
     isGlobal: boolean;
     content: ManifestRenderableContent;
@@ -111,7 +112,7 @@ interface ManifestPlaybackState {
 type ManifestVersionPlaybackState = {
   mode: "SCHEDULE" | "EMERGENCY";
   emergency: {
-    source: "DISPLAY" | "DEFAULT";
+    source: "SLOT";
     startedAt: string | null;
     isGlobal: boolean;
     content: { id: string };
@@ -130,7 +131,7 @@ type ManifestSourceItem = {
 };
 
 type EmergencySource = {
-  source: "DISPLAY" | "DEFAULT";
+  source: "SLOT";
   startedAt: string | null;
   isGlobal: boolean;
   content: ContentRecord & {
@@ -154,12 +155,6 @@ const FLASH_TICKER_SPEED_PX_PER_SEC = 96;
 const EMERGENCY_IMAGE_DURATION_SECONDS = 86_400;
 const PRESIGNED_URL_CONCURRENCY = 8;
 
-const pickDisplayEmergencyAssetId = (input: {
-  display: DisplayRecord;
-  defaultEmergencyContentId?: string;
-}): string | null =>
-  input.display.emergencyContentId ?? input.defaultEmergencyContentId ?? null;
-
 export class GetDisplayManifestUseCase {
   constructor(
     private readonly deps: {
@@ -169,9 +164,9 @@ export class GetDisplayManifestUseCase {
       contentStorage: ContentStorage;
       displayRepository: DisplayRepository;
       runtimeControlRepository?: RuntimeControlRepository;
+      emergencySlotRepository?: EmergencySlotRepository;
       downloadUrlExpiresInSeconds: number;
       scheduleTimeZone?: string;
-      defaultEmergencyContentId?: string;
     },
   ) {}
 
@@ -239,6 +234,7 @@ export class GetDisplayManifestUseCase {
       globalEmergencyActive: runtimeOverrides.global.globalEmergencyActive,
       globalEmergencyStartedAt:
         runtimeOverrides.global.globalEmergencyStartedAt,
+      activeSlotIndex: runtimeOverrides.global.activeSlotIndex,
     });
     if (emergency) {
       const emergencyDuration =
@@ -565,6 +561,7 @@ export class GetDisplayManifestUseCase {
     global: {
       globalEmergencyActive: boolean;
       globalEmergencyStartedAt: string | null;
+      activeSlotIndex: number | null;
     };
   }> {
     const global = await (this.deps.runtimeControlRepository
@@ -573,6 +570,7 @@ export class GetDisplayManifestUseCase {
           id: "global" as const,
           globalEmergencyActive: false,
           globalEmergencyStartedAt: null,
+          activeSlotIndex: null,
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),
         }));
@@ -581,6 +579,7 @@ export class GetDisplayManifestUseCase {
       global: {
         globalEmergencyActive: global.globalEmergencyActive,
         globalEmergencyStartedAt: global.globalEmergencyStartedAt,
+        activeSlotIndex: global.activeSlotIndex,
       },
     };
   }
@@ -590,27 +589,31 @@ export class GetDisplayManifestUseCase {
     now: Date;
     globalEmergencyActive: boolean;
     globalEmergencyStartedAt: string | null;
+    activeSlotIndex: number | null;
   }): Promise<EmergencySource | null> {
     if (!input.globalEmergencyActive) {
       return null;
     }
-
-    const emergencyContentId = pickDisplayEmergencyAssetId({
-      display: input.display,
-      defaultEmergencyContentId: this.deps.defaultEmergencyContentId,
-    });
-    if (!emergencyContentId) {
+    if (input.activeSlotIndex == null || !this.deps.emergencySlotRepository) {
       return null;
     }
+
     try {
-      const emergencyAsset =
-        await this.deps.contentRepository.findById(emergencyContentId);
+      const slot = await this.deps.emergencySlotRepository.findByIndex(
+        input.activeSlotIndex,
+      );
+      if (!slot || !slot.contentId) {
+        return null;
+      }
+      const emergencyAsset = await this.deps.contentRepository.findById(
+        slot.contentId,
+      );
       if (!emergencyAsset || !isRenderableEmergencyAsset(emergencyAsset)) {
         return null;
       }
 
       return {
-        source: input.display.emergencyContentId ? "DISPLAY" : "DEFAULT",
+        source: "SLOT",
         startedAt: input.globalEmergencyStartedAt,
         isGlobal: true,
         content: emergencyAsset,
