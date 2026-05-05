@@ -26,6 +26,17 @@ const parseDisplayStatus = (
   throw new Error(`Invalid display status: ${String(value)}`);
 };
 
+const buildOutputFilterCondition = (output: string) => {
+  const normalizedOutput = output.trim();
+  const wildcardMatch = /^([a-z0-9]+)-\*$/i.exec(normalizedOutput);
+
+  if (wildcardMatch?.[1]) {
+    return like(displays.output, `${wildcardMatch[1].toLowerCase()}-%`);
+  }
+
+  return eq(displays.output, normalizedOutput);
+};
+
 type DisplayRow = {
   id: string;
   slug: string;
@@ -201,7 +212,9 @@ export class DisplayDbRepository implements DisplayRepository {
     const normalizedOutput = input.output?.trim();
     const conditions = [
       input.status ? eq(displayRuntimeStates.status, input.status) : undefined,
-      normalizedOutput ? eq(displays.output, normalizedOutput) : undefined,
+      normalizedOutput
+        ? buildOutputFilterCondition(normalizedOutput)
+        : undefined,
       filteredDisplayIds ? inArray(displays.id, filteredDisplayIds) : undefined,
       normalizedQuery
         ? or(
