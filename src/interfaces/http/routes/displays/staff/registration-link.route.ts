@@ -30,20 +30,6 @@ const registrationLinkBodySchema = z.object({
   displayName: z.string().min(1).max(255),
   outputType: z.string().min(1).max(64),
   outputIndex: z.number().int().min(0),
-  resolutionWidth: z
-    .number()
-    .int()
-    .positive()
-    .nullable()
-    .optional()
-    .default(null),
-  resolutionHeight: z
-    .number()
-    .int()
-    .positive()
-    .nullable()
-    .optional()
-    .default(null),
   displayGroups: z.array(z.string().min(1).max(120)).default([]),
 });
 
@@ -131,8 +117,6 @@ export const registerDisplayStaffRegistrationLinkRoutes = (input: {
           displayName: payload.displayName,
           outputType: payload.outputType,
           outputIndex: payload.outputIndex,
-          resolutionWidth: payload.resolutionWidth,
-          resolutionHeight: payload.resolutionHeight,
           displayGroups: payload.displayGroups,
         });
         return c.json({ data: result }, 201);

@@ -6,13 +6,7 @@ export interface DisplayRecord {
   name: string;
   fingerprint?: string | null;
   status: DisplayStatus;
-  location: string | null;
-  ipAddress?: string | null;
-  macAddress?: string | null;
-  screenWidth?: number | null;
-  screenHeight?: number | null;
-  output?: string | null;
-  orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+  output: string;
   lastSeenAt?: string | null;
   refreshNonce?: number;
   createdAt: string;
@@ -36,7 +30,7 @@ export interface DisplayRepository {
     status?: DisplayStatus;
     output?: string;
     groupIds?: readonly string[];
-    sortBy?: "name" | "status" | "location";
+    sortBy?: "name" | "status";
     sortDirection?: "asc" | "desc";
   }): Promise<{
     items: DisplayRecord[];
@@ -54,7 +48,6 @@ export interface DisplayRepository {
     name: string;
     slug: string;
     fingerprint?: string | null;
-    location: string | null;
   }): Promise<DisplayRecord>;
   update(
     id: string,
@@ -62,13 +55,7 @@ export interface DisplayRepository {
       name?: string;
       slug?: string;
       fingerprint?: string | null;
-      location?: string | null;
-      ipAddress?: string | null;
-      macAddress?: string | null;
-      screenWidth?: number | null;
-      screenHeight?: number | null;
-      output?: string | null;
-      orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+      output?: string;
     },
   ): Promise<DisplayRecord | null>;
   createRegisteredDisplay(input: {
@@ -76,12 +63,6 @@ export interface DisplayRepository {
     name: string;
     fingerprint: string;
     output: string;
-    screenWidth: number | null;
-    screenHeight: number | null;
-    orientation?: "LANDSCAPE" | "PORTRAIT" | null;
-    ipAddress?: string | null;
-    macAddress?: string | null;
-    location?: string | null;
     now: Date;
   }): Promise<DisplayRecord>;
   setStatus(input: {

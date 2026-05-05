@@ -150,8 +150,6 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
 
   const listDisplaysUseCase = new ListDisplaysUseCase({
     displayRepository: config.repositories.displayRepository,
-    scheduleRepository: config.repositories.scheduleRepository,
-    playlistRepository: config.repositories.playlistRepository,
   });
 
   const listContentUseCase = new ListContentUseCase({

@@ -43,6 +43,13 @@
       "when": 1779100000000,
       "tag": "0005_flash_message_120",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1778004704046,
+      "tag": "0006_graceful_virginia_dare",
+      "breakpoints": true
     }
   ]
 }

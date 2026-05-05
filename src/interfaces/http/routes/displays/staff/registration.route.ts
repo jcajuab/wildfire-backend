@@ -35,8 +35,6 @@ const displayRegistrationBodySchema = z.object({
     .max(DISPLAY_REGISTRATION_CONSTRAINTS.maxSlugLength)
     .regex(new RegExp(DISPLAY_REGISTRATION_CONSTRAINTS.slugPattern)),
   displayName: z.string().min(1).max(255),
-  resolutionWidth: z.number().int().positive(),
-  resolutionHeight: z.number().int().positive(),
   output: z.string().min(1).max(64),
   fingerprint: z.string().min(16).max(255),
   publicKey: z.string().min(1).max(4096),

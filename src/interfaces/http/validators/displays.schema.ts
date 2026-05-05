@@ -7,24 +7,9 @@ export const displaySchema = z.object({
   slug: z.string(),
   fingerprint: z.string().nullable().optional(),
   name: z.string(),
-  location: z.string().nullable(),
-  ipAddress: z.string().nullable(),
-  macAddress: z.string().nullable(),
-  screenWidth: z.number().int().nullable(),
-  screenHeight: z.number().int().nullable(),
-  output: z.string().nullable(),
-  orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable(),
+  output: z.string(),
   lastSeenAt: z.string().nullable(),
   status: z.enum(["PROCESSING", "READY", "LIVE", "DOWN"]),
-  nowPlaying: z
-    .object({
-      title: z.string().nullable(),
-      playlist: z.string().nullable(),
-      progress: z.number().nonnegative(),
-      duration: z.number().nonnegative(),
-    })
-    .nullable()
-    .optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -53,7 +38,7 @@ export const displayListQuerySchema = z.object({
       if (value === undefined) return undefined;
       return Array.isArray(value) ? value : [value];
     }),
-  sortBy: z.enum(["name", "status", "location"]).optional(),
+  sortBy: z.enum(["name", "status"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
@@ -85,24 +70,12 @@ export const registerDisplaySchema = z.object({
   slug: z.string().min(1),
   fingerprint: z.string().min(1).max(255).nullable().optional(),
   name: z.string().min(1),
-  location: z.string().nullable().optional(),
-  ipAddress: z.string().min(1).max(128).nullable().optional(),
-  macAddress: z.string().min(1).max(64).nullable().optional(),
-  screenWidth: z.number().int().positive(),
-  screenHeight: z.number().int().positive(),
-  output: z.string().min(1).max(64).nullable().optional(),
-  orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
+  output: z.string().min(1).max(64),
 });
 
 export const patchDisplaySchema = z.object({
   name: z.string().min(1).optional(),
-  location: z.string().nullable().optional(),
-  ipAddress: z.string().min(1).max(128).nullable().optional(),
-  macAddress: z.string().min(1).max(64).nullable().optional(),
-  screenWidth: z.number().int().positive().nullable().optional(),
-  screenHeight: z.number().int().positive().nullable().optional(),
-  output: z.string().min(1).max(64).nullable().optional(),
-  orientation: z.enum(["LANDSCAPE", "PORTRAIT"]).nullable().optional(),
+  output: z.string().min(1).max(64).optional(),
 });
 
 export const createDisplayGroupSchema = z.object({
@@ -158,18 +131,7 @@ export const patchDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
     name: { type: "string" },
-    location: { oneOf: [{ type: "string" }, { type: "null" }] },
-    ipAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
-    macAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
-    screenWidth: { type: "integer", minimum: 1 },
-    screenHeight: { type: "integer", minimum: 1 },
-    output: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
-    orientation: {
-      oneOf: [
-        { type: "string", enum: ["LANDSCAPE", "PORTRAIT"] },
-        { type: "null" },
-      ],
-    },
+    output: { type: "string", minLength: 1, maxLength: 64 },
   },
 };
 
@@ -206,22 +168,9 @@ export const registerDisplayRequestBodySchema: OpenAPIV3_1.SchemaObject = {
     slug: { type: "string" },
     fingerprint: { oneOf: [{ type: "string" }, { type: "null" }] },
     name: { type: "string" },
-    location: { oneOf: [{ type: "string" }, { type: "null" }] },
-    ipAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
-    macAddress: { oneOf: [{ type: "string" }, { type: "null" }] },
-    screenWidth: { oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }] },
-    screenHeight: {
-      oneOf: [{ type: "integer", minimum: 1 }, { type: "null" }],
-    },
-    output: { oneOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
-    orientation: {
-      oneOf: [
-        { type: "string", enum: ["LANDSCAPE", "PORTRAIT"] },
-        { type: "null" },
-      ],
-    },
+    output: { type: "string", minLength: 1, maxLength: 64 },
   },
-  required: ["pairingCode", "slug", "name", "screenWidth", "screenHeight"],
+  required: ["pairingCode", "slug", "name", "output"],
 };
 
 export const registrationCodeResponseSchema = z.object({

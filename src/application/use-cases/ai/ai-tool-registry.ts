@@ -197,7 +197,7 @@ export const AI_TOOLS = {
 
   list_displays: {
     description:
-      "List all available displays with their details (id, name, status, groups, location). Use this to find display IDs before scheduling content.",
+      "List all available displays with their details (id, name, status, groups, output). Use this to find display IDs before scheduling content.",
     inputSchema: z.object({
       search: z
         .string()

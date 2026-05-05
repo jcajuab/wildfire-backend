@@ -55,9 +55,6 @@ export const createDisplaysHttpModule = (
     useCases: {
       listDisplays: new ListDisplaysUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
-        scheduleRepository: routerDeps.repositories.scheduleRepository,
-        playlistRepository: routerDeps.repositories.playlistRepository,
-        scheduleTimeZone: routerDeps.scheduleTimeZone,
       }),
       listDisplayOptions: new ListDisplayOptionsUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
@@ -67,9 +64,6 @@ export const createDisplaysHttpModule = (
       }),
       getDisplay: new GetDisplayUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
-        scheduleRepository: routerDeps.repositories.scheduleRepository,
-        playlistRepository: routerDeps.repositories.playlistRepository,
-        scheduleTimeZone: routerDeps.scheduleTimeZone,
       }),
       getDisplayManifest: new GetDisplayManifestUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,
@@ -86,8 +80,6 @@ export const createDisplaysHttpModule = (
       }),
       updateDisplay: new UpdateDisplayUseCase({
         displayRepository: routerDeps.repositories.displayRepository,
-        scheduleRepository: routerDeps.repositories.scheduleRepository,
-        scheduleTimeZone: routerDeps.scheduleTimeZone,
       }),
       activateGlobalEmergency: new ActivateGlobalEmergencyUseCase({
         displayRepository: routerDeps.repositories.displayRepository,

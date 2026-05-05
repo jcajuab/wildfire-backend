@@ -88,14 +88,6 @@ export class UpdateScheduleUseCase {
       if (!playlist) {
         throw new NotFoundError("Playlist not found");
       }
-      if (
-        typeof display.screenWidth !== "number" ||
-        typeof display.screenHeight !== "number"
-      ) {
-        throw new ValidationError(
-          "Display resolution is required before scheduling",
-        );
-      }
       const requiredMinDurationSeconds =
         await computeRequiredMinPlaylistDurationSeconds({
           playlistRepository: this.deps.playlistRepository,

@@ -77,8 +77,6 @@ export class RegisterDisplayUseCase {
     registrationSessionId: string;
     slug: string;
     displayName: string;
-    resolutionWidth: number;
-    resolutionHeight: number;
     output: string;
     fingerprint: string;
     publicKey: string;
@@ -161,8 +159,6 @@ export class RegisterDisplayUseCase {
           name: input.displayName,
           fingerprint: input.fingerprint,
           output: normalizedOutput,
-          screenWidth: input.resolutionWidth,
-          screenHeight: input.resolutionHeight,
           now,
         });
 

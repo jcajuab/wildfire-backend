@@ -22,7 +22,7 @@ export class ListDisplayOptionsUseCase {
     const displays = (await this.deps.displayRepository.list())
       .filter((display) =>
         normalizedQuery
-          ? [display.name, display.slug, display.location ?? ""].some((value) =>
+          ? [display.name, display.slug, display.output].some((value) =>
               value.toLowerCase().includes(normalizedQuery),
             )
           : true,

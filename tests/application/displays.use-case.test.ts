@@ -45,11 +45,7 @@ const makeRepository = () => {
         slug: input.slug,
         fingerprint: input.fingerprint ?? null,
         status: "PROCESSING",
-        location: input.location,
-        screenWidth: null,
-        screenHeight: null,
-        output: null,
-        orientation: null,
+        output: "hdmi-0",
         lastSeenAt: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -64,11 +60,7 @@ const makeRepository = () => {
         name: input.name,
         fingerprint: input.fingerprint,
         status: "PROCESSING",
-        location: null,
-        screenWidth: input.screenWidth,
-        screenHeight: input.screenHeight,
         output: input.output,
-        orientation: input.orientation ?? null,
         lastSeenAt: null,
         createdAt: input.now.toISOString(),
         updatedAt: input.now.toISOString(),
@@ -83,14 +75,7 @@ const makeRepository = () => {
       if (input.slug !== undefined) record.slug = input.slug;
       if (input.fingerprint !== undefined)
         record.fingerprint = input.fingerprint;
-      if (input.location !== undefined) record.location = input.location;
-      if (input.screenWidth !== undefined)
-        record.screenWidth = input.screenWidth;
-      if (input.screenHeight !== undefined)
-        record.screenHeight = input.screenHeight;
       if (input.output !== undefined) record.output = input.output;
-      if (input.orientation !== undefined)
-        record.orientation = input.orientation;
       record.updatedAt = "2025-01-02T00:00:00.000Z";
       return record;
     },
@@ -186,7 +171,6 @@ describe("Displays use cases", () => {
     await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const result = await listDisplays.execute();
@@ -276,22 +260,18 @@ describe("Displays use cases", () => {
     await repo.create({
       name: "Never seen",
       slug: "AA:BB:CC:00:00:01",
-      location: null,
     });
     await repo.create({
       name: "Recently seen",
       slug: "AA:BB:CC:00:00:02",
-      location: null,
     });
     await repo.create({
       name: "Stale heartbeat",
       slug: "AA:BB:CC:00:00:03",
-      location: null,
     });
     await repo.create({
       name: "Ready display",
       slug: "AA:BB:CC:00:00:04",
-      location: null,
     });
 
     const neverSeen = records.find((record) => record.name === "Never seen");
@@ -318,21 +298,11 @@ describe("Displays use cases", () => {
     const statusByIdentifier = new Map(
       result.items.map((item) => [item.slug, item.status]),
     );
-    const nowPlayingByIdentifier = new Map(
-      result.items.map((item) => [item.slug, item.nowPlaying]),
-    );
 
     expect(statusByIdentifier.get(neverSeen.slug)).toBe("PROCESSING");
     expect(statusByIdentifier.get(recentlySeen.slug)).toBe("LIVE");
     expect(statusByIdentifier.get(staleHeartbeat.slug)).toBe("DOWN");
     expect(statusByIdentifier.get(readyDisplay.slug)).toBe("READY");
-    expect(nowPlayingByIdentifier.get(recentlySeen.slug)).toEqual({
-      title: null,
-      playlist: "Live Playlist",
-      progress: 0,
-      duration: 0,
-    });
-    expect(nowPlayingByIdentifier.get(neverSeen.slug)).toBeNull();
   });
 
   test("ListDisplaysUseCase matches displays in any selected group", async () => {
@@ -348,11 +318,7 @@ describe("Displays use cases", () => {
         slug: "lobby",
         fingerprint: null,
         status: "READY",
-        location: null,
-        screenWidth: null,
-        screenHeight: null,
-        output: null,
-        orientation: null,
+        output: "hdmi-0",
         lastSeenAt: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -363,11 +329,7 @@ describe("Displays use cases", () => {
         slug: "hallway",
         fingerprint: null,
         status: "READY",
-        location: null,
-        screenWidth: null,
-        screenHeight: null,
-        output: null,
-        orientation: null,
+        output: "hdmi-0",
         lastSeenAt: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -378,11 +340,7 @@ describe("Displays use cases", () => {
         slug: "other",
         fingerprint: null,
         status: "READY",
-        location: null,
-        screenWidth: null,
-        screenHeight: null,
-        output: null,
-        orientation: null,
+        output: "hdmi-0",
         lastSeenAt: null,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -530,7 +488,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const updateDisplay = new UpdateDisplayUseCase({
@@ -551,19 +508,11 @@ describe("Displays use cases", () => {
     const updated = await updateDisplay.execute({
       id: created.id,
       name: "Lobby TV",
-      location: "Main Hall",
-      screenWidth: 1920,
-      screenHeight: 1080,
       output: "HDMI-0",
-      orientation: "LANDSCAPE",
     });
 
     expect(updated.name).toBe("Lobby TV");
-    expect(updated.location).toBe("Main Hall");
-    expect(updated.screenWidth).toBe(1920);
-    expect(updated.screenHeight).toBe(1080);
     expect(updated.output).toBe("HDMI-0");
-    expect(updated.orientation).toBe("LANDSCAPE");
   });
 
   test("RequestDisplayRefreshUseCase increments refresh nonce", async () => {
@@ -571,7 +520,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const useCase = new RequestDisplayRefreshUseCase({
@@ -589,7 +537,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const useCase = new GetDisplayManifestUseCase({
@@ -674,7 +621,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const useCase = new GetDisplayManifestUseCase({
@@ -758,7 +704,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const manifestUseCase = new GetDisplayManifestUseCase({
@@ -854,6 +799,7 @@ describe("Displays use cases", () => {
             title: "Welcome",
             type: "IMAGE",
             status: "READY",
+            output: "hdmi-0",
             fileKey: "content/images/a.png",
             checksum: "abc",
             mimeType: "image/png",
@@ -909,7 +855,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     let findByIdCalls = 0;
@@ -923,6 +868,7 @@ describe("Displays use cases", () => {
           title: "Welcome",
           type: "IMAGE" as const,
           status: "READY" as const,
+          output: "hdmi-0",
           fileKey: "content/images/a.png",
           checksum: "abc",
           mimeType: "image/png",
@@ -941,6 +887,7 @@ describe("Displays use cases", () => {
           title: "Welcome",
           type: "IMAGE" as const,
           status: "READY" as const,
+          output: "hdmi-0",
           fileKey: "content/images/a.png",
           checksum: "abc",
           mimeType: "image/png",
@@ -1077,7 +1024,6 @@ describe("Displays use cases", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     let resolveFirst!: () => void;
@@ -1189,6 +1135,7 @@ describe("Displays use cases", () => {
             title: "Welcome",
             type: "IMAGE",
             status: "READY",
+            output: "hdmi-0",
             fileKey: "content/images/a.png",
             checksum: "abc",
             mimeType: "image/png",
@@ -1204,6 +1151,7 @@ describe("Displays use cases", () => {
             title: "Rules",
             type: "IMAGE",
             status: "READY",
+            output: "hdmi-0",
             fileKey: "content/images/b.png",
             checksum: "def",
             mimeType: "image/png",

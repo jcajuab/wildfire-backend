@@ -143,7 +143,6 @@ describe("Module repositories (integration)", () => {
     const created = await repo.create({
       name: "Lobby",
       slug: "AA:BB",
-      location: null,
     });
 
     const found = await repo.findBySlug("AA:BB");
@@ -154,10 +153,8 @@ describe("Module repositories (integration)", () => {
 
     const updated = await repo.update(created.id, {
       name: "Lobby Updated",
-      location: "Main Hall",
     });
     expect(updated?.name).toBe("Lobby Updated");
-    expect(updated?.location).toBe("Main Hall");
   });
 
   maybeTest("PlaylistDbRepository creates playlist items", async () => {

@@ -350,13 +350,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
         const result = await useCases.updateDisplay.execute({
           id: params.id,
           name: payload.name,
-          location: payload.location,
-          ipAddress: payload.ipAddress,
-          macAddress: payload.macAddress,
-          screenWidth: payload.screenWidth,
-          screenHeight: payload.screenHeight,
           output: payload.output,
-          orientation: payload.orientation,
         });
         await invalidateServerCache(["displays", "schedules"]);
         return c.json({ data: result });

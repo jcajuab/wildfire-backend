@@ -115,8 +115,6 @@ export class ClaimRegistrationLinkUseCase {
           name: linkRecord.displayName,
           fingerprint: input.fingerprint,
           output: normalizedOutput,
-          screenWidth: linkRecord.resolutionWidth,
-          screenHeight: linkRecord.resolutionHeight,
           now,
         });
 

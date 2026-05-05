@@ -18,7 +18,6 @@ export const displays = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     fingerprint: varchar("fingerprint", { length: 255 }),
     output: varchar("output", { length: 64 }).notNull().default("unknown"),
-    location: varchar("location", { length: 255 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -40,11 +39,6 @@ export const displayRuntimeStates = mysqlTable(
     status: mysqlEnum("status", ["PROCESSING", "READY", "LIVE", "DOWN"])
       .notNull()
       .default("PROCESSING"),
-    ipAddress: varchar("ip_address", { length: 128 }),
-    macAddress: varchar("mac_address", { length: 64 }),
-    screenWidth: int("screen_width"),
-    screenHeight: int("screen_height"),
-    orientation: mysqlEnum("orientation", ["LANDSCAPE", "PORTRAIT"]),
     lastSeenAt: timestamp("last_seen_at"),
     refreshNonce: int("refresh_nonce").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),

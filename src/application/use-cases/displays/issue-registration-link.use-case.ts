@@ -29,8 +29,6 @@ export class IssueRegistrationLinkUseCase {
     displayName: string;
     outputType: string;
     outputIndex: number;
-    resolutionWidth: number | null;
-    resolutionHeight: number | null;
     displayGroups: string[];
     now?: Date;
   }) {
@@ -94,8 +92,6 @@ export class IssueRegistrationLinkUseCase {
       slug,
       displayName,
       output,
-      resolutionWidth: input.resolutionWidth,
-      resolutionHeight: input.resolutionHeight,
       displayGroups: input.displayGroups,
       challengeNonce,
       attemptId: created.attemptId,

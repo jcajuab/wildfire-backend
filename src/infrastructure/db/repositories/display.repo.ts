@@ -43,15 +43,9 @@ type DisplayRow = {
   name: string;
   fingerprint: string | null;
   output: string;
-  location: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   runtimeStatus: string | null;
-  runtimeIpAddress: string | null;
-  runtimeMacAddress: string | null;
-  runtimeScreenWidth: number | null;
-  runtimeScreenHeight: number | null;
-  runtimeOrientation: "LANDSCAPE" | "PORTRAIT" | null;
   runtimeLastSeenAt: Date | string | null;
   runtimeRefreshNonce: number | null;
 };
@@ -62,13 +56,7 @@ const mapDisplayRowToRecord = (row: DisplayRow): DisplayRecord => ({
   name: row.name,
   fingerprint: row.fingerprint,
   status: parseDisplayStatus(row.runtimeStatus),
-  location: row.location,
-  ipAddress: row.runtimeIpAddress,
-  macAddress: row.runtimeMacAddress,
-  screenWidth: row.runtimeScreenWidth,
-  screenHeight: row.runtimeScreenHeight,
   output: row.output,
-  orientation: row.runtimeOrientation,
   lastSeenAt:
     row.runtimeLastSeenAt instanceof Date
       ? row.runtimeLastSeenAt.toISOString()
@@ -88,15 +76,9 @@ const buildDisplayQuery = () =>
       name: displays.name,
       fingerprint: displays.fingerprint,
       output: displays.output,
-      location: displays.location,
       createdAt: displays.createdAt,
       updatedAt: displays.updatedAt,
       runtimeStatus: displayRuntimeStates.status,
-      runtimeIpAddress: displayRuntimeStates.ipAddress,
-      runtimeMacAddress: displayRuntimeStates.macAddress,
-      runtimeScreenWidth: displayRuntimeStates.screenWidth,
-      runtimeScreenHeight: displayRuntimeStates.screenHeight,
-      runtimeOrientation: displayRuntimeStates.orientation,
       runtimeLastSeenAt: displayRuntimeStates.lastSeenAt,
       runtimeRefreshNonce: displayRuntimeStates.refreshNonce,
     })
@@ -123,7 +105,7 @@ export class DisplayDbRepository implements DisplayRepository {
       ? or(
           like(displays.name, buildLikeContainsPattern(normalizedQuery)),
           like(displays.slug, buildLikeContainsPattern(normalizedQuery)),
-          like(displays.location, buildLikeContainsPattern(normalizedQuery)),
+          like(displays.output, buildLikeContainsPattern(normalizedQuery)),
         )
       : undefined;
     const limit = Math.max(1, input.limit ?? 100);
@@ -144,7 +126,7 @@ export class DisplayDbRepository implements DisplayRepository {
       .orderBy(asc(displays.output));
 
     return rows
-      .map((row) => row.output?.trim() ?? "")
+      .map((row) => row.output.trim())
       .filter((value) => value.length > 0);
   }
 
@@ -188,7 +170,7 @@ export class DisplayDbRepository implements DisplayRepository {
     status?: DisplayStatus;
     output?: string;
     groupIds?: readonly string[];
-    sortBy?: "name" | "status" | "location";
+    sortBy?: "name" | "status";
     sortDirection?: "asc" | "desc";
   }): Promise<{
     items: DisplayRecord[];
@@ -220,7 +202,6 @@ export class DisplayDbRepository implements DisplayRepository {
         ? or(
             like(displays.name, buildLikeContainsPattern(normalizedQuery)),
             like(displays.slug, buildLikeContainsPattern(normalizedQuery)),
-            like(displays.location, buildLikeContainsPattern(normalizedQuery)),
             like(displays.output, buildLikeContainsPattern(normalizedQuery)),
           )
         : undefined,
@@ -232,13 +213,9 @@ export class DisplayDbRepository implements DisplayRepository {
         ? input.sortDirection === "desc"
           ? desc(displayRuntimeStates.status)
           : asc(displayRuntimeStates.status)
-        : input.sortBy === "location"
-          ? input.sortDirection === "desc"
-            ? desc(displays.location)
-            : asc(displays.location)
-          : input.sortDirection === "desc"
-            ? desc(displays.name)
-            : asc(displays.name);
+        : input.sortDirection === "desc"
+          ? desc(displays.name)
+          : asc(displays.name);
     const secondaryOrder =
       input.sortBy === "name"
         ? desc(displays.createdAt)
@@ -312,7 +289,6 @@ export class DisplayDbRepository implements DisplayRepository {
     name: string;
     slug: string;
     fingerprint?: string | null;
-    location: string | null;
   }): Promise<DisplayRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -324,7 +300,6 @@ export class DisplayDbRepository implements DisplayRepository {
         name: input.name,
         fingerprint: input.fingerprint ?? null,
         output: "unknown",
-        location: input.location,
         createdAt: now,
         updatedAt: now,
       });
@@ -351,12 +326,6 @@ export class DisplayDbRepository implements DisplayRepository {
     name: string;
     fingerprint: string;
     output: string;
-    screenWidth: number | null;
-    screenHeight: number | null;
-    orientation?: "LANDSCAPE" | "PORTRAIT" | null;
-    ipAddress?: string | null;
-    macAddress?: string | null;
-    location?: string | null;
     now: Date;
   }): Promise<DisplayRecord> {
     const id = crypto.randomUUID();
@@ -368,7 +337,6 @@ export class DisplayDbRepository implements DisplayRepository {
         name: input.name,
         fingerprint: input.fingerprint,
         output: input.output,
-        location: input.location ?? null,
         createdAt: input.now,
         updatedAt: input.now,
       });
@@ -376,11 +344,6 @@ export class DisplayDbRepository implements DisplayRepository {
       await tx.insert(displayRuntimeStates).values({
         displayId: id,
         status: "PROCESSING",
-        ipAddress: input.ipAddress ?? null,
-        macAddress: input.macAddress ?? null,
-        screenWidth: input.screenWidth,
-        screenHeight: input.screenHeight,
-        orientation: input.orientation ?? null,
         refreshNonce: 0,
         createdAt: input.now,
         updatedAt: input.now,
@@ -400,13 +363,7 @@ export class DisplayDbRepository implements DisplayRepository {
       name?: string;
       slug?: string;
       fingerprint?: string | null;
-      location?: string | null;
-      ipAddress?: string | null;
-      macAddress?: string | null;
-      screenWidth?: number | null;
-      screenHeight?: number | null;
-      output?: string | null;
-      orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+      output?: string;
     },
   ): Promise<DisplayRecord | null> {
     const existing = await this.findById(id);
@@ -422,36 +379,7 @@ export class DisplayDbRepository implements DisplayRepository {
       input.fingerprint !== undefined
         ? input.fingerprint
         : (existing.fingerprint ?? null);
-    const nextOutput =
-      input.output !== undefined
-        ? (input.output ?? "unknown")
-        : (existing.output ?? "unknown");
-    const nextLocation =
-      input.location !== undefined ? input.location : existing.location;
-
-    const runtimePatch = {
-      ipAddress:
-        input.ipAddress !== undefined
-          ? input.ipAddress
-          : (existing.ipAddress ?? null),
-      macAddress:
-        input.macAddress !== undefined
-          ? input.macAddress
-          : (existing.macAddress ?? null),
-      screenWidth:
-        input.screenWidth !== undefined
-          ? input.screenWidth
-          : (existing.screenWidth ?? null),
-      screenHeight:
-        input.screenHeight !== undefined
-          ? input.screenHeight
-          : (existing.screenHeight ?? null),
-      orientation:
-        input.orientation !== undefined
-          ? input.orientation
-          : (existing.orientation ?? null),
-      updatedAt: now,
-    };
+    const nextOutput = input.output ?? existing.output;
 
     await db.transaction(async (tx) => {
       await tx
@@ -461,7 +389,6 @@ export class DisplayDbRepository implements DisplayRepository {
           slug: nextSlug,
           fingerprint: nextFingerprint,
           output: nextOutput,
-          location: nextLocation,
           updatedAt: now,
         })
         .where(eq(displays.id, id));
@@ -471,11 +398,6 @@ export class DisplayDbRepository implements DisplayRepository {
         .values({
           displayId: id,
           status: existing.status,
-          ipAddress: runtimePatch.ipAddress,
-          macAddress: runtimePatch.macAddress,
-          screenWidth: runtimePatch.screenWidth,
-          screenHeight: runtimePatch.screenHeight,
-          orientation: runtimePatch.orientation,
           lastSeenAt: existing.lastSeenAt
             ? new Date(existing.lastSeenAt)
             : null,
@@ -484,7 +406,7 @@ export class DisplayDbRepository implements DisplayRepository {
           updatedAt: now,
         })
         .onDuplicateKeyUpdate({
-          set: runtimePatch,
+          set: { updatedAt: now },
         });
     });
 
@@ -494,13 +416,7 @@ export class DisplayDbRepository implements DisplayRepository {
       slug: nextSlug,
       fingerprint: nextFingerprint,
       status: existing.status,
-      location: nextLocation,
-      ipAddress: runtimePatch.ipAddress,
-      macAddress: runtimePatch.macAddress,
-      screenWidth: runtimePatch.screenWidth,
-      screenHeight: runtimePatch.screenHeight,
       output: nextOutput,
-      orientation: runtimePatch.orientation,
       lastSeenAt: existing.lastSeenAt ?? null,
       refreshNonce: existing.refreshNonce ?? 0,
       updatedAt: now.toISOString(),

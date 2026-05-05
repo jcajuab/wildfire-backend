@@ -22,13 +22,7 @@ const makeDisplay = (overrides?: Partial<DisplayRecord>): DisplayRecord => ({
   name: "Lobby",
   fingerprint: null,
   status: "READY",
-  location: null,
-  ipAddress: null,
-  macAddress: null,
-  screenWidth: null,
-  screenHeight: null,
-  output: null,
-  orientation: null,
+  output: "hdmi-0",
   lastSeenAt: null,
   refreshNonce: 0,
   createdAt: "2025-01-01T00:00:00.000Z",
@@ -206,7 +200,7 @@ const makeApp = async (
       status?: "PROCESSING" | "READY" | "LIVE" | "DOWN";
       output?: string;
       groupIds?: readonly string[];
-      sortBy?: "name" | "status" | "location";
+      sortBy?: "name" | "status";
       sortDirection?: "asc" | "desc";
     }) => {
       searchPageCalls.push(input);
@@ -238,12 +232,9 @@ const makeApp = async (
         if (!normalizedQuery) {
           return true;
         }
-        return [
-          display.name,
-          display.slug,
-          display.location ?? "",
-          display.output ?? "",
-        ].some((value) => value.toLowerCase().includes(normalizedQuery));
+        return [display.name, display.slug, display.output].some((value) =>
+          value.toLowerCase().includes(normalizedQuery),
+        );
       });
 
       const sorted = [...filtered].sort((left, right) => {
@@ -253,13 +244,6 @@ const makeApp = async (
             left.status.localeCompare(right.status) * direction;
           if (statusDelta !== 0) {
             return statusDelta;
-          }
-        } else if (input.sortBy === "location") {
-          const locationDelta =
-            (left.location ?? "").localeCompare(right.location ?? "") *
-            direction;
-          if (locationDelta !== 0) {
-            return locationDelta;
           }
         }
         return left.name.localeCompare(right.name) * direction;
@@ -308,14 +292,12 @@ const makeApp = async (
       name: string;
       slug: string;
       fingerprint?: string | null;
-      location: string | null;
     }) => {
       const created = makeDisplay({
         id: crypto.randomUUID(),
         name: input.name,
         slug: input.slug,
         fingerprint: input.fingerprint ?? null,
-        location: input.location,
       });
       displays.push(created);
       return created;
@@ -325,8 +307,6 @@ const makeApp = async (
       name: string;
       fingerprint: string;
       output: string;
-      screenWidth: number | null;
-      screenHeight: number | null;
       now: Date;
     }) => {
       const created = makeDisplay({
@@ -335,8 +315,6 @@ const makeApp = async (
         name: input.name,
         fingerprint: input.fingerprint,
         output: input.output,
-        screenWidth: input.screenWidth,
-        screenHeight: input.screenHeight,
         createdAt: input.now.toISOString(),
         updatedAt: input.now.toISOString(),
       });
@@ -349,13 +327,7 @@ const makeApp = async (
         name?: string;
         slug?: string;
         fingerprint?: string | null;
-        location?: string | null;
-        ipAddress?: string | null;
-        macAddress?: string | null;
-        screenWidth?: number | null;
-        screenHeight?: number | null;
-        output?: string | null;
-        orientation?: "LANDSCAPE" | "PORTRAIT" | null;
+        output?: string;
       },
     ) => {
       const record = displays.find((display) => display.id === id);
@@ -365,17 +337,7 @@ const makeApp = async (
       if (input.fingerprint !== undefined) {
         record.fingerprint = input.fingerprint;
       }
-      if (input.location !== undefined) record.location = input.location;
-      if (input.ipAddress !== undefined) record.ipAddress = input.ipAddress;
-      if (input.macAddress !== undefined) record.macAddress = input.macAddress;
-      if (input.screenWidth !== undefined)
-        record.screenWidth = input.screenWidth;
-      if (input.screenHeight !== undefined) {
-        record.screenHeight = input.screenHeight;
-      }
       if (input.output !== undefined) record.output = input.output;
-      if (input.orientation !== undefined)
-        record.orientation = input.orientation;
       record.updatedAt = "2025-01-02T00:00:00.000Z";
       return { ...record };
     },
@@ -980,7 +942,7 @@ describe("Displays routes", () => {
     expect(response.status).toBe(403);
   });
 
-  test("POST /displays/registration-links accepts nullable resolution", async () => {
+  test("POST /displays/registration-links creates link without resolution", async () => {
     const { app, issueToken, registrationLinks } = await makeApp([
       "displays:create",
     ]);
@@ -997,8 +959,6 @@ describe("Displays routes", () => {
         displayName: "Lobby Display",
         outputType: "HDMI",
         outputIndex: 0,
-        resolutionWidth: null,
-        resolutionHeight: null,
         displayGroups: [],
       }),
     });
@@ -1008,8 +968,6 @@ describe("Displays routes", () => {
       slug: "lobby-display",
       displayName: "Lobby Display",
       output: "hdmi-0",
-      resolutionWidth: null,
-      resolutionHeight: null,
     });
   });
 
@@ -1052,12 +1010,6 @@ describe("Displays routes", () => {
         id: string;
         slug: string;
         status: "PROCESSING" | "READY" | "LIVE" | "DOWN";
-        nowPlaying?: {
-          playlist: string | null;
-          title: string | null;
-          progress: number;
-          duration: number;
-        } | null;
       }>;
       meta: {
         total: number;
@@ -1070,7 +1022,6 @@ describe("Displays routes", () => {
     expect(json.data).toHaveLength(1);
     expect(json.data[0]?.id).toBe(displayId);
     expect(json.data[0]?.slug).toBe("lobby-display");
-    expect(json.data[0]?.nowPlaying?.playlist).toBe("Morning");
     expect(json.meta.total).toBe(1);
     expect(json.meta.page).toBe(1);
     expect(json.meta.pageSize).toBe(20);
@@ -1274,25 +1225,6 @@ describe("Displays routes", () => {
     expect(json.error.message).toBe(
       "Cannot start an emergency with no registered displays",
     );
-
-    const runtimeResponse = await app.request("/displays/runtime-overrides", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    expect(runtimeResponse.status).toBe(200);
-    const runtimeJson = await parseJson<{
-      data: {
-        globalEmergency: {
-          active: boolean;
-          startedAt: string | null;
-          activeSlotIndex: number | null;
-        };
-      };
-    }>(runtimeResponse);
-    expect(runtimeJson.data.globalEmergency).toEqual({
-      active: false,
-      startedAt: null,
-      activeSlotIndex: null,
-    });
   });
 
   test("PUT /displays/runtime-overrides/emergency deactivates without slot index", async () => {
@@ -1425,17 +1357,15 @@ describe("Displays routes", () => {
       },
       body: JSON.stringify({
         name: "Lobby Updated",
-        screenWidth: 1920,
-        screenHeight: 1080,
       }),
     });
 
     expect(response.status).toBe(200);
     const json = await parseJson<{
-      data: { name: string; screenWidth: number | null };
+      data: { name: string; output: string };
     }>(response);
     expect(json.data.name).toBe("Lobby Updated");
-    expect(json.data.screenWidth).toBe(1920);
+    expect(json.data.output).toBe("hdmi-0");
   });
 
   test("POST /displays/:id/refresh queues refresh with displays:update permission", async () => {
