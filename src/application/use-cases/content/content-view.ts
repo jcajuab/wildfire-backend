@@ -21,36 +21,63 @@ export interface ContentView {
   updatedAt: string;
   owner: {
     id: string;
+    username: string;
     name: string;
   };
 }
 
+interface ContentOwnerViewInput {
+  name: string;
+  username: string;
+}
+
+interface ContentOwnerFallbackInput {
+  id: string;
+  name?: string;
+  username: string;
+}
+
 export const toContentView = (
   record: ContentRecord,
-  ownerName: string | null,
+  owner: ContentOwnerViewInput | null,
   input?: {
+    fallbackOwner?: ContentOwnerFallbackInput | null;
     thumbnailUrl?: string;
   },
-): ContentView => ({
-  id: record.id,
-  title: record.title,
-  type: record.type,
-  status: record.status,
-  thumbnailUrl: input?.thumbnailUrl,
-  mimeType: record.mimeType,
-  fileSize: record.fileSize,
-  checksum: record.checksum,
-  width: record.width,
-  height: record.height,
-  duration: record.duration,
-  flashMessage: record.flashMessage ?? null,
-  flashTone: record.flashTone ?? null,
-  textJsonContent: record.textJsonContent ?? null,
-  textHtmlContent: record.textHtmlContent ?? null,
-  createdAt: record.createdAt,
-  updatedAt: record.updatedAt ?? record.createdAt,
-  owner: {
-    id: record.ownerId,
-    name: ownerName ?? "Unknown",
-  },
-});
+): ContentView => {
+  const fallbackOwner =
+    input?.fallbackOwner?.id === record.ownerId ? input.fallbackOwner : null;
+  const resolvedOwner =
+    owner ??
+    (fallbackOwner
+      ? {
+          username: fallbackOwner.username,
+          name: fallbackOwner.name ?? fallbackOwner.username,
+        }
+      : null);
+
+  return {
+    id: record.id,
+    title: record.title,
+    type: record.type,
+    status: record.status,
+    thumbnailUrl: input?.thumbnailUrl,
+    mimeType: record.mimeType,
+    fileSize: record.fileSize,
+    checksum: record.checksum,
+    width: record.width,
+    height: record.height,
+    duration: record.duration,
+    flashMessage: record.flashMessage ?? null,
+    flashTone: record.flashTone ?? null,
+    textJsonContent: record.textJsonContent ?? null,
+    textHtmlContent: record.textHtmlContent ?? null,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt ?? record.createdAt,
+    owner: {
+      id: record.ownerId,
+      username: resolvedOwner?.username ?? "unknown",
+      name: resolvedOwner?.name ?? "Unknown",
+    },
+  };
+};

@@ -36,6 +36,7 @@ export class CreateTextContentUseCase {
     jsonContent: string;
     htmlContent: string;
     ownerId: string;
+    ownerUsername?: string;
   }) {
     const title = input.title.trim();
     const jsonContent = input.jsonContent;
@@ -92,6 +93,10 @@ export class CreateTextContentUseCase {
       throw new Error("Text content was created but could not be loaded");
     }
     const user = await this.deps.userRepository.findById(content.ownerId);
-    return toContentView(content, user?.name ?? null);
+    return toContentView(content, user, {
+      fallbackOwner: input.ownerUsername
+        ? { id: input.ownerId, username: input.ownerUsername }
+        : null,
+    });
   }
 }

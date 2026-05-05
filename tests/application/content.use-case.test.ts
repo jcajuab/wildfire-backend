@@ -104,12 +104,14 @@ const makeContentRepository = () => {
   return { records, repository };
 };
 
-const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
+const makeUserRepository = (
+  users: Array<{ id: string; name: string; username?: string }>,
+) =>
   ({
     list: async () =>
       users.map((user) => ({
         id: user.id,
-        username: user.id,
+        username: user.username ?? user.id,
         email: `${user.id}@example.com`,
         name: user.name,
         isActive: true,
@@ -119,7 +121,7 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
       if (!user) return null;
       return {
         id: user.id,
-        username: user.id,
+        username: user.username ?? user.id,
         email: `${user.id}@example.com`,
         name: user.name,
         isActive: true,
@@ -130,7 +132,7 @@ const makeUserRepository = (users: Array<{ id: string; name: string }>) =>
         .filter((user) => ids.includes(user.id))
         .map((user) => ({
           id: user.id,
-          username: user.id,
+          username: user.username ?? user.id,
           email: `${user.id}@example.com`,
           name: user.name,
           isActive: true,
@@ -322,7 +324,11 @@ describe("Content use cases", () => {
     expect(result.content.type).toBe("IMAGE");
     expect(result.content.status).toBe("PROCESSING");
     expect(result.content.checksum).toBe(checksum);
-    expect(result.content.owner).toEqual({ id: "user-1", name: "Ada" });
+    expect(result.content.owner).toEqual({
+      id: "user-1",
+      username: "user-1",
+      name: "Ada",
+    });
     expect(storage.lastUpload?.contentType).toBe("image/png");
     expect(storage.lastUpload?.key).toBe(
       `content/images/${result.content.id}.png`,
@@ -469,11 +475,54 @@ describe("Content use cases", () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.owner).toEqual({
       id: "user-1",
+      username: "user-1",
       name: "Ada",
     });
     expect(result.items[0]?.thumbnailUrl).toBe(
       "https://example.com/content/thumbnails/11111111-1111-4111-8111-111111111111.jpg",
     );
+  });
+
+  test("falls back to the current username when the owner record is missing", async () => {
+    const { repository, records } = makeContentRepository();
+    const storage = makeStorage();
+    const userRepository = makeUserRepository([]);
+    records.push({
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "One",
+      type: "TEXT",
+      status: "READY",
+      fileKey: "content/text/11111111-1111-4111-8111-111111111111.json",
+      checksum: "abc",
+      mimeType: "application/json",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      textJsonContent: "{}",
+      textHtmlContent: "<p>One</p>",
+      ownerId: "admin-id",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const useCase = new ListContentUseCase({
+      contentRepository: repository,
+      userRepository,
+      contentStorage: storage.storage,
+      thumbnailUrlExpiresInSeconds: 3600,
+    });
+
+    const result = await useCase.execute({
+      page: 1,
+      pageSize: 1,
+      currentUser: { id: "admin-id", username: "admin" },
+    });
+
+    expect(result.items[0]?.owner).toEqual({
+      id: "admin-id",
+      username: "admin",
+      name: "admin",
+    });
   });
 
   test("passes sortBy to repository for list queries", async () => {
@@ -860,7 +909,11 @@ describe("Content use cases", () => {
     });
 
     expect(result.title).toBe("New Title");
-    expect(result.owner).toEqual({ id: "user-1", name: "Ada" });
+    expect(result.owner).toEqual({
+      id: "user-1",
+      username: "user-1",
+      name: "Ada",
+    });
   });
 
   test("updates TEXT content, checksum, and stored payload", async () => {

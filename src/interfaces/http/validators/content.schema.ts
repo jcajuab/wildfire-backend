@@ -30,6 +30,7 @@ export const contentSchema = z.object({
   updatedAt: z.string(),
   owner: z.object({
     id: z.string(),
+    username: z.string(),
     name: z.string(),
   }),
 });

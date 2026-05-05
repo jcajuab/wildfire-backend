@@ -34,7 +34,14 @@ export class GetContentUseCase {
     }
   }
 
-  async execute(input: { id: string; ownerId?: string }) {
+  async execute(input: {
+    id: string;
+    ownerId?: string;
+    currentUser?: {
+      id: string;
+      username: string;
+    };
+  }) {
     const record =
       input.ownerId && this.deps.contentRepository.findByIdForOwner
         ? await this.deps.contentRepository.findByIdForOwner(
@@ -48,6 +55,9 @@ export class GetContentUseCase {
 
     const user = await this.deps.userRepository.findById(record.ownerId);
     const thumbnailUrl = await this.buildThumbnailUrl(record);
-    return toContentView(record, user?.name ?? null, { thumbnailUrl });
+    return toContentView(record, user, {
+      fallbackOwner: input.currentUser,
+      thumbnailUrl,
+    });
   }
 }

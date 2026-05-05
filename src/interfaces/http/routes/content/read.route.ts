@@ -32,6 +32,7 @@ import {
   type ContentRouter,
   type ContentRouterUseCases,
   contentTags,
+  getCurrentUserOwnerFallback,
   type RequirePermission,
 } from "./shared";
 
@@ -120,6 +121,7 @@ export const registerContentReadRoutes = (args: {
             const result = await useCases.listContent.execute({
               ...query,
               ownerId,
+              currentUser: getCurrentUserOwnerFallback(c),
             });
             return toApiListResponse({
               items: result.items,
@@ -176,6 +178,7 @@ export const registerContentReadRoutes = (args: {
             const result = await useCases.getContent.execute({
               id: params.id,
               ownerId,
+              currentUser: getCurrentUserOwnerFallback(c),
             });
             return { data: result };
           },

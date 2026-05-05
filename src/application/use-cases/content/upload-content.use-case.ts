@@ -132,7 +132,7 @@ export class UploadContentUseCase {
       });
 
       return {
-        content: toContentView(created, user.name),
+        content: toContentView(created, user),
         job: toContentJobView(job),
       };
     } catch (error) {

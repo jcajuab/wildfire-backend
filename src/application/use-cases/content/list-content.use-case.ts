@@ -64,6 +64,10 @@ export class ListContentUseCase {
     search?: string;
     sortBy?: "createdAt" | "title" | "fileSize" | "type";
     sortDirection?: "asc" | "desc";
+    currentUser?: {
+      id: string;
+      username: string;
+    };
   }) {
     const page = clamp(Math.trunc(input.page ?? 1), 1, Number.MAX_SAFE_INTEGER);
     const pageSize = clamp(Math.trunc(input.pageSize ?? 20), 1, 100);
@@ -101,7 +105,8 @@ export class ListContentUseCase {
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
     const views = items.map((item) =>
-      toContentView(item, creatorsById.get(item.ownerId)?.name ?? null, {
+      toContentView(item, creatorsById.get(item.ownerId) ?? null, {
+        fallbackOwner: input.currentUser,
         thumbnailUrl: item.thumbnailKey
           ? thumbnailUrlByKey.get(item.thumbnailKey)
           : undefined,
