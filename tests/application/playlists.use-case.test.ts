@@ -236,6 +236,7 @@ describe("Playlists use cases", () => {
 
     const result = await useCase.execute();
     expect(result.items[0]?.owner.name).toBe("User");
+    expect(result.items[0]?.owner.username).toBe("user");
   });
 
   test("ListPlaylistsUseCase uses batched stats while loading preview items", async () => {
@@ -288,6 +289,7 @@ describe("Playlists use cases", () => {
     });
 
     expect(result.name).toBe("Morning");
+    expect(result.owner.username).toBe("user");
   });
 
   test("CreatePlaylistUseCase throws when owner is missing", async () => {

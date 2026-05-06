@@ -12,6 +12,7 @@ export const playlistSchema = z.object({
   updatedAt: z.string(),
   owner: z.object({
     id: z.string(),
+    username: z.string(),
     name: z.string().nullable(),
   }),
 });
@@ -27,6 +28,7 @@ export const playlistItemSchema = z.object({
     type: z.enum(["IMAGE", "VIDEO", "TEXT"]),
     checksum: z.string(),
     thumbnailUrl: z.string().url().nullable(),
+    textPreviewText: z.string().nullable().optional(),
   }),
 });
 

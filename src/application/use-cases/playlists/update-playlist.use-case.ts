@@ -31,7 +31,7 @@ export class UpdatePlaylistUseCase {
 
     const owner = await this.deps.userRepository.findById(playlist.ownerId);
     const items = await this.deps.playlistRepository.listItems(playlist.id);
-    return toPlaylistView(playlist, owner?.name ?? null, {
+    return toPlaylistView(playlist, owner, {
       itemsCount: items.length,
       totalDuration: items.reduce((sum, item) => sum + item.duration, 0),
     });

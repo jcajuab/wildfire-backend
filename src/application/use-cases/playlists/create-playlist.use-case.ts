@@ -26,7 +26,7 @@ export class CreatePlaylistUseCase {
       description: input.description ?? null,
       ownerId: input.ownerId,
     });
-    return toPlaylistView(playlist, owner.name, {
+    return toPlaylistView(playlist, owner, {
       itemsCount: 0,
       totalDuration: 0,
     });

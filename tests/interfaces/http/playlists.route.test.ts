@@ -81,16 +81,18 @@ const makeApp = async (
     {
       id: contentId2,
       title: "Slides",
-      type: "IMAGE",
+      type: "TEXT",
       status: "READY",
-      fileKey: "content/images/b.png",
+      fileKey: "content/text/b.json",
       checksum: "def",
-      mimeType: "image/png",
+      mimeType: "application/json",
       fileSize: 100,
-      width: 10,
-      height: 10,
+      width: null,
+      height: null,
       duration: null,
       thumbnailKey: null,
+      textHtmlContent:
+        '<p style="text-align: center;"><strong>Welcome</strong> &amp; updates</p>',
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
@@ -392,7 +394,7 @@ describe("Playlists routes", () => {
     const { app, issueToken } = await makeApp(["playlists:read"]);
     const token = await issueToken();
 
-    const response = await app.request("/playlists", {
+    const response = await app.request("/playlists?search=Morning", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -424,7 +426,7 @@ describe("Playlists routes", () => {
       updatedAt: "2025-01-01T00:00:00.000Z",
     });
 
-    const response = await app.request("/playlists", {
+    const response = await app.request("/playlists?search=Empty", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -490,9 +492,12 @@ describe("Playlists routes", () => {
     );
 
     const token = await issueToken();
-    const response = await app.request("/playlists", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await app.request(
+      `/playlists?_test=${crypto.randomUUID()}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
@@ -502,7 +507,12 @@ describe("Playlists routes", () => {
         previewItems: Array<{
           id: string;
           sequence: number;
-          content: { id: string; thumbnailUrl: string | null };
+          content: {
+            id: string;
+            thumbnailUrl: string | null;
+            textPreviewText?: string | null;
+            textHtmlContent?: string | null;
+          };
         }>;
         items?: unknown;
       }>;
@@ -523,6 +533,12 @@ describe("Playlists routes", () => {
       "https://cdn.example.com/content/thumbs/a.png",
     );
     expect(body.data[0]?.previewItems[1]?.content.thumbnailUrl).toBeNull();
+    expect(body.data[0]?.previewItems[1]?.content.textPreviewText).toBe(
+      "Welcome & updates",
+    );
+    expect(
+      "textHtmlContent" in (body.data[0]?.previewItems[1]?.content ?? {}),
+    ).toBe(false);
   });
 
   test("GET /playlists returns empty previewItems for empty playlists", async () => {
@@ -537,9 +553,12 @@ describe("Playlists routes", () => {
     });
 
     const token = await issueToken();
-    const response = await app.request("/playlists", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await app.request(
+      `/playlists?_test=${crypto.randomUUID()}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
@@ -607,9 +626,12 @@ describe("Playlists routes", () => {
     );
 
     const token = await issueToken();
-    const response = await app.request("/playlists", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await app.request(
+      `/playlists?_test=${crypto.randomUUID()}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
@@ -674,13 +696,25 @@ describe("Playlists routes", () => {
     expect(response.status).toBe(200);
     const body = await parseJson<{
       data: {
-        items: Array<{ content: { thumbnailUrl: string | null } }>;
+        items: Array<{
+          content: {
+            thumbnailUrl: string | null;
+            textPreviewText?: string | null;
+            textHtmlContent?: string | null;
+          };
+        }>;
       };
     }>(response);
     expect(body.data.items[0]?.content.thumbnailUrl).toBe(
       "https://cdn.example.com/content/thumbs/a.png",
     );
     expect(body.data.items[1]?.content.thumbnailUrl).toBeNull();
+    expect(body.data.items[1]?.content.textPreviewText).toBe(
+      "Welcome & updates",
+    );
+    expect("textHtmlContent" in (body.data.items[1]?.content ?? {})).toBe(
+      false,
+    );
   });
 
   test("GET /playlists/options returns playlist options", async () => {

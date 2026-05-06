@@ -53,7 +53,7 @@ export class GetPlaylistUseCase {
 
     const owner = await this.deps.userRepository.findById(playlist.ownerId);
     return {
-      ...toPlaylistView(playlist, owner?.name ?? null, {
+      ...toPlaylistView(playlist, owner, {
         itemsCount: itemViews.length,
         totalDuration: itemViews.reduce((sum, item) => sum + item.duration, 0),
       }),

@@ -90,14 +90,17 @@ export class ListPlaylistsUseCase {
         sortDirection: input?.sortDirection,
       },
     );
+    const playlistIds = playlists.map((playlist) => playlist.id);
     const creatorIds = Array.from(
       new Set(playlists.map((item) => item.ownerId)),
     );
-    const creators = await this.deps.userRepository.findByIds(creatorIds);
-    const creatorsById = new Map(creators.map((user) => [user.id, user]));
-
-    const playlistIds = playlists.map((playlist) => playlist.id);
-    const [statsByPlaylistId, previewItemsByPlaylistId] = await Promise.all([
+    const [
+      creators,
+      statsByPlaylistId,
+      previewItemsByPlaylistId,
+      activePlaylistIds,
+    ] = await Promise.all([
+      this.deps.userRepository.findByIds(creatorIds),
       this.deps.playlistRepository.listItemStatsByPlaylistIds
         ? this.deps.playlistRepository.listItemStatsByPlaylistIds(playlistIds)
         : this.buildStatsByPlaylistId(playlistIds),
@@ -105,14 +108,14 @@ export class ListPlaylistsUseCase {
         playlistIds,
         ownerId: input?.ownerId,
       }),
+      this.computeActivePlaylistIds(playlistIds),
     ]);
-
-    const activePlaylistIds = await this.computeActivePlaylistIds(playlistIds);
+    const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
     const items = playlists.map((playlist) => {
       const view = toPlaylistView(
         playlist,
-        creatorsById.get(playlist.ownerId)?.name ?? null,
+        creatorsById.get(playlist.ownerId) ?? null,
         statsByPlaylistId.get(playlist.id),
         {
           previewItems: previewItemsByPlaylistId.get(playlist.id) ?? [],
