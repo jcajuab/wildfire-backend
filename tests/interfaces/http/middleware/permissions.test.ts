@@ -122,4 +122,23 @@ describe("permission middleware", () => {
     const body = (await response.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
   });
+
+  test("accepts audit delete as a canonical permission", async () => {
+    const { authorize } = buildMiddleware([new Permission("audit", "delete")]);
+    const app = new Hono();
+    app.use("*", requestId());
+    app.delete("/audit/events", ...authorize("audit:delete"), (c) =>
+      c.json({ ok: true }),
+    );
+
+    const token = await issueToken("user-1");
+    const response = await app.request("/audit/events", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { ok: boolean };
+    expect(body.ok).toBe(true);
+  });
 });

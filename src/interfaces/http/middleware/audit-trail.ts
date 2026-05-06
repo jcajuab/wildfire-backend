@@ -5,6 +5,7 @@ import { resolveClientIp } from "#/interfaces/http/lib/request-client-ip";
 import { type ObservabilityVariables } from "#/interfaces/http/middleware/observability";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const EXCLUDED_ACTIONS = new Set(["auth.session.refresh", "display.heartbeat"]);
 const AUTH_SECURITY_ACTIONS = new Set([
   "auth.session.login",
   "auth.session.logout",
@@ -38,6 +39,10 @@ const shouldCaptureByAction = (action: string): boolean => {
 
 const shouldCaptureEvent = (input: { method: string; action?: string }) => {
   if (!input.action) {
+    return false;
+  }
+
+  if (EXCLUDED_ACTIONS.has(input.action)) {
     return false;
   }
 

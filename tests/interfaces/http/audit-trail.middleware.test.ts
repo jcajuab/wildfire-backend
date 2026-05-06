@@ -109,6 +109,44 @@ describe("audit trail middleware", () => {
     expect(calls).toHaveLength(0);
   });
 
+  test("skips noisy auth refresh and display heartbeat events", async () => {
+    const { calls, auditQueue } = makeQueue();
+    const app = new Hono<{ Variables: ObservabilityVariables }>();
+    app.use("*", requestId());
+    app.use(
+      "*",
+      createAuditTrailMiddleware({ auditQueue, trustProxyHeaders: true }),
+    );
+
+    app.post(
+      "/auth/refresh",
+      setAction("auth.session.refresh", {
+        route: "/auth/refresh",
+        resourceType: "session",
+      }),
+      (c) => c.json({ ok: true }),
+    );
+
+    app.post(
+      "/displays/lobby/heartbeat",
+      setAction("display.heartbeat", {
+        route: "/display-runtime/:slug/heartbeat",
+        actorType: "display",
+        resourceType: "display",
+      }),
+      (c) => c.body(null, 204),
+    );
+
+    const refresh = await app.request("/auth/refresh", { method: "POST" });
+    const heartbeat = await app.request("/displays/lobby/heartbeat", {
+      method: "POST",
+    });
+
+    expect(refresh.status).toBe(200);
+    expect(heartbeat.status).toBe(204);
+    expect(calls).toHaveLength(0);
+  });
+
   test("captures failed mutation attempts (401/403)", async () => {
     const { calls, auditQueue } = makeQueue();
     const app = new Hono<{ Variables: ObservabilityVariables }>();

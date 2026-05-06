@@ -472,7 +472,7 @@ describe("RBAC routes", () => {
     const { app, issueToken } = buildApp(["users:read"]);
     const token = await issueToken();
 
-    const response = await app.request("/users/options?q=admin&limit=1", {
+    const response = await app.request("/users/options?q=adm&limit=1", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -536,10 +536,10 @@ describe("RBAC routes", () => {
   });
 
   test("GET /permissions/options returns filtered permission options", async () => {
-    const { app, issueToken } = buildApp(["roles:read"]);
+    const { app, issueToken } = buildApp(["roles:read", "audit:delete"]);
     const token = await issueToken();
 
-    const response = await app.request("/permissions/options?q=read", {
+    const response = await app.request("/permissions/options?q=audit", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -554,19 +554,19 @@ describe("RBAC routes", () => {
     }>(response);
     expect(body.data).toEqual([
       {
-        id: makePermissionId(0),
-        resource: "roles",
-        action: "read",
+        id: makePermissionId(1),
+        resource: "audit",
+        action: "delete",
         isAdmin: false,
       },
     ]);
   });
 
   test("GET /permissions filters by q", async () => {
-    const { app, issueToken } = buildApp(["roles:read"]);
+    const { app, issueToken } = buildApp(["roles:read", "audit:delete"]);
     const token = await issueToken();
 
-    const response = await app.request("/permissions?q=read", {
+    const response = await app.request("/permissions?q=audit", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -583,9 +583,9 @@ describe("RBAC routes", () => {
     expect(body.meta.total).toBe(1);
     expect(body.data).toEqual([
       {
-        id: makePermissionId(0),
-        resource: "roles",
-        action: "read",
+        id: makePermissionId(1),
+        resource: "audit",
+        action: "delete",
         isAdmin: false,
       },
     ]);
