@@ -245,6 +245,38 @@ export const getValidatedWindow = (input: {
   return { startDate, endDate };
 };
 
+const formatDateTimeInTimezone = (date: Date, timezone: string) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+
+  return {
+    date: `${part("year")}-${part("month")}-${part("day")}`,
+    time: `${part("hour")}:${part("minute")}`,
+  };
+};
+
+export const ensureScheduleStartIsNotInPast = (input: {
+  startDate: string;
+  startTime: string;
+  timezone?: string;
+  now?: Date;
+}) => {
+  const timezone = input.timezone ?? DEFAULT_SCHEDULE_TIMEZONE;
+  const now = formatDateTimeInTimezone(input.now ?? new Date(), timezone);
+  if (`${input.startDate}T${input.startTime}` < `${now.date}T${now.time}`) {
+    throw new ValidationError("Schedule start time cannot be in the past.");
+  }
+};
+
 export const ensureFlashContentIsSchedulable = (content: {
   type: string;
   status: string;

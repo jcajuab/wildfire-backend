@@ -15,6 +15,7 @@ export const scheduleSchema = z.object({
   endDate: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  createdBy: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   playlist: z

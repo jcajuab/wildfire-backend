@@ -61,7 +61,6 @@ export const registerScheduleBootstrapRoutes = (args: {
               flashContentOptions,
             ] = await Promise.all([
               useCases.listScheduleWindow.execute({
-                ownerId,
                 from: query.from,
                 to: query.to,
                 displayIds: query.displayIds,

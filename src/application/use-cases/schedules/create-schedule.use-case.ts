@@ -12,6 +12,7 @@ import {
   DEFAULT_SCHEDULE_TIMEZONE,
   ensureFlashContentIsSchedulable,
   ensureNoScheduleConflicts,
+  ensureScheduleStartIsNotInPast,
   findContentForOwner,
   findPlaylistForOwner,
   getValidatedWindow,
@@ -39,23 +40,18 @@ export class CreateScheduleUseCase {
     endDate?: string;
     startTime: string;
     endTime: string;
+    now?: Date;
   }) {
     const ownerScope = input.actorIsAdmin ? undefined : input.ownerId;
     const { startDate, endDate } = getValidatedWindow(input);
 
-    if (input.startDate && input.startTime) {
-      const startDateTimeStr = `${startDate}T${input.startTime}`;
-      const nowInTimezone = new Date(
-        new Date().toLocaleString("en-US", {
-          timeZone: this.deps.timezone ?? DEFAULT_SCHEDULE_TIMEZONE,
-        }),
-      );
-      const startLocal = new Date(startDateTimeStr);
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      if (startLocal.getTime() < nowInTimezone.getTime() - oneDayMs) {
-        throw new ValidationError("Schedule start time cannot be in the past.");
-      }
-    }
+    ensureScheduleStartIsNotInPast({
+      startDate,
+      startTime: input.startTime,
+      timezone: this.deps.timezone ?? DEFAULT_SCHEDULE_TIMEZONE,
+      now: input.now,
+    });
+
     if (input.endTime <= input.startTime) {
       throw new ValidationError("End time must be later than start time.");
     }

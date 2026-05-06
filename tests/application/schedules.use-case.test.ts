@@ -27,6 +27,7 @@ const makeDeps = () => {
     endDate?: string;
     startTime: string;
     endTime: string;
+    createdBy?: string;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -376,6 +377,8 @@ describe("Schedules use cases", () => {
         playlistId: "missing",
         contentId: null,
         displayId: "display-1",
+        startDate: FUTURE_START_DATE,
+        endDate: FUTURE_END_DATE,
         startTime: "08:00",
         endTime: "17:00",
       }),
@@ -430,10 +433,82 @@ describe("Schedules use cases", () => {
         playlistId: "playlist-1",
         contentId: null,
         displayId: "display-1",
+        startDate: FUTURE_START_DATE,
+        endDate: FUTURE_END_DATE,
         startTime: "08:00",
         endTime: "08:00",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("CreateScheduleUseCase rejects start times earlier than the current minute", async () => {
+    const deps = makeDeps();
+    const useCase = new CreateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      displayRepository: deps.displayRepository,
+      contentRepository: deps.contentRepository,
+      timezone: "UTC",
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Past Start",
+        kind: "PLAYLIST",
+        playlistId: "playlist-1",
+        contentId: null,
+        displayId: "display-1",
+        startDate: "2026-05-06",
+        endDate: "2026-05-06",
+        startTime: "01:29",
+        endTime: "02:00",
+        ownerId: "user-1",
+        now: new Date("2026-05-06T01:30:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("CreateScheduleUseCase allows the current minute and future dates", async () => {
+    const deps = makeDeps();
+    const useCase = new CreateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      displayRepository: deps.displayRepository,
+      contentRepository: deps.contentRepository,
+      timezone: "UTC",
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Current Start",
+        kind: "PLAYLIST",
+        playlistId: "playlist-1",
+        contentId: null,
+        displayId: "display-1",
+        startDate: "2026-05-06",
+        endDate: "2026-05-06",
+        startTime: "01:30",
+        endTime: "02:00",
+        ownerId: "user-1",
+        now: new Date("2026-05-06T01:30:00.000Z"),
+      }),
+    ).resolves.toBeDefined();
+
+    await expect(
+      useCase.execute({
+        name: "Future Start",
+        kind: "PLAYLIST",
+        playlistId: "playlist-1",
+        contentId: null,
+        displayId: "display-1",
+        startDate: "2026-05-07",
+        endDate: "2026-05-07",
+        startTime: "00:01",
+        endTime: "01:00",
+        ownerId: "user-1",
+        now: new Date("2026-05-06T23:59:00.000Z"),
+      }),
+    ).resolves.toBeDefined();
   });
 
   test("CreateScheduleUseCase allows PLAYLIST overlaps (virtual merge)", async () => {

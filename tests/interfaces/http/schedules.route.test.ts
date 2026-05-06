@@ -46,6 +46,7 @@ const makeApp = async (
       endDate?: string;
       startTime: string;
       endTime: string;
+      createdBy?: string;
       createdAt: string;
       updatedAt: string;
     }>;
@@ -323,6 +324,40 @@ describe("Schedules routes", () => {
     expect(body.meta.pageSize).toBe(50);
   });
 
+  test("GET /schedules returns schedules from other creators", async () => {
+    const { app, issueToken } = await makeApp(["schedules:read"], {
+      playlistOwnerId: "user-2",
+      schedules: [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          name: "Shared Morning",
+          kind: "PLAYLIST",
+          playlistId,
+          contentId: null,
+          displayId,
+          startDate: "2027-01-02",
+          endDate: "2027-01-05",
+          startTime: "08:00",
+          endTime: "10:00",
+          createdBy: "user-2",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/schedules?page=1&pageSize=10", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ name: string }> }>(response);
+    expect(body.data.map((schedule) => schedule.name)).toEqual([
+      "Shared Morning",
+    ]);
+  });
+
   test("GET /schedules/:id hydrates shared playlist targets from other creators", async () => {
     const scheduleId = "00000000-0000-4000-8000-000000000001";
     const { app, issueToken } = await makeApp(["schedules:read"], {
@@ -339,12 +374,13 @@ describe("Schedules routes", () => {
           endDate: "2027-01-05",
           startTime: "08:00",
           endTime: "10:00",
+          createdBy: "user-2",
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
         },
       ],
     });
-    const token = await issueToken({ isAdmin: true });
+    const token = await issueToken();
 
     const response = await app.request(`/schedules/${scheduleId}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -352,8 +388,12 @@ describe("Schedules routes", () => {
 
     expect(response.status).toBe(200);
     const body = await parseJson<{
-      data: { playlist: { id: string; name: string } | null };
+      data: {
+        createdBy: string | null;
+        playlist: { id: string; name: string } | null;
+      };
     }>(response);
+    expect(body.data.createdBy).toBe("user-2");
     expect(body.data.playlist).toEqual({ id: playlistId, name: "Morning" });
   });
 
@@ -371,6 +411,7 @@ describe("Schedules routes", () => {
           endDate: "2027-01-05",
           startTime: "08:00",
           endTime: "10:00",
+          createdBy: "user-2",
 
           createdAt: "2025-01-01T00:00:00.000Z",
           updatedAt: "2025-01-01T00:00:00.000Z",
@@ -389,6 +430,49 @@ describe("Schedules routes", () => {
     expect(response.status).toBe(200);
     const body = await parseJson<{ data: Array<{ name: string }> }>(response);
     expect(body.data.map((schedule) => schedule.name)).toEqual(["Morning"]);
+  });
+
+  test("GET /schedules/bootstrap includes schedules from other creators but owner-scopes create options", async () => {
+    const { app, issueToken } = await makeApp(["schedules:read"], {
+      playlistOwnerId: "user-2",
+      schedules: [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          name: "Shared Morning",
+          kind: "PLAYLIST",
+          playlistId,
+          contentId: null,
+          displayId,
+          startDate: "2027-01-02",
+          endDate: "2027-01-05",
+          startTime: "08:00",
+          endTime: "10:00",
+          createdBy: "user-2",
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/schedules/bootstrap?from=2027-01-03&to=2027-01-03&displayIds=${displayId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: {
+        schedules: Array<{ name: string }>;
+        playlistOptions: Array<{ id: string }>;
+      };
+    }>(response);
+    expect(body.data.schedules.map((schedule) => schedule.name)).toEqual([
+      "Shared Morning",
+    ]);
+    expect(body.data.playlistOptions).toEqual([]);
   });
 
   test("GET /schedules/window returns 422 when from is after to", async () => {
@@ -503,6 +587,75 @@ describe("Schedules routes", () => {
     });
 
     expect(response.status).toBe(422);
+  });
+
+  test("POST /schedules returns 422 for past start time", async () => {
+    const { app, issueToken } = await makeApp(["schedules:create"]);
+    const token = await issueToken();
+
+    const response = await app.request("/schedules", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Past",
+        kind: "PLAYLIST",
+        playlistId,
+        contentId: null,
+        displayId,
+        startDate: "2000-01-01",
+        endDate: "2000-01-02",
+        startTime: "08:00",
+        endTime: "17:00",
+      }),
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  test("PATCH and DELETE hide other creators' schedules from non-admin users", async () => {
+    const scheduleId = "00000000-0000-4000-8000-000000000001";
+    const { app, issueToken } = await makeApp(
+      ["schedules:update", "schedules:delete"],
+      {
+        schedules: [
+          {
+            id: scheduleId,
+            name: "Other Creator",
+            kind: "PLAYLIST",
+            playlistId,
+            contentId: null,
+            displayId,
+            startDate: "2027-01-02",
+            endDate: "2027-01-05",
+            startTime: "08:00",
+            endTime: "10:00",
+            createdBy: "user-2",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    );
+    const token = await issueToken();
+
+    const patch = await app.request(`/schedules/${scheduleId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Edited" }),
+    });
+    expect(patch.status).toBe(404);
+
+    const remove = await app.request(`/schedules/${scheduleId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(remove.status).toBe(404);
   });
 
   test("POST /schedules returns 500 when repository fails unexpectedly", async () => {
