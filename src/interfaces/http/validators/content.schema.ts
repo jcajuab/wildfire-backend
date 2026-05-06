@@ -71,6 +71,7 @@ export const contentOptionSchema = z.object({
   id: z.string(),
   title: z.string(),
   type: contentTypeSchema,
+  thumbnailUrl: z.string().url().optional(),
 });
 
 export const createFlashContentSchema = z.object({

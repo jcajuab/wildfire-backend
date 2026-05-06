@@ -459,6 +459,8 @@ const schedulesModule = createSchedulesHttpModule({
   },
   displayEventPublisher,
   adminLifecycleEventPublisher: lifecycleEventPublisher,
+  contentStorage: container.storage.contentStorage,
+  thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
 });
 const schedulesRouter = createSchedulesRouter(schedulesModule);
 

@@ -126,8 +126,42 @@ export class ListContentOptionsUseCase {
   constructor(
     private readonly deps: {
       contentRepository: ContentRepository;
+      contentStorage: ContentStorage;
+      thumbnailUrlExpiresInSeconds: number;
     },
   ) {}
+
+  private async buildThumbnailUrlMap(
+    records: readonly ContentRecord[],
+  ): Promise<Map<string, string>> {
+    const thumbnailKeys = Array.from(
+      new Set(
+        records
+          .map((record) => record.thumbnailKey)
+          .filter(
+            (key): key is string => typeof key === "string" && key.length > 0,
+          ),
+      ),
+    );
+
+    const thumbnailUrlByKey = new Map<string, string>();
+    await Promise.all(
+      thumbnailKeys.map(async (thumbnailKey) => {
+        try {
+          const thumbnailUrl =
+            await this.deps.contentStorage.getPresignedDownloadUrl({
+              key: thumbnailKey,
+              expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds,
+            });
+          thumbnailUrlByKey.set(thumbnailKey, thumbnailUrl);
+        } catch {
+          // Best-effort enrichment only.
+        }
+      }),
+    );
+
+    return thumbnailUrlByKey;
+  }
 
   async execute(input: {
     ownerId?: string;
@@ -157,10 +191,15 @@ export class ListContentOptionsUseCase {
             sortDirection: "asc",
           });
 
+    const thumbnailUrlByKey = await this.buildThumbnailUrlMap(result.items);
+
     return result.items.map((item) => ({
       id: item.id,
       title: item.title,
       type: item.type,
+      thumbnailUrl: item.thumbnailKey
+        ? thumbnailUrlByKey.get(item.thumbnailKey)
+        : undefined,
     }));
   }
 }

@@ -99,6 +99,8 @@ export const createSchedulesHttpModule = (
       }),
       listFlashContentOptions: new ListContentOptionsUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
+        contentStorage: routerDeps.contentStorage,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
     },
   };

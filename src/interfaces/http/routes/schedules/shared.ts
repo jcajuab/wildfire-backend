@@ -1,6 +1,9 @@
 import { type Hono } from "hono";
 import { type AuthSessionRepository } from "#/application/ports/auth";
-import { type ContentRepository } from "#/application/ports/content";
+import {
+  type ContentRepository,
+  type ContentStorage,
+} from "#/application/ports/content";
 import {
   type AdminDisplayLifecycleEventPublisher,
   type DisplayStreamEventPublisher,
@@ -44,6 +47,8 @@ export interface SchedulesRouterDeps {
     contentRepository: ContentRepository;
     authorizationRepository: AuthorizationRepository;
   };
+  contentStorage: ContentStorage;
+  thumbnailUrlExpiresInSeconds: number;
   displayEventPublisher: DisplayStreamEventPublisher;
   adminLifecycleEventPublisher?: AdminDisplayLifecycleEventPublisher;
   checkPermissionUseCase: CheckPermissionUseCase;

@@ -275,6 +275,14 @@ const makeApp = async (
       displayEventPublisher: {
         publish: () => {},
       },
+      contentStorage: {
+        getPresignedDownloadUrl: async () => "",
+        getPresignedUploadUrl: async () => ({ url: "", fields: {} }),
+        deleteObject: async () => {},
+        copyObject: async () => {},
+        headObject: async () => null,
+      } as never,
+      thumbnailUrlExpiresInSeconds: 3600,
     }),
   );
 

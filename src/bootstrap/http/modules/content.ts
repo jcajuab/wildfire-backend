@@ -99,6 +99,8 @@ export const createContentHttpModule = (
       }),
       listContentOptions: new ListContentOptionsUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
+        contentStorage: routerDeps.storage,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
       getContent: new GetContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
