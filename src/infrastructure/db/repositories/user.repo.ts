@@ -1,7 +1,7 @@
-import { asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
-import { users } from "#/infrastructure/db/schema/rbac.sql";
+import { userRoles, users } from "#/infrastructure/db/schema/rbac.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 import { normalizeUsername } from "#/shared/string-utils";
 
@@ -52,17 +52,19 @@ export class UserDbRepository implements UserRepository {
     offset: number;
     limit: number;
     q?: string;
-    sortBy?: "name" | "lastSeenAt";
+    roleId?: string;
+    sortBy?: "name" | "email" | "lastSeenAt";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: UserRecord[]; total: number }> {
     const normalizedQuery = input.q?.trim();
-    const whereClause = normalizedQuery
+    const searchClause = normalizedQuery
       ? or(
           like(users.name, buildLikeContainsPattern(normalizedQuery)),
           like(users.username, buildLikeContainsPattern(normalizedQuery)),
           like(users.email, buildLikeContainsPattern(normalizedQuery)),
         )
       : undefined;
+    const roleClause = input.roleId ? eq(userRoles.roleId, input.roleId) : null;
     const orderBy =
       input.sortBy === "lastSeenAt"
         ? ([
@@ -72,23 +74,60 @@ export class UserDbRepository implements UserRepository {
               : desc(users.lastSeenAt),
             input.sortDirection === "desc" ? desc(users.name) : asc(users.name),
           ] as const)
-        : ([
-            input.sortDirection === "desc" ? desc(users.name) : asc(users.name),
-          ] as const);
+        : input.sortBy === "email"
+          ? ([
+              sql`case when ${users.email} is null then 1 else 0 end`,
+              input.sortDirection === "desc"
+                ? desc(users.email)
+                : asc(users.email),
+              input.sortDirection === "desc"
+                ? desc(users.name)
+                : asc(users.name),
+            ] as const)
+          : ([
+              input.sortDirection === "desc"
+                ? desc(users.name)
+                : asc(users.name),
+            ] as const);
+
+    if (roleClause) {
+      const whereClause = searchClause
+        ? and(searchClause, roleClause)
+        : roleClause;
+      const rows = await db
+        .select({ user: users })
+        .from(users)
+        .innerJoin(userRoles, eq(userRoles.userId, users.id))
+        .where(whereClause)
+        .orderBy(...orderBy)
+        .limit(input.limit)
+        .offset(input.offset);
+
+      const totalResult = await db
+        .select({ value: sql<number>`count(distinct ${users.id})` })
+        .from(users)
+        .innerJoin(userRoles, eq(userRoles.userId, users.id))
+        .where(whereClause);
+
+      return {
+        items: rows.map((row) => mapUserRowToRecord(row.user)),
+        total: Number(totalResult[0]?.value ?? 0),
+      };
+    }
 
     const rows = await db
       .select()
       .from(users)
-      .where(whereClause)
+      .where(searchClause)
       .orderBy(...orderBy)
       .limit(input.limit)
       .offset(input.offset);
 
     const totalQuery = db.select({ value: sql<number>`count(*)` }).from(users);
     const totalResult =
-      whereClause == null
+      searchClause == null
         ? await totalQuery
-        : await totalQuery.where(whereClause);
+        : await totalQuery.where(searchClause);
 
     return {
       items: rows.map(mapUserRowToRecord),

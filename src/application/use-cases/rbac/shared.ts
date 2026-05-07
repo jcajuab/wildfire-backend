@@ -23,7 +23,10 @@ export const filterUsers = (
 
 export const sortUsers = (
   users: readonly UserRecord[],
-  input?: { sortBy?: "name" | "lastSeenAt"; sortDirection?: "asc" | "desc" },
+  input?: {
+    sortBy?: "name" | "email" | "lastSeenAt";
+    sortDirection?: "asc" | "desc";
+  },
 ): UserRecord[] => {
   const sortBy = input?.sortBy ?? "name";
   const direction = input?.sortDirection === "desc" ? -1 : 1;
@@ -46,6 +49,24 @@ export const sortUsers = (
           : left.lastSeenAt.localeCompare(right.lastSeenAt);
       if (lastSeenDelta !== 0) {
         return lastSeenDelta;
+      }
+      return left.name.localeCompare(right.name) * direction;
+    }
+
+    if (sortBy === "email") {
+      if (left.email == null && right.email == null) {
+        return left.name.localeCompare(right.name) * direction;
+      }
+      if (left.email == null) {
+        return 1;
+      }
+      if (right.email == null) {
+        return -1;
+      }
+
+      const emailDelta = left.email.localeCompare(right.email) * direction;
+      if (emailDelta !== 0) {
+        return emailDelta;
       }
       return left.name.localeCompare(right.name) * direction;
     }

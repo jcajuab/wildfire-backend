@@ -154,8 +154,12 @@ export const registerAuthInvitationRoutes = (args: {
       async (c) => {
         const query = c.req.valid("query");
         const result = await useCases.listInvitations.execute({
+          q: query.q,
           page: query.page,
           pageSize: query.pageSize,
+          status: query.status,
+          sortBy: query.sortBy,
+          sortDirection: query.sortDirection,
         });
         return c.json(
           toApiListResponse({

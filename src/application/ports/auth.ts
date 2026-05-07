@@ -113,8 +113,20 @@ export interface InvitationRepository {
   findById(input: {
     id: string;
   }): Promise<{ id: string; email: string; name: string | null } | null>;
-  countAll(): Promise<number>;
-  listPage(input: { page: number; pageSize: number }): Promise<
+  countAll(input?: {
+    q?: string;
+    status?: "pending" | "accepted" | "revoked" | "expired";
+    now?: Date;
+  }): Promise<number>;
+  listPage(input: {
+    page: number;
+    pageSize: number;
+    q?: string;
+    status?: "pending" | "accepted" | "revoked" | "expired";
+    sortBy?: "createdAt" | "email" | "expiresAt";
+    sortDirection?: "asc" | "desc";
+    now?: Date;
+  }): Promise<
     {
       id: string;
       email: string;
