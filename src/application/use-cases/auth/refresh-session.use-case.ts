@@ -235,11 +235,18 @@ export class RefreshSessionUseCase {
       );
     }
 
-    const lastSeenAt = now.toISOString();
-    const user =
-      (await this.deps.userRepository.update(session.userId, {
-        lastSeenAt,
-      })) ?? existingUser;
+    const LAST_SEEN_DEBOUNCE_MS = 5 * 60 * 1000;
+    const existingLastSeen = existingUser.lastSeenAt
+      ? new Date(existingUser.lastSeenAt).getTime()
+      : 0;
+    const shouldUpdateLastSeen =
+      now.getTime() - existingLastSeen > LAST_SEEN_DEBOUNCE_MS;
+
+    const user = shouldUpdateLastSeen
+      ? ((await this.deps.userRepository.update(session.userId, {
+          lastSeenAt: now.toISOString(),
+        })) ?? existingUser)
+      : existingUser;
 
     let isAdmin = false;
     let permissionStrings: string[] = [];
@@ -264,7 +271,7 @@ export class RefreshSessionUseCase {
           await this.deps.authIdentityCache.setPermissions(
             user.id,
             { isAdmin, permissions: permissionStrings },
-            60,
+            300,
           );
         }
       }

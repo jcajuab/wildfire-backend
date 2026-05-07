@@ -6,7 +6,7 @@ import {
   getRedisCommandClient,
 } from "#/infrastructure/redis/client";
 
-const SESSION_TTL_SECONDS = 15;
+const SESSION_TTL_SECONDS = 60;
 const NULL_SENTINEL = "__revoked";
 const NULL_TTL_SECONDS = 5;
 
@@ -145,9 +145,16 @@ export class CachedAuthSessionRepository implements AuthSessionRepository {
     newExpiresAt: Date;
   }): Promise<boolean> {
     const result = await this.inner.updateCurrentJtiOptimistic(input);
-    // Critical: invalidate cache so subsequent requests see the new JTI.
-    // Stale currentJti in cache would cause false-positive family revocation.
-    await this.deleteKey(input.sessionId);
+    if (result) {
+      await this.cacheSession(input.sessionId, {
+        currentJti: input.newJti,
+        previousJti: input.previousJti,
+        previousJtiExpiresAt: input.previousJtiExpiresAt,
+        expiresAt: input.newExpiresAt,
+      });
+    } else {
+      await this.deleteKey(input.sessionId);
+    }
     return result;
   }
 
@@ -156,6 +163,42 @@ export class CachedAuthSessionRepository implements AuthSessionRepository {
     // Family-based revocation: cannot selectively invalidate without index.
     // Short TTL (15s) ensures stale entries expire quickly.
     return count;
+  }
+
+  private async cacheSession(
+    sessionId: string,
+    partial: {
+      currentJti: string;
+      previousJti: string | null;
+      previousJtiExpiresAt: Date | null;
+      expiresAt: Date;
+    },
+  ): Promise<void> {
+    try {
+      const full = await this.inner.findBySessionId(sessionId);
+      if (full == null) {
+        await this.deleteKey(sessionId);
+        return;
+      }
+      const serialized = JSON.stringify({
+        id: full.id,
+        userId: full.userId,
+        familyId: full.familyId,
+        currentJti: partial.currentJti,
+        previousJti: partial.previousJti,
+        previousJtiExpiresAt:
+          partial.previousJtiExpiresAt?.toISOString() ?? null,
+        expiresAt: partial.expiresAt.toISOString(),
+      } satisfies CachedSessionData);
+      const redis = await getRedisCommandClient();
+      await executeRedisCommand((signal) =>
+        redis.withAbortSignal(signal).set(sessionKey(sessionId), serialized, {
+          EX: SESSION_TTL_SECONDS,
+        }),
+      );
+    } catch {
+      await this.deleteKey(sessionId);
+    }
   }
 
   private async deleteKey(sessionId: string): Promise<void> {

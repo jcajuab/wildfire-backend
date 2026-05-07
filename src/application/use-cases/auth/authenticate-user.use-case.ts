@@ -103,12 +103,6 @@ export class AuthenticateUserUseCase {
       );
     }
 
-    const permissions =
-      await this.deps.authorizationRepository.findPermissionsForUser(user.id);
-    const permissionStrings = permissions.map(
-      (permission) => `${permission.resource}:${permission.action}`,
-    );
-
     const issuedAt = this.deps.clock.nowSeconds();
     const expiresAt = issuedAt + this.deps.tokenTtlSeconds;
     const refreshExpiresAt =
@@ -118,13 +112,20 @@ export class AuthenticateUserUseCase {
     const familyId = crypto.randomUUID();
     const refreshSecret = createRefreshTokenSecret();
     const refreshToken = buildRefreshTokenValue(sessionId, refreshSecret);
-    await this.deps.authSessionRepository.create({
-      id: sessionId,
-      userId: user.id,
-      expiresAt: new Date(refreshExpiresAt * 1000),
-      familyId,
-      currentJti: hashRefreshTokenSecret(refreshSecret),
-    });
+
+    const [permissions] = await Promise.all([
+      this.deps.authorizationRepository.findPermissionsForUser(user.id),
+      this.deps.authSessionRepository.create({
+        id: sessionId,
+        userId: user.id,
+        expiresAt: new Date(refreshExpiresAt * 1000),
+        familyId,
+        currentJti: hashRefreshTokenSecret(refreshSecret),
+      }),
+    ]);
+    const permissionStrings = permissions.map(
+      (permission) => `${permission.resource}:${permission.action}`,
+    );
     const accessToken = await this.deps.tokenIssuer.issueToken({
       subject: user.id,
       issuedAt,

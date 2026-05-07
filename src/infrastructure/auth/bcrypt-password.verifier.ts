@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { type PasswordVerifier } from "#/application/ports/auth";
 
 export class BcryptPasswordVerifier implements PasswordVerifier {
@@ -7,6 +6,6 @@ export class BcryptPasswordVerifier implements PasswordVerifier {
     passwordHash: string;
   }): Promise<boolean> {
     const normalizedHash = input.passwordHash.replace(/^\$2y\$/, "$2b$");
-    return bcrypt.compare(input.password, normalizedHash);
+    return Bun.password.verify(input.password, normalizedHash);
   }
 }
