@@ -5,7 +5,7 @@ import {
 } from "#/application/ports/content";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ContentStatus, type ContentType } from "#/domain/content/content";
-import { toContentListItemView } from "./content-view";
+import { getTextPreviewText, toContentListItemView } from "./content-view";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -200,6 +200,10 @@ export class ListContentOptionsUseCase {
       thumbnailUrl: item.thumbnailKey
         ? thumbnailUrlByKey.get(item.thumbnailKey)
         : undefined,
+      textPreviewText:
+        item.type === "TEXT"
+          ? getTextPreviewText(item.textHtmlContent)
+          : undefined,
     }));
   }
 }

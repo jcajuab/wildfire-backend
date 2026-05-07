@@ -69,7 +69,9 @@ function decodeHtmlEntities(value: string): string {
   });
 }
 
-function getTextPreviewText(html: string | null | undefined): string | null {
+export function getTextPreviewText(
+  html: string | null | undefined,
+): string | null {
   if (!html) return null;
   const compactHtml = html.replace(/>\s+</g, "><");
   const withBreaks = compactHtml

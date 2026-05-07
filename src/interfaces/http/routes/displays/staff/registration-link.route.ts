@@ -1,6 +1,7 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { DISPLAY_REGISTRATION_CONSTRAINTS } from "#/application/use-cases/displays";
+import { invalidateServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import {
@@ -264,6 +265,7 @@ export const registerDisplayStaffRegistrationLinkRoutes = (input: {
           keyAlgorithm: payload.keyAlgorithm,
           registrationSignature: payload.registrationSignature,
         });
+        await invalidateServerCache(["displays"]);
         return c.json({ data: registered }, 201);
       },
       ...applicationErrorMappers,
