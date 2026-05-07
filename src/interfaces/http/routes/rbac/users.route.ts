@@ -81,6 +81,7 @@ export const registerRbacUserRoutes = (args: {
               page: query.page,
               pageSize: query.pageSize,
               q: query.q,
+              roleId: query.roleId,
               sortBy: query.sortBy,
               sortDirection: query.sortDirection,
             });

@@ -1,7 +1,42 @@
-import { and, desc, eq, gt, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  like,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { type InvitationRepository } from "#/application/ports/auth";
 import { db } from "#/infrastructure/db/client";
 import { invitations } from "#/infrastructure/db/schema/auth-state.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
+
+type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
+
+const statusWhereClause = (status: InvitationStatus | undefined, now: Date) => {
+  if (status === "accepted") return isNotNull(invitations.acceptedAt);
+  if (status === "revoked") return isNotNull(invitations.revokedAt);
+  if (status === "expired") {
+    return and(
+      isNull(invitations.acceptedAt),
+      isNull(invitations.revokedAt),
+      lte(invitations.expiresAt, now),
+    );
+  }
+  if (status === "pending") {
+    return and(
+      isNull(invitations.acceptedAt),
+      isNull(invitations.revokedAt),
+      gt(invitations.expiresAt, now),
+    );
+  }
+  return undefined;
+};
 
 export class InvitationDbRepository implements InvitationRepository {
   async create(input: {
@@ -128,14 +163,39 @@ export class InvitationDbRepository implements InvitationRepository {
     };
   }
 
-  async countAll(): Promise<number> {
+  async countAll(input?: {
+    q?: string;
+    status?: InvitationStatus;
+    now?: Date;
+  }): Promise<number> {
+    const normalizedQuery = input?.q?.trim();
+    const searchClause = normalizedQuery
+      ? or(
+          like(invitations.email, buildLikeContainsPattern(normalizedQuery)),
+          like(invitations.name, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+    const statusClause = statusWhereClause(
+      input?.status,
+      input?.now ?? new Date(),
+    );
+    const whereClause = and(searchClause, statusClause);
     const rows = await db
       .select({ count: sql<number>`count(*)` })
-      .from(invitations);
+      .from(invitations)
+      .where(whereClause);
     return Number(rows[0]?.count ?? 0);
   }
 
-  async listPage(input: { page: number; pageSize: number }): Promise<
+  async listPage(input: {
+    page: number;
+    pageSize: number;
+    q?: string;
+    status?: InvitationStatus;
+    sortBy?: "createdAt" | "email" | "expiresAt";
+    sortDirection?: "asc" | "desc";
+    now?: Date;
+  }): Promise<
     {
       id: string;
       email: string;
@@ -146,6 +206,26 @@ export class InvitationDbRepository implements InvitationRepository {
       createdAt: Date;
     }[]
   > {
+    const sortBy = input.sortBy ?? "createdAt";
+    const sortDirection = input.sortDirection ?? "desc";
+    const sortColumn =
+      sortBy === "email"
+        ? invitations.email
+        : sortBy === "expiresAt"
+          ? invitations.expiresAt
+          : invitations.createdAt;
+    const normalizedQuery = input.q?.trim();
+    const searchClause = normalizedQuery
+      ? or(
+          like(invitations.email, buildLikeContainsPattern(normalizedQuery)),
+          like(invitations.name, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+    const statusClause = statusWhereClause(
+      input.status,
+      input.now ?? new Date(),
+    );
+    const whereClause = and(searchClause, statusClause);
     const rows = await db
       .select({
         id: invitations.id,
@@ -157,7 +237,11 @@ export class InvitationDbRepository implements InvitationRepository {
         createdAt: invitations.createdAt,
       })
       .from(invitations)
-      .orderBy(desc(invitations.createdAt))
+      .where(whereClause)
+      .orderBy(
+        sortDirection === "asc" ? asc(sortColumn) : desc(sortColumn),
+        desc(invitations.createdAt),
+      )
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize);
 

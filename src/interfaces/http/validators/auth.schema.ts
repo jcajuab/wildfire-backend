@@ -47,8 +47,12 @@ export const postAuthAcceptInvitationSchema = z.object({
 });
 
 export const invitationListQuerySchema = z.object({
+  q: z.string().trim().max(255).optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(250).optional(),
+  status: z.enum(["pending", "accepted", "revoked", "expired"]).optional(),
+  sortBy: z.enum(["createdAt", "email", "expiresAt"]).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
 export const invitationIdParamSchema = z.object({

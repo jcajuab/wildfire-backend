@@ -49,7 +49,8 @@ export const userIdParamSchema = z.object({
 
 export const userListQuerySchema = baseListQuerySchema.extend({
   q: z.string().trim().min(1).max(255).optional(),
-  sortBy: z.enum(["name", "lastSeenAt"]).optional(),
+  roleId: z.string().uuid().optional(),
+  sortBy: z.enum(["name", "email", "lastSeenAt"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 export const userOptionsQuerySchema = optionsQuerySchema;

@@ -21,7 +21,14 @@ export class ListInvitationsUseCase {
     },
   ) {}
 
-  async execute(input?: { page?: number; pageSize?: number }): Promise<{
+  async execute(input?: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+    status?: InvitationStatus;
+    sortBy?: "createdAt" | "email" | "expiresAt";
+    sortDirection?: "asc" | "desc";
+  }): Promise<{
     items: {
       id: string;
       email: string;
@@ -44,8 +51,17 @@ export class ListInvitationsUseCase {
       this.deps.invitationRepository.listPage({
         page,
         pageSize,
+        q: input?.q,
+        status: input?.status,
+        sortBy: input?.sortBy,
+        sortDirection: input?.sortDirection,
+        now,
       }),
-      this.deps.invitationRepository.countAll(),
+      this.deps.invitationRepository.countAll({
+        q: input?.q,
+        status: input?.status,
+        now,
+      }),
     ]);
 
     return {

@@ -38,7 +38,8 @@ export interface UserRepository {
     offset: number;
     limit: number;
     q?: string;
-    sortBy?: "name" | "lastSeenAt";
+    roleId?: string;
+    sortBy?: "name" | "email" | "lastSeenAt";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: UserRecord[]; total: number }>;
   findById(id: string): Promise<UserRecord | null>;

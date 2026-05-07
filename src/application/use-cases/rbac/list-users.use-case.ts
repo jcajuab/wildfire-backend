@@ -9,7 +9,8 @@ export class ListUsersUseCase {
     page?: number;
     pageSize?: number;
     q?: string;
-    sortBy?: "name" | "lastSeenAt";
+    roleId?: string;
+    sortBy?: "name" | "email" | "lastSeenAt";
     sortDirection?: "asc" | "desc";
   }) {
     const page = Math.max(Math.trunc(input?.page ?? 1), 1);
@@ -24,6 +25,7 @@ export class ListUsersUseCase {
         offset,
         limit: pageSize,
         q: input?.q,
+        roleId: input?.roleId,
         sortBy: input?.sortBy,
         sortDirection: input?.sortDirection,
       });
