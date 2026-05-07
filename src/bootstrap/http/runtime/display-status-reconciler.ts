@@ -6,6 +6,7 @@ import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import { type DisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
+import { invalidateServerCache } from "#/infrastructure/redis/server-cache";
 
 const DEFAULT_RECONCILE_INTERVAL_MS = 30_000;
 
@@ -45,6 +46,8 @@ export const startDisplayStatusReconciler = (input: {
           schedulesByDisplayId.set(schedule.displayId, [schedule]);
         }
 
+        let anyStatusChanged = false;
+
         for (const display of allDisplays) {
           const activePlaylistSchedule = selectActiveScheduleByKind(
             schedulesByDisplayId.get(display.id) ?? [],
@@ -71,6 +74,7 @@ export const startDisplayStatusReconciler = (input: {
             continue;
           }
 
+          anyStatusChanged = true;
           await input.displayRepository.setStatus({
             id: display.id,
             status: nextStatus,
@@ -84,6 +88,10 @@ export const startDisplayStatusReconciler = (input: {
             status: nextStatus,
             occurredAt: now.toISOString(),
           });
+        }
+
+        if (anyStatusChanged) {
+          await invalidateServerCache(["displays"]);
         }
       } catch (error) {
         logger.warn(

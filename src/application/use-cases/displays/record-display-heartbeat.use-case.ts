@@ -7,6 +7,7 @@ import { type ScheduleRepository } from "#/application/ports/schedules";
 import { deriveDisplayStatus } from "#/application/use-cases/displays/display-status";
 import { selectActiveScheduleByKind } from "#/domain/schedules/schedule";
 import { type DisplayHeartbeatStore } from "#/infrastructure/redis/display-heartbeat.store";
+import { invalidateServerCache } from "#/infrastructure/redis/server-cache";
 
 export class RecordDisplayHeartbeatUseCase {
   constructor(
@@ -63,6 +64,7 @@ export class RecordDisplayHeartbeatUseCase {
           status: nextStatus,
           occurredAt: now.toISOString(),
         });
+        await invalidateServerCache(["displays"]);
       }
     }
 

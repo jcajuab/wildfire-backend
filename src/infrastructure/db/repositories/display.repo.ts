@@ -33,7 +33,7 @@ const parseDisplayStatus = (
   ) {
     return value;
   }
-  throw new Error(`Invalid display status: ${String(value)}`);
+  return "DOWN";
 };
 
 const buildOutputFilterCondition = (output: string) => {
