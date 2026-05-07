@@ -44,7 +44,7 @@ export const registerDisplayStaffBootstrapRoute = (input: {
           c,
           {
             domains: ["displays", "schedules", "playlists", "content"],
-            ttl: "dynamic",
+            ttl: "reference",
             varyByOwner: true,
           },
           async () => {
