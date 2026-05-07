@@ -72,6 +72,7 @@ const makeDeps = () => {
         name: input.name,
         description: input.description,
         status: "DRAFT",
+        showCounter: input.showCounter ?? false,
         ownerId: input.ownerId,
         createdAt: "2025-01-01T00:00:00.000Z",
         updatedAt: "2025-01-01T00:00:00.000Z",
@@ -225,6 +226,7 @@ describe("Playlists use cases", () => {
     await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
 
@@ -244,6 +246,7 @@ describe("Playlists use cases", () => {
     await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
 
@@ -325,6 +328,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
@@ -349,6 +353,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
@@ -400,6 +405,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     const useCase = new AddPlaylistItemUseCase({
@@ -422,6 +428,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
@@ -468,6 +475,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     const useCase = new AddPlaylistItemUseCase({
@@ -507,6 +515,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     const useCase = new ReplacePlaylistItemsAtomicUseCase({
@@ -544,6 +553,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
     await deps.playlistRepository.addItem({
@@ -612,6 +622,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
 
@@ -693,6 +704,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
 
@@ -784,6 +796,7 @@ describe("Playlists use cases", () => {
     const playlist = await deps.playlistRepository.create({
       name: "Morning",
       description: null,
+      showCounter: false,
       ownerId: "user-1",
     });
 

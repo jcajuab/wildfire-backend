@@ -143,6 +143,7 @@ type EmergencySource = {
 export interface GetDisplayManifestResult {
   notModified: boolean;
   playlistId: string | null;
+  showCounter: boolean;
   playlistVersion: string;
   generatedAt: string;
   playback: ManifestPlaybackState;
@@ -276,6 +277,7 @@ export class GetDisplayManifestUseCase {
         return {
           notModified: true,
           playlistId: null,
+          showCounter: false,
           playlistVersion,
           generatedAt: input.now.toISOString(),
           playback: {
@@ -315,6 +317,7 @@ export class GetDisplayManifestUseCase {
       return {
         notModified: false,
         playlistId: null,
+        showCounter: false,
         playlistVersion,
         generatedAt: input.now.toISOString(),
         playback,
@@ -349,6 +352,7 @@ export class GetDisplayManifestUseCase {
         return {
           notModified: true,
           playlistId: null,
+          showCounter: false,
           playlistVersion,
           generatedAt: input.now.toISOString(),
           playback: {
@@ -370,6 +374,7 @@ export class GetDisplayManifestUseCase {
       return {
         notModified: false,
         playlistId: null,
+        showCounter: false,
         playlistVersion,
         generatedAt: input.now.toISOString(),
         playback,
@@ -459,6 +464,7 @@ export class GetDisplayManifestUseCase {
       return {
         notModified: true,
         playlistId: playlist.id,
+        showCounter: playlist.showCounter,
         playlistVersion,
         generatedAt: input.now.toISOString(),
         playback: {
@@ -492,6 +498,7 @@ export class GetDisplayManifestUseCase {
     return {
       notModified: false,
       playlistId: playlist.id,
+      showCounter: playlist.showCounter,
       playlistVersion,
       generatedAt: input.now.toISOString(),
       playback,

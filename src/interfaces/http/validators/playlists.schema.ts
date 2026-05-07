@@ -6,6 +6,7 @@ export const playlistSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   status: z.enum(["DRAFT", "IN_USE"]),
+  showCounter: z.boolean(),
   itemsCount: z.number().int(),
   totalDuration: z.number().int(),
   createdAt: z.string(),
@@ -78,11 +79,13 @@ export const playlistItemParamSchema = playlistIdParamSchema.merge(
 export const createPlaylistSchema = z.object({
   name: z.string().min(1),
   description: z.string().trim().optional().nullable(),
+  showCounter: z.boolean().default(false),
 });
 
 export const updatePlaylistSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().trim().optional().nullable(),
+  showCounter: z.boolean().optional(),
 });
 
 export const addPlaylistItemSchema = z.object({

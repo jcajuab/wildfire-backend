@@ -64,6 +64,7 @@ export const toPlaylistView = (
   name: playlist.name,
   description: playlist.description,
   status: playlist.status ?? "DRAFT",
+  showCounter: playlist.showCounter ?? false,
   itemsCount: stats?.itemsCount ?? 0,
   totalDuration: stats?.totalDuration ?? 0,
   createdAt: playlist.createdAt,

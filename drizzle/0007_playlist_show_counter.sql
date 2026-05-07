@@ -1,0 +1,1 @@
+ALTER TABLE `playlists` ADD `show_counter` boolean NOT NULL DEFAULT false;

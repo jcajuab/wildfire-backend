@@ -211,6 +211,7 @@ export const registerPlaylistCrudRoutes = (args: {
         const result = await useCases.createPlaylist.execute({
           name: payload.name,
           description: payload.description ?? null,
+          showCounter: payload.showCounter,
           ownerId: c.get("userId"),
         });
         c.set("resourceId", result.id);
@@ -310,6 +311,7 @@ export const registerPlaylistCrudRoutes = (args: {
           ownerId: getOwnerScope(c),
           name: payload.name,
           description: payload.description,
+          showCounter: payload.showCounter,
         });
         await invalidateServerCache(["playlists"]);
         return c.json({ data: result });

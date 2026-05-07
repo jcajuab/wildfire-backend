@@ -7,6 +7,7 @@ export interface PlaylistRecord {
   name: string;
   description: string | null;
   status?: PlaylistStatus;
+  showCounter: boolean;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -62,16 +63,25 @@ export interface PlaylistRepository {
   create(input: {
     name: string;
     description: string | null;
+    showCounter?: boolean;
     ownerId: string;
   }): Promise<PlaylistRecord>;
   update(
     id: string,
-    input: { name?: string; description?: string | null },
+    input: {
+      name?: string;
+      description?: string | null;
+      showCounter?: boolean;
+    },
   ): Promise<PlaylistRecord | null>;
   updateForOwner(
     id: string,
     ownerId: string,
-    input: { name?: string; description?: string | null },
+    input: {
+      name?: string;
+      description?: string | null;
+      showCounter?: boolean;
+    },
   ): Promise<PlaylistRecord | null>;
   updateStatus(id: string, status: PlaylistStatus): Promise<void>;
   delete(id: string): Promise<boolean>;

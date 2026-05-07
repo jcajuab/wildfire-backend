@@ -14,6 +14,7 @@ export class CreatePlaylistUseCase {
   async execute(input: {
     name: string;
     description?: string | null;
+    showCounter?: boolean;
     ownerId: string;
   }) {
     const owner = await this.deps.userRepository.findById(input.ownerId);
@@ -24,6 +25,7 @@ export class CreatePlaylistUseCase {
     const playlist = await this.deps.playlistRepository.create({
       name: input.name,
       description: input.description ?? null,
+      showCounter: input.showCounter ?? false,
       ownerId: input.ownerId,
     });
     return toPlaylistView(playlist, owner, {

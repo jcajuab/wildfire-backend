@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   mysqlEnum,
   mysqlTable,
@@ -18,6 +19,7 @@ export const playlists = mysqlTable(
     ownerId: varchar("owner_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    showCounter: boolean("show_counter").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

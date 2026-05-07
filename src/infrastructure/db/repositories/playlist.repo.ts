@@ -28,6 +28,7 @@ const mapPlaylistRowToRecord = (
     name: row.name,
     description: row.description ?? null,
     status: row.status,
+    showCounter: Boolean(row.showCounter),
     ownerId: row.ownerId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -213,15 +214,18 @@ export class PlaylistDbRepository implements PlaylistRepository {
   async create(input: {
     name: string;
     description: string | null;
+    showCounter?: boolean;
     ownerId: string;
   }): Promise<PlaylistRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
+    const showCounter = input.showCounter ?? false;
     await db.insert(playlists).values({
       id,
       name: input.name,
       description: input.description,
       status: "DRAFT",
+      showCounter,
       ownerId: input.ownerId,
       createdAt: now,
       updatedAt: now,
@@ -232,6 +236,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       name: input.name,
       description: input.description,
       status: "DRAFT",
+      showCounter,
       ownerId: input.ownerId,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -240,7 +245,11 @@ export class PlaylistDbRepository implements PlaylistRepository {
 
   async update(
     id: string,
-    input: { name?: string; description?: string | null },
+    input: {
+      name?: string;
+      description?: string | null;
+      showCounter?: boolean;
+    },
   ): Promise<PlaylistRecord | null> {
     return this.updateInternal(id, input);
   }
@@ -248,14 +257,22 @@ export class PlaylistDbRepository implements PlaylistRepository {
   async updateForOwner(
     id: string,
     ownerId: string,
-    input: { name?: string; description?: string | null },
+    input: {
+      name?: string;
+      description?: string | null;
+      showCounter?: boolean;
+    },
   ): Promise<PlaylistRecord | null> {
     return this.updateInternal(id, input, ownerId);
   }
 
   private async updateInternal(
     id: string,
-    input: { name?: string; description?: string | null },
+    input: {
+      name?: string;
+      description?: string | null;
+      showCounter?: boolean;
+    },
     ownerId?: string,
   ): Promise<PlaylistRecord | null> {
     const existing = ownerId
@@ -269,6 +286,10 @@ export class PlaylistDbRepository implements PlaylistRepository {
         input.description !== undefined
           ? input.description
           : existing.description,
+      showCounter:
+        input.showCounter !== undefined
+          ? input.showCounter
+          : existing.showCounter,
     };
 
     const now = new Date();
@@ -277,6 +298,7 @@ export class PlaylistDbRepository implements PlaylistRepository {
       .set({
         name: next.name,
         description: next.description,
+        showCounter: next.showCounter,
         updatedAt: now,
       })
       .where(

@@ -245,6 +245,7 @@ export const manifestScheduleWindowSchema = z.object({
 
 export const displayManifestSchema = z.object({
   playlistId: z.string().nullable(),
+  showCounter: z.boolean(),
   playlistVersion: z.string(),
   generatedAt: z.string(),
   playback: z.object({

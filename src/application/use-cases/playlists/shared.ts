@@ -119,7 +119,7 @@ export const updatePlaylistForOwner = (
   playlistRepository: PlaylistRepository,
   id: string,
   ownerId: string | undefined,
-  input: { name?: string; description?: string | null },
+  input: { name?: string; description?: string | null; showCounter?: boolean },
 ) => {
   if (ownerId) {
     return playlistRepository.updateForOwner(id, ownerId, input);

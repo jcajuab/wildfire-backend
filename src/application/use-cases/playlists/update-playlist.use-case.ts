@@ -17,6 +17,7 @@ export class UpdatePlaylistUseCase {
     ownerId?: string;
     name?: string;
     description?: string | null;
+    showCounter?: boolean;
   }) {
     const playlist = await updatePlaylistForOwner(
       this.deps.playlistRepository,
@@ -25,6 +26,7 @@ export class UpdatePlaylistUseCase {
       {
         name: input.name,
         description: input.description,
+        showCounter: input.showCounter,
       },
     );
     if (!playlist) throw new NotFoundError("Playlist not found");
