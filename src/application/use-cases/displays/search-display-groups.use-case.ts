@@ -14,6 +14,8 @@ export class SearchDisplayGroupsUseCase {
     q?: string;
     displayId?: string;
     membership?: "member" | "non-member";
+    sortBy?: "name" | "count";
+    sortDirection?: "asc" | "desc";
   }): Promise<{
     items: DisplayGroupRecord[];
     total: number;
@@ -29,6 +31,8 @@ export class SearchDisplayGroupsUseCase {
       q: input?.q,
       displayId: input?.displayId,
       membership: input?.membership,
+      sortBy: input?.sortBy,
+      sortDirection: input?.sortDirection,
     });
     return {
       items: result.items,

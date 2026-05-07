@@ -1210,4 +1210,43 @@ describe("Displays use cases", () => {
     const result = await executePromise;
     expect(result.items).toHaveLength(2);
   });
+
+  test("ListDisplaysUseCase passes sortBy=groupCount to searchPage", async () => {
+    const searchPageInputs: Array<{
+      sortBy?: string;
+      sortDirection?: string;
+    }> = [];
+    const repo: DisplayRepository = {
+      list: async () => [],
+      listForReconciliation: async () => [],
+      listPage: async () => ({ items: [], total: 0 }),
+      findByIds: async () => [],
+      findById: async () => null,
+      findBySlug: async () => null,
+      findByFingerprint: async () => null,
+      findByFingerprintAndOutput: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      createRegisteredDisplay: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      setStatus: async () => {},
+      touchSeen: async () => {},
+      bumpRefreshNonce: async () => false,
+      searchPage: async (input) => {
+        searchPageInputs.push(input);
+        return { items: [], total: 0 };
+      },
+      delete: async () => false,
+    };
+
+    const useCase = new ListDisplaysUseCase({ displayRepository: repo });
+    await useCase.execute({ sortBy: "groupCount", sortDirection: "desc" });
+
+    expect(searchPageInputs).toHaveLength(1);
+    expect(searchPageInputs[0]?.sortBy).toBe("groupCount");
+    expect(searchPageInputs[0]?.sortDirection).toBe("desc");
+  });
 });

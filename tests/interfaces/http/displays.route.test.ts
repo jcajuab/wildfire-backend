@@ -116,6 +116,15 @@ const makeApp = async (
     sortBy?: string;
     sortDirection?: string;
   }> = [];
+  const listPageCalls: Array<{
+    offset: number;
+    limit: number;
+    q?: string;
+    displayId?: string;
+    membership?: string;
+    sortBy?: string;
+    sortDirection?: string;
+  }> = [];
   const registrationAttempts = new Map<
     string,
     {
@@ -202,7 +211,7 @@ const makeApp = async (
       output?: string;
       groupIds?: readonly string[];
       membership?: "ungrouped" | "any";
-      sortBy?: "name" | "status";
+      sortBy?: "name" | "status" | "groupCount";
       sortDirection?: "asc" | "desc";
     }) => {
       searchPageCalls.push(input);
@@ -388,7 +397,10 @@ const makeApp = async (
       q?: string;
       displayId?: string;
       membership?: "member" | "non-member";
+      sortBy?: "name" | "count";
+      sortDirection?: "asc" | "desc";
     }) => {
+      listPageCalls.push(input);
       const normalizedQuery = input.q?.trim().toLowerCase();
       const filtered = displayGroups.filter((group) => {
         if (
@@ -909,6 +921,7 @@ const makeApp = async (
     setDisplayGroupsCalls,
     revokedDisplayIds,
     searchPageCalls,
+    listPageCalls,
     registrationLinks,
   };
 };
@@ -1671,6 +1684,53 @@ describe("Displays routes", () => {
       "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     ]);
     expect(searchPageCalls.at(-1)?.membership).toBe("ungrouped");
+  });
+
+  test("GET /displays passes sortBy=groupCount to searchPage", async () => {
+    const { app, issueToken, searchPageCalls } = await makeApp(
+      ["displays:read"],
+      { failOnBroadReads: true },
+    );
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/displays?sortBy=groupCount&sortDirection=desc",
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(searchPageCalls).toHaveLength(1);
+    expect(searchPageCalls[0]?.sortBy).toBe("groupCount");
+    expect(searchPageCalls[0]?.sortDirection).toBe("desc");
+  });
+
+  test("GET /displays/groups passes sortBy=count to listPage", async () => {
+    const { app, issueToken, listPageCalls } = await makeApp(
+      ["displays:read"],
+      {
+        displayGroups: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            name: "Alpha",
+            colorIndex: 0,
+            displayIds: [],
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    );
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/displays/groups?sortBy=count&sortDirection=desc",
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(listPageCalls).toHaveLength(1);
+    expect(listPageCalls[0]?.sortBy).toBe("count");
+    expect(listPageCalls[0]?.sortDirection).toBe("desc");
   });
 
   test("PUT /displays/:id/groups deduplicates duplicate group ids", async () => {

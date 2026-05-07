@@ -22,7 +22,7 @@ export class ListDisplaysUseCase {
     output?: string;
     groupIds?: string[];
     membership?: "ungrouped" | "any";
-    sortBy?: "name" | "status";
+    sortBy?: "name" | "status" | "groupCount";
     sortDirection?: "asc" | "desc";
   }) {
     const page = Math.max(1, input?.page ?? 1);

@@ -1,4 +1,14 @@
-import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  like,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import {
   type DisplayRecord,
   type DisplayRepository,
@@ -171,7 +181,7 @@ export class DisplayDbRepository implements DisplayRepository {
     output?: string;
     groupIds?: readonly string[];
     membership?: "ungrouped" | "any";
-    sortBy?: "name" | "status";
+    sortBy?: "name" | "status" | "groupCount";
     sortDirection?: "asc" | "desc";
   }): Promise<{
     items: DisplayRecord[];
@@ -212,25 +222,35 @@ export class DisplayDbRepository implements DisplayRepository {
     ].filter((value) => value !== undefined);
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const primaryOrder =
-      input.sortBy === "status"
-        ? input.sortDirection === "desc"
-          ? desc(displayRuntimeStates.status)
-          : asc(displayRuntimeStates.status)
-        : input.sortDirection === "desc"
-          ? desc(displays.name)
-          : asc(displays.name);
-    const secondaryOrder =
-      input.sortBy === "name"
-        ? desc(displays.createdAt)
-        : input.sortDirection === "desc"
-          ? desc(displays.name)
-          : asc(displays.name);
+    let orderClauses: SQL[];
+    if (input.sortBy === "groupCount") {
+      const groupCountExpr = sql<number>`(SELECT COUNT(*) FROM ${displayGroupMembers} WHERE ${displayGroupMembers.displayId} = ${displays.id})`;
+      orderClauses =
+        input.sortDirection === "asc"
+          ? [asc(groupCountExpr), asc(displays.name)]
+          : [desc(groupCountExpr), asc(displays.name)];
+    } else {
+      const primaryOrder =
+        input.sortBy === "status"
+          ? input.sortDirection === "desc"
+            ? desc(displayRuntimeStates.status)
+            : asc(displayRuntimeStates.status)
+          : input.sortDirection === "desc"
+            ? desc(displays.name)
+            : asc(displays.name);
+      const secondaryOrder =
+        input.sortBy === "name"
+          ? desc(displays.createdAt)
+          : input.sortDirection === "desc"
+            ? desc(displays.name)
+            : asc(displays.name);
+      orderClauses = [primaryOrder, secondaryOrder];
+    }
 
     const [rows, totalRows] = await Promise.all([
       buildDisplayQuery()
         .where(whereClause)
-        .orderBy(primaryOrder, secondaryOrder)
+        .orderBy(...orderClauses)
         .limit(limit)
         .offset(offset),
       db

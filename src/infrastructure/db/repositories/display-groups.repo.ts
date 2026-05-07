@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import {
   type DisplayGroupRecord,
   type DisplayGroupRepository,
@@ -70,6 +70,8 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
     q?: string;
     displayId?: string;
     membership?: "member" | "non-member";
+    sortBy?: "name" | "count";
+    sortDirection?: "asc" | "desc";
   }): Promise<{ items: DisplayGroupRecord[]; total: number }> {
     const normalizedQuery = input.q?.trim();
     const conditions = [
@@ -90,6 +92,15 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+    const memberCountExpr = sql<number>`(SELECT COUNT(*) FROM ${displayGroupMembers} WHERE ${displayGroupMembers.groupId} = ${displayGroups.id})`;
+
+    const orderClauses =
+      input.sortBy === "count"
+        ? input.sortDirection === "asc"
+          ? [asc(memberCountExpr), asc(displayGroups.name)]
+          : [desc(memberCountExpr), asc(displayGroups.name)]
+        : [asc(displayGroups.name)];
+
     const [pageRows, totalRows] = await Promise.all([
       db
         .select({
@@ -100,7 +111,7 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
         })
         .from(displayGroups)
         .where(whereClause)
-        .orderBy(asc(displayGroups.name))
+        .orderBy(...orderClauses)
         .limit(input.limit)
         .offset(input.offset),
       db

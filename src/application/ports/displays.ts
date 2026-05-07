@@ -31,7 +31,7 @@ export interface DisplayRepository {
     output?: string;
     groupIds?: readonly string[];
     membership?: "ungrouped" | "any";
-    sortBy?: "name" | "status";
+    sortBy?: "name" | "status" | "groupCount";
     sortDirection?: "asc" | "desc";
   }): Promise<{
     items: DisplayRecord[];
@@ -92,6 +92,8 @@ export interface DisplayGroupRepository {
     q?: string;
     displayId?: string;
     membership?: "member" | "non-member";
+    sortBy?: "name" | "count";
+    sortDirection?: "asc" | "desc";
   }): Promise<{ items: DisplayGroupRecord[]; total: number }>;
   findById(id: string): Promise<DisplayGroupRecord | null>;
   findByName(name: string): Promise<DisplayGroupRecord | null>;

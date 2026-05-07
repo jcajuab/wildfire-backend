@@ -38,7 +38,7 @@ export const displayListQuerySchema = z.object({
       if (value === undefined) return undefined;
       return Array.isArray(value) ? value : [value];
     }),
-  sortBy: z.enum(["name", "status"]).optional(),
+  sortBy: z.enum(["name", "status", "groupCount"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
   membership: z.enum(["ungrouped", "any"]).optional(),
 });
@@ -108,6 +108,8 @@ export const displayGroupListQuerySchema = z.object({
   q: z.string().trim().min(1).max(255).optional(),
   displayId: z.string().uuid().optional(),
   membership: z.enum(["member", "non-member"]).optional(),
+  sortBy: z.enum(["name", "count"]).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 
 export const resolveDisplayGroupsSchema = z.object({

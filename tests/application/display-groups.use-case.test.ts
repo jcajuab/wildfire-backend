@@ -389,6 +389,50 @@ describe("Display group use cases", () => {
     );
   });
 
+  test("SearchDisplayGroupsUseCase passes sortBy=count and sortDirection=desc to repository", async () => {
+    const listPageInputs: Array<{
+      offset: number;
+      limit: number;
+      sortBy?: string;
+      sortDirection?: string;
+    }> = [];
+
+    // Use the existing makeDisplayGroupRepository but capture listPage inputs
+    const baseRepo = makeDisplayGroupRepository([
+      {
+        id: "group-1",
+        name: "Alpha",
+        displayIds: ["d1", "d2", "d3"],
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "group-2",
+        name: "Beta",
+        displayIds: [],
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      },
+    ]);
+    const wrappedRepo = {
+      ...baseRepo,
+      listPage: async (input: Parameters<typeof baseRepo.listPage>[0]) => {
+        listPageInputs.push(input);
+        return baseRepo.listPage(input);
+      },
+    };
+
+    const useCase = new SearchDisplayGroupsUseCase({
+      displayGroupRepository: wrappedRepo,
+    });
+
+    await useCase.execute({ sortBy: "count", sortDirection: "desc" });
+
+    expect(listPageInputs).toHaveLength(1);
+    expect(listPageInputs[0]?.sortBy).toBe("count");
+    expect(listPageInputs[0]?.sortDirection).toBe("desc");
+  });
+
   test("ResolveDisplayGroupsUseCase rejects empty names", async () => {
     const groupRepository = makeDisplayGroupRepository([]);
     const useCase = new ResolveDisplayGroupsUseCase({

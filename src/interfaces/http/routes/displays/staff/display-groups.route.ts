@@ -86,6 +86,8 @@ export const registerDisplayStaffGroupRoutes = (input: {
               q: query.q,
               displayId: query.displayId,
               membership: query.membership,
+              sortBy: query.sortBy,
+              sortDirection: query.sortDirection,
             });
             return toApiListResponse({
               items: result.items,

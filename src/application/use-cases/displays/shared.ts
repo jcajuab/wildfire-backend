@@ -25,7 +25,7 @@ export const listDisplaysWithFallback = (input: {
   output?: string;
   groupIds?: string[];
   membership?: "ungrouped" | "any";
-  sortBy?: "name" | "status";
+  sortBy?: "name" | "status" | "groupCount";
   sortDirection?: "asc" | "desc";
 }): Promise<{ items: DisplayRecord[]; total: number }> =>
   input.displayRepository.searchPage({
