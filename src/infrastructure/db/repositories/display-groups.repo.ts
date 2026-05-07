@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
 import {
   type DisplayGroupRecord,
   type DisplayGroupRepository,
@@ -8,6 +8,7 @@ import {
   displayGroupMembers,
   displayGroups,
 } from "#/infrastructure/db/schema/displays.sql";
+import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 const mapRowsToGroupRecords = (
   rows: Array<{
@@ -61,6 +62,90 @@ export class DisplayGroupDbRepository implements DisplayGroupRepository {
   async list(): Promise<DisplayGroupRecord[]> {
     const rows = await buildDisplayGroupQuery();
     return mapRowsToGroupRecords(rows);
+  }
+
+  async listPage(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+    displayId?: string;
+    membership?: "member" | "non-member";
+  }): Promise<{ items: DisplayGroupRecord[]; total: number }> {
+    const normalizedQuery = input.q?.trim();
+    const conditions = [
+      normalizedQuery
+        ? like(displayGroups.name, buildLikeContainsPattern(normalizedQuery))
+        : undefined,
+    ].filter((value) => value !== undefined);
+
+    if (input.displayId) {
+      const membership = input.membership ?? "member";
+      const memberSubquery = sql`SELECT 1 FROM ${displayGroupMembers} WHERE ${displayGroupMembers.groupId} = ${displayGroups.id} AND ${displayGroupMembers.displayId} = ${input.displayId}`;
+      conditions.push(
+        membership === "member"
+          ? sql`EXISTS (${memberSubquery})`
+          : sql`NOT EXISTS (${memberSubquery})`,
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [pageRows, totalRows] = await Promise.all([
+      db
+        .select({
+          id: displayGroups.id,
+          name: displayGroups.name,
+          createdAt: displayGroups.createdAt,
+          updatedAt: displayGroups.updatedAt,
+        })
+        .from(displayGroups)
+        .where(whereClause)
+        .orderBy(asc(displayGroups.name))
+        .limit(input.limit)
+        .offset(input.offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(displayGroups)
+        .where(whereClause),
+    ]);
+
+    const pageGroupIds = pageRows.map((row) => row.id);
+    const memberRows =
+      pageGroupIds.length > 0
+        ? await db
+            .select({
+              groupId: displayGroupMembers.groupId,
+              displayId: displayGroupMembers.displayId,
+            })
+            .from(displayGroupMembers)
+            .where(inArray(displayGroupMembers.groupId, pageGroupIds))
+        : [];
+
+    const membersByGroupId = new Map<string, string[]>();
+    for (const row of memberRows) {
+      const list = membersByGroupId.get(row.groupId) ?? [];
+      list.push(row.displayId);
+      membersByGroupId.set(row.groupId, list);
+    }
+
+    const items: DisplayGroupRecord[] = pageRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      displayIds: membersByGroupId.get(row.id) ?? [],
+      createdAt:
+        row.createdAt instanceof Date
+          ? row.createdAt.toISOString()
+          : row.createdAt,
+      updatedAt:
+        row.updatedAt instanceof Date
+          ? row.updatedAt.toISOString()
+          : row.updatedAt,
+    }));
+
+    return {
+      items,
+      total: Number(totalRows[0]?.count ?? 0),
+    };
   }
 
   async findById(id: string): Promise<DisplayGroupRecord | null> {

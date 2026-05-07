@@ -36,7 +36,9 @@ export {
   RegisterDisplayUseCase,
 } from "./register-display.use-case";
 export { RequestDisplayRefreshUseCase } from "./request-display-refresh.use-case";
+export { ResolveDisplayGroupsUseCase } from "./resolve-display-groups.use-case";
 export { RotateDisplayRegistrationAttemptUseCase } from "./rotate-display-registration-attempt.use-case";
+export { SearchDisplayGroupsUseCase } from "./search-display-groups.use-case";
 export { SetDisplayGroupsUseCase } from "./set-display-groups.use-case";
 export { StoreDisplaySnapshotUseCase } from "./store-display-snapshot.use-case";
 export { UnregisterDisplayUseCase } from "./unregister-display.use-case";

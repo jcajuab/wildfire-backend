@@ -83,6 +83,7 @@ export const registerDisplayStaffDisplayRoutes = (input: {
               status: query.status,
               output: query.output,
               groupIds: query.groupIds,
+              membership: query.membership,
               sortBy: query.sortBy,
               sortDirection: query.sortDirection,
             });

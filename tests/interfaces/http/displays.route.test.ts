@@ -112,6 +112,7 @@ const makeApp = async (
     status?: string;
     output?: string;
     groupIds?: readonly string[];
+    membership?: "ungrouped" | "any";
     sortBy?: string;
     sortDirection?: string;
   }> = [];
@@ -200,6 +201,7 @@ const makeApp = async (
       status?: "PROCESSING" | "READY" | "LIVE" | "DOWN";
       output?: string;
       groupIds?: readonly string[];
+      membership?: "ungrouped" | "any";
       sortBy?: "name" | "status";
       sortDirection?: "asc" | "desc";
     }) => {
@@ -228,6 +230,12 @@ const makeApp = async (
           if (!matchesGroup) {
             return false;
           }
+        }
+        if (input.membership === "ungrouped") {
+          const isInAnyGroup = displayGroups.some((group) =>
+            group.displayIds.includes(display.id),
+          );
+          if (isInAnyGroup) return false;
         }
         if (!normalizedQuery) {
           return true;
@@ -374,6 +382,40 @@ const makeApp = async (
 
   const displayGroupRepository = {
     list: async () => [...displayGroups],
+    listPage: async (input: {
+      offset: number;
+      limit: number;
+      q?: string;
+      displayId?: string;
+      membership?: "member" | "non-member";
+    }) => {
+      const normalizedQuery = input.q?.trim().toLowerCase();
+      const filtered = displayGroups.filter((group) => {
+        if (
+          normalizedQuery &&
+          !group.name.toLowerCase().includes(normalizedQuery)
+        ) {
+          return false;
+        }
+        if (input.displayId) {
+          const isMember = group.displayIds.includes(input.displayId);
+          if (input.membership === "non-member") {
+            if (isMember) return false;
+          } else {
+            // default to "member"
+            if (!isMember) return false;
+          }
+        }
+        return true;
+      });
+      const sorted = [...filtered].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      );
+      return {
+        items: sorted.slice(input.offset, input.offset + input.limit),
+        total: sorted.length,
+      };
+    },
     findById: async (id: string) =>
       displayGroups.find((group) => group.id === id) ?? null,
     findByName: async (name: string) =>
@@ -1401,6 +1443,234 @@ describe("Displays routes", () => {
     expect(response.status).toBe(204);
     expect(revokedDisplayIds).toEqual([displayId]);
     expect(displays).toHaveLength(0);
+  });
+
+  test("GET /displays/groups returns paginated payload", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displayGroups: Array.from({ length: 7 }, (_, index) => ({
+        id: `00000000-0000-4000-8000-00000000000${index}`,
+        name: `Group ${String.fromCharCode(65 + index)}`,
+        colorIndex: 0,
+        displayIds: [],
+        createdAt: "2025-01-01T00:00:00.000Z",
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      })),
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/displays/groups?page=2&pageSize=5", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{ id: string; name: string }>;
+      meta: { total: number; page: number; pageSize: number };
+    }>(response);
+    expect(body.data).toHaveLength(2);
+    expect(body.data.map((group) => group.name)).toEqual([
+      "Group F",
+      "Group G",
+    ]);
+    expect(body.meta.total).toBe(7);
+    expect(body.meta.page).toBe(2);
+    expect(body.meta.pageSize).toBe(5);
+  });
+
+  test("GET /displays/groups filters by q", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displayGroups: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Lobby",
+          colorIndex: 0,
+          displayIds: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Cafeteria",
+          colorIndex: 0,
+          displayIds: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request("/displays/groups?q=lob", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ name: string }> }>(response);
+    expect(body.data.map((group) => group.name)).toEqual(["Lobby"]);
+  });
+
+  test("GET /displays/groups filters by displayId+member", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displayGroups: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Lobby",
+          colorIndex: 0,
+          displayIds: [displayId],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Cafeteria",
+          colorIndex: 0,
+          displayIds: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/displays/groups?displayId=${displayId}&membership=member`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string }> }>(response);
+    expect(body.data.map((group) => group.id)).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+    ]);
+  });
+
+  test("GET /displays/groups filters by displayId+non-member", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      displayGroups: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Lobby",
+          colorIndex: 0,
+          displayIds: [displayId],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Cafeteria",
+          colorIndex: 0,
+          displayIds: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/displays/groups?displayId=${displayId}&membership=non-member`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string }> }>(response);
+    expect(body.data.map((group) => group.id)).toEqual([
+      "22222222-2222-4222-8222-222222222222",
+    ]);
+  });
+
+  test("POST /displays/groups/resolve maps existing names and creates new ones", async () => {
+    const { app, issueToken } = await makeApp(["displays:update"], {
+      displayGroups: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Lobby",
+          colorIndex: 0,
+          displayIds: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request("/displays/groups/resolve", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ names: ["  lobby ", "Cafeteria", "Lobby"] }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: { items: Array<{ id: string; name: string }> };
+    }>(response);
+    expect(body.data.items).toHaveLength(2);
+    expect(body.data.items[0]).toEqual({
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Lobby",
+    });
+    expect(body.data.items[1]?.name).toBe("Cafeteria");
+  });
+
+  test("POST /displays/groups/resolve requires displays:update", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"]);
+    const token = await issueToken();
+
+    const response = await app.request("/displays/groups/resolve", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ names: ["Lobby"] }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  test("GET /displays?membership=ungrouped returns only displays not in any group", async () => {
+    const { app, issueToken, searchPageCalls } = await makeApp(
+      ["displays:read"],
+      {
+        displays: [
+          makeDisplay({
+            id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            name: "Grouped",
+            slug: "grouped",
+          }),
+          makeDisplay({
+            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            name: "Ungrouped",
+            slug: "ungrouped",
+          }),
+        ],
+        displayGroups: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            name: "Lobby",
+            colorIndex: 0,
+            displayIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    );
+    const token = await issueToken();
+
+    const response = await app.request("/displays?membership=ungrouped", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string }> }>(response);
+    expect(body.data.map((display) => display.id)).toEqual([
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    ]);
+    expect(searchPageCalls.at(-1)?.membership).toBe("ungrouped");
   });
 
   test("PUT /displays/:id/groups deduplicates duplicate group ids", async () => {

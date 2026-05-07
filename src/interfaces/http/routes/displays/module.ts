@@ -50,7 +50,9 @@ import {
   type ListDisplaysUseCase,
   type RegisterDisplayUseCase,
   type RequestDisplayRefreshUseCase,
+  type ResolveDisplayGroupsUseCase,
   type RotateDisplayRegistrationAttemptUseCase,
+  type SearchDisplayGroupsUseCase,
   type SetDisplayGroupsUseCase,
   type UnregisterDisplayUseCase,
   type UpdateDisplayGroupUseCase,
@@ -104,6 +106,8 @@ export interface DisplaysRouterUseCases {
   getDisplayManifest: GetDisplayManifestUseCase;
   updateDisplay: UpdateDisplayUseCase;
   listDisplayGroups: ListDisplayGroupsUseCase;
+  searchDisplayGroups: SearchDisplayGroupsUseCase;
+  resolveDisplayGroups: ResolveDisplayGroupsUseCase;
   createDisplayGroup: CreateDisplayGroupUseCase;
   updateDisplayGroup: UpdateDisplayGroupUseCase;
   deleteDisplayGroup: DeleteDisplayGroupUseCase;

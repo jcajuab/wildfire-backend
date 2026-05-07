@@ -24,6 +24,7 @@ export const listDisplaysWithFallback = (input: {
   status?: DisplayStatus;
   output?: string;
   groupIds?: string[];
+  membership?: "ungrouped" | "any";
   sortBy?: "name" | "status";
   sortDirection?: "asc" | "desc";
 }): Promise<{ items: DisplayRecord[]; total: number }> =>
@@ -34,6 +35,7 @@ export const listDisplaysWithFallback = (input: {
     status: input.status,
     output: input.output,
     groupIds: input.groupIds,
+    membership: input.membership,
     sortBy: input.sortBy,
     sortDirection: input.sortDirection,
   });

@@ -170,6 +170,7 @@ export class DisplayDbRepository implements DisplayRepository {
     status?: DisplayStatus;
     output?: string;
     groupIds?: readonly string[];
+    membership?: "ungrouped" | "any";
     sortBy?: "name" | "status";
     sortDirection?: "asc" | "desc";
   }): Promise<{
@@ -198,6 +199,9 @@ export class DisplayDbRepository implements DisplayRepository {
         ? buildOutputFilterCondition(normalizedOutput)
         : undefined,
       filteredDisplayIds ? inArray(displays.id, filteredDisplayIds) : undefined,
+      input.membership === "ungrouped"
+        ? sql`NOT EXISTS (SELECT 1 FROM ${displayGroupMembers} WHERE ${displayGroupMembers.displayId} = ${displays.id})`
+        : undefined,
       normalizedQuery
         ? or(
             like(displays.name, buildLikeContainsPattern(normalizedQuery)),

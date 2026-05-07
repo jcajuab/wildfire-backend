@@ -40,6 +40,7 @@ export const displayListQuerySchema = z.object({
     }),
   sortBy: z.enum(["name", "status"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
+  membership: z.enum(["ungrouped", "any"]).optional(),
 });
 
 export const displayOptionsQuerySchema = z.object({
@@ -100,6 +101,31 @@ export const displayGroupSchema = z.object({
 
 export const displayGroupListResponseSchema =
   apiListResponseSchema(displayGroupSchema);
+
+export const displayGroupListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  q: z.string().trim().min(1).max(255).optional(),
+  displayId: z.string().uuid().optional(),
+  membership: z.enum(["member", "non-member"]).optional(),
+});
+
+export const resolveDisplayGroupsSchema = z.object({
+  names: z.array(z.string().trim().min(1).max(120)).min(1).max(100),
+});
+
+export const resolveDisplayGroupsRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  type: "object",
+  properties: {
+    names: {
+      type: "array",
+      items: { type: "string", minLength: 1, maxLength: 120 },
+      minItems: 1,
+      maxItems: 100,
+    },
+  },
+  required: ["names"],
+};
 
 export const createDisplayGroupRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",

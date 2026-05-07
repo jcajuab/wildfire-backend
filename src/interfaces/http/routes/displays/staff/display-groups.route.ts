@@ -7,7 +7,11 @@ import {
 } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
-import { apiResponseSchema, conflict } from "#/interfaces/http/responses";
+import {
+  apiResponseSchema,
+  conflict,
+  toApiListResponse,
+} from "#/interfaces/http/responses";
 import {
   applicationErrorMappers,
   mapErrorToResponse,
@@ -17,8 +21,12 @@ import {
   createDisplayGroupRequestBodySchema,
   createDisplayGroupSchema,
   displayGroupIdParamSchema,
+  displayGroupListQuerySchema,
+  displayGroupListResponseSchema,
   displayGroupSchema,
   displayIdParamSchema,
+  resolveDisplayGroupsRequestBodySchema,
+  resolveDisplayGroupsSchema,
   setDisplayGroupsRequestBodySchema,
   setDisplayGroupsSchema,
   updateDisplayGroupRequestBodySchema,
@@ -27,6 +35,7 @@ import {
 import {
   validateJson,
   validateParams,
+  validateQuery,
 } from "#/interfaces/http/validators/standard-validator";
 import { displayTags } from "../contracts";
 import {
@@ -49,15 +58,16 @@ export const registerDisplayStaffGroupRoutes = (input: {
       resourceType: "display-group",
     }),
     ...authorize("displays:read"),
+    validateQuery(displayGroupListQuerySchema),
     describeRoute({
-      description: "List display groups",
+      description: "List display groups (paginated)",
       tags: displayTags,
       responses: {
         200: {
           description: "Display groups",
           content: {
             "application/json": {
-              schema: resolver(apiResponseSchema(z.array(displayGroupSchema))),
+              schema: resolver(displayGroupListResponseSchema),
             },
           },
         },
@@ -69,12 +79,82 @@ export const registerDisplayStaffGroupRoutes = (input: {
           c,
           { domains: ["displays"], ttl: "reference" },
           async () => {
-            const items = await useCases.listDisplayGroups.execute();
-            return { data: items };
+            const query = c.req.valid("query");
+            const result = await useCases.searchDisplayGroups.execute({
+              page: query.page,
+              pageSize: query.pageSize,
+              q: query.q,
+              displayId: query.displayId,
+              membership: query.membership,
+            });
+            return toApiListResponse({
+              items: result.items,
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
           },
         );
       },
       ...applicationErrorMappers,
+    ),
+  );
+
+  router.post(
+    "/groups/resolve",
+    setAction("displays.group.resolve", {
+      route: "/displays/groups/resolve",
+      resourceType: "display-group",
+    }),
+    ...authorize("displays:update"),
+    requireAdmin,
+    validateJson(resolveDisplayGroupsSchema),
+    describeRoute({
+      description: "Resolve display group names to IDs (creating if missing)",
+      tags: displayTags,
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: resolveDisplayGroupsRequestBodySchema,
+          },
+        },
+        required: true,
+      },
+      responses: {
+        200: {
+          description: "Resolved display groups",
+          content: {
+            "application/json": {
+              schema: resolver(
+                apiResponseSchema(
+                  z.object({
+                    items: z.array(
+                      z.object({
+                        id: z.string().uuid(),
+                        name: z.string(),
+                      }),
+                    ),
+                  }),
+                ),
+              ),
+            },
+          },
+        },
+        409: { description: "Group name conflict" },
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const payload = c.req.valid("json");
+        const result = await useCases.resolveDisplayGroups.execute({
+          names: payload.names,
+        });
+        await invalidateServerCache(["displays"]);
+        return c.json({ data: result });
+      },
+      ...applicationErrorMappers,
+      mapErrorToResponse(DisplayGroupConflictError, conflict),
     ),
   );
 

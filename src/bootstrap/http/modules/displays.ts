@@ -18,7 +18,9 @@ import {
   ListDisplaysUseCase,
   RegisterDisplayUseCase,
   RequestDisplayRefreshUseCase,
+  ResolveDisplayGroupsUseCase,
   RotateDisplayRegistrationAttemptUseCase,
+  SearchDisplayGroupsUseCase,
   SetDisplayGroupsUseCase,
   UnregisterDisplayUseCase,
   UpdateDisplayGroupUseCase,
@@ -111,6 +113,12 @@ export const createDisplaysHttpModule = (
         lifecycleEventPublisher: routerDeps.lifecycleEventPublisher,
       }),
       listDisplayGroups: new ListDisplayGroupsUseCase({
+        displayGroupRepository: routerDeps.repositories.displayGroupRepository,
+      }),
+      searchDisplayGroups: new SearchDisplayGroupsUseCase({
+        displayGroupRepository: routerDeps.repositories.displayGroupRepository,
+      }),
+      resolveDisplayGroups: new ResolveDisplayGroupsUseCase({
         displayGroupRepository: routerDeps.repositories.displayGroupRepository,
       }),
       createDisplayGroup: new CreateDisplayGroupUseCase({
