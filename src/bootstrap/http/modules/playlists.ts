@@ -62,6 +62,8 @@ export const createPlaylistsHttpModule = (
       updatePlaylist: new UpdatePlaylistUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
         userRepository: routerDeps.repositories.userRepository,
+        scheduleRepository: routerDeps.repositories.scheduleRepository,
+        displayEventPublisher: routerDeps.displayEventPublisher,
       }),
       deletePlaylist: new DeletePlaylistUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
@@ -90,6 +92,8 @@ export const createPlaylistsHttpModule = (
         contentRepository: routerDeps.repositories.contentRepository,
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
+        contentStorage: routerDeps.storage,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
       reorderPlaylistItems: new ReorderPlaylistItemsUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,

@@ -1,5 +1,9 @@
 import { ValidationError } from "#/application/errors/validation";
-import { type ContentRepository } from "#/application/ports/content";
+import {
+  type ContentRecord,
+  type ContentRepository,
+  type ContentStorage,
+} from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import {
   type PlaylistItemAtomicWriteInput,
@@ -25,8 +29,41 @@ export class ReplacePlaylistItemsAtomicUseCase {
       contentRepository: ContentRepository;
       scheduleRepository?: ScheduleRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
+      contentStorage?: ContentStorage;
+      thumbnailUrlExpiresInSeconds?: number;
     },
   ) {}
+
+  private async buildThumbnailUrlMap(
+    contents: ContentRecord[],
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (!this.deps.contentStorage) return map;
+
+    const keys = Array.from(
+      new Set(
+        contents
+          .map((c) => c.thumbnailKey)
+          .filter((k): k is string => k != null),
+      ),
+    );
+
+    await Promise.all(
+      keys.map(async (key) => {
+        try {
+          const url = await this.deps.contentStorage?.getPresignedDownloadUrl({
+            key,
+            expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds ?? 3600,
+          });
+          if (url) map.set(key, url);
+        } catch {
+          // best-effort
+        }
+      }),
+    );
+
+    return map;
+  }
 
   async execute(input: {
     ownerId?: string;
@@ -167,13 +204,18 @@ export class ReplacePlaylistItemsAtomicUseCase {
     const replacedContentById = new Map(
       replacedContents.map((content) => [content.id, content]),
     );
+    const thumbnailUrlByKey = await this.buildThumbnailUrlMap(replacedContents);
 
     return replaced.map((item) => {
       const content = replacedContentById.get(item.contentId);
       if (!content) {
         throw new NotFoundError("Content not found");
       }
-      return toPlaylistItemView(item, content);
+      return toPlaylistItemView(item, content, {
+        thumbnailUrl: content.thumbnailKey
+          ? (thumbnailUrlByKey.get(content.thumbnailKey) ?? null)
+          : null,
+      });
     });
   }
 }

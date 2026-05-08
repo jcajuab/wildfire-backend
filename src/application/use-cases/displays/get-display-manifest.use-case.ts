@@ -256,6 +256,7 @@ export class GetDisplayManifestUseCase {
       };
       const playlistVersion = await this.computePlaylistVersion({
         playlistId: null,
+        showCounter: false,
         refreshNonce: display.refreshNonce ?? 0,
         playback: versionPlayback,
         items: [
@@ -342,6 +343,7 @@ export class GetDisplayManifestUseCase {
     if (activeSchedules.length === 0) {
       const playlistVersion = await this.computePlaylistVersion({
         playlistId: null,
+        showCounter: false,
         refreshNonce: display.refreshNonce ?? 0,
         playback: versionPlayback,
         items: [],
@@ -445,6 +447,7 @@ export class GetDisplayManifestUseCase {
 
     const playlistVersion = await this.computePlaylistVersion({
       playlistId: playlist.id,
+      showCounter: playlist.showCounter,
       refreshNonce: display.refreshNonce ?? 0,
       playback: versionPlayback,
       items: manifestItemSources.map((item) => ({
@@ -632,6 +635,7 @@ export class GetDisplayManifestUseCase {
 
   private async computePlaylistVersion(input: {
     playlistId: string | null;
+    showCounter: boolean;
     refreshNonce: number;
     playback: ManifestVersionPlaybackState;
     items: Array<{
@@ -648,6 +652,7 @@ export class GetDisplayManifestUseCase {
   }): Promise<string> {
     const versionPayload = JSON.stringify({
       playlistId: input.playlistId,
+      showCounter: input.showCounter,
       refreshNonce: input.refreshNonce,
       playback: {
         mode: input.playback.mode,
