@@ -128,6 +128,7 @@ export const createContentHttpModule = (
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
         userRepository: routerDeps.repositories.userRepository,
+        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
       }),
       deleteContent: new DeleteContentUseCase({
         contentRepository: routerDeps.repositories.contentRepository,

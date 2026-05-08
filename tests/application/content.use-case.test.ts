@@ -885,6 +885,7 @@ describe("Content use cases", () => {
     const useCase = new UpdateContentUseCase({
       contentRepository: repository,
       userRepository,
+      thumbnailUrlExpiresInSeconds: 3600,
     });
 
     records.push({
@@ -924,6 +925,7 @@ describe("Content use cases", () => {
       contentRepository: repository,
       contentStorage: storage.storage,
       userRepository,
+      thumbnailUrlExpiresInSeconds: 3600,
     });
 
     const id = "11111111-1111-4111-8111-111111111111";
@@ -989,6 +991,7 @@ describe("Content use cases", () => {
     const useCase = new UpdateContentUseCase({
       contentRepository: repository,
       userRepository,
+      thumbnailUrlExpiresInSeconds: 3600,
     });
 
     await expect(

@@ -177,6 +177,7 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
   const updateContentUseCase = new UpdateContentUseCase({
     contentRepository: config.repositories.contentRepository,
     userRepository: config.repositories.userRepository,
+    thumbnailUrlExpiresInSeconds: 3600,
   });
 
   const deleteContentUseCase = new DeleteContentUseCase({

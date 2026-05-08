@@ -1,5 +1,6 @@
 import { ValidationError } from "#/application/errors/validation";
 import {
+  type ContentRecord,
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
@@ -26,6 +27,7 @@ export class UpdateContentUseCase {
       scheduleRepository?: ScheduleRepository;
       displayEventPublisher?: DisplayStreamEventPublisher;
       userRepository: UserRepository;
+      thumbnailUrlExpiresInSeconds: number;
     },
   ) {}
 
@@ -200,9 +202,29 @@ export class UpdateContentUseCase {
       }
     }
 
-    const user = await this.deps.userRepository.findById(updated.ownerId);
+    const [user, thumbnailUrl] = await Promise.all([
+      this.deps.userRepository.findById(updated.ownerId),
+      this.buildThumbnailUrl(updated),
+    ]);
     return toContentView(updated, user, {
       fallbackOwner: input.currentUser,
+      thumbnailUrl,
     });
+  }
+
+  private async buildThumbnailUrl(
+    record: ContentRecord,
+  ): Promise<string | undefined> {
+    if (!record.thumbnailKey || !this.deps.contentStorage) {
+      return undefined;
+    }
+    try {
+      return await this.deps.contentStorage.getPresignedDownloadUrl({
+        key: record.thumbnailKey,
+        expiresInSeconds: this.deps.thumbnailUrlExpiresInSeconds,
+      });
+    } catch {
+      return undefined;
+    }
   }
 }
