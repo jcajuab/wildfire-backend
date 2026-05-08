@@ -54,6 +54,7 @@ export const contentListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(500).default(20),
   status: contentStatusSchema.optional(),
   type: contentTypeSchema.optional(),
+  ownerId: z.string().uuid().optional(),
   search: z.string().trim().min(1).max(255).optional(),
   sortBy: z
     .enum(["createdAt", "title", "fileSize", "type"])

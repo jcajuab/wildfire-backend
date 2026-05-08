@@ -113,7 +113,7 @@ export const registerPlaylistCrudRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const ownerId = getOwnerScope(c);
+        const scopedOwnerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
           {
@@ -123,6 +123,8 @@ export const registerPlaylistCrudRoutes = (args: {
           },
           async () => {
             const query = c.req.valid("query");
+            const ownerId =
+              c.get("isAdmin") === true ? query.ownerId : scopedOwnerId;
             const result = await useCases.listPlaylists.execute({
               ownerId,
               page: query.page,

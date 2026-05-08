@@ -112,12 +112,14 @@ export const registerContentReadRoutes = (args: {
     }),
     withRouteErrorHandling(
       async (c) => {
-        const ownerId = getOwnerScope(c);
+        const scopedOwnerId = getOwnerScope(c);
         return jsonWithServerCache(
           c,
           { domains: ["content"], ttl: "default", varyByOwner: true },
           async () => {
             const query = c.req.valid("query");
+            const ownerId =
+              c.get("isAdmin") === true ? query.ownerId : scopedOwnerId;
             const result = await useCases.listContent.execute({
               ...query,
               ownerId,

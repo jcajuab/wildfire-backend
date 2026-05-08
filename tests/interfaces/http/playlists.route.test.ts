@@ -438,6 +438,39 @@ describe("Playlists routes", () => {
     expect(body.data.map((item) => item.name)).toContain("Shared Loop");
   });
 
+  test("GET /playlists filters by ownerId for admins", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:read"]);
+    const ownerA = "11111111-1111-4111-8111-111111111111";
+    const ownerB = "22222222-2222-4222-8222-222222222222";
+    playlists.push({
+      id: "33333333-3333-4333-8333-333333333333",
+      name: "Owner A Loop",
+      description: null,
+      showCounter: false,
+      ownerId: ownerA,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    playlists.push({
+      id: "44444444-4444-4444-8444-444444444444",
+      name: "Owner B Loop",
+      description: null,
+      showCounter: false,
+      ownerId: ownerB,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken({ isAdmin: true });
+    const response = await app.request(`/playlists?ownerId=${ownerB}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ name: string }> }>(response);
+    expect(body.data.map((item) => item.name)).toEqual(["Owner B Loop"]);
+  });
+
   test("GET /playlists returns first 3 previewItems in sequence order", async () => {
     const { app, issueToken, playlists, items } = await makeApp([
       "playlists:read",

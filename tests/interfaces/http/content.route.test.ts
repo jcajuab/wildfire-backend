@@ -386,6 +386,51 @@ describe("Content routes", () => {
     expect(body.data.map((item) => item.title)).toContain("Shared Poster");
   });
 
+  test("GET /content filters by ownerId for admins", async () => {
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const ownerA = "11111111-1111-4111-8111-111111111111";
+    const ownerB = "22222222-2222-4222-8222-222222222222";
+    records.push({
+      id: "33333333-3333-4333-8333-333333333333",
+      title: "Owner A Poster",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/33333333-3333-4333-8333-333333333333.png",
+      checksum: "owner-a",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: ownerA,
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    records.push({
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Owner B Poster",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: "content/images/44444444-4444-4444-8444-444444444444.png",
+      checksum: "owner-b",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: ownerB,
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    const token = await issueToken({ isAdmin: true });
+    const response = await app.request(`/content?ownerId=${ownerB}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ title: string }> }>(response);
+    expect(body.data.map((item) => item.title)).toEqual(["Owner B Poster"]);
+  });
+
   test("GET /content/options returns filtered content options", async () => {
     const { app, issueToken, records } = await makeApp(["content:read"]);
     const token = await issueToken();
