@@ -19,6 +19,7 @@ import {
   type AdminDisplayLifecycleEventPublisher,
   type AdminDisplayLifecycleEventSubscription,
   type DisplayStreamEventPublisher,
+  type DisplayStreamEventSubscription,
 } from "#/application/ports/display-stream-events";
 import {
   type DisplayGroupRepository,
@@ -91,6 +92,7 @@ export interface DisplaysRouterDeps {
   registrationAttemptStore: DisplayRegistrationAttemptStore;
   registrationLinkStore: DisplayRegistrationLinkStore;
   displayEventPublisher: DisplayStreamEventPublisher;
+  displayEventSubscription: DisplayStreamEventSubscription;
   lifecycleEventPublisher: AdminDisplayLifecycleEventPublisher;
   lifecycleEventSubscription: AdminDisplayLifecycleEventSubscription;
   registrationAttemptEventPublisher: DisplayRegistrationAttemptEventPublisher;

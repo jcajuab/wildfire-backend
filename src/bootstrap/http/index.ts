@@ -490,6 +490,7 @@ const displaysModule = createDisplaysHttpModule({
   registrationAttemptStore,
   registrationLinkStore,
   displayEventPublisher,
+  displayEventSubscription,
   lifecycleEventPublisher,
   lifecycleEventSubscription,
   registrationAttemptEventPublisher,

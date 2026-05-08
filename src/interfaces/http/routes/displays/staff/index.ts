@@ -13,6 +13,7 @@ import { registerDisplayStaffRegistrationRoutes } from "./registration.route";
 import { registerDisplayStaffRegistrationAttemptRoutes } from "./registration-attempts.route";
 import { registerDisplayStaffRegistrationLinkRoutes } from "./registration-link.route";
 import { registerDisplayStaffRuntimeOverrideRoutes } from "./runtime-overrides.route";
+import { registerViewerStreamRoute } from "./viewer-stream.route";
 
 export const registerDisplayStaffRoutes = (input: {
   router: DisplaysRouter;
@@ -26,6 +27,7 @@ export const registerDisplayStaffRoutes = (input: {
   registerDisplayStaffRegistrationLinkRoutes(input);
   registerDisplayStaffRuntimeOverrideRoutes(input);
   registerEmergencySlotRoutes(input);
+  registerViewerStreamRoute(input);
   registerDisplayStaffBootstrapRoute(input);
   registerDisplayStaffDisplayRoutes(input);
   registerDisplayStaffGroupRoutes(input);

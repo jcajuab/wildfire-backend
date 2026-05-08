@@ -877,6 +877,9 @@ const makeApp = async (
       displayEventPublisher: {
         publish: () => {},
       },
+      displayEventSubscription: {
+        subscribe: () => () => {},
+      },
       lifecycleEventPublisher: {
         publish: () => {},
       },
