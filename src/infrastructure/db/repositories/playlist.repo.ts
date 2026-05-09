@@ -30,8 +30,14 @@ const mapPlaylistRowToRecord = (
     status: row.status,
     showCounter: Boolean(row.showCounter),
     ownerId: row.ownerId,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    createdAt:
+      row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : row.createdAt,
+    updatedAt:
+      row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : row.updatedAt,
   };
 };
 

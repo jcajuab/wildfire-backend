@@ -1,6 +1,7 @@
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { DISPLAY_REGISTRATION_CONSTRAINTS } from "#/application/use-cases/displays";
+import { invalidateServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import { requireAdmin } from "#/interfaces/http/middleware/require-admin";
 import {
@@ -193,6 +194,7 @@ export const registerDisplayStaffRegistrationRoutes = (input: {
       async (c) => {
         const payload = c.req.valid("json");
         const registered = await useCases.registerDisplay.execute(payload);
+        await invalidateServerCache(["displays", "schedules"]);
         c.header(
           "Location",
           `/v1/displays/${encodeURIComponent(registered.displayId)}`,

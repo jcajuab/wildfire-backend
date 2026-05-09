@@ -1,1 +1,1 @@
-ALTER TABLE `playlists` ADD `show_counter` boolean NOT NULL DEFAULT false;
+-- No-op: this migration was superseded by 0008_polite_tomas.

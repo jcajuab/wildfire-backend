@@ -265,7 +265,7 @@ export const registerDisplayStaffRegistrationLinkRoutes = (input: {
           keyAlgorithm: payload.keyAlgorithm,
           registrationSignature: payload.registrationSignature,
         });
-        await invalidateServerCache(["displays"]);
+        await invalidateServerCache(["displays", "schedules"]);
         return c.json({ data: registered }, 201);
       },
       ...applicationErrorMappers,
