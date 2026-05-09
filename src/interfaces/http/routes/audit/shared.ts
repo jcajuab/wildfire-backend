@@ -8,6 +8,7 @@ import {
 } from "#/application/ports/rbac";
 import {
   type ExportAuditLogsUseCase,
+  type FlushAuditLogsUseCase,
   type ListAuditLogsUseCase,
 } from "#/application/use-cases/audit";
 import { type CheckPermissionUseCase } from "#/application/use-cases/rbac";
@@ -31,6 +32,7 @@ export interface AuditRouterDeps {
 export interface AuditRouterUseCases {
   listAuditLogs: ListAuditLogsUseCase;
   exportAuditLogs: ExportAuditLogsUseCase;
+  flushAuditLogs: FlushAuditLogsUseCase;
 }
 
 export type AuditRouter = Hono<{ Variables: JwtUserVariables }>;

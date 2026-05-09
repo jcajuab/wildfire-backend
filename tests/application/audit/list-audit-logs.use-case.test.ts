@@ -75,6 +75,8 @@ const makeRepository = () => {
         countCalls.push(query);
         return 1;
       },
+      deleteBefore: async () => 0,
+      deleteAll: async () => 0,
       deleteByRequestIdPrefix: async () => 0,
     },
   };
@@ -129,6 +131,7 @@ describe("ListAuditLogsUseCase", () => {
       resourceId: "user-2",
       status: 200,
       requestId: "req-1",
+      q: undefined,
     });
   });
 

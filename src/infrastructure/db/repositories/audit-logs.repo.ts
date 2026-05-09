@@ -1,4 +1,15 @@
-import { and, desc, eq, gte, like, lte, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  like,
+  lt,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import {
   type AuditLogRecord,
   type AuditLogRepository,
@@ -81,6 +92,32 @@ const buildWhere = (query: ListAuditLogsQuery): SQL | undefined => {
       like(auditLogs.requestId, buildLikeContainsPattern(query.requestId)),
     );
   }
+  if (query.q) {
+    const pattern = buildLikeContainsPattern(query.q);
+    const searchPredicates: SQL[] = [
+      like(auditLogs.action, pattern),
+      like(auditLogs.route, pattern),
+      like(auditLogs.method, pattern),
+      like(auditLogs.path, pattern),
+      like(auditLogs.requestId, pattern),
+      like(auditLogs.resourceType, pattern),
+      like(auditLogs.resourceId, pattern),
+      like(auditLogs.metadataJson, pattern),
+      like(users.name, pattern),
+      like(users.username, pattern),
+      like(users.email, pattern),
+      like(displays.name, pattern),
+      like(displays.slug, pattern),
+    ];
+    const status = Number.parseInt(query.q, 10);
+    if (Number.isFinite(status) && status >= 100 && status <= 599) {
+      searchPredicates.push(eq(auditLogs.status, status));
+    }
+    const combined = or(...searchPredicates);
+    if (combined) {
+      predicates.push(combined);
+    }
+  }
 
   return predicates.length > 0 ? and(...predicates) : undefined;
 };
@@ -148,6 +185,8 @@ export class AuditLogDbRepository implements AuditLogRepository {
         metadataJson: auditLogs.metadataJson,
       })
       .from(auditLogs)
+      .leftJoin(users, eq(users.id, auditLogs.actorId))
+      .leftJoin(displays, eq(displays.id, auditLogs.actorId))
       .where(where)
       .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id))
       .limit(query.limit)
@@ -209,9 +248,23 @@ export class AuditLogDbRepository implements AuditLogRepository {
     const result = await db
       .select({ value: sql<number>`count(*)` })
       .from(auditLogs)
+      .leftJoin(users, eq(users.id, auditLogs.actorId))
+      .leftJoin(displays, eq(displays.id, auditLogs.actorId))
       .where(where);
 
     return result[0]?.value ?? 0;
+  }
+
+  async deleteBefore(cutoff: Date): Promise<number> {
+    const result = await db
+      .delete(auditLogs)
+      .where(lt(auditLogs.occurredAt, cutoff));
+    return Number(result[0]?.affectedRows ?? 0);
+  }
+
+  async deleteAll(): Promise<number> {
+    const result = await db.delete(auditLogs);
+    return Number(result[0]?.affectedRows ?? 0);
   }
 
   async deleteByRequestIdPrefix(prefix: string): Promise<number> {

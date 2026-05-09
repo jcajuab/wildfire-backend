@@ -1,5 +1,6 @@
 import {
   ExportAuditLogsUseCase,
+  FlushAuditLogsUseCase,
   ListAuditLogsUseCase,
 } from "#/application/use-cases/audit";
 import { CheckPermissionUseCase } from "#/application/use-cases/rbac";
@@ -32,6 +33,9 @@ export const createAuditHttpModule = (
       exportAuditLogs: new ExportAuditLogsUseCase({
         auditLogRepository: routerDeps.repositories.auditLogRepository,
         maxRows: routerDeps.exportMaxRows,
+      }),
+      flushAuditLogs: new FlushAuditLogsUseCase({
+        auditLogRepository: routerDeps.repositories.auditLogRepository,
       }),
     },
   };

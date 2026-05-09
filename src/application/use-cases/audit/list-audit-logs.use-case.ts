@@ -14,6 +14,7 @@ export class ListAuditLogsUseCase {
   async execute(input: {
     page?: number;
     pageSize?: number;
+    q?: string;
     from?: string;
     to?: string;
     actorId?: string;

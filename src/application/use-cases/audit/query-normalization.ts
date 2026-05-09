@@ -45,6 +45,7 @@ const parseActorType = (
 };
 
 export interface NormalizedAuditFilters {
+  q?: string;
   from?: string;
   to?: string;
   actorId?: string;
@@ -57,6 +58,7 @@ export interface NormalizedAuditFilters {
 }
 
 export const normalizeAuditFilters = (input: {
+  q?: string;
   from?: string;
   to?: string;
   actorId?: string;
@@ -74,6 +76,7 @@ export const normalizeAuditFilters = (input: {
   }
 
   return {
+    q: trimToUndefined(input.q),
     from: fromDate?.toISOString(),
     to: toDate?.toISOString(),
     actorId: trimToUndefined(input.actorId),
@@ -103,6 +106,7 @@ export const buildPaginatedAuditQuery = (
   const query: ListAuditLogsQuery = {
     offset,
     limit: pageSize,
+    q: input.q,
     from: input.from,
     to: input.to,
     actorId: input.actorId,

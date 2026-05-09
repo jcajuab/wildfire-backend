@@ -56,6 +56,8 @@ const makeRepository = () => {
         countCalls.push(query);
         return 1;
       },
+      deleteBefore: async () => 0,
+      deleteAll: async () => 0,
       deleteByRequestIdPrefix: async () => 0,
     },
   };
@@ -95,6 +97,7 @@ describe("ExportAuditLogsUseCase", () => {
       resourceId: undefined,
       status: 200,
       requestId: undefined,
+      q: undefined,
     });
   });
 
@@ -104,6 +107,8 @@ describe("ExportAuditLogsUseCase", () => {
       auditLogRepository: {
         ...repository,
         count: async () => 101,
+        deleteBefore: async () => 0,
+        deleteAll: async () => 0,
         deleteByRequestIdPrefix: async () => 0,
       },
       maxRows: 100,
@@ -165,6 +170,8 @@ describe("ExportAuditLogsUseCase", () => {
           }));
         },
         count: async () => 5,
+        deleteBefore: async () => 0,
+        deleteAll: async () => 0,
         deleteByRequestIdPrefix: async () => 0,
       },
       maxRows: 100,

@@ -31,6 +31,7 @@ export class ExportAuditLogsUseCase {
   }
 
   async *execute(input: {
+    q?: string;
     from?: string;
     to?: string;
     actorId?: string;

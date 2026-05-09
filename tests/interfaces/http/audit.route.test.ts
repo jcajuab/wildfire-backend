@@ -163,6 +163,8 @@ const makeApp = async (
       countCalls.push(query);
       return 1;
     },
+    deleteBefore: async () => 0,
+    deleteAll: async () => 0,
     deleteByRequestIdPrefix: async () => 0,
     ...options.auditLogRepository,
   };
@@ -447,6 +449,84 @@ describe("Audit routes", () => {
       });
 
       expect(response.status).toBe(500);
+    });
+  });
+
+  describe("DELETE /audit/events", () => {
+    test("flushes older audit events when authorized", async () => {
+      const deletedBeforeCalls: Date[] = [];
+      const { app, issueToken } = await makeApp(
+        ["audit:read", "audit:delete"],
+        {
+          auditLogRepository: {
+            deleteBefore: async (cutoff: Date) => {
+              deletedBeforeCalls.push(cutoff);
+              return 4;
+            },
+          },
+        },
+      );
+      const token = await issueToken();
+
+      const response = await app.request("/audit/events", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ mode: "olderThanDays", days: 30 }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = await parseJson<{ data: { deleted: number } }>(response);
+      expect(body.data.deleted).toBe(4);
+      expect(deletedBeforeCalls).toHaveLength(1);
+    });
+
+    test("requires audit delete permission", async () => {
+      const { app, issueToken } = await makeApp(["audit:read"]);
+      const token = await issueToken();
+
+      const response = await app.request("/audit/events", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ mode: "all" }),
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    test("flushes all audit events when authorized", async () => {
+      let deleteAllCalls = 0;
+      const { app, issueToken } = await makeApp(
+        ["audit:read", "audit:delete"],
+        {
+          auditLogRepository: {
+            deleteAll: async () => {
+              deleteAllCalls += 1;
+              return 7;
+            },
+          },
+        },
+      );
+      const token = await issueToken();
+
+      const response = await app.request("/audit/events", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ mode: "all" }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = await parseJson<{ data: { deleted: number } }>(response);
+      expect(body.data.deleted).toBe(7);
+      expect(deleteAllCalls).toBe(1);
     });
   });
 });

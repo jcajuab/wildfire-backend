@@ -1,5 +1,9 @@
+import { type OpenAPIV3_1 } from "openapi-types";
 import { z } from "zod";
-import { apiListResponseSchema } from "#/interfaces/http/responses";
+import {
+  apiListResponseSchema,
+  apiResponseSchema,
+} from "#/interfaces/http/responses";
 
 export const auditActorTypeSchema = z.enum(["user", "display"]);
 
@@ -26,6 +30,7 @@ export const auditLogSchema = z.object({
 export const auditLogListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
+  q: z.string().min(1).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   actorId: z.string().min(1).optional(),
@@ -43,3 +48,57 @@ export const auditLogExportQuerySchema = auditLogListQuerySchema.omit({
 });
 
 export const auditLogListResponseSchema = apiListResponseSchema(auditLogSchema);
+
+export const auditLogFlushRequestSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("olderThanDays"),
+    days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+  }),
+  z.object({
+    mode: z.literal("beforeDate"),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }),
+  z.object({
+    mode: z.literal("all"),
+  }),
+]);
+
+export const auditLogFlushRequestBodySchema: OpenAPIV3_1.SchemaObject = {
+  oneOf: [
+    {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["olderThanDays"] },
+        days: { type: "integer", enum: [7, 30, 90] },
+      },
+      required: ["mode", "days"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["beforeDate"] },
+        date: {
+          type: "string",
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+        },
+      },
+      required: ["mode", "date"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["all"] },
+      },
+      required: ["mode"],
+      additionalProperties: false,
+    },
+  ],
+};
+
+export const auditLogFlushResponseSchema = apiResponseSchema(
+  z.object({
+    deleted: z.number().int().nonnegative(),
+  }),
+);

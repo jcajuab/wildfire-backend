@@ -40,6 +40,7 @@ export interface CreateAuditLogInput {
 export interface ListAuditLogsQuery {
   offset: number;
   limit: number;
+  q?: string;
   from?: string;
   to?: string;
   actorId?: string;
@@ -56,6 +57,8 @@ export interface AuditLogRepository {
   list(query: ListAuditLogsQuery): Promise<AuditLogRecord[]>;
   listWithActors(query: ListAuditLogsQuery): Promise<AuditLogRecord[]>;
   count(query: ListAuditLogsQuery): Promise<number>;
+  deleteBefore(cutoff: Date): Promise<number>;
+  deleteAll(): Promise<number>;
   deleteByRequestIdPrefix(prefix: string): Promise<number>;
 }
 

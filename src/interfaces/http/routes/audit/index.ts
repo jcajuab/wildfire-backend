@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { type JwtUserVariables } from "#/interfaces/http/middleware/jwt-user";
 import { createPermissionMiddleware } from "#/interfaces/http/middleware/permissions";
 import { registerAuditExportRoute } from "./export.route";
+import { registerAuditFlushRoute } from "./flush.route";
 import { registerAuditQueryRoutes } from "./query.route";
 import { type AuditRouterDeps, type AuditRouterUseCases } from "./shared";
 
@@ -30,6 +31,12 @@ export const createAuditRouter = ({ deps, useCases }: AuditRouterModule) => {
       userRepository: deps.repositories.userRepository,
       displayRepository: deps.repositories.displayRepository,
     },
+  });
+  registerAuditFlushRoute({
+    router,
+    useCases,
+    authorizeRead: authorize,
+    authorizeDelete: authorize,
   });
 
   return router;
