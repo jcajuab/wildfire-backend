@@ -129,11 +129,6 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
     userRepository: config.repositories.userRepository,
   });
 
-  const createPlaylistUseCase = new CreatePlaylistUseCase({
-    playlistRepository: config.repositories.playlistRepository,
-    userRepository: config.repositories.userRepository,
-  });
-
   const replacePlaylistItemsAtomicUseCase =
     new ReplacePlaylistItemsAtomicUseCase({
       playlistRepository: config.repositories.playlistRepository,
@@ -142,6 +137,12 @@ export const createAIModule = (config: AIHttpModuleConfig): AIHttpModule => {
       contentStorage: config.storage,
       thumbnailUrlExpiresInSeconds: 3600,
     });
+
+  const createPlaylistUseCase = new CreatePlaylistUseCase({
+    playlistRepository: config.repositories.playlistRepository,
+    userRepository: config.repositories.userRepository,
+    replacePlaylistItemsAtomicUseCase,
+  });
 
   const createScheduleUseCase = new CreateScheduleUseCase({
     scheduleRepository: config.repositories.scheduleRepository,

@@ -33,6 +33,16 @@ export const createPlaylistsHttpModule = (
     }),
   };
 
+  const replacePlaylistItemsAtomicUseCase =
+    new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: routerDeps.repositories.playlistRepository,
+      contentRepository: routerDeps.repositories.contentRepository,
+      scheduleRepository: routerDeps.repositories.scheduleRepository,
+      displayEventPublisher: routerDeps.displayEventPublisher,
+      contentStorage: routerDeps.storage,
+      thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
+    });
+
   return {
     deps: routerDeps,
     useCases: {
@@ -51,6 +61,7 @@ export const createPlaylistsHttpModule = (
       createPlaylist: new CreatePlaylistUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
         userRepository: routerDeps.repositories.userRepository,
+        replacePlaylistItemsAtomicUseCase,
       }),
       getPlaylist: new GetPlaylistUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
@@ -87,14 +98,7 @@ export const createPlaylistsHttpModule = (
         scheduleRepository: routerDeps.repositories.scheduleRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
       }),
-      replacePlaylistItemsAtomic: new ReplacePlaylistItemsAtomicUseCase({
-        playlistRepository: routerDeps.repositories.playlistRepository,
-        contentRepository: routerDeps.repositories.contentRepository,
-        scheduleRepository: routerDeps.repositories.scheduleRepository,
-        displayEventPublisher: routerDeps.displayEventPublisher,
-        contentStorage: routerDeps.storage,
-        thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
-      }),
+      replacePlaylistItemsAtomic: replacePlaylistItemsAtomicUseCase,
       reorderPlaylistItems: new ReorderPlaylistItemsUseCase({
         playlistRepository: routerDeps.repositories.playlistRepository,
         contentRepository: routerDeps.repositories.contentRepository,

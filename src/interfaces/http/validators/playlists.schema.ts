@@ -77,10 +77,17 @@ export const playlistItemParamSchema = playlistIdParamSchema.merge(
   playlistItemIdParamSchema,
 );
 
+const newPlaylistItemSchema = z.object({
+  contentId: z.string().uuid(),
+  duration: z.number().int().positive(),
+  loop: z.boolean().default(false),
+});
+
 export const createPlaylistSchema = z.object({
   name: z.string().min(1),
   description: z.string().trim().optional().nullable(),
   showCounter: z.boolean().default(false),
+  items: z.array(newPlaylistItemSchema).min(1),
 });
 
 export const updatePlaylistSchema = z.object({
@@ -107,22 +114,24 @@ export const reorderPlaylistItemsSchema = z.object({
 });
 
 export const replacePlaylistItemsAtomicSchema = z.object({
-  items: z.array(
-    z.discriminatedUnion("kind", [
-      z.object({
-        kind: z.literal("existing"),
-        itemId: z.string().uuid(),
-        duration: z.number().int().positive(),
-        loop: z.boolean().default(false),
-      }),
-      z.object({
-        kind: z.literal("new"),
-        contentId: z.string().uuid(),
-        duration: z.number().int().positive(),
-        loop: z.boolean().default(false),
-      }),
-    ]),
-  ),
+  items: z
+    .array(
+      z.discriminatedUnion("kind", [
+        z.object({
+          kind: z.literal("existing"),
+          itemId: z.string().uuid(),
+          duration: z.number().int().positive(),
+          loop: z.boolean().default(false),
+        }),
+        z.object({
+          kind: z.literal("new"),
+          contentId: z.string().uuid(),
+          duration: z.number().int().positive(),
+          loop: z.boolean().default(false),
+        }),
+      ]),
+    )
+    .min(1),
 });
 
 export const replacePlaylistItemsAtomicResponseSchema =

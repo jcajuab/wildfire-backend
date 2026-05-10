@@ -70,6 +70,10 @@ export class ReplacePlaylistItemsAtomicUseCase {
     playlistId: string;
     items: readonly PlaylistItemAtomicWriteInput[];
   }) {
+    if (input.items.length === 0) {
+      throw new ValidationError("Playlists must contain at least one item.");
+    }
+
     if (!this.deps.playlistRepository.replaceItemsAtomic) {
       throw new Error("Atomic playlist item replacement is not supported");
     }

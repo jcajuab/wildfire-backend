@@ -12,6 +12,7 @@ import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   AddPlaylistItemUseCase,
   CreatePlaylistUseCase,
+  DeletePlaylistItemUseCase,
   DeletePlaylistUseCase,
   EstimatePlaylistDurationUseCase,
   GetPlaylistUseCase,
@@ -83,8 +84,26 @@ const makeDeps = () => {
     update: async () => null,
     updateForOwner: async () => null,
     updateStatus: async () => undefined,
-    delete: async () => false,
-    deleteForOwner: async () => false,
+    delete: async (id: string) => {
+      const index = playlists.findIndex((playlist) => playlist.id === id);
+      if (index === -1) return false;
+      playlists.splice(index, 1);
+      for (let i = items.length - 1; i >= 0; i -= 1) {
+        if (items[i]?.playlistId === id) items.splice(i, 1);
+      }
+      return true;
+    },
+    deleteForOwner: async (id: string, ownerId: string) => {
+      const index = playlists.findIndex(
+        (playlist) => playlist.id === id && playlist.ownerId === ownerId,
+      );
+      if (index === -1) return false;
+      playlists.splice(index, 1);
+      for (let i = items.length - 1; i >= 0; i -= 1) {
+        if (items[i]?.playlistId === id) items.splice(i, 1);
+      }
+      return true;
+    },
     listItems: async (playlistId: string) =>
       items.filter((item) => item.playlistId === playlistId),
     listItemStatsByPlaylistIds: async (playlistIds: string[]) => {
@@ -154,7 +173,12 @@ const makeDeps = () => {
       );
       return items.filter((item) => item.playlistId === input.playlistId);
     },
-    deleteItem: async () => false,
+    deleteItem: async (id: string) => {
+      const index = items.findIndex((item) => item.id === id);
+      if (index === -1) return false;
+      items.splice(index, 1);
+      return true;
+    },
   };
 
   const contentRepository = {
@@ -221,6 +245,14 @@ const makeDeps = () => {
 };
 
 describe("Playlists use cases", () => {
+  const makeReplacePlaylistItemsAtomicUseCase = (
+    deps: ReturnType<typeof makeDeps>,
+  ) =>
+    new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
   test("ListPlaylistsUseCase returns playlists with owner", async () => {
     const deps = makeDeps();
     await deps.playlistRepository.create({
@@ -284,15 +316,20 @@ describe("Playlists use cases", () => {
     const useCase = new CreatePlaylistUseCase({
       playlistRepository: deps.playlistRepository,
       userRepository: deps.userRepository,
+      replacePlaylistItemsAtomicUseCase:
+        makeReplacePlaylistItemsAtomicUseCase(deps),
     });
 
     const result = await useCase.execute({
       name: "Morning",
       ownerId: "user-1",
+      items: [{ contentId: "content-1", duration: 5 }],
     });
 
     expect(result.name).toBe("Morning");
     expect(result.owner.username).toBe("user");
+    expect(result.itemsCount).toBe(1);
+    expect(result.totalDuration).toBe(5);
   });
 
   test("CreatePlaylistUseCase throws when owner is missing", async () => {
@@ -300,14 +337,57 @@ describe("Playlists use cases", () => {
     const useCase = new CreatePlaylistUseCase({
       playlistRepository: deps.playlistRepository,
       userRepository: deps.userRepository,
+      replacePlaylistItemsAtomicUseCase:
+        makeReplacePlaylistItemsAtomicUseCase(deps),
     });
 
     await expect(
       useCase.execute({
         name: "Morning",
         ownerId: "missing-user",
+        items: [{ contentId: "content-1", duration: 5 }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test("CreatePlaylistUseCase rejects empty playlists", async () => {
+    const deps = makeDeps();
+    const useCase = new CreatePlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      userRepository: deps.userRepository,
+      replacePlaylistItemsAtomicUseCase:
+        makeReplacePlaylistItemsAtomicUseCase(deps),
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Morning",
+        ownerId: "user-1",
+        items: [],
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  test("CreatePlaylistUseCase rolls back playlist when item creation fails", async () => {
+    const deps = makeDeps();
+    const useCase = new CreatePlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      userRepository: deps.userRepository,
+      replacePlaylistItemsAtomicUseCase: {
+        execute: async () => {
+          throw new ValidationError("Invalid playlist item payload");
+        },
+      },
+    });
+
+    await expect(
+      useCase.execute({
+        name: "Morning",
+        ownerId: "user-1",
+        items: [{ contentId: "content-1", duration: 5 }],
+      }),
+    ).rejects.toThrow(ValidationError);
+    expect(deps.playlists).toHaveLength(0);
   });
 
   test("GetPlaylistUseCase throws when missing", async () => {
@@ -531,6 +611,27 @@ describe("Playlists use cases", () => {
     ).rejects.toThrow(ValidationError);
   });
 
+  test("ReplacePlaylistItemsAtomicUseCase rejects empty item lists", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const useCase = new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        items: [],
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
   test("ReplacePlaylistItemsAtomicUseCase rejects existing flash content", async () => {
     const deps = makeDeps();
     deps.contents.push({
@@ -573,6 +674,78 @@ describe("Playlists use cases", () => {
         items: [{ kind: "existing", itemId: "item-1", duration: 5 }],
       }),
     ).rejects.toThrow(ValidationError);
+  });
+
+  test("DeletePlaylistItemUseCase rejects deleting the final item", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const item = await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-1",
+      sequence: 10,
+      duration: 5,
+    });
+    const useCase = new DeletePlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        id: item.id,
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  test("DeletePlaylistItemUseCase deletes from playlists with multiple items", async () => {
+    const deps = makeDeps();
+    const baseContent = deps.contents[0];
+    if (!baseContent) {
+      throw new Error("Expected content fixture");
+    }
+    deps.contents.push({
+      ...baseContent,
+      id: "content-2",
+      title: "Second",
+      checksum: "second",
+    });
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const firstItem = await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-1",
+      sequence: 10,
+      duration: 5,
+    });
+    await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-2",
+      sequence: 20,
+      duration: 5,
+    });
+    const useCase = new DeletePlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await useCase.execute({
+      playlistId: playlist.id,
+      id: firstItem.id,
+    });
+
+    expect(await deps.playlistRepository.listItems(playlist.id)).toHaveLength(
+      1,
+    );
   });
 
   test("EstimatePlaylistDurationUseCase rejects flash content", async () => {

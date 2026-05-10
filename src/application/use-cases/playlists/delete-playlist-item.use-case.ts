@@ -1,3 +1,4 @@
+import { ValidationError } from "#/application/errors/validation";
 import { type ContentRepository } from "#/application/ports/content";
 import { type DisplayStreamEventPublisher } from "#/application/ports/display-stream-events";
 import { type PlaylistRepository } from "#/application/ports/playlists";
@@ -26,10 +27,14 @@ export class DeletePlaylistItemUseCase {
     );
     if (!playlist) throw new NotFoundError("Playlist not found");
 
-    const existing = (
-      await this.deps.playlistRepository.listItems(input.playlistId)
-    ).find((item) => item.id === input.id);
+    const items = await this.deps.playlistRepository.listItems(
+      input.playlistId,
+    );
+    const existing = items.find((item) => item.id === input.id);
     if (!existing) throw new NotFoundError("Playlist item not found");
+    if (items.length <= 1) {
+      throw new ValidationError("Playlists must contain at least one item.");
+    }
 
     const deleted = await this.deps.playlistRepository.deleteItem(input.id);
     if (!deleted) throw new NotFoundError("Playlist item not found");

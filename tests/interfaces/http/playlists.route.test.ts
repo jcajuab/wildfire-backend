@@ -223,8 +223,26 @@ const makeApp = async (
           update: async () => null,
           updateForOwner: async () => null,
           updateStatus: async () => undefined,
-          delete: async () => false,
-          deleteForOwner: async () => false,
+          delete: async (id: string) => {
+            const index = playlists.findIndex((playlist) => playlist.id === id);
+            if (index === -1) return false;
+            playlists.splice(index, 1);
+            for (let i = items.length - 1; i >= 0; i -= 1) {
+              if (items[i]?.playlistId === id) items.splice(i, 1);
+            }
+            return true;
+          },
+          deleteForOwner: async (id: string, ownerId: string) => {
+            const index = playlists.findIndex(
+              (playlist) => playlist.id === id && playlist.ownerId === ownerId,
+            );
+            if (index === -1) return false;
+            playlists.splice(index, 1);
+            for (let i = items.length - 1; i >= 0; i -= 1) {
+              if (items[i]?.playlistId === id) items.splice(i, 1);
+            }
+            return true;
+          },
           listItems: async (playlistId: string) =>
             items.filter((item) => item.playlistId === playlistId),
           findItemById: async (id: string) =>
@@ -245,7 +263,43 @@ const makeApp = async (
           },
           updateItem: async () => null,
           reorderItems: async () => true,
-          deleteItem: async () => false,
+          replaceItemsAtomic: async (input) => {
+            items.splice(
+              0,
+              items.length,
+              ...input.items.map((item, index) => {
+                if (item.kind === "existing") {
+                  const existing = items.find(
+                    (existingItem) => existingItem.id === item.itemId,
+                  );
+                  if (!existing) {
+                    throw new Error("missing existing item");
+                  }
+                  return {
+                    ...existing,
+                    sequence: index + 1,
+                    duration: item.duration,
+                    loop: item.loop ?? existing.loop,
+                  };
+                }
+                return {
+                  id: crypto.randomUUID(),
+                  playlistId: input.playlistId,
+                  contentId: item.contentId,
+                  sequence: index + 1,
+                  duration: item.duration,
+                  loop: item.loop ?? false,
+                };
+              }),
+            );
+            return items.filter((item) => item.playlistId === input.playlistId);
+          },
+          deleteItem: async (id: string) => {
+            const index = items.findIndex((item) => item.id === id);
+            if (index === -1) return false;
+            items.splice(index, 1);
+            return true;
+          },
         },
         contentRepository: {
           findById: async (id: string) =>
@@ -773,6 +827,7 @@ describe("Playlists routes", () => {
       body: JSON.stringify({
         name: "Lobby Loop",
         description: null,
+        items: [{ contentId, duration: 5 }],
       }),
     });
 
@@ -789,7 +844,36 @@ describe("Playlists routes", () => {
     ]);
   });
 
-  test("POST /playlists creates playlist", async () => {
+  test("POST /playlists creates playlist with items", async () => {
+    const { app, issueToken, items } = await makeApp(["playlists:create"]);
+    const token = await issueToken();
+
+    const response = await app.request("/playlists", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Morning",
+        items: [{ contentId, duration: 5 }],
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    const json = await parseJson<{ data: { id: string } }>(response);
+    expect(json.data.id).toBeDefined();
+    expect(response.headers.get("Location")).toBe(`/playlists/${json.data.id}`);
+    expect(items).toEqual([
+      expect.objectContaining({
+        playlistId: json.data.id,
+        contentId,
+        duration: 5,
+      }),
+    ]);
+  });
+
+  test("POST /playlists rejects missing playlist items", async () => {
     const { app, issueToken } = await makeApp(["playlists:create"]);
     const token = await issueToken();
 
@@ -802,10 +886,23 @@ describe("Playlists routes", () => {
       body: JSON.stringify({ name: "Morning" }),
     });
 
-    expect(response.status).toBe(201);
-    const json = await parseJson<{ data: { id: string } }>(response);
-    expect(json.data.id).toBeDefined();
-    expect(response.headers.get("Location")).toBe(`/playlists/${json.data.id}`);
+    expect(response.status).toBe(422);
+  });
+
+  test("POST /playlists rejects empty playlist items", async () => {
+    const { app, issueToken } = await makeApp(["playlists:create"]);
+    const token = await issueToken();
+
+    const response = await app.request("/playlists", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Morning", items: [] }),
+    });
+
+    expect(response.status).toBe(422);
   });
 
   test("POST /playlists returns 404 when owner is missing", async () => {
@@ -820,7 +917,10 @@ describe("Playlists routes", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: "Morning" }),
+      body: JSON.stringify({
+        name: "Morning",
+        items: [{ contentId, duration: 5 }],
+      }),
     });
 
     expect(response.status).toBe(404);
@@ -858,6 +958,66 @@ describe("Playlists routes", () => {
     expect(response.headers.get("Location")).toBe(
       `/playlists/${playlistId}/items/${body.data.id}`,
     );
+  });
+
+  test("PUT /playlists/:id/items rejects empty item lists", async () => {
+    const { app, issueToken, playlists } = await makeApp(["playlists:update"]);
+    playlists.push({
+      id: playlistId,
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const token = await issueToken();
+
+    const response = await app.request(`/playlists/${playlistId}/items`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ items: [] }),
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  test("DELETE /playlists/:id/items/:itemId rejects deleting the final item", async () => {
+    const { app, issueToken, playlists, items } = await makeApp([
+      "playlists:update",
+    ]);
+    const itemId = "11111111-1111-4111-8111-111111111111";
+    playlists.push({
+      id: playlistId,
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    items.push({
+      id: itemId,
+      playlistId,
+      contentId,
+      sequence: 10,
+      duration: 5,
+      loop: false,
+    });
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/playlists/${playlistId}/items/${itemId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(422);
   });
 
   test("DELETE /playlists/:id returns 404 when missing", async () => {
@@ -1063,7 +1223,11 @@ describe("Playlists routes", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: "Mine", ownerId: "user-2" }),
+      body: JSON.stringify({
+        name: "Mine",
+        ownerId: "user-2",
+        items: [{ contentId, duration: 5 }],
+      }),
     });
 
     expect(response.status).toBe(201);

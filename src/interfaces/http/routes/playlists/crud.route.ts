@@ -215,6 +215,7 @@ export const registerPlaylistCrudRoutes = (args: {
           description: payload.description ?? null,
           showCounter: payload.showCounter,
           ownerId: c.get("userId"),
+          items: payload.items,
         });
         c.set("resourceId", result.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(result.id)}`);

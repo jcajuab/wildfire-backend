@@ -170,33 +170,11 @@ export class AIToolExecutor {
           name: typedArgs.name,
           description: typedArgs.description,
           ownerId: context.userId,
+          items: typedArgs.items.map((item) => ({
+            contentId: item.contentId,
+            duration: item.duration,
+          })),
         });
-
-        if (typedArgs.items?.length) {
-          const playlistItems =
-            await this.deps.replacePlaylistItemsAtomicUseCase.execute({
-              ownerId: context.userId,
-              playlistId: result.id,
-              items: typedArgs.items.map((item) => ({
-                kind: "new",
-                contentId: item.contentId,
-                duration: item.duration,
-              })),
-            });
-
-          return {
-            success: true,
-            data: {
-              ...result,
-              itemsCount: playlistItems.length,
-              totalDuration: playlistItems.reduce(
-                (sum, playlistItem) => sum + playlistItem.duration,
-                0,
-              ),
-            },
-          };
-        }
-
         return { success: true, data: result };
       }
 

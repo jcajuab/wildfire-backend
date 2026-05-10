@@ -64,6 +64,13 @@
       "when": 1779100000001,
       "tag": "0008_polite_tomas",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1779100000002,
+      "tag": "0009_delete_empty_playlists",
+      "breakpoints": true
     }
   ]
 }
