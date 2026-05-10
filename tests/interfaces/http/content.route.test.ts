@@ -374,7 +374,9 @@ describe("Content routes", () => {
     }>(response);
     expect(body.data).toHaveLength(1);
     expect(body.data[0]?.textJsonContent).toBeUndefined();
-    expect(body.data[0]?.textHtmlContent).toBeUndefined();
+    expect(body.data[0]?.textHtmlContent).toBe(
+      "<p>Morning announcements for the east campus displays.</p>",
+    );
     expect(body.data[0]?.textPreviewText).toBe(
       "Morning announcements for the east campus displays.",
     );

@@ -38,7 +38,6 @@ export const contentSchema = z.object({
 
 export const contentListItemSchema = contentSchema.omit({
   textJsonContent: true,
-  textHtmlContent: true,
 });
 
 export const contentListResponseSchema = apiListResponseSchema(

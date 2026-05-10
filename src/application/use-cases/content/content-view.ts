@@ -27,10 +27,7 @@ export interface ContentView {
   };
 }
 
-export type ContentListItemView = Omit<
-  ContentView,
-  "textJsonContent" | "textHtmlContent"
->;
+export type ContentListItemView = Omit<ContentView, "textJsonContent">;
 
 interface ContentOwnerViewInput {
   name: string;
@@ -162,4 +159,7 @@ export const toContentListItemView = (
     fallbackOwner?: ContentOwnerFallbackInput | null;
     thumbnailUrl?: string;
   },
-): ContentListItemView => contentViewBase(record, owner, input);
+): ContentListItemView => ({
+  ...contentViewBase(record, owner, input),
+  textHtmlContent: record.textHtmlContent ?? null,
+});
