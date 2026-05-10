@@ -17,7 +17,6 @@ export class SetEmergencySlotUseCase {
 
   async execute(input: {
     slotIndex: number;
-    label: string;
     contentId: string;
   }): Promise<EmergencySlotRecord> {
     if (
@@ -30,11 +29,6 @@ export class SetEmergencySlotUseCase {
       );
     }
 
-    const trimmedLabel = input.label.trim();
-    if (trimmedLabel.length === 0 || trimmedLabel.length > 64) {
-      throw new ValidationError("label must be 1..64 characters");
-    }
-
     const asset = await this.deps.contentRepository.findById(input.contentId);
     if (!asset || !isRenderableEmergencyAsset(asset)) {
       throw new ValidationError(
@@ -44,7 +38,7 @@ export class SetEmergencySlotUseCase {
 
     return this.deps.emergencySlotRepository.upsert({
       slotIndex: input.slotIndex,
-      label: trimmedLabel,
+      label: asset.title.slice(0, 64),
       contentId: input.contentId,
       at: new Date(),
     });

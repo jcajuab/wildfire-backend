@@ -11,7 +11,6 @@ export const EMERGENCY_SLOT_COUNT = 5;
 
 export interface EmergencySlotView {
   slotIndex: number;
-  label: string | null;
   contentId: string | null;
   content: {
     id: string;
@@ -52,7 +51,6 @@ export class ListEmergencySlotsUseCase {
       if (!slot) {
         result.push({
           slotIndex: i,
-          label: null,
           contentId: null,
           content: null,
           updatedAt: null,
@@ -64,7 +62,6 @@ export class ListEmergencySlotsUseCase {
         : null;
       result.push({
         slotIndex: i,
-        label: slot.label,
         contentId: slot.contentId,
         content: content
           ? {

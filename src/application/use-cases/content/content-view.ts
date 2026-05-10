@@ -18,6 +18,7 @@ export interface ContentView {
   textJsonContent: string | null;
   textHtmlContent: string | null;
   textPreviewText: string | null;
+  isUsedInPlaylist: boolean;
   createdAt: string;
   updatedAt: string;
   owner: {
@@ -114,6 +115,7 @@ function contentViewBase(
   input?: {
     fallbackOwner?: ContentOwnerFallbackInput | null;
     thumbnailUrl?: string;
+    isUsedInPlaylist?: boolean;
   },
 ) {
   return {
@@ -131,6 +133,7 @@ function contentViewBase(
     flashMessage: record.flashMessage ?? null,
     flashTone: record.flashTone ?? null,
     textPreviewText: getTextPreviewText(record.textHtmlContent),
+    isUsedInPlaylist: input?.isUsedInPlaylist ?? false,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt ?? record.createdAt,
     owner: resolveOwner(record, owner, input?.fallbackOwner),
@@ -143,6 +146,7 @@ export const toContentView = (
   input?: {
     fallbackOwner?: ContentOwnerFallbackInput | null;
     thumbnailUrl?: string;
+    isUsedInPlaylist?: boolean;
   },
 ): ContentView => {
   return {
@@ -158,6 +162,7 @@ export const toContentListItemView = (
   input?: {
     fallbackOwner?: ContentOwnerFallbackInput | null;
     thumbnailUrl?: string;
+    isUsedInPlaylist?: boolean;
   },
 ): ContentListItemView => ({
   ...contentViewBase(record, owner, input),

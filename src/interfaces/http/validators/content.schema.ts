@@ -27,6 +27,7 @@ export const contentSchema = z.object({
   textJsonContent: z.string().nullable(),
   textHtmlContent: z.string().nullable(),
   textPreviewText: z.string().nullable().optional(),
+  isUsedInPlaylist: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
   owner: z.object({

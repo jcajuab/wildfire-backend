@@ -1,3 +1,4 @@
+import { type ContentPlaylistReportingPort } from "#/application/ports/content-playlist-reporting";
 import {
   CancelPdfCropUseCase,
   CreateFlashContentUseCase,
@@ -29,7 +30,9 @@ export interface ContentHttpModule {
 }
 
 export const createContentHttpModule = (
-  deps: Omit<ContentRouterDeps, "checkPermissionUseCase">,
+  deps: Omit<ContentRouterDeps, "checkPermissionUseCase"> & {
+    contentPlaylistReportingPort?: ContentPlaylistReportingPort;
+  },
 ): ContentHttpModule => {
   const routerDeps: ContentRouterDeps = {
     ...deps,
@@ -66,7 +69,9 @@ export const createContentHttpModule = (
     },
   };
 
-  const contentPlaylistReportingPort = new ContentPlaylistReportingRepository();
+  const contentPlaylistReportingPort =
+    deps.contentPlaylistReportingPort ??
+    new ContentPlaylistReportingRepository();
 
   return {
     deps: routerDeps,
@@ -96,6 +101,7 @@ export const createContentHttpModule = (
         userRepository: routerDeps.repositories.userRepository,
         contentStorage: routerDeps.storage,
         thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
+        contentPlaylistReportingPort,
       }),
       listContentOptions: new ListContentOptionsUseCase({
         contentRepository: routerDeps.repositories.contentRepository,
@@ -107,6 +113,7 @@ export const createContentHttpModule = (
         userRepository: routerDeps.repositories.userRepository,
         contentStorage: routerDeps.storage,
         thumbnailUrlExpiresInSeconds: routerDeps.thumbnailUrlExpiresInSeconds,
+        contentPlaylistReportingPort,
       }),
       getContentJob: new GetContentJobUseCase({
         contentIngestionJobRepository:

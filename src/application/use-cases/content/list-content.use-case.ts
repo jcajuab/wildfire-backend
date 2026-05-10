@@ -3,6 +3,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type ContentPlaylistReportingPort } from "#/application/ports/content-playlist-reporting";
 import { type UserRepository } from "#/application/ports/rbac";
 import { type ContentStatus, type ContentType } from "#/domain/content/content";
 import { getTextPreviewText, toContentListItemView } from "./content-view";
@@ -19,6 +20,7 @@ export class ListContentUseCase {
       userRepository: UserRepository;
       contentStorage: ContentStorage;
       thumbnailUrlExpiresInSeconds: number;
+      contentPlaylistReportingPort?: ContentPlaylistReportingPort;
     },
   ) {}
 
@@ -98,10 +100,14 @@ export class ListContentUseCase {
           });
 
     const creatorIds = Array.from(new Set(items.map((item) => item.ownerId)));
-    const [creators, thumbnailUrlByKey] = await Promise.all([
-      this.deps.userRepository.findByIds(creatorIds),
-      this.buildThumbnailUrlMap(items),
-    ]);
+    const [creators, thumbnailUrlByKey, playlistReferencesByContentId] =
+      await Promise.all([
+        this.deps.userRepository.findByIds(creatorIds),
+        this.buildThumbnailUrlMap(items),
+        this.deps.contentPlaylistReportingPort?.countPlaylistReferencesByContentIds(
+          items.map((item) => item.id),
+        ) ?? Promise.resolve(new Map<string, number>()),
+      ]);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
     const views = items.map((item) =>
@@ -110,6 +116,7 @@ export class ListContentUseCase {
         thumbnailUrl: item.thumbnailKey
           ? thumbnailUrlByKey.get(item.thumbnailKey)
           : undefined,
+        isUsedInPlaylist: (playlistReferencesByContentId.get(item.id) ?? 0) > 0,
       }),
     );
 

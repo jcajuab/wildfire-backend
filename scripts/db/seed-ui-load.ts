@@ -1103,17 +1103,9 @@ async function setEmergencySlots(
     );
   }
 
-  const labels = [
-    "Fire Drill",
-    "Earthquake",
-    "Power Advisory",
-    "Weather Alert",
-    "Security Notice",
-  ];
   for (let slotIndex = 1; slotIndex <= 5; slotIndex += 1) {
     const content = cyclicValue(eligibleContent, slotIndex - 1);
     await client.put(`/displays/emergency-slots/${slotIndex}`, {
-      label: labels[slotIndex - 1],
       contentId: content.id,
     });
   }

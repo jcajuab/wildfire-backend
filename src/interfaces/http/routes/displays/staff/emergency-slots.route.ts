@@ -97,7 +97,6 @@ export const registerEmergencySlotRoutes = (input: {
         const payload = c.req.valid("json");
         await useCases.setEmergencySlot.execute({
           slotIndex: params.slotIndex,
-          label: payload.label,
           contentId: payload.contentId,
         });
         await invalidateServerCache(["displays"]);

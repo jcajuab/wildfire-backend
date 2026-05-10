@@ -6,17 +6,15 @@ export const emergencySlotIndexParamSchema = z.object({
 });
 
 export const setEmergencySlotSchema = z.object({
-  label: z.string().trim().min(1).max(64),
   contentId: z.string().uuid(),
 });
 
 export const setEmergencySlotRequestBodySchema: OpenAPIV3_1.SchemaObject = {
   type: "object",
   properties: {
-    label: { type: "string", minLength: 1, maxLength: 64 },
     contentId: { type: "string", format: "uuid" },
   },
-  required: ["label", "contentId"],
+  required: ["contentId"],
   additionalProperties: false,
 };
 
@@ -32,7 +30,6 @@ export const emergencySlotContentSchema = z
 
 export const emergencySlotSchema = z.object({
   slotIndex: z.number().int().min(1).max(5),
-  label: z.string().nullable(),
   contentId: z.string().uuid().nullable(),
   content: emergencySlotContentSchema,
   updatedAt: z.string().nullable(),

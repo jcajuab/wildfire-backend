@@ -133,6 +133,7 @@ const makeRepository = () => {
 const makeApp = async (permissions: string[]) => {
   const app = new Hono();
   const { records, repository } = makeRepository();
+  const playlistReferencedContentIds = new Set<string>();
   const storage = {
     ensureBucketExists: async () => {},
     upload: async () => {},
@@ -287,6 +288,23 @@ const makeApp = async (permissions: string[]) => {
       pdfCropRenderer: {
         renderCrop: async () => new Uint8Array(),
       },
+      contentPlaylistReportingPort: {
+        countPlaylistReferences: async (contentId: string) =>
+          playlistReferencedContentIds.has(contentId) ? 1 : 0,
+        countPlaylistReferencesByContentIds: async (
+          contentIds: readonly string[],
+        ) =>
+          new Map(
+            contentIds.map((contentId) => [
+              contentId,
+              playlistReferencedContentIds.has(contentId) ? 1 : 0,
+            ]),
+          ),
+        listPlaylistsReferencingContent: async (contentId: string) =>
+          playlistReferencedContentIds.has(contentId)
+            ? [{ id: "playlist-1", name: "Morning Playlist" }]
+            : [],
+      },
     }),
   );
   app.route("/content", router);
@@ -304,7 +322,7 @@ const makeApp = async (permissions: string[]) => {
       isAdmin: options?.isAdmin ?? false,
     });
 
-  return { app, issueToken, records };
+  return { app, issueToken, records, playlistReferencedContentIds };
 };
 
 describe("Content routes", () => {
@@ -337,14 +355,16 @@ describe("Content routes", () => {
   });
 
   test("GET /content returns list", async () => {
-    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const { app, issueToken, records, playlistReferencedContentIds } =
+      await makeApp(["content:read"]);
     const token = await issueToken();
+    const contentId = "11111111-1111-4111-8111-111111111111";
     records.push({
-      id: "11111111-1111-4111-8111-111111111111",
+      id: contentId,
       title: "Daily Briefing",
       type: "TEXT",
       status: "READY",
-      fileKey: "content/text/11111111-1111-4111-8111-111111111111.json",
+      fileKey: `content/text/${contentId}.json`,
       checksum: "abc",
       mimeType: "application/json",
       fileSize: 10,
@@ -357,6 +377,7 @@ describe("Content routes", () => {
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
     });
+    playlistReferencedContentIds.add(contentId);
 
     const response = await app.request("/content", {
       headers: { Authorization: `Bearer ${token}` },
@@ -380,6 +401,40 @@ describe("Content routes", () => {
     expect(body.data[0]?.textPreviewText).toBe(
       "Morning announcements for the east campus displays.",
     );
+    expect(body.data[0]?.isUsedInPlaylist).toBe(true);
+  });
+
+  test("GET /content/:id returns playlist usage state", async () => {
+    const { app, issueToken, records, playlistReferencedContentIds } =
+      await makeApp(["content:read"]);
+    const token = await issueToken();
+    const contentId = "11111111-1111-4111-8111-111111111111";
+    records.push({
+      id: contentId,
+      title: "Referenced Poster",
+      type: "IMAGE",
+      status: "READY",
+      fileKey: `content/images/${contentId}.png`,
+      checksum: "abc",
+      mimeType: "image/png",
+      fileSize: 10,
+      width: null,
+      height: null,
+      duration: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+    });
+    playlistReferencedContentIds.add(contentId);
+
+    const response = await app.request(`/content/${contentId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: { isUsedInPlaylist: boolean } }>(
+      response,
+    );
+    expect(body.data.isUsedInPlaylist).toBe(true);
   });
 
   test("GET /content returns authorized shared content from other creators", async () => {

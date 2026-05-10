@@ -1222,6 +1222,78 @@ describe("Displays routes", () => {
     expect(runtimeJson.data.globalEmergency.activeSlotIndex).toBe(3);
   });
 
+  test("PUT /displays/emergency-slots/:slotIndex assigns content without a custom label", async () => {
+    const { app, issueToken } = await makeApp(["displays:update"]);
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request("/displays/emergency-slots/1", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ contentId }),
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{
+      data: {
+        slotIndex: number;
+        contentId: string | null;
+        content: { title: string } | null;
+        label?: string;
+      };
+    }>(response);
+    expect(json.data).toMatchObject({
+      slotIndex: 1,
+      contentId,
+      content: { title: "Welcome" },
+    });
+    expect("label" in json.data).toBe(false);
+  });
+
+  test("GET /displays/emergency-slots returns content titles without custom labels", async () => {
+    const { app, issueToken } = await makeApp(["displays:read"], {
+      emergencySlots: [
+        {
+          slotIndex: 1,
+          label: "Legacy Label",
+          contentId,
+          createdAt: "2025-01-01T00:00:00.000Z",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    const token = await issueToken({ isAdmin: true });
+
+    const response = await app.request("/displays/emergency-slots", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const json = await parseJson<{
+      data: {
+        slots: Array<{
+          slotIndex: number;
+          contentId: string | null;
+          content: { title: string } | null;
+          label?: string;
+        }>;
+      };
+    }>(response);
+    const firstSlot = json.data.slots[0];
+    expect(firstSlot).toBeDefined();
+    if (!firstSlot) {
+      throw new Error("Expected first emergency slot.");
+    }
+    expect(firstSlot).toMatchObject({
+      slotIndex: 1,
+      contentId,
+      content: { title: "Welcome" },
+    });
+    expect("label" in firstSlot).toBe(false);
+  });
+
   test("PUT /displays/runtime-overrides/emergency rejects activation without slot index", async () => {
     const { app, issueToken } = await makeApp(["displays:update"]);
     const token = await issueToken({ isAdmin: true });

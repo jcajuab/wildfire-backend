@@ -3,6 +3,7 @@ import {
   type ContentRepository,
   type ContentStorage,
 } from "#/application/ports/content";
+import { type ContentPlaylistReportingPort } from "#/application/ports/content-playlist-reporting";
 import { type UserRepository } from "#/application/ports/rbac";
 import { toContentView } from "./content-view";
 import { NotFoundError } from "./errors";
@@ -14,6 +15,7 @@ export class GetContentUseCase {
       userRepository: UserRepository;
       contentStorage: ContentStorage;
       thumbnailUrlExpiresInSeconds: number;
+      contentPlaylistReportingPort?: ContentPlaylistReportingPort;
     },
   ) {}
 
@@ -53,11 +55,17 @@ export class GetContentUseCase {
       throw new NotFoundError("Content not found");
     }
 
-    const user = await this.deps.userRepository.findById(record.ownerId);
-    const thumbnailUrl = await this.buildThumbnailUrl(record);
+    const [user, thumbnailUrl, playlistReferences] = await Promise.all([
+      this.deps.userRepository.findById(record.ownerId),
+      this.buildThumbnailUrl(record),
+      this.deps.contentPlaylistReportingPort?.countPlaylistReferences(
+        record.id,
+      ) ?? Promise.resolve(0),
+    ]);
     return toContentView(record, user, {
       fallbackOwner: input.currentUser,
       thumbnailUrl,
+      isUsedInPlaylist: playlistReferences > 0,
     });
   }
 }
