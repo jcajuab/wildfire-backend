@@ -34,6 +34,7 @@ import {
   schedules,
 } from "#/infrastructure/db/schema/schedule.sql";
 import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
+import { deterministicUuid, isSeedUuid } from "./seed-uuid";
 
 const DISPLAY_COUNT = 100;
 const NON_FLASH_CONTENT_COUNT = 500;
@@ -59,17 +60,6 @@ const MEDIA_WIDTH = 640;
 const MEDIA_HEIGHT = 360;
 const VIDEO_DURATION_SECONDS = 1;
 const MEDIA_UPLOAD_CONCURRENCY = 16;
-
-const deterministicUuid = (seed: string): string => {
-  const hex = createHash("sha256").update(seed).digest("hex").slice(0, 32);
-  return [
-    hex.slice(0, 8),
-    hex.slice(8, 12),
-    hex.slice(12, 16),
-    hex.slice(16, 20),
-    hex.slice(20, 32),
-  ].join("-");
-};
 
 const checksum = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -407,6 +397,63 @@ type SeedData = {
   scheduleContentTargets: (typeof scheduleContentTargets.$inferInsert)[];
   mediaUploads: MediaUpload[];
 };
+
+function assertSeedUuid(label: string, value: string | null | undefined): void {
+  if (value != null && !isSeedUuid(value)) {
+    throw new Error(`Invalid seeded UUID for ${label}: ${value}`);
+  }
+}
+
+function validateSeedDataIds(seedData: SeedData): void {
+  for (const display of seedData.displays) {
+    assertSeedUuid("display.id", display.id);
+  }
+  for (const runtimeState of seedData.displayRuntimeStates) {
+    assertSeedUuid("display_runtime_state.displayId", runtimeState.displayId);
+  }
+  for (const group of seedData.displayGroups) {
+    assertSeedUuid("display_group.id", group.id);
+  }
+  for (const member of seedData.displayGroupMembers) {
+    assertSeedUuid("display_group_member.groupId", member.groupId);
+    assertSeedUuid("display_group_member.displayId", member.displayId);
+  }
+  for (const item of seedData.content) {
+    assertSeedUuid("content.id", item.id);
+    assertSeedUuid("content.ownerId", item.ownerId);
+  }
+  for (const asset of seedData.contentAssets) {
+    assertSeedUuid("content_asset.contentId", asset.contentId);
+  }
+  for (const textContent of seedData.contentTextContent) {
+    assertSeedUuid("content_text_content.contentId", textContent.contentId);
+  }
+  for (const flashMessage of seedData.contentFlashMessages) {
+    assertSeedUuid("content_flash_message.contentId", flashMessage.contentId);
+  }
+  for (const playlist of seedData.playlists) {
+    assertSeedUuid("playlist.id", playlist.id);
+    assertSeedUuid("playlist.ownerId", playlist.ownerId);
+  }
+  for (const item of seedData.playlistItems) {
+    assertSeedUuid("playlist_item.id", item.id);
+    assertSeedUuid("playlist_item.playlistId", item.playlistId);
+    assertSeedUuid("playlist_item.contentId", item.contentId);
+  }
+  for (const schedule of seedData.schedules) {
+    assertSeedUuid("schedule.id", schedule.id);
+    assertSeedUuid("schedule.displayId", schedule.displayId);
+    assertSeedUuid("schedule.createdBy", schedule.createdBy);
+  }
+  for (const target of seedData.schedulePlaylistTargets) {
+    assertSeedUuid("schedule_playlist_target.scheduleId", target.scheduleId);
+    assertSeedUuid("schedule_playlist_target.playlistId", target.playlistId);
+  }
+  for (const target of seedData.scheduleContentTargets) {
+    assertSeedUuid("schedule_content_target.scheduleId", target.scheduleId);
+    assertSeedUuid("schedule_content_target.contentId", target.contentId);
+  }
+}
 
 function buildSeedData(
   ownerId: string,
@@ -805,6 +852,7 @@ async function main(): Promise<void> {
   const mediaAssets = await generateSeedMediaAssets();
   const owner = await findSeedOwner();
   const seedData = buildSeedData(owner.id, now, mediaAssets);
+  validateSeedDataIds(seedData);
 
   console.log(`Using owner: ${owner.username} (${owner.id})`);
   console.log(`Uploading ${seedData.mediaUploads.length} seed media assets...`);

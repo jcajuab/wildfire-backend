@@ -12,6 +12,30 @@ const parseJson = async <T>(response: Response) => (await response.json()) as T;
 
 const makeRepository = () => {
   const records: ContentRecord[] = [];
+  const listRecords = (input: {
+    ownerId?: string;
+    offset: number;
+    limit: number;
+    status?: ContentRecord["status"];
+    type?: ContentRecord["type"];
+    excludeType?: ContentRecord["type"];
+    search?: string;
+  }) => {
+    const search = input.search?.toLowerCase();
+    const filtered = records.filter((record) => {
+      if (input.ownerId && record.ownerId !== input.ownerId) return false;
+      if (input.status && record.status !== input.status) return false;
+      if (input.type && record.type !== input.type) return false;
+      if (input.excludeType && record.type === input.excludeType) return false;
+      if (search && !record.title.toLowerCase().includes(search)) return false;
+      return true;
+    });
+
+    return {
+      items: filtered.slice(input.offset, input.offset + input.limit),
+      total: filtered.length,
+    };
+  };
 
   return {
     records,
@@ -35,25 +59,23 @@ const makeRepository = () => {
         records.filter(
           (item) => ids.includes(item.id) && item.ownerId === ownerId,
         ),
-      list: async ({ offset, limit }: { offset: number; limit: number }) => ({
-        items: records.slice(offset, offset + limit),
-        total: records.length,
-      }),
-      listForOwner: async ({
-        ownerId,
-        offset,
-        limit,
-      }: {
+      list: async (input: {
+        offset: number;
+        limit: number;
+        status?: ContentRecord["status"];
+        type?: ContentRecord["type"];
+        excludeType?: ContentRecord["type"];
+        search?: string;
+      }) => listRecords(input),
+      listForOwner: async (input: {
         ownerId: string;
         offset: number;
         limit: number;
-      }) => {
-        const owned = records.filter((r) => r.ownerId === ownerId);
-        return {
-          items: owned.slice(offset, offset + limit),
-          total: owned.length,
-        };
-      },
+        status?: ContentRecord["status"];
+        type?: ContentRecord["type"];
+        excludeType?: ContentRecord["type"];
+        search?: string;
+      }) => listRecords(input),
       delete: async (id: string) => {
         const index = records.findIndex((item) => item.id === id);
         if (index === -1) return false;
@@ -384,6 +406,79 @@ describe("Content routes", () => {
     expect(response.status).toBe(200);
     const body = await parseJson<{ data: Array<{ title: string }> }>(response);
     expect(body.data.map((item) => item.title)).toContain("Shared Poster");
+  });
+
+  test("GET /content excludes a content type from paginated results", async () => {
+    const { app, issueToken, records } = await makeApp(["content:read"]);
+    const token = await issueToken();
+    records.push(
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "Emergency Poster",
+        type: "IMAGE",
+        status: "READY",
+        fileKey: "content/images/11111111-1111-4111-8111-111111111111.png",
+        checksum: "image",
+        mimeType: "image/png",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        title: "Emergency Text",
+        type: "TEXT",
+        status: "READY",
+        fileKey: "content/text/22222222-2222-4222-8222-222222222222.json",
+        checksum: "text",
+        mimeType: "application/json",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        textJsonContent: '{"type":"doc","content":[]}',
+        textHtmlContent: "<p>Emergency text</p>",
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        title: "Flash Ticker",
+        type: "FLASH",
+        status: "READY",
+        fileKey: "content/flash/33333333-3333-4333-8333-333333333333",
+        checksum: "flash",
+        mimeType: "text/plain",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        flashMessage: "Alert",
+        flashTone: "INFO",
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+
+    const response = await app.request(
+      "/content?status=READY&excludeType=FLASH&pageSize=9",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{ title: string; type: string }>;
+      meta: { total: number; pageSize: number };
+    }>(response);
+    expect(body.data.map((item) => item.type)).toEqual(["IMAGE", "TEXT"]);
+    expect(body.data.map((item) => item.title)).not.toContain("Flash Ticker");
+    expect(body.meta.total).toBe(2);
+    expect(body.meta.pageSize).toBe(9);
   });
 
   test("GET /content filters by ownerId for admins", async () => {
