@@ -925,14 +925,19 @@ async function createPlaylists(
   return mapWithConcurrency(playlistIndexes, 8, async (index) => {
     const items: PlaylistItemInput[] = Array.from(
       { length: PLAYLIST_ITEMS_PER_PLAYLIST },
-      (_, itemIndex) => ({
-        contentId: cyclicValue(
+      (_, itemIndex) => {
+        const content = cyclicValue(
           playableContent,
           (index - 1) * PLAYLIST_ITEMS_PER_PLAYLIST + itemIndex,
-        ).id,
-        duration: cyclicValue(durations, itemIndex),
-        loop: itemIndex === PLAYLIST_ITEMS_PER_PLAYLIST - 1,
-      }),
+        );
+        return {
+          contentId: content.id,
+          duration: cyclicValue(durations, itemIndex),
+          loop:
+            content.type === "VIDEO" &&
+            itemIndex === PLAYLIST_ITEMS_PER_PLAYLIST - 1,
+        };
+      },
     );
     return client.post<Playlist>("/playlists", {
       name: `${faker.helpers.arrayElement([
@@ -1083,8 +1088,21 @@ async function createSchedules(
 
 async function setEmergencySlots(
   client: ApiClient,
-  flashContent: readonly ContentItem[],
+  emergencyContent: readonly ContentItem[],
 ) {
+  const eligibleContent = emergencyContent.filter(
+    (content) =>
+      content.status === "READY" &&
+      (content.type === "IMAGE" ||
+        content.type === "VIDEO" ||
+        content.type === "TEXT"),
+  );
+  if (eligibleContent.length < 5) {
+    throw new Error(
+      `Expected at least 5 READY image, video, or text assets for emergency slots, found ${eligibleContent.length}.`,
+    );
+  }
+
   const labels = [
     "Fire Drill",
     "Earthquake",
@@ -1093,7 +1111,7 @@ async function setEmergencySlots(
     "Security Notice",
   ];
   for (let slotIndex = 1; slotIndex <= 5; slotIndex += 1) {
-    const content = cyclicValue(flashContent, slotIndex - 1);
+    const content = cyclicValue(eligibleContent, slotIndex - 1);
     await client.put(`/displays/emergency-slots/${slotIndex}`, {
       label: labels[slotIndex - 1],
       contentId: content.id,
@@ -1120,7 +1138,7 @@ async function main(): Promise<void> {
     playlists,
     flashContent: content.flash,
   });
-  await setEmergencySlots(client, content.flash);
+  await setEmergencySlots(client, content.playable);
 
   console.log("Done. Seeded UI load dataset through API routes:");
   console.log(`- ${displays.length} displays`);
