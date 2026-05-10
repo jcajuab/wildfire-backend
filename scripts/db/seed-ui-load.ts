@@ -1,181 +1,344 @@
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import {
+  generateKeyPairSync,
+  type KeyObject,
+  sign as signPayload,
+} from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { and, eq } from "drizzle-orm";
-import { ADMIN_ROLE_NAME } from "#/domain/rbac/canonical-permissions";
-import { env } from "#/env";
-import { closeDbConnection, db } from "#/infrastructure/db/client";
-import {
-  content,
-  contentAssets,
-  contentFlashMessages,
-  contentTextContent,
-} from "#/infrastructure/db/schema/content.sql";
-import { contentIngestionJobs } from "#/infrastructure/db/schema/content-job.sql";
-import {
-  displayActiveKeys,
-  displayKeyPairs,
-} from "#/infrastructure/db/schema/display-key.sql";
-import {
-  displayGroupMembers,
-  displayGroups,
-  displayRuntimeStates,
-  displays,
-} from "#/infrastructure/db/schema/displays.sql";
-import { emergencySlots } from "#/infrastructure/db/schema/emergency-slots.sql";
-import { playlists } from "#/infrastructure/db/schema/playlist.sql";
-import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
-import { roles, userRoles, users } from "#/infrastructure/db/schema/rbac.sql";
-import {
-  scheduleContentTargets,
-  schedulePlaylistTargets,
-  schedules,
-} from "#/infrastructure/db/schema/schedule.sql";
-import { S3ContentStorage } from "#/infrastructure/storage/s3-content.storage";
-import { deterministicUuid, isSeedUuid } from "./seed-uuid";
+import { faker } from "@faker-js/faker";
 
-const DISPLAY_COUNT = 100;
-const NON_FLASH_CONTENT_COUNT = 500;
-const TEXT_CONTENT_COUNT = 167;
-const IMAGE_CONTENT_COUNT = 167;
-const VIDEO_CONTENT_COUNT = 166;
-const FLASH_CONTENT_COUNT = 500;
-const PLAYLIST_COUNT = 100;
-const PLAYLIST_ITEMS_PER_PLAYLIST = 5;
-const SCHEDULES_PER_DISPLAY = 5;
+const API_BASE_URL =
+  process.env.SEED_API_BASE_URL?.replace(/\/+$/, "") ??
+  "http://localhost:8000/v1";
+const ADMIN_USERNAME = process.env.SEED_ADMIN_USERNAME;
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+const SEED = Number(process.env.SEED_UI_LOAD_SEED ?? "20260511");
 
-const DISPLAY_OUTPUTS = ["hdmi-0", "dp-0", "dvi-0", "vga-0"] as const;
-const DISPLAY_STATUSES = ["READY", "LIVE", "DOWN"] as const;
-const FLASH_TONES = ["INFO", "WARNING", "CRITICAL"] as const;
-const SCHEDULE_WINDOW_OFFSETS = [
-  { startOffsetMinutes: 0, endOffsetMinutes: 45, kind: "PLAYLIST" },
-  { startOffsetMinutes: 0, endOffsetMinutes: 50, kind: "PLAYLIST" },
-  { startOffsetMinutes: 0, endOffsetMinutes: 55, kind: "FLASH" },
-  { startOffsetMinutes: 60, endOffsetMinutes: 90, kind: "PLAYLIST" },
-  { startOffsetMinutes: 120, endOffsetMinutes: 150, kind: "FLASH" },
-] as const;
+const DISPLAY_COUNT = parseCount("SEED_DISPLAY_COUNT", 100);
+const NON_FLASH_CONTENT_COUNT = parseCount("SEED_CONTENT_COUNT", 500);
+const FLASH_CONTENT_COUNT = parseCount("SEED_FLASH_COUNT", 500);
+const PLAYLIST_COUNT = parseCount("SEED_PLAYLIST_COUNT", 100);
+const SCHEDULE_COUNT = parseCount("SEED_SCHEDULE_COUNT", 500);
+const PLAYLIST_ITEMS_PER_PLAYLIST = parseCount("SEED_PLAYLIST_ITEM_COUNT", 5);
+
+const CONTENT_UPLOAD_CONCURRENCY = parseCount("SEED_UPLOAD_CONCURRENCY", 6);
+const CONTENT_CREATE_CONCURRENCY = parseCount("SEED_CONTENT_CONCURRENCY", 12);
+const DISPLAY_CREATE_CONCURRENCY = parseCount("SEED_DISPLAY_CONCURRENCY", 8);
+const POLL_TIMEOUT_MS = parseCount("SEED_JOB_TIMEOUT_MS", 120_000);
+const POLL_INTERVAL_MS = parseCount("SEED_JOB_POLL_INTERVAL_MS", 1_000);
+
 const MEDIA_WIDTH = 640;
 const MEDIA_HEIGHT = 360;
-const VIDEO_DURATION_SECONDS = 1;
-const MEDIA_UPLOAD_CONCURRENCY = 16;
+const VIDEO_DURATION_SECONDS = 2;
+const SCHEDULE_TIMEZONE =
+  process.env.SEED_SCHEDULE_TIMEZONE ??
+  process.env.SCHEDULE_TIMEZONE ??
+  "Asia/Manila";
 
-const checksum = (value: string): string =>
-  createHash("sha256").update(value).digest("hex");
+const OUTPUTS = [
+  { type: "DP", index: 0 },
+  { type: "DVI", index: 0 },
+  { type: "HDMI", index: 0 },
+  { type: "VGA", index: 0 },
+] as const;
+const FLASH_TONES = ["INFO", "WARNING", "CRITICAL"] as const;
+const DISPLAY_GROUPS = [
+  "Main Building",
+  "Academic Wing",
+  "Student Services",
+  "Athletics",
+  "Library",
+  "Cafeteria",
+  "Engineering",
+  "Science Hall",
+  "Administration",
+  "Outdoor",
+] as const;
 
-const pad = (value: number, width = 3): string =>
-  String(value).padStart(width, "0");
-
-const addDays = (date: Date, days: number): Date => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
-
-const getZonedParts = (date: Date, timeZone: string) => {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = formatter.formatToParts(date);
-  const getPart = (type: Intl.DateTimeFormatPartTypes): string => {
-    const value = parts.find((part) => part.type === type)?.value;
-    if (!value) {
-      throw new Error(`Unable to resolve ${type} for ${timeZone}`);
-    }
-    return value;
-  };
-
-  const rawHour = Number(getPart("hour"));
-  const hour = rawHour === 24 ? 0 : rawHour;
-
-  return {
-    year: getPart("year"),
-    month: getPart("month"),
-    day: getPart("day"),
-    hour,
-    minute: Number(getPart("minute")),
+type ApiEnvelope<T> = { data: T };
+type ApiListResponse<T> = {
+  data: T[];
+  meta?: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
   };
 };
-
-const toZonedDateKey = (date: Date, timeZone: string): string => {
-  const { year, month, day } = getZonedParts(date, timeZone);
-  return `${year}-${month}-${day}`;
+type LoginResponse = {
+  accessToken: string;
+  user: {
+    id: string;
+    username: string;
+  };
 };
-
-const toZonedMinuteOfDay = (date: Date, timeZone: string): number => {
-  const { hour, minute } = getZonedParts(date, timeZone);
-  return hour * 60 + minute;
+type IdName = { id: string; name: string };
+type ContentType = "IMAGE" | "VIDEO" | "FLASH" | "TEXT";
+type ContentStatus = "PROCESSING" | "READY" | "FAILED";
+type ContentItem = {
+  id: string;
+  title: string;
+  type: ContentType;
+  status: ContentStatus;
 };
-
-const toTimeKey = (minuteOfDay: number): string => {
-  const normalized = ((minuteOfDay % 1440) + 1440) % 1440;
-  return `${pad(Math.trunc(normalized / 60), 2)}:${pad(normalized % 60, 2)}`;
+type ContentJob = {
+  id: string;
+  contentId: string;
+  status: "QUEUED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+  errorMessage: string | null;
 };
-
-const scheduleWindowsFromNow = (
-  now: Date,
-  timeZone: string,
-): Array<{
+type UploadContentResponse = {
+  content: ContentItem;
+  job: ContentJob;
+};
+type PlaylistItemInput = {
+  contentId: string;
+  duration: number;
+  loop: boolean;
+};
+type Playlist = {
+  id: string;
+  name: string;
+};
+type Display = {
+  id: string;
+  name: string;
+  slug?: string;
+};
+type Schedule = {
+  id: string;
+  name: string;
+};
+type RegistrationLink = {
+  token: string;
+};
+type RegistrationLinkMetadata = {
+  slug: string;
+  output: string;
+  challengeNonce: string;
+};
+type RegisteredDisplay = {
+  displayId: string;
+  slug: string;
+};
+type MediaAsset = {
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+};
+type SeedContent = {
+  playable: ContentItem[];
+  flash: ContentItem[];
+};
+type ScheduleWindow = {
+  startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   kind: "PLAYLIST" | "FLASH";
-}> => {
-  const currentMinute = toZonedMinuteOfDay(now, timeZone);
-  return SCHEDULE_WINDOW_OFFSETS.map((window) => ({
-    startTime: toTimeKey(currentMinute + window.startOffsetMinutes),
-    endTime: toTimeKey(currentMinute + window.endOffsetMinutes),
-    kind: window.kind,
-  }));
 };
 
-const cyclicValue = <T>(values: readonly T[], index: number): T => {
-  const value = values[index % values.length];
-  if (value === undefined) {
-    throw new Error("Cannot read from an empty seed value list");
+class ApiClient {
+  private accessToken: string | null = null;
+
+  constructor(private readonly baseUrl: string) {}
+
+  async login(input: { username: string; password: string }) {
+    const response = await this.request<LoginResponse>("/auth/login", {
+      method: "POST",
+      body: input,
+      authenticate: false,
+    });
+    this.accessToken = response.accessToken;
+    return response;
   }
-  return value;
-};
 
-async function insertChunks<T>(
-  values: readonly T[],
-  insertChunk: (chunk: T[]) => Promise<unknown>,
-  chunkSize = 100,
-): Promise<void> {
-  for (let start = 0; start < values.length; start += chunkSize) {
-    const chunk = values.slice(start, start + chunkSize);
-    if (chunk.length > 0) {
-      await insertChunk(chunk);
+  async get<T>(path: string, query?: Record<string, string | number>) {
+    return this.request<T>(withQuery(path, query), { method: "GET" });
+  }
+
+  async post<T>(path: string, body?: unknown) {
+    return this.request<T>(path, { method: "POST", body });
+  }
+
+  async put<T>(path: string, body: unknown) {
+    return this.request<T>(path, { method: "PUT", body });
+  }
+
+  async delete(path: string) {
+    await this.request<void>(path, { method: "DELETE" });
+  }
+
+  async upload<T>(path: string, formData: FormData) {
+    return this.request<T>(path, { method: "POST", formData });
+  }
+
+  private async request<T>(
+    path: string,
+    options: {
+      method: string;
+      body?: unknown;
+      formData?: FormData;
+      authenticate?: boolean;
+    },
+  ): Promise<T> {
+    const headers = new Headers();
+    if (options.authenticate !== false) {
+      if (!this.accessToken) {
+        throw new Error("Seed API client is not authenticated.");
+      }
+      headers.set("Authorization", `Bearer ${this.accessToken}`);
     }
+    if (options.body !== undefined) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: options.method,
+      headers,
+      body:
+        options.formData ??
+        (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+    });
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    const payload = text.length > 0 ? safeJsonParse(text) : null;
+    if (!response.ok) {
+      throw new Error(
+        `${options.method} ${path} failed with ${response.status}: ${formatErrorPayload(
+          payload,
+          text,
+        )}`,
+      );
+    }
+
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "data" in payload &&
+      !Array.isArray(payload)
+    ) {
+      return (payload as ApiEnvelope<T>).data;
+    }
+    return payload as T;
   }
 }
 
-async function mapWithConcurrency<T>(
+function parseCount(name: string, fallback: number): number {
+  const rawValue = process.env[name];
+  if (rawValue === undefined) {
+    return fallback;
+  }
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return value;
+}
+
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatErrorPayload(payload: unknown, fallback: string): string {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof payload.error === "object" &&
+    payload.error &&
+    "message" in payload.error
+  ) {
+    return String(payload.error.message);
+  }
+  return fallback || "empty response";
+}
+
+function withQuery(
+  path: string,
+  query?: Record<string, string | number>,
+): string {
+  if (!query) {
+    return path;
+  }
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    searchParams.set(key, String(value));
+  }
+  const queryString = searchParams.toString();
+  return queryString ? `${path}?${queryString}` : path;
+}
+
+function pad(value: number, width = 3): string {
+  return String(value).padStart(width, "0");
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 100);
+}
+
+function htmlEscape(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function toBase64Url(value: Uint8Array): string {
+  return Buffer.from(value)
+    .toString("base64")
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/g, "");
+}
+
+function cyclicValue<T>(values: readonly T[], index: number): T {
+  const value = values[index % values.length];
+  if (value === undefined) {
+    throw new Error("Cannot read from an empty value list.");
+  }
+  return value;
+}
+
+async function mapWithConcurrency<T, R>(
   values: readonly T[],
   concurrency: number,
-  mapper: (value: T) => Promise<void>,
-): Promise<void> {
-  let index = 0;
+  mapper: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(values.length);
+  let cursor = 0;
   const workerCount = Math.max(1, Math.min(concurrency, values.length));
 
   await Promise.all(
     Array.from({ length: workerCount }, async () => {
-      while (index < values.length) {
-        const currentIndex = index;
-        index += 1;
-        const value = values[currentIndex];
+      while (cursor < values.length) {
+        const index = cursor;
+        cursor += 1;
+        const value = values[index];
         if (value !== undefined) {
-          await mapper(value);
+          results[index] = await mapper(value, index);
         }
       }
     }),
   );
+
+  return results;
 }
 
 async function runFfmpeg(args: readonly string[]): Promise<void> {
@@ -184,17 +347,13 @@ async function runFfmpeg(args: readonly string[]): Promise<void> {
     const child = spawn("ffmpeg", [...args], {
       stdio: ["ignore", "ignore", "pipe"],
     });
-
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderrChunks.push(chunk);
-    });
+    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) {
         resolve();
         return;
       }
-
       reject(
         new Error(
           `ffmpeg exited with code ${code ?? "unknown"}: ${Buffer.concat(
@@ -206,681 +365,753 @@ async function runFfmpeg(args: readonly string[]): Promise<void> {
   });
 }
 
-async function generateSeedMediaAssets(): Promise<{
-  image: Uint8Array;
-  video: Uint8Array;
+async function generateMediaAssets(): Promise<{
+  images: MediaAsset[];
+  videos: MediaAsset[];
 }> {
   const tempDir = await mkdtemp(join(tmpdir(), "wildfire-ui-load-"));
-  const imagePath = join(tempDir, "seed-image.png");
-  const videoPath = join(tempDir, "seed-video.mp4");
+  const imageThemes = [
+    "Campus Notice",
+    "Student Event",
+    "Library Hours",
+    "Cafeteria Menu",
+    "Safety Reminder",
+    "Sports Update",
+    "Exam Schedule",
+    "Club Meeting",
+    "Welcome Board",
+  ];
+  const videoThemes = [
+    "Morning Bulletin",
+    "Event Highlights",
+    "Campus Loop",
+    "Announcement Reel",
+  ];
 
   try {
-    await runFfmpeg([
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-f",
-      "lavfi",
-      "-i",
-      `color=c=0x0f6fff:s=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:d=0.1`,
-      "-frames:v",
-      "1",
-      "-y",
-      imagePath,
-    ]);
+    const images = await Promise.all(
+      imageThemes.map(async (theme, index) => {
+        const filePath = join(tempDir, `image-${index}.png`);
+        const color = faker.color.rgb({ prefix: "0x", casing: "lower" });
+        const text = theme.replace(/:/g, "");
+        try {
+          await runFfmpeg([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            `color=c=${color}:s=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:d=0.1`,
+            "-vf",
+            `drawtext=text='${text}':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=(h-text_h)/2`,
+            "-frames:v",
+            "1",
+            "-y",
+            filePath,
+          ]);
+        } catch {
+          await runFfmpeg([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            `color=c=${color}:s=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:d=0.1`,
+            "-frames:v",
+            "1",
+            "-y",
+            filePath,
+          ]);
+        }
+        return {
+          filename: `${slugify(theme)}.png`,
+          mimeType: "image/png",
+          bytes: new Uint8Array(await readFile(filePath)),
+        };
+      }),
+    );
 
-    try {
-      await runFfmpeg([
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-f",
-        "lavfi",
-        "-i",
-        `testsrc=size=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:rate=30:duration=${VIDEO_DURATION_SECONDS}`,
-        "-f",
-        "lavfi",
-        "-i",
-        "anullsrc=channel_layout=stereo:sample_rate=44100",
-        "-shortest",
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "64k",
-        "-movflags",
-        "+faststart",
-        "-y",
-        videoPath,
-      ]);
-    } catch {
-      await runFfmpeg([
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-f",
-        "lavfi",
-        "-i",
-        `testsrc=size=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:rate=30:duration=${VIDEO_DURATION_SECONDS}`,
-        "-c:v",
-        "mpeg4",
-        "-q:v",
-        "5",
-        "-movflags",
-        "+faststart",
-        "-y",
-        videoPath,
-      ]);
-    }
+    const videos = await Promise.all(
+      videoThemes.map(async (theme, index) => {
+        const filePath = join(tempDir, `video-${index}.mp4`);
+        try {
+          await runFfmpeg([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            `testsrc=size=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:rate=30:duration=${VIDEO_DURATION_SECONDS}`,
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=channel_layout=stereo:sample_rate=44100",
+            "-shortest",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            "-movflags",
+            "+faststart",
+            "-y",
+            filePath,
+          ]);
+        } catch {
+          await runFfmpeg([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            `testsrc=size=${MEDIA_WIDTH}x${MEDIA_HEIGHT}:rate=30:duration=${VIDEO_DURATION_SECONDS}`,
+            "-c:v",
+            "mpeg4",
+            "-q:v",
+            "5",
+            "-movflags",
+            "+faststart",
+            "-y",
+            filePath,
+          ]);
+        }
+        return {
+          filename: `${slugify(theme)}.mp4`,
+          mimeType: "video/mp4",
+          bytes: new Uint8Array(await readFile(filePath)),
+        };
+      }),
+    );
 
-    const [image, video] = await Promise.all([
-      readFile(imagePath),
-      readFile(videoPath),
-    ]);
-    return {
-      image: new Uint8Array(image),
-      video: new Uint8Array(video),
-    };
+    return { images, videos };
   } finally {
     await rm(tempDir, { force: true, recursive: true });
   }
 }
 
-function createContentStorage(): S3ContentStorage {
-  const endpoint = `${env.MINIO_USE_SSL ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
-  return new S3ContentStorage({
-    bucket: env.MINIO_BUCKET,
-    region: env.MINIO_REGION,
-    endpoint,
-    publicEndpoint: env.MINIO_PUBLIC_ENDPOINT,
-    accessKeyId: env.MINIO_ROOT_USER,
-    secretAccessKey: env.MINIO_ROOT_PASSWORD,
-    requestTimeoutMs: env.MINIO_REQUEST_TIMEOUT_MS,
+function requireCredentials() {
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+    throw new Error(
+      [
+        "Missing seed credentials.",
+        "Run with SEED_ADMIN_USERNAME and SEED_ADMIN_PASSWORD.",
+        "Example: SEED_ADMIN_USERNAME=admin SEED_ADMIN_PASSWORD=replace_with_secure_secret bun run db:seed-ui-load",
+      ].join("\n"),
+    );
+  }
+  return { username: ADMIN_USERNAME, password: ADMIN_PASSWORD };
+}
+
+async function listFirstPage<T>(
+  client: ApiClient,
+  path: string,
+  query?: Record<string, string | number>,
+): Promise<T[]> {
+  const response = await client.get<ApiListResponse<T> | T[]>(path, {
+    page: 1,
+    pageSize: 100,
+    ...query,
   });
+  if (Array.isArray(response)) {
+    return response;
+  }
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  throw new Error(`Unexpected list response shape from ${path}.`);
 }
 
-type MediaUpload = {
-  key: string;
-  body: Uint8Array;
-  contentType: string;
-};
-
-async function uploadMediaAssets(
-  uploads: readonly MediaUpload[],
-): Promise<void> {
-  const uploadsByKey = new Map<string, MediaUpload>();
-  for (const upload of uploads) {
-    uploadsByKey.set(upload.key, upload);
-  }
-
-  const storage = createContentStorage();
-  await storage.ensureBucketExists();
-  await mapWithConcurrency(
-    [...uploadsByKey.values()],
-    MEDIA_UPLOAD_CONCURRENCY,
-    (upload) =>
-      storage.upload({
-        key: upload.key,
-        body: upload.body,
-        contentType: upload.contentType,
-        contentLength: upload.body.byteLength,
-      }),
-  );
-}
-
-async function findSeedOwner(): Promise<typeof users.$inferSelect> {
-  const adminUserRows = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.username, "admin"), eq(users.isActive, true)))
-    .limit(1);
-  const adminUser = adminUserRows[0];
-  if (adminUser) {
-    return adminUser;
-  }
-
-  const adminRoleUserRows = await db
-    .select({ user: users })
-    .from(users)
-    .innerJoin(userRoles, eq(userRoles.userId, users.id))
-    .innerJoin(roles, eq(roles.id, userRoles.roleId))
-    .where(and(eq(roles.name, ADMIN_ROLE_NAME), eq(users.isActive, true)))
-    .limit(1);
-  const adminRoleUser = adminRoleUserRows[0]?.user;
-  if (adminRoleUser) {
-    return adminRoleUser;
-  }
-
-  throw new Error(
-    `No active admin user found. Sign in once or create an active "${ADMIN_ROLE_NAME}" user before running this seed.`,
-  );
-}
-
-async function resetUiLoadDomains(now: Date): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.delete(schedulePlaylistTargets);
-    await tx.delete(scheduleContentTargets);
-    await tx.delete(schedules);
-    await tx.delete(playlistItems);
-    await tx.update(emergencySlots).set({ contentId: null, updatedAt: now });
-    await tx.delete(contentIngestionJobs);
-    await tx.delete(contentFlashMessages);
-    await tx.delete(contentTextContent);
-    await tx.delete(contentAssets);
-    await tx.delete(content);
-    await tx.delete(playlists);
-    await tx.delete(displayActiveKeys);
-    await tx.delete(displayKeyPairs);
-    await tx.delete(displayGroupMembers);
-    await tx.delete(displayRuntimeStates);
-    await tx.delete(displayGroups);
-    await tx.delete(displays);
-  });
-}
-
-type SeedData = {
-  displays: (typeof displays.$inferInsert)[];
-  displayRuntimeStates: (typeof displayRuntimeStates.$inferInsert)[];
-  displayGroups: (typeof displayGroups.$inferInsert)[];
-  displayGroupMembers: (typeof displayGroupMembers.$inferInsert)[];
-  content: (typeof content.$inferInsert)[];
-  contentAssets: (typeof contentAssets.$inferInsert)[];
-  contentTextContent: (typeof contentTextContent.$inferInsert)[];
-  contentFlashMessages: (typeof contentFlashMessages.$inferInsert)[];
-  playlists: (typeof playlists.$inferInsert)[];
-  playlistItems: (typeof playlistItems.$inferInsert)[];
-  schedules: (typeof schedules.$inferInsert)[];
-  schedulePlaylistTargets: (typeof schedulePlaylistTargets.$inferInsert)[];
-  scheduleContentTargets: (typeof scheduleContentTargets.$inferInsert)[];
-  mediaUploads: MediaUpload[];
-};
-
-function assertSeedUuid(label: string, value: string | null | undefined): void {
-  if (value != null && !isSeedUuid(value)) {
-    throw new Error(`Invalid seeded UUID for ${label}: ${value}`);
-  }
-}
-
-function validateSeedDataIds(seedData: SeedData): void {
-  for (const display of seedData.displays) {
-    assertSeedUuid("display.id", display.id);
-  }
-  for (const runtimeState of seedData.displayRuntimeStates) {
-    assertSeedUuid("display_runtime_state.displayId", runtimeState.displayId);
-  }
-  for (const group of seedData.displayGroups) {
-    assertSeedUuid("display_group.id", group.id);
-  }
-  for (const member of seedData.displayGroupMembers) {
-    assertSeedUuid("display_group_member.groupId", member.groupId);
-    assertSeedUuid("display_group_member.displayId", member.displayId);
-  }
-  for (const item of seedData.content) {
-    assertSeedUuid("content.id", item.id);
-    assertSeedUuid("content.ownerId", item.ownerId);
-  }
-  for (const asset of seedData.contentAssets) {
-    assertSeedUuid("content_asset.contentId", asset.contentId);
-  }
-  for (const textContent of seedData.contentTextContent) {
-    assertSeedUuid("content_text_content.contentId", textContent.contentId);
-  }
-  for (const flashMessage of seedData.contentFlashMessages) {
-    assertSeedUuid("content_flash_message.contentId", flashMessage.contentId);
-  }
-  for (const playlist of seedData.playlists) {
-    assertSeedUuid("playlist.id", playlist.id);
-    assertSeedUuid("playlist.ownerId", playlist.ownerId);
-  }
-  for (const item of seedData.playlistItems) {
-    assertSeedUuid("playlist_item.id", item.id);
-    assertSeedUuid("playlist_item.playlistId", item.playlistId);
-    assertSeedUuid("playlist_item.contentId", item.contentId);
-  }
-  for (const schedule of seedData.schedules) {
-    assertSeedUuid("schedule.id", schedule.id);
-    assertSeedUuid("schedule.displayId", schedule.displayId);
-    assertSeedUuid("schedule.createdBy", schedule.createdBy);
-  }
-  for (const target of seedData.schedulePlaylistTargets) {
-    assertSeedUuid("schedule_playlist_target.scheduleId", target.scheduleId);
-    assertSeedUuid("schedule_playlist_target.playlistId", target.playlistId);
-  }
-  for (const target of seedData.scheduleContentTargets) {
-    assertSeedUuid("schedule_content_target.scheduleId", target.scheduleId);
-    assertSeedUuid("schedule_content_target.contentId", target.contentId);
-  }
-}
-
-function buildSeedData(
-  ownerId: string,
-  now: Date,
-  mediaAssets: {
-    image: Uint8Array;
-    video: Uint8Array;
+async function deleteUntilEmpty<T extends { id: string }>(
+  client: ApiClient,
+  options: {
+    listPath: string;
+    deleteItem: (client: ApiClient, id: string) => Promise<void>;
+    label: string;
+    query?: Record<string, string | number>;
   },
-): SeedData {
-  const displayRows: SeedData["displays"] = [];
-  const runtimeRows: SeedData["displayRuntimeStates"] = [];
-  const displayGroupRows: SeedData["displayGroups"] = [];
-  const displayGroupMemberRows: SeedData["displayGroupMembers"] = [];
-  const contentRows: SeedData["content"] = [];
-  const contentAssetRows: SeedData["contentAssets"] = [];
-  const textContentRows: SeedData["contentTextContent"] = [];
-  const flashMessageRows: SeedData["contentFlashMessages"] = [];
-  const playlistRows: SeedData["playlists"] = [];
-  const playlistItemRows: SeedData["playlistItems"] = [];
-  const scheduleRows: SeedData["schedules"] = [];
-  const schedulePlaylistTargetRows: SeedData["schedulePlaylistTargets"] = [];
-  const scheduleContentTargetRows: SeedData["scheduleContentTargets"] = [];
-  const mediaUploads: MediaUpload[] = [];
-  const playableContentIds: string[] = [];
-  const imageChecksum = checksum(
-    Buffer.from(mediaAssets.image).toString("base64"),
-  );
-  const videoChecksum = checksum(
-    Buffer.from(mediaAssets.video).toString("base64"),
-  );
-  const videoThumbnailKey = "seed/ui-load/thumbnails/video-placeholder.png";
+): Promise<number> {
+  let deleted = 0;
+  while (true) {
+    const items = await listFirstPage<T>(
+      client,
+      options.listPath,
+      options.query,
+    );
+    if (items.length === 0) {
+      return deleted;
+    }
+    await mapWithConcurrency(items, 10, async (item) => {
+      await options.deleteItem(client, item.id);
+      deleted += 1;
+    });
+    process.stdout.write(`\rDeleted ${deleted} ${options.label}...`);
+  }
+}
 
-  mediaUploads.push({
-    key: videoThumbnailKey,
-    body: mediaAssets.image,
-    contentType: "image/png",
+async function resetDomains(client: ApiClient) {
+  console.log(
+    "Resetting schedules, playlists, content, displays, and groups...",
+  );
+  for (let slotIndex = 1; slotIndex <= 5; slotIndex += 1) {
+    await client
+      .delete(`/displays/emergency-slots/${slotIndex}`)
+      .catch(() => {});
+  }
+
+  const schedulesDeleted = await deleteUntilEmpty<Schedule>(client, {
+    listPath: "/schedules",
+    deleteItem: (api, id) => api.delete(`/schedules/${id}`),
+    label: "schedules",
   });
+  process.stdout.write("\n");
 
-  for (let index = 1; index <= DISPLAY_COUNT; index += 1) {
-    const displayNumber = pad(index);
-    const displayId = deterministicUuid(`ui-load:display:${index}`);
-    const status = cyclicValue(DISPLAY_STATUSES, index - 1);
+  const playlistsDeleted = await deleteUntilEmpty<Playlist>(client, {
+    listPath: "/playlists",
+    deleteItem: (api, id) => api.delete(`/playlists/${id}`),
+    label: "playlists",
+  });
+  process.stdout.write("\n");
 
-    displayRows.push({
-      id: displayId,
-      slug: `ui-load-display-${displayNumber}`,
-      name: `UI Load Display ${displayNumber}`,
-      fingerprint: `ui-load-display-${displayNumber}`,
-      output: cyclicValue(DISPLAY_OUTPUTS, index - 1),
-      createdAt: now,
-      updatedAt: now,
-    });
+  const contentDeleted = await deleteUntilEmpty<ContentItem>(client, {
+    listPath: "/content",
+    deleteItem: (api, id) => api.delete(`/content/${id}`),
+    label: "content items",
+  });
+  process.stdout.write("\n");
 
-    runtimeRows.push({
-      displayId,
-      status,
-      lastSeenAt: status === "DOWN" ? null : addDays(now, -((index - 1) % 5)),
-      refreshNonce: index % 9,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  const displaysDeleted = await deleteUntilEmpty<Display>(client, {
+    listPath: "/displays",
+    deleteItem: (api, id) => api.post(`/displays/${id}/unregister`),
+    label: "displays",
+  });
+  process.stdout.write("\n");
 
-  for (let index = 1; index <= DISPLAY_COUNT / 10; index += 1) {
-    const groupId = deterministicUuid(`ui-load:display-group:${index}`);
-    displayGroupRows.push({
-      id: groupId,
-      name: `UI Load Zone ${pad(index, 2)}`,
-      createdAt: now,
-      updatedAt: now,
-    });
+  const groupsDeleted = await deleteUntilEmpty<IdName>(client, {
+    listPath: "/displays/groups",
+    deleteItem: (api, id) => api.delete(`/displays/groups/${id}`),
+    label: "display groups",
+  });
+  process.stdout.write("\n");
 
-    const startDisplay = (index - 1) * 10 + 1;
-    for (
-      let displayIndex = startDisplay;
-      displayIndex < startDisplay + 10;
-      displayIndex += 1
-    ) {
-      displayGroupMemberRows.push({
-        groupId,
-        displayId: deterministicUuid(`ui-load:display:${displayIndex}`),
-      });
-    }
-  }
+  console.log(
+    `Reset complete: ${schedulesDeleted} schedules, ${playlistsDeleted} playlists, ${contentDeleted} content, ${displaysDeleted} displays, ${groupsDeleted} groups.`,
+  );
+}
 
-  for (let index = 1; index <= TEXT_CONTENT_COUNT; index += 1) {
-    const contentNumber = pad(index);
-    const contentId = deterministicUuid(`ui-load:text-content:${index}`);
-    const text = `Load test text content ${contentNumber} for reviewing cards, playlists, and schedules.`;
-    const htmlContent = `<p>${text}</p>`;
-    const jsonContent = JSON.stringify({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text }],
-        },
-      ],
-    });
-
-    contentRows.push({
-      id: contentId,
-      title: `UI Load Text Content ${contentNumber}`,
-      type: "TEXT",
-      status: "READY",
-      ownerId,
-      createdAt: addDays(now, -(index % 30)),
-      updatedAt: addDays(now, -(index % 14)),
-    });
-
-    contentAssetRows.push({
-      contentId,
-      fileKey: `seed/ui-load/text/${contentNumber}.html`,
-      thumbnailKey: null,
-      checksum: checksum(htmlContent),
-      mimeType: "text/html",
-      fileSize: Buffer.byteLength(htmlContent, "utf8"),
-      width: null,
-      height: null,
-      duration: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    textContentRows.push({
-      contentId,
-      jsonContent,
-      htmlContent,
-      createdAt: now,
-      updatedAt: now,
-    });
-    playableContentIds.push(contentId);
-  }
-
-  for (let index = 1; index <= IMAGE_CONTENT_COUNT; index += 1) {
-    const contentNumber = pad(index);
-    const contentId = deterministicUuid(`ui-load:image-content:${index}`);
-    const fileKey = `seed/ui-load/images/${contentNumber}.png`;
-
-    contentRows.push({
-      id: contentId,
-      title: `UI Load Image Content ${contentNumber}`,
-      type: "IMAGE",
-      status: "READY",
-      ownerId,
-      createdAt: addDays(now, -(index % 30)),
-      updatedAt: addDays(now, -(index % 14)),
-    });
-
-    contentAssetRows.push({
-      contentId,
-      fileKey,
-      thumbnailKey: fileKey,
-      checksum: imageChecksum,
-      mimeType: "image/png",
-      fileSize: mediaAssets.image.byteLength,
-      width: MEDIA_WIDTH,
-      height: MEDIA_HEIGHT,
-      duration: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    mediaUploads.push({
-      key: fileKey,
-      body: mediaAssets.image,
-      contentType: "image/png",
-    });
-    playableContentIds.push(contentId);
-  }
-
-  for (let index = 1; index <= VIDEO_CONTENT_COUNT; index += 1) {
-    const contentNumber = pad(index);
-    const contentId = deterministicUuid(`ui-load:video-content:${index}`);
-    const fileKey = `seed/ui-load/videos/${contentNumber}.mp4`;
-
-    contentRows.push({
-      id: contentId,
-      title: `UI Load Video Content ${contentNumber}`,
-      type: "VIDEO",
-      status: "READY",
-      ownerId,
-      createdAt: addDays(now, -(index % 30)),
-      updatedAt: addDays(now, -(index % 14)),
-    });
-
-    contentAssetRows.push({
-      contentId,
-      fileKey,
-      thumbnailKey: videoThumbnailKey,
-      checksum: videoChecksum,
-      mimeType: "video/mp4",
-      fileSize: mediaAssets.video.byteLength,
-      width: MEDIA_WIDTH,
-      height: MEDIA_HEIGHT,
-      duration: VIDEO_DURATION_SECONDS,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    mediaUploads.push({
-      key: fileKey,
-      body: mediaAssets.video,
-      contentType: "video/mp4",
-    });
-    playableContentIds.push(contentId);
-  }
-
-  for (let index = 1; index <= FLASH_CONTENT_COUNT; index += 1) {
-    const contentNumber = pad(index);
-    const contentId = deterministicUuid(`ui-load:flash-content:${index}`);
-    const message = `Flash notice ${contentNumber}: rotating campus message for display testing.`;
-
-    contentRows.push({
-      id: contentId,
-      title: `UI Load Flash Content ${contentNumber}`,
-      type: "FLASH",
-      status: "READY",
-      ownerId,
-      createdAt: addDays(now, -(index % 30)),
-      updatedAt: addDays(now, -(index % 14)),
-    });
-
-    contentAssetRows.push({
-      contentId,
-      fileKey: `seed/ui-load/flash/${contentNumber}.txt`,
-      thumbnailKey: null,
-      checksum: checksum(message),
-      mimeType: "text/plain",
-      fileSize: Buffer.byteLength(message, "utf8"),
-      width: null,
-      height: null,
-      duration: 10,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    flashMessageRows.push({
-      contentId,
-      message,
-      tone: cyclicValue(FLASH_TONES, index - 1),
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  for (let index = 1; index <= PLAYLIST_COUNT; index += 1) {
-    const playlistNumber = pad(index);
-    const playlistId = deterministicUuid(`ui-load:playlist:${index}`);
-
-    playlistRows.push({
-      id: playlistId,
-      name: `UI Load Playlist ${playlistNumber}`,
-      description: "Five-item load-test playlist for admin UI review.",
-      status: index <= 80 ? "IN_USE" : "DRAFT",
-      ownerId,
-      showCounter: index % 2 === 0,
-      createdAt: addDays(now, -(index % 20)),
-      updatedAt: addDays(now, -(index % 10)),
-    });
-
-    for (
-      let itemIndex = 1;
-      itemIndex <= PLAYLIST_ITEMS_PER_PLAYLIST;
-      itemIndex += 1
-    ) {
-      const playableContentIndex =
-        ((index - 1) * PLAYLIST_ITEMS_PER_PLAYLIST + itemIndex - 1) %
-        playableContentIds.length;
-      const contentId = playableContentIds[playableContentIndex];
-      if (!contentId) {
-        throw new Error("Unable to resolve playlist content for seed data");
-      }
-
-      playlistItemRows.push({
-        id: deterministicUuid(`ui-load:playlist-item:${index}:${itemIndex}`),
-        playlistId,
-        contentId,
-        sequence: itemIndex * 10,
-        duration: 5 + itemIndex * 5,
-        loop: itemIndex === PLAYLIST_ITEMS_PER_PLAYLIST,
-      });
-    }
-  }
-
-  const startDate = toZonedDateKey(now, env.SCHEDULE_TIMEZONE);
-  const endDate = toZonedDateKey(addDays(now, 6), env.SCHEDULE_TIMEZONE);
-  const scheduleWindows = scheduleWindowsFromNow(now, env.SCHEDULE_TIMEZONE);
-
-  for (let displayIndex = 1; displayIndex <= DISPLAY_COUNT; displayIndex += 1) {
-    for (let slotIndex = 0; slotIndex < SCHEDULES_PER_DISPLAY; slotIndex += 1) {
-      const scheduleIndex =
-        (displayIndex - 1) * SCHEDULES_PER_DISPLAY + slotIndex + 1;
-      const scheduleNumber = pad(scheduleIndex);
-      const scheduleId = deterministicUuid(`ui-load:schedule:${scheduleIndex}`);
-      const window = cyclicValue(scheduleWindows, slotIndex);
-      const isPlaylistSchedule = window.kind === "PLAYLIST";
-
-      scheduleRows.push({
-        id: scheduleId,
-        name: `UI Load Schedule ${scheduleNumber}`,
-        displayId: deterministicUuid(`ui-load:display:${displayIndex}`),
-        startDate,
-        endDate,
-        startTime: window.startTime,
-        endTime: window.endTime,
-        createdBy: ownerId,
-        createdAt: new Date(now.getTime() + scheduleIndex),
-        updatedAt: now,
-      });
-
-      if (isPlaylistSchedule) {
-        const playlistIndex = ((scheduleIndex - 1) % 80) + 1;
-        schedulePlaylistTargetRows.push({
-          scheduleId,
-          playlistId: deterministicUuid(`ui-load:playlist:${playlistIndex}`),
-          createdAt: now,
-          updatedAt: now,
-        });
-      } else {
-        const flashIndex = ((scheduleIndex - 1) % FLASH_CONTENT_COUNT) + 1;
-        scheduleContentTargetRows.push({
-          scheduleId,
-          contentId: deterministicUuid(`ui-load:flash-content:${flashIndex}`),
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-    }
-  }
+function createTextContentPayload(index: number) {
+  const title = `${faker.company.catchPhraseAdjective()} ${faker.word.noun()} notice`;
+  const lead = faker.lorem.sentence({ min: 8, max: 14 });
+  const detail = faker.lorem.sentence({ min: 10, max: 18 });
+  const htmlContent = `<h2>${htmlEscape(title)}</h2><p>${htmlEscape(
+    lead,
+  )}</p><p>${htmlEscape(detail)}</p>`;
+  const jsonContent = JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "heading",
+        attrs: { level: 2, textAlign: "left" },
+        content: [{ type: "text", text: title }],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: lead }],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: detail }],
+      },
+    ],
+  });
 
   return {
-    displays: displayRows,
-    displayRuntimeStates: runtimeRows,
-    displayGroups: displayGroupRows,
-    displayGroupMembers: displayGroupMemberRows,
-    content: contentRows,
-    contentAssets: contentAssetRows,
-    contentTextContent: textContentRows,
-    contentFlashMessages: flashMessageRows,
-    playlists: playlistRows,
-    playlistItems: playlistItemRows,
-    schedules: scheduleRows,
-    schedulePlaylistTargets: schedulePlaylistTargetRows,
-    scheduleContentTargets: scheduleContentTargetRows,
-    mediaUploads,
+    title: `${title} ${pad(index)}`,
+    htmlContent,
+    jsonContent,
   };
 }
 
-async function insertSeedData(seedData: SeedData): Promise<void> {
-  await db.transaction(async (tx) => {
-    await insertChunks(seedData.displays, (chunk) =>
-      tx.insert(displays).values(chunk),
-    );
-    await insertChunks(seedData.displayRuntimeStates, (chunk) =>
-      tx.insert(displayRuntimeStates).values(chunk),
-    );
-    await insertChunks(seedData.displayGroups, (chunk) =>
-      tx.insert(displayGroups).values(chunk),
-    );
-    await insertChunks(seedData.displayGroupMembers, (chunk) =>
-      tx.insert(displayGroupMembers).values(chunk),
-    );
-    await insertChunks(seedData.content, (chunk) =>
-      tx.insert(content).values(chunk),
-    );
-    await insertChunks(seedData.contentAssets, (chunk) =>
-      tx.insert(contentAssets).values(chunk),
-    );
-    await insertChunks(seedData.contentTextContent, (chunk) =>
-      tx.insert(contentTextContent).values(chunk),
-    );
-    await insertChunks(seedData.contentFlashMessages, (chunk) =>
-      tx.insert(contentFlashMessages).values(chunk),
-    );
-    await insertChunks(seedData.playlists, (chunk) =>
-      tx.insert(playlists).values(chunk),
-    );
-    await insertChunks(seedData.playlistItems, (chunk) =>
-      tx.insert(playlistItems).values(chunk),
-    );
-    await insertChunks(seedData.schedules, (chunk) =>
-      tx.insert(schedules).values(chunk),
-    );
-    await insertChunks(seedData.schedulePlaylistTargets, (chunk) =>
-      tx.insert(schedulePlaylistTargets).values(chunk),
-    );
-    await insertChunks(seedData.scheduleContentTargets, (chunk) =>
-      tx.insert(scheduleContentTargets).values(chunk),
-    );
+async function createTextContent(client: ApiClient, index: number) {
+  return client.post<ContentItem>(
+    "/content/text",
+    createTextContentPayload(index),
+  );
+}
+
+async function createFlashContent(client: ApiClient, index: number) {
+  const place = faker.helpers.arrayElement([
+    "main lobby",
+    "library entrance",
+    "student center",
+    "gymnasium",
+    "auditorium",
+    "science hall",
+  ]);
+  return client.post<ContentItem>("/content/flash", {
+    title: `${faker.helpers.arrayElement([
+      "Campus Alert",
+      "Schedule Reminder",
+      "Service Notice",
+      "Event Update",
+      "Safety Advisory",
+    ])} ${pad(index)}`,
+    message: faker.helpers.arrayElement([
+      `Please proceed to the ${place} for the scheduled activity.`,
+      `Reminder: keep pathways clear near the ${place}.`,
+      `The ${place} has an updated announcement for today.`,
+      `Staff assistance is available at the ${place}.`,
+    ]),
+    tone: cyclicValue(FLASH_TONES, index - 1),
   });
 }
 
-async function main(): Promise<void> {
+async function uploadContent(
+  client: ApiClient,
+  input: { title: string; asset: MediaAsset },
+) {
+  const formData = new FormData();
+  formData.set("title", input.title);
+  formData.set(
+    "file",
+    new File([input.asset.bytes], input.asset.filename, {
+      type: input.asset.mimeType,
+    }),
+  );
+  const result = await client.upload<UploadContentResponse>(
+    "/content",
+    formData,
+  );
+  await waitForContentJob(client, result.job.id);
+  return client.get<ContentItem>(`/content/${result.content.id}`);
+}
+
+async function waitForContentJob(client: ApiClient, jobId: string) {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const job = await client.get<ContentJob>(`/content-jobs/${jobId}`);
+    if (job.status === "SUCCEEDED") {
+      return;
+    }
+    if (job.status === "FAILED") {
+      throw new Error(
+        `Content ingestion job ${jobId} failed: ${job.errorMessage ?? "unknown error"}`,
+      );
+    }
+    await Bun.sleep(POLL_INTERVAL_MS);
+  }
+  throw new Error(`Timed out waiting for content ingestion job ${jobId}.`);
+}
+
+async function createContent(client: ApiClient): Promise<SeedContent> {
+  const mediaAssets = await generateMediaAssets();
+  const textCount = Math.ceil(NON_FLASH_CONTENT_COUNT / 3);
+  const imageCount = Math.ceil((NON_FLASH_CONTENT_COUNT - textCount) / 2);
+  const videoCount = NON_FLASH_CONTENT_COUNT - textCount - imageCount;
+  const textIndexes = Array.from(
+    { length: textCount },
+    (_, index) => index + 1,
+  );
+  const imageIndexes = Array.from(
+    { length: imageCount },
+    (_, index) => index + 1,
+  );
+  const videoIndexes = Array.from(
+    { length: videoCount },
+    (_, index) => index + 1,
+  );
+  const flashIndexes = Array.from(
+    { length: FLASH_CONTENT_COUNT },
+    (_, index) => index + 1,
+  );
+
+  console.log(`Creating ${textCount} text content items...`);
+  const textContent = await mapWithConcurrency(
+    textIndexes,
+    CONTENT_CREATE_CONCURRENCY,
+    (index) => createTextContent(client, index),
+  );
+
+  console.log(
+    `Creating ${imageCount} image content items through upload route...`,
+  );
+  const imageContent = await mapWithConcurrency(
+    imageIndexes,
+    CONTENT_UPLOAD_CONCURRENCY,
+    (index) =>
+      uploadContent(client, {
+        title: `${faker.commerce.productAdjective()} campus poster ${pad(index)}`,
+        asset: cyclicValue(mediaAssets.images, index - 1),
+      }),
+  );
+
+  console.log(
+    `Creating ${videoCount} video content items through upload route...`,
+  );
+  const videoContent = await mapWithConcurrency(
+    videoIndexes,
+    CONTENT_UPLOAD_CONCURRENCY,
+    (index) =>
+      uploadContent(client, {
+        title: `${faker.company.buzzPhrase()} video loop ${pad(index)}`,
+        asset: cyclicValue(mediaAssets.videos, index - 1),
+      }),
+  );
+
+  console.log(`Creating ${FLASH_CONTENT_COUNT} flash content items...`);
+  const flashContent = await mapWithConcurrency(
+    flashIndexes,
+    CONTENT_CREATE_CONCURRENCY,
+    (index) => createFlashContent(client, index),
+  );
+
+  return {
+    playable: [...textContent, ...imageContent, ...videoContent],
+    flash: flashContent,
+  };
+}
+
+function createDisplayName(index: number) {
+  return `${faker.helpers.arrayElement([
+    "Lobby",
+    "Auditorium",
+    "Cafeteria",
+    "Library",
+    "Engineering",
+    "Science",
+    "Gymnasium",
+    "Student Center",
+    "Registrar",
+    "Hallway",
+  ])} ${faker.helpers.arrayElement([
+    "North",
+    "South",
+    "East",
+    "West",
+    "Main",
+    "Annex",
+    "Stage",
+    "Entrance",
+  ])} ${pad(index)}`;
+}
+
+async function registerDisplay(
+  client: ApiClient,
+  index: number,
+): Promise<Display> {
+  const name = createDisplayName(index);
+  const slug = `${slugify(name)}-${pad(index)}`;
+  const output = cyclicValue(OUTPUTS, index - 1);
+  const groupName = cyclicValue(DISPLAY_GROUPS, index - 1);
+  const link = await client.post<RegistrationLink>(
+    "/displays/registration-links",
+    {
+      slug,
+      displayName: name,
+      outputType: output.type,
+      outputIndex: output.index,
+      displayGroups: [groupName],
+    },
+  );
+  const metadata = await client.get<RegistrationLinkMetadata>(
+    `/displays/registration-links/${link.token}`,
+  );
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const publicKeyPem = publicKey
+    .export({ format: "pem", type: "spki" })
+    .toString();
+  const fingerprint = `ui-load-${slug}-${faker.string.alphanumeric(16).toLowerCase()}`;
+  const signature = signRegistrationLink({
+    token: link.token,
+    metadata,
+    fingerprint,
+    publicKeyPem,
+    privateKey,
+  });
+  const registered = await client.post<RegisteredDisplay>(
+    `/displays/registration-links/${link.token}/claim`,
+    {
+      fingerprint,
+      publicKey: publicKeyPem,
+      keyAlgorithm: "ed25519",
+      registrationSignature: signature,
+    },
+  );
+  return {
+    id: registered.displayId,
+    slug: registered.slug,
+    name,
+  };
+}
+
+function signRegistrationLink(input: {
+  token: string;
+  metadata: RegistrationLinkMetadata;
+  fingerprint: string;
+  publicKeyPem: string;
+  privateKey: KeyObject;
+}) {
+  const payload = [
+    "REGISTRATION",
+    input.token,
+    input.metadata.challengeNonce,
+    input.metadata.slug,
+    input.metadata.output,
+    input.fingerprint,
+    input.publicKeyPem,
+  ].join("\n");
+  const signature = signPayload(
+    null,
+    Buffer.from(payload, "utf8"),
+    input.privateKey,
+  );
+  return toBase64Url(signature);
+}
+
+async function createDisplays(client: ApiClient): Promise<Display[]> {
+  const displayIndexes = Array.from(
+    { length: DISPLAY_COUNT },
+    (_, index) => index + 1,
+  );
+  console.log(
+    `Registering ${DISPLAY_COUNT} displays through registration links...`,
+  );
+  return mapWithConcurrency(
+    displayIndexes,
+    DISPLAY_CREATE_CONCURRENCY,
+    (index) => registerDisplay(client, index),
+  );
+}
+
+async function createPlaylists(
+  client: ApiClient,
+  playableContent: readonly ContentItem[],
+): Promise<Playlist[]> {
+  if (playableContent.length === 0) {
+    throw new Error("Cannot create playlists without playable content.");
+  }
+  const playlistIndexes = Array.from(
+    { length: PLAYLIST_COUNT },
+    (_, index) => index + 1,
+  );
+  console.log(`Creating ${PLAYLIST_COUNT} playlists...`);
+  return mapWithConcurrency(playlistIndexes, 8, async (index) => {
+    const items: PlaylistItemInput[] = Array.from(
+      { length: PLAYLIST_ITEMS_PER_PLAYLIST },
+      (_, itemIndex) => ({
+        contentId: cyclicValue(
+          playableContent,
+          (index - 1) * PLAYLIST_ITEMS_PER_PLAYLIST + itemIndex,
+        ).id,
+        duration: 5 + itemIndex * 5,
+        loop: itemIndex === PLAYLIST_ITEMS_PER_PLAYLIST - 1,
+      }),
+    );
+    return client.post<Playlist>("/playlists", {
+      name: `${faker.helpers.arrayElement([
+        "Morning Loop",
+        "Campus Bulletin",
+        "Student Life",
+        "Event Rotation",
+        "Main Hall",
+        "Evening Notices",
+      ])} ${pad(index)}`,
+      description: faker.lorem.sentence({ min: 6, max: 12 }),
+      showCounter: index % 2 === 0,
+      items,
+    });
+  });
+}
+
+function getZonedParts(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes) => {
+    const value = parts.find((part) => part.type === type)?.value;
+    if (!value) {
+      throw new Error(`Unable to resolve ${type} for ${timeZone}`);
+    }
+    return value;
+  };
+  const rawHour = Number(getPart("hour"));
+  return {
+    year: getPart("year"),
+    month: getPart("month"),
+    day: getPart("day"),
+    hour: rawHour === 24 ? 0 : rawHour,
+    minute: Number(getPart("minute")),
+  };
+}
+
+function toZonedDateKey(date: Date, timeZone: string): string {
+  const { year, month, day } = getZonedParts(date, timeZone);
+  return `${year}-${month}-${day}`;
+}
+
+function toZonedMinuteOfDay(date: Date, timeZone: string): number {
+  const { hour, minute } = getZonedParts(date, timeZone);
+  return hour * 60 + minute;
+}
+
+function toTimeKey(minuteOfDay: number): string {
+  const normalized = ((minuteOfDay % 1440) + 1440) % 1440;
+  return `${pad(Math.trunc(normalized / 60), 2)}:${pad(normalized % 60, 2)}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function buildScheduleWindows(
+  now: Date,
+  slotsPerDisplay: number,
+): ScheduleWindow[] {
+  const currentMinute = toZonedMinuteOfDay(now, SCHEDULE_TIMEZONE);
+  let dayOffset = 0;
+  let startMinute = Math.ceil((currentMinute + 5) / 5) * 5;
+
+  return Array.from({ length: slotsPerDisplay }, (_, index) => {
+    if (startMinute + 45 >= 24 * 60) {
+      dayOffset += 1;
+      startMinute = 8 * 60;
+    }
+
+    const windowDate = addDays(now, dayOffset);
+    const window = {
+      startDate: toZonedDateKey(windowDate, SCHEDULE_TIMEZONE),
+      endDate: toZonedDateKey(addDays(windowDate, 6), SCHEDULE_TIMEZONE),
+      startTime: toTimeKey(startMinute),
+      endTime: toTimeKey(startMinute + 45),
+      kind: index % 2 === 0 ? "PLAYLIST" : "FLASH",
+    } satisfies ScheduleWindow;
+
+    startMinute += 50;
+    return window;
+  });
+}
+
+async function createSchedules(
+  client: ApiClient,
+  input: {
+    displays: readonly Display[];
+    playlists: readonly Playlist[];
+    flashContent: readonly ContentItem[];
+  },
+) {
+  if (
+    input.displays.length === 0 ||
+    input.playlists.length === 0 ||
+    input.flashContent.length === 0
+  ) {
+    throw new Error(
+      "Displays, playlists, and flash content are required before schedules can be seeded.",
+    );
+  }
   const now = new Date();
-  const mediaAssets = await generateSeedMediaAssets();
-  const owner = await findSeedOwner();
-  const seedData = buildSeedData(owner.id, now, mediaAssets);
-  validateSeedDataIds(seedData);
-
-  console.log(`Using owner: ${owner.username} (${owner.id})`);
-  console.log(`Uploading ${seedData.mediaUploads.length} seed media assets...`);
-  await uploadMediaAssets(seedData.mediaUploads);
-
-  console.log("Resetting display/content/playlist/schedule data...");
-  await resetUiLoadDomains(now);
-
-  console.log("Seeding UI load dataset...");
-  await insertSeedData(seedData);
-
-  console.log("Done. Seeded UI load dataset:");
-  console.log(`- ${seedData.displays.length} displays`);
-  console.log(`- ${seedData.displayGroups.length} display groups`);
-  console.log(`- ${NON_FLASH_CONTENT_COUNT} non-flash content items`);
-  console.log(`- ${TEXT_CONTENT_COUNT} text content items`);
-  console.log(`- ${IMAGE_CONTENT_COUNT} image content items`);
-  console.log(`- ${VIDEO_CONTENT_COUNT} video content items`);
-  console.log(`- ${FLASH_CONTENT_COUNT} flash content items`);
-  console.log(`- ${seedData.playlists.length} playlists`);
-  console.log(`- ${seedData.playlistItems.length} playlist items`);
-  console.log(`- ${seedData.schedules.length} schedules`);
-  console.log(
-    `- ${seedData.schedulePlaylistTargets.length} playlist schedule targets`,
+  const slotsPerDisplay = Math.max(
+    1,
+    Math.ceil(SCHEDULE_COUNT / input.displays.length),
   );
-  console.log(
-    `- ${seedData.scheduleContentTargets.length} flash schedule targets`,
+  const windows = buildScheduleWindows(now, slotsPerDisplay);
+  const scheduleIndexes = Array.from(
+    { length: SCHEDULE_COUNT },
+    (_, index) => index,
   );
+
+  console.log(`Creating ${SCHEDULE_COUNT} schedules...`);
+  await mapWithConcurrency(scheduleIndexes, 8, async (zeroIndex) => {
+    const display = cyclicValue(input.displays, zeroIndex);
+    const window = cyclicValue(
+      windows,
+      Math.floor(zeroIndex / input.displays.length),
+    );
+    const scheduleNumber = pad(zeroIndex + 1);
+    const isPlaylist = window.kind === "PLAYLIST";
+    const playlist = cyclicValue(input.playlists, zeroIndex);
+    const flash = cyclicValue(input.flashContent, zeroIndex);
+
+    await client.post<Schedule>("/schedules", {
+      name: `${isPlaylist ? "Playlist" : "Flash"} rotation ${scheduleNumber}`,
+      kind: window.kind,
+      playlistId: isPlaylist ? playlist.id : null,
+      contentId: isPlaylist ? null : flash.id,
+      displayId: display.id,
+      startDate: window.startDate,
+      endDate: window.endDate,
+      startTime: window.startTime,
+      endTime: window.endTime,
+    });
+  });
+}
+
+async function setEmergencySlots(
+  client: ApiClient,
+  flashContent: readonly ContentItem[],
+) {
+  const labels = [
+    "Fire Drill",
+    "Earthquake",
+    "Power Advisory",
+    "Weather Alert",
+    "Security Notice",
+  ];
+  for (let slotIndex = 1; slotIndex <= 5; slotIndex += 1) {
+    const content = cyclicValue(flashContent, slotIndex - 1);
+    await client.put(`/displays/emergency-slots/${slotIndex}`, {
+      label: labels[slotIndex - 1],
+      contentId: content.id,
+    });
+  }
+}
+
+async function main(): Promise<void> {
+  faker.seed(SEED);
+  const credentials = requireCredentials();
+  const client = new ApiClient(API_BASE_URL);
+
+  console.log(`Using API: ${API_BASE_URL}`);
+  const login = await client.login(credentials);
+  console.log(`Authenticated as ${login.user.username} (${login.user.id}).`);
+
+  await resetDomains(client);
+
+  const displays = await createDisplays(client);
+  const content = await createContent(client);
+  const playlists = await createPlaylists(client, content.playable);
+  await createSchedules(client, {
+    displays,
+    playlists,
+    flashContent: content.flash,
+  });
+  await setEmergencySlots(client, content.flash);
+
+  console.log("Done. Seeded UI load dataset through API routes:");
+  console.log(`- ${displays.length} displays`);
+  console.log(`- ${DISPLAY_GROUPS.length} display groups`);
+  console.log(`- ${content.playable.length} non-flash content items`);
+  console.log(`- ${content.flash.length} flash content items`);
+  console.log(`- ${playlists.length} playlists`);
+  console.log(
+    `- ${playlists.length * PLAYLIST_ITEMS_PER_PLAYLIST} playlist items`,
+  );
+  console.log(`- ${SCHEDULE_COUNT} schedules`);
+  console.log("- 5 emergency asset slots");
 }
 
 if (import.meta.main) {
@@ -890,9 +1121,6 @@ if (import.meta.main) {
   } catch (error) {
     exitCode = 1;
     console.error(error instanceof Error ? error.message : error);
-  } finally {
-    await closeDbConnection();
   }
-
   process.exit(exitCode);
 }
