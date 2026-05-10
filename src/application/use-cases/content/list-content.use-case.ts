@@ -1,4 +1,5 @@
 import {
+  type ContentListStatusFilter,
   type ContentRecord,
   type ContentRepository,
   type ContentStorage,
@@ -12,6 +13,23 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 const CONTENT_OPTIONS_LIMIT = 100;
+
+function resolveContentListStatusFilter(
+  status: ContentListStatusFilter | undefined,
+): {
+  readonly status?: ContentStatus;
+  readonly isUsedInPlaylist?: boolean;
+} {
+  if (status === "DRAFT") {
+    return { status: "READY", isUsedInPlaylist: false };
+  }
+
+  if (status === "IN_USE") {
+    return { status: "READY", isUsedInPlaylist: true };
+  }
+
+  return { status };
+}
 
 export class ListContentUseCase {
   constructor(
@@ -60,7 +78,7 @@ export class ListContentUseCase {
     ownerId?: string;
     page?: number;
     pageSize?: number;
-    status?: ContentStatus;
+    status?: ContentListStatusFilter;
     type?: ContentType;
     excludeType?: ContentType;
     search?: string;
@@ -74,6 +92,7 @@ export class ListContentUseCase {
     const page = clamp(Math.trunc(input.page ?? 1), 1, Number.MAX_SAFE_INTEGER);
     const pageSize = clamp(Math.trunc(input.pageSize ?? 20), 1, 100);
     const offset = (page - 1) * pageSize;
+    const statusFilter = resolveContentListStatusFilter(input.status);
 
     const { items, total } =
       input.ownerId && this.deps.contentRepository.listForOwner
@@ -81,7 +100,8 @@ export class ListContentUseCase {
             ownerId: input.ownerId,
             offset,
             limit: pageSize,
-            status: input.status,
+            status: statusFilter.status,
+            isUsedInPlaylist: statusFilter.isUsedInPlaylist,
             type: input.type,
             excludeType: input.excludeType,
             search: input.search,
@@ -91,7 +111,8 @@ export class ListContentUseCase {
         : await this.deps.contentRepository.list({
             offset,
             limit: pageSize,
-            status: input.status,
+            status: statusFilter.status,
+            isUsedInPlaylist: statusFilter.isUsedInPlaylist,
             type: input.type,
             excludeType: input.excludeType,
             search: input.search,

@@ -11,6 +11,7 @@ import {
   contentFlashMessages,
   contentTextContent,
 } from "#/infrastructure/db/schema/content.sql";
+import { playlistItems } from "#/infrastructure/db/schema/playlist-item.sql";
 import { buildLikeContainsPattern } from "#/infrastructure/db/utils/sql";
 
 type ContentRow = {
@@ -40,6 +41,7 @@ type ContentListInput = {
   offset: number;
   limit: number;
   status?: ContentRecord["status"];
+  isUsedInPlaylist?: boolean;
   type?: ContentRecord["type"];
   excludeType?: ContentRecord["type"];
   search?: string;
@@ -200,6 +202,7 @@ export class ContentDbRepository implements ContentRepository {
     offset: number;
     limit: number;
     status?: ContentRecord["status"];
+    isUsedInPlaylist?: boolean;
     type?: ContentRecord["type"];
     excludeType?: ContentRecord["type"];
     search?: string;
@@ -214,6 +217,7 @@ export class ContentDbRepository implements ContentRepository {
     offset: number;
     limit: number;
     status?: ContentRecord["status"];
+    isUsedInPlaylist?: boolean;
     type?: ContentRecord["type"];
     excludeType?: ContentRecord["type"];
     search?: string;
@@ -228,6 +232,7 @@ export class ContentDbRepository implements ContentRepository {
     offset,
     limit,
     status,
+    isUsedInPlaylist,
     type,
     excludeType,
     search,
@@ -237,6 +242,11 @@ export class ContentDbRepository implements ContentRepository {
     const conditions = [
       ownerId ? eq(content.ownerId, ownerId) : undefined,
       status ? eq(content.status, status) : undefined,
+      isUsedInPlaylist === true
+        ? sql`exists (select 1 from ${playlistItems} where ${playlistItems.contentId} = ${content.id})`
+        : isUsedInPlaylist === false
+          ? sql`not exists (select 1 from ${playlistItems} where ${playlistItems.contentId} = ${content.id})`
+          : undefined,
       type ? eq(content.type, type) : undefined,
       excludeType ? ne(content.type, excludeType) : undefined,
       search && search.length > 0

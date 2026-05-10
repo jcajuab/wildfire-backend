@@ -1,5 +1,7 @@
 import { type ContentStatus, type ContentType } from "#/domain/content/content";
 
+export type ContentListStatusFilter = ContentStatus | "DRAFT" | "IN_USE";
+
 export interface ContentRecord {
   id: string;
   title: string;
@@ -40,6 +42,7 @@ export interface ContentRepository {
     offset: number;
     limit: number;
     status?: ContentStatus;
+    isUsedInPlaylist?: boolean;
     type?: ContentType;
     excludeType?: ContentType;
     search?: string;
@@ -51,6 +54,7 @@ export interface ContentRepository {
     offset: number;
     limit: number;
     status?: ContentStatus;
+    isUsedInPlaylist?: boolean;
     type?: ContentType;
     excludeType?: ContentType;
     search?: string;

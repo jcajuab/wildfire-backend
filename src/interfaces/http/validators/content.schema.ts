@@ -8,6 +8,13 @@ import { apiListResponseSchema } from "#/interfaces/http/responses";
 
 export const contentTypeSchema = z.enum(["IMAGE", "VIDEO", "FLASH", "TEXT"]);
 export const contentStatusSchema = z.enum(["PROCESSING", "READY", "FAILED"]);
+export const contentListStatusFilterSchema = z.enum([
+  "DRAFT",
+  "IN_USE",
+  "PROCESSING",
+  "READY",
+  "FAILED",
+]);
 export const flashToneSchema = z.enum(["INFO", "WARNING", "CRITICAL"]);
 
 export const contentSchema = z.object({
@@ -52,7 +59,7 @@ export const contentIdParamSchema = z.object({
 export const contentListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(20),
-  status: contentStatusSchema.optional(),
+  status: contentListStatusFilterSchema.optional(),
   type: contentTypeSchema.optional(),
   excludeType: contentTypeSchema.optional(),
   ownerId: z.string().uuid().optional(),

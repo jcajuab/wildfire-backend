@@ -12,11 +12,13 @@ const parseJson = async <T>(response: Response) => (await response.json()) as T;
 
 const makeRepository = () => {
   const records: ContentRecord[] = [];
+  const playlistReferencedContentIds = new Set<string>();
   const listRecords = (input: {
     ownerId?: string;
     offset: number;
     limit: number;
     status?: ContentRecord["status"];
+    isUsedInPlaylist?: boolean;
     type?: ContentRecord["type"];
     excludeType?: ContentRecord["type"];
     search?: string;
@@ -25,6 +27,12 @@ const makeRepository = () => {
     const filtered = records.filter((record) => {
       if (input.ownerId && record.ownerId !== input.ownerId) return false;
       if (input.status && record.status !== input.status) return false;
+      if (
+        input.isUsedInPlaylist !== undefined &&
+        playlistReferencedContentIds.has(record.id) !== input.isUsedInPlaylist
+      ) {
+        return false;
+      }
       if (input.type && record.type !== input.type) return false;
       if (input.excludeType && record.type === input.excludeType) return false;
       if (search && !record.title.toLowerCase().includes(search)) return false;
@@ -39,6 +47,7 @@ const makeRepository = () => {
 
   return {
     records,
+    playlistReferencedContentIds,
     repository: {
       create: async (input: Omit<ContentRecord, "createdAt">) => {
         const record: ContentRecord = {
@@ -63,6 +72,7 @@ const makeRepository = () => {
         offset: number;
         limit: number;
         status?: ContentRecord["status"];
+        isUsedInPlaylist?: boolean;
         type?: ContentRecord["type"];
         excludeType?: ContentRecord["type"];
         search?: string;
@@ -72,6 +82,7 @@ const makeRepository = () => {
         offset: number;
         limit: number;
         status?: ContentRecord["status"];
+        isUsedInPlaylist?: boolean;
         type?: ContentRecord["type"];
         excludeType?: ContentRecord["type"];
         search?: string;
@@ -132,8 +143,8 @@ const makeRepository = () => {
 
 const makeApp = async (permissions: string[]) => {
   const app = new Hono();
-  const { records, repository } = makeRepository();
-  const playlistReferencedContentIds = new Set<string>();
+  const { records, playlistReferencedContentIds, repository } =
+    makeRepository();
   const storage = {
     ensureBucketExists: async () => {},
     upload: async () => {},
@@ -435,6 +446,133 @@ describe("Content routes", () => {
       response,
     );
     expect(body.data.isUsedInPlaylist).toBe(true);
+  });
+
+  test("GET /content filters derived draft content", async () => {
+    const { app, issueToken, records, playlistReferencedContentIds } =
+      await makeApp(["content:read"]);
+    const token = await issueToken();
+    records.push(
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "Draft Poster",
+        type: "IMAGE",
+        status: "READY",
+        fileKey: "content/images/draft.png",
+        checksum: "draft",
+        mimeType: "image/png",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        title: "In Use Poster",
+        type: "IMAGE",
+        status: "READY",
+        fileKey: "content/images/in-use.png",
+        checksum: "in-use",
+        mimeType: "image/png",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        title: "Processing Upload",
+        type: "IMAGE",
+        status: "PROCESSING",
+        fileKey: "content/images/processing.png",
+        checksum: "processing",
+        mimeType: "image/png",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+    playlistReferencedContentIds.add("22222222-2222-4222-8222-222222222222");
+
+    const response = await app.request("/content?status=DRAFT", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{ title: string; isUsedInPlaylist: boolean }>;
+      meta: { total: number };
+    }>(response);
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        title: "Draft Poster",
+        isUsedInPlaylist: false,
+      }),
+    ]);
+    expect(body.meta.total).toBe(1);
+  });
+
+  test("GET /content filters derived in-use content", async () => {
+    const { app, issueToken, records, playlistReferencedContentIds } =
+      await makeApp(["content:read"]);
+    const token = await issueToken();
+    records.push(
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "Draft Poster",
+        type: "IMAGE",
+        status: "READY",
+        fileKey: "content/images/draft.png",
+        checksum: "draft",
+        mimeType: "image/png",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        title: "In Use Poster",
+        type: "IMAGE",
+        status: "READY",
+        fileKey: "content/images/in-use.png",
+        checksum: "in-use",
+        mimeType: "image/png",
+        fileSize: 10,
+        width: null,
+        height: null,
+        duration: null,
+        ownerId: "user-1",
+        createdAt: "2025-01-01T00:00:00.000Z",
+      },
+    );
+    playlistReferencedContentIds.add("22222222-2222-4222-8222-222222222222");
+
+    const response = await app.request("/content?status=IN_USE", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{ title: string; isUsedInPlaylist: boolean }>;
+      meta: { total: number };
+    }>(response);
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        title: "In Use Poster",
+        isUsedInPlaylist: true,
+      }),
+    ]);
+    expect(body.meta.total).toBe(1);
   });
 
   test("GET /content returns authorized shared content from other creators", async () => {
