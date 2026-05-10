@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:seed-ui-load": "bun run scripts/db/seed-ui-load.ts",
     "db:set-admin": "bun run scripts/db/set-admin.ts --",
     "db:studio": "drizzle-kit studio",
     "dev": "concurrently -k -n api,audit,content \"bun run dev:api\" \"bun run dev:worker:audit\" \"bun run dev:worker:content\"",
