@@ -32,6 +32,7 @@ const POLL_INTERVAL_MS = parseCount("SEED_JOB_POLL_INTERVAL_MS", 1_000);
 const MEDIA_WIDTH = 640;
 const MEDIA_HEIGHT = 360;
 const VIDEO_DURATION_SECONDS = 2;
+const MAX_PLAYLIST_DURATION_SECONDS = 60;
 const SCHEDULE_TIMEZONE =
   process.env.SEED_SCHEDULE_TIMEZONE ??
   process.env.SCHEDULE_TIMEZONE ??
@@ -314,6 +315,25 @@ function cyclicValue<T>(values: readonly T[], index: number): T {
     throw new Error("Cannot read from an empty value list.");
   }
   return value;
+}
+
+function buildPlaylistDurations(itemCount: number): number[] {
+  if (itemCount > MAX_PLAYLIST_DURATION_SECONDS) {
+    throw new Error(
+      `SEED_PLAYLIST_ITEM_COUNT cannot exceed ${MAX_PLAYLIST_DURATION_SECONDS}; playlist item durations must be positive and total no more than ${MAX_PLAYLIST_DURATION_SECONDS} seconds.`,
+    );
+  }
+
+  if (itemCount === 5) {
+    return [8, 10, 12, 14, 16];
+  }
+
+  const baseDuration = Math.floor(MAX_PLAYLIST_DURATION_SECONDS / itemCount);
+  const remainder = MAX_PLAYLIST_DURATION_SECONDS - baseDuration * itemCount;
+  return Array.from(
+    { length: itemCount },
+    (_, index) => baseDuration + (index < remainder ? 1 : 0),
+  );
 }
 
 async function mapWithConcurrency<T, R>(
@@ -901,6 +921,7 @@ async function createPlaylists(
     (_, index) => index + 1,
   );
   console.log(`Creating ${PLAYLIST_COUNT} playlists...`);
+  const durations = buildPlaylistDurations(PLAYLIST_ITEMS_PER_PLAYLIST);
   return mapWithConcurrency(playlistIndexes, 8, async (index) => {
     const items: PlaylistItemInput[] = Array.from(
       { length: PLAYLIST_ITEMS_PER_PLAYLIST },
@@ -909,7 +930,7 @@ async function createPlaylists(
           playableContent,
           (index - 1) * PLAYLIST_ITEMS_PER_PLAYLIST + itemIndex,
         ).id,
-        duration: 5 + itemIndex * 5,
+        duration: cyclicValue(durations, itemIndex),
         loop: itemIndex === PLAYLIST_ITEMS_PER_PLAYLIST - 1,
       }),
     );
