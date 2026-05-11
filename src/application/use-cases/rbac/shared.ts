@@ -40,6 +40,12 @@ export const sortUsers = (
   const direction = input?.sortDirection === "desc" ? -1 : 1;
 
   return [...users].sort((left, right) => {
+    const leftIsAdmin = left.username === "admin";
+    const rightIsAdmin = right.username === "admin";
+    if (leftIsAdmin !== rightIsAdmin) {
+      return leftIsAdmin ? -1 : 1;
+    }
+
     if (sortBy === "lastSeenAt") {
       if (left.lastSeenAt == null && right.lastSeenAt == null) {
         return left.name.localeCompare(right.name) * direction;

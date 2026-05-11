@@ -219,6 +219,13 @@ export const createRbacHttpModule = (
         userRepository: routerDeps.repositories.userRepository,
         authorizationRepository:
           routerDeps.repositories.authorizationRepository,
+        authSessionRepository: routerDeps.authSessionRepository,
+        contentRepository,
+        playlistRepository,
+        scheduleRepository,
+        deleteContent: deleteContentUseCase,
+        deletePlaylist: deletePlaylistUseCase,
+        deleteSchedule: deleteScheduleUseCase,
       }),
       setUserRoles: new SetUserRolesUseCase({
         userRepository: routerDeps.repositories.userRepository,

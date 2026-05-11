@@ -29,6 +29,8 @@ const mapUserRowToRecord = (row: typeof users.$inferSelect): UserRecord => ({
   bannedAt: row.bannedAt?.toISOString() ?? null,
 });
 
+const adminFirstOrder = sql`case when ${users.username} = 'admin' then 0 else 1 end`;
+
 export class UserDbRepository implements UserRepository {
   async list(): Promise<UserRecord[]> {
     const rows = await db.select().from(users);
@@ -130,6 +132,7 @@ export class UserDbRepository implements UserRepository {
     const orderBy =
       input.sortBy === "lastSeenAt"
         ? ([
+            adminFirstOrder,
             sql`case when ${users.lastSeenAt} is null then 1 else 0 end`,
             input.sortDirection === "asc"
               ? asc(users.lastSeenAt)
@@ -138,6 +141,7 @@ export class UserDbRepository implements UserRepository {
           ] as const)
         : input.sortBy === "email"
           ? ([
+              adminFirstOrder,
               sql`case when ${users.email} is null then 1 else 0 end`,
               input.sortDirection === "desc"
                 ? desc(users.email)
@@ -147,6 +151,7 @@ export class UserDbRepository implements UserRepository {
                 : asc(users.name),
             ] as const)
           : ([
+              adminFirstOrder,
               input.sortDirection === "desc"
                 ? desc(users.name)
                 : asc(users.name),

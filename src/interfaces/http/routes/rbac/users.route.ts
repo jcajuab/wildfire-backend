@@ -233,7 +233,15 @@ export const registerRbacUserRoutes = (args: {
         const user = await useCases.createUser.execute(payload);
         c.set("resourceId", user.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(user.id)}`);
-        await invalidateServerCache(["users", "roles", "permissions"]);
+        await invalidateServerCache([
+          "users",
+          "roles",
+          "permissions",
+          "content",
+          "playlists",
+          "schedules",
+          "displays",
+        ]);
         return c.json({ data: addInvitedUserFlag(user) }, 201);
       },
       ...applicationErrorMappers,

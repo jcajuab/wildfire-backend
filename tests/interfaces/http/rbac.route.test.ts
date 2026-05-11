@@ -612,6 +612,51 @@ describe("RBAC routes", () => {
     expect(invalidResponse.status).toBe(422);
   });
 
+  test("DELETE /users/:id deletes invited users only", async () => {
+    const { app, issueToken, store } = buildApp(["users:delete"]);
+    const invitedUserId = "33333333-3333-4333-8333-333333333333";
+    const dcismUserId = "44444444-4444-4444-8444-444444444444";
+    store.users.push(
+      {
+        id: invitedUserId,
+        username: "invited",
+        email: "invited@example.com",
+        name: "Invited User",
+        isActive: true,
+        invitedAt: "2026-05-11T00:00:00.000Z",
+      },
+      {
+        id: dcismUserId,
+        username: "dcism",
+        email: "dcism@example.com",
+        name: "DCISM User",
+        isActive: true,
+        invitedAt: null,
+      },
+    );
+    const token = await issueToken();
+
+    const invitedResponse = await app.request(`/users/${invitedUserId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const dcismResponse = await app.request(`/users/${dcismUserId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const adminResponse = await app.request(`/users/${rootUserId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(invitedResponse.status).toBe(204);
+    expect(store.users.some((user) => user.id === invitedUserId)).toBe(false);
+    expect(dcismResponse.status).toBe(403);
+    expect(adminResponse.status).toBe(403);
+    expect(store.users.some((user) => user.id === dcismUserId)).toBe(true);
+    expect(store.users.some((user) => user.id === rootUserId)).toBe(true);
+  });
+
   test("GET /roles/options returns filtered role options", async () => {
     const { app, issueToken } = buildApp(["roles:read"]);
     const token = await issueToken();
@@ -843,11 +888,11 @@ describe("RBAC routes", () => {
       }>;
     }>(response);
     expect(body.data.map((user) => user.id)).toEqual([
+      rootUserId,
       "44444444-4444-4444-8444-444444444444",
       "33333333-3333-4333-8333-333333333333",
-      rootUserId,
     ]);
-    expect(body.data[0]?.roles).toEqual([
+    expect(body.data[1]?.roles).toEqual([
       {
         id: "55555555-5555-4555-8555-555555555555",
         name: "Viewer",
