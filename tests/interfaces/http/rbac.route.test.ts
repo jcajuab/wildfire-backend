@@ -145,6 +145,9 @@ const buildApp = (
         if (input.email !== undefined) user.email = input.email ?? null;
         if (input.name !== undefined) user.name = input.name;
         if (input.isActive !== undefined) user.isActive = input.isActive;
+        if (input.bannedAt !== undefined) {
+          user.bannedAt = input.bannedAt?.toISOString() ?? null;
+        }
         return user;
       },
       delete: async (id) => {
@@ -277,6 +280,33 @@ const buildApp = (
         );
       },
     },
+    contentRepository: {
+      listForOwner: async () => ({ items: [], total: 0 }),
+      findById: async () => null,
+      findByIdForOwner: async () => null,
+      delete: async () => false,
+      deleteForOwner: async () => false,
+    } as never,
+    playlistRepository: {
+      listForOwner: async () => [],
+      listByContentId: async () => [],
+      listByPlaylistId: async () => [],
+      deleteForOwner: async () => false,
+      updateStatus: async () => {},
+    } as never,
+    scheduleRepository: {
+      list: async () => [],
+      listByCreator: async () => [],
+      listByPlaylistId: async () => [],
+      listByContentId: async () => [],
+      findById: async () => null,
+      delete: async () => false,
+      countByPlaylistId: async () => 0,
+      countByContentId: async () => 0,
+    } as never,
+    displayRepository: {
+      findByIds: async () => [],
+    } as never,
   };
 
   const app = new Hono();
@@ -300,6 +330,9 @@ const buildApp = (
           hash: async (p: string) => p,
         },
         repositories,
+        contentStorage: {
+          delete: async () => {},
+        } as never,
         authIdentityCache: {
           getPermissions: async () => null,
           setPermissions: async () => {},
@@ -316,16 +349,18 @@ const buildApp = (
   );
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const issueToken = async () =>
-    tokenIssuer.issueToken({
-      subject: rootUserId,
-      username: "admin",
-      email: "admin@example.com",
+  const issueToken = async (subject = rootUserId) => {
+    const user = store.users.find((item) => item.id === subject);
+    return tokenIssuer.issueToken({
+      subject,
+      username: user?.username ?? "admin",
+      email: user?.email ?? "admin@example.com",
       issuedAt: nowSeconds,
       expiresAt: nowSeconds + 3600,
       sessionId: crypto.randomUUID(),
       issuer: undefined,
     });
+  };
 
   return { app, issueToken, store, counters };
 };
@@ -439,6 +474,142 @@ describe("RBAC routes", () => {
     }>(response);
     expect(body.meta.total).toBe(1);
     expect(body.data[0]?.name).toBe("Root");
+  });
+
+  test("GET /users/:id does not require a JSON body", async () => {
+    const { app, issueToken } = buildApp(["users:read"]);
+    const token = await issueToken();
+
+    const response = await app.request(`/users/${rootUserId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: { id: string; username: string };
+    }>(response);
+    expect(body.data.id).toBe(rootUserId);
+  });
+
+  test("PUT /users/:id/status bans and unbans with a validated JSON body", async () => {
+    const { app, issueToken, store } = buildApp(["users:delete"]);
+    const targetUserId = "33333333-3333-4333-8333-333333333333";
+    store.users.push({
+      id: targetUserId,
+      username: "alice",
+      email: "alice@example.com",
+      name: "Alice",
+      isActive: true,
+      bannedAt: null,
+    });
+    const token = await issueToken();
+
+    const banResponse = await app.request(`/users/${targetUserId}/status`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ banned: true }),
+    });
+
+    expect(banResponse.status).toBe(200);
+    expect(store.users.find((user) => user.id === targetUserId)?.isActive).toBe(
+      false,
+    );
+    expect(
+      store.users.find((user) => user.id === targetUserId)?.bannedAt,
+    ).toEqual(expect.any(String));
+
+    const unbanResponse = await app.request(`/users/${targetUserId}/status`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ banned: false }),
+    });
+
+    expect(unbanResponse.status).toBe(200);
+    expect(store.users.find((user) => user.id === targetUserId)?.isActive).toBe(
+      true,
+    );
+    expect(store.users.find((user) => user.id === targetUserId)?.bannedAt).toBe(
+      null,
+    );
+  });
+
+  test("PUT /users/:id/status rejects invalid bodies and requires users:delete", async () => {
+    const targetUserId = "33333333-3333-4333-8333-333333333333";
+    const updaterUserId = "44444444-4444-4444-8444-444444444444";
+    const updaterRoleId = "55555555-5555-4555-8555-555555555555";
+    const deniedApp = buildApp(["users:update"]);
+    deniedApp.store.users.push(
+      {
+        id: updaterUserId,
+        username: "updater",
+        email: "updater@example.com",
+        name: "Updater",
+        isActive: true,
+      },
+      {
+        id: targetUserId,
+        username: "alice",
+        email: "alice@example.com",
+        name: "Alice",
+        isActive: true,
+      },
+    );
+    deniedApp.store.roles.push({
+      id: updaterRoleId,
+      name: "Updater",
+      description: null,
+      isSystem: false,
+    });
+    deniedApp.store.userRoles.push({
+      userId: updaterUserId,
+      roleId: updaterRoleId,
+    });
+    deniedApp.store.rolePermissions.push({
+      roleId: updaterRoleId,
+      permissionId: makePermissionId(0),
+    });
+    const deniedToken = await deniedApp.issueToken(updaterUserId);
+
+    const deniedResponse = await deniedApp.app.request(
+      `/users/${targetUserId}/status`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${deniedToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ banned: true }),
+      },
+    );
+
+    expect(deniedResponse.status).toBe(403);
+
+    const { app, issueToken, store } = buildApp(["users:delete"]);
+    store.users.push({
+      id: targetUserId,
+      username: "alice",
+      email: "alice@example.com",
+      name: "Alice",
+      isActive: true,
+    });
+    const token = await issueToken();
+
+    const invalidResponse = await app.request(`/users/${targetUserId}/status`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ banned: "yes" }),
+    });
+
+    expect(invalidResponse.status).toBe(422);
   });
 
   test("GET /roles/options returns filtered role options", async () => {

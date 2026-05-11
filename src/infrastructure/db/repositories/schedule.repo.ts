@@ -131,6 +131,13 @@ export class ScheduleDbRepository implements ScheduleRepository {
     return rows.map(mapScheduleRowToRecord);
   }
 
+  async listByCreator(userId: string): Promise<ScheduleRecord[]> {
+    const rows = await buildScheduleQuery()
+      .where(eq(schedules.createdBy, userId))
+      .orderBy(desc(schedules.createdAt));
+    return rows.map(mapScheduleRowToRecord);
+  }
+
   async listByContentId(contentId: string): Promise<ScheduleRecord[]> {
     const rows = await buildScheduleQuery().where(
       eq(scheduleContentTargets.contentId, contentId),

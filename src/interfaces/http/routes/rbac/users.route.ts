@@ -29,6 +29,7 @@ import {
 import {
   createUserSchema,
   setUserRolesSchema,
+  setUserStatusSchema,
   updateUserSchema,
   userIdParamSchema,
   userListQuerySchema,
@@ -82,6 +83,7 @@ export const registerRbacUserRoutes = (args: {
               pageSize: query.pageSize,
               q: query.q,
               roleId: query.roleId,
+              userType: query.userType,
               sortBy: query.sortBy,
               sortDirection: query.sortDirection,
             });
@@ -293,22 +295,24 @@ export const registerRbacUserRoutes = (args: {
       route: "/users/:id/status",
       resourceType: "user",
     }),
-    ...authorize("users:update"),
+    ...authorize("users:delete"),
     validateParams(userIdParamSchema),
+    validateJson(setUserStatusSchema),
     describeRoute({
       description: "Update user status (ban or unban)",
       tags: userTags,
       responses: {
         200: { description: "User status updated" },
+        409: { ...conflictResponse },
         404: { ...notFoundResponse },
-        ...authErrorResponses,
+        ...authValidationErrorResponses,
       },
     }),
     withRouteErrorHandling(
       async (c) => {
         const params = c.req.valid("param");
         c.set("resourceId", params.id);
-        const body = await c.req.json<{ banned: boolean }>();
+        const body = c.req.valid("json");
         if (body.banned) {
           await useCases.banUser.execute({
             id: params.id,
@@ -320,7 +324,15 @@ export const registerRbacUserRoutes = (args: {
             callerUserId: c.get("userId"),
           });
         }
-        await invalidateServerCache(["users", "roles", "permissions"]);
+        await invalidateServerCache([
+          "users",
+          "roles",
+          "permissions",
+          "content",
+          "playlists",
+          "schedules",
+          "displays",
+        ]);
         return c.json({ data: { success: true } });
       },
       ...applicationErrorMappers,

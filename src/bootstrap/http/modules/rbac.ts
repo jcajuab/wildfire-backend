@@ -1,4 +1,6 @@
 import { type AuthIdentityCache } from "#/application/ports/auth";
+import { DeleteContentUseCase } from "#/application/use-cases/content";
+import { DeletePlaylistUseCase } from "#/application/use-cases/playlists";
 import {
   CheckPermissionUseCase,
   CreateRoleUseCase,
@@ -21,12 +23,14 @@ import {
   UpdateRoleUseCase,
   UpdateUserUseCase,
 } from "#/application/use-cases/rbac";
+import { DeleteScheduleUseCase } from "#/application/use-cases/schedules";
 import { AdminResetPasswordUseCase } from "#/application/use-cases/users/admin-reset-password.use-case";
 import {
   BanUserUseCase,
   UnbanUserUseCase,
 } from "#/application/use-cases/users/ban-user.use-case";
 import { CachedAuthorizationRepository } from "#/infrastructure/db/repositories/cached-authorization.repo";
+import { ContentPlaylistReportingRepository } from "#/infrastructure/db/repositories/content-playlist-reporting.repo";
 import { logger } from "#/infrastructure/observability/logger";
 import { addErrorContext } from "#/infrastructure/observability/logging";
 import {
@@ -39,6 +43,13 @@ export interface RbacHttpModule {
   deps: RbacRouterDeps;
   useCases: RbacRouterUseCases;
 }
+
+const requireRepository = <T>(value: T | undefined, name: string): T => {
+  if (value == null) {
+    throw new Error(`${name} is required for the RBAC HTTP module.`);
+  }
+  return value;
+};
 
 const invalidateUserPermissions = async (
   userId: string,
@@ -98,6 +109,47 @@ export const createRbacHttpModule = (
       authorizationRepository: deps.repositories.authorizationRepository,
     }),
   };
+
+  const contentRepository = requireRepository(
+    routerDeps.repositories.contentRepository,
+    "contentRepository",
+  );
+  const playlistRepository = requireRepository(
+    routerDeps.repositories.playlistRepository,
+    "playlistRepository",
+  );
+  const scheduleRepository = requireRepository(
+    routerDeps.repositories.scheduleRepository,
+    "scheduleRepository",
+  );
+  const displayRepository = requireRepository(
+    routerDeps.repositories.displayRepository,
+    "displayRepository",
+  );
+  const contentStorage = requireRepository(
+    routerDeps.contentStorage,
+    "contentStorage",
+  );
+
+  const deleteScheduleUseCase = new DeleteScheduleUseCase({
+    scheduleRepository,
+    playlistRepository,
+    contentRepository,
+    displayEventPublisher: routerDeps.displayEventPublisher,
+    adminLifecycleEventPublisher: routerDeps.adminLifecycleEventPublisher,
+  });
+  const deletePlaylistUseCase = new DeletePlaylistUseCase({
+    playlistRepository,
+    contentRepository,
+    scheduleRepository,
+    displayRepository,
+  });
+  const deleteContentUseCase = new DeleteContentUseCase({
+    contentRepository,
+    contentStorage,
+    scheduleRepository,
+    contentPlaylistReportingPort: new ContentPlaylistReportingRepository(),
+  });
 
   return {
     deps: routerDeps,
@@ -199,6 +251,12 @@ export const createRbacHttpModule = (
         authSessionRepository: routerDeps.authSessionRepository,
         authorizationRepository:
           routerDeps.repositories.authorizationRepository,
+        contentRepository,
+        playlistRepository,
+        scheduleRepository,
+        deleteContent: deleteContentUseCase,
+        deletePlaylist: deletePlaylistUseCase,
+        deleteSchedule: deleteScheduleUseCase,
       }),
       unbanUser: new UnbanUserUseCase({
         userRepository: routerDeps.repositories.userRepository,

@@ -1,4 +1,7 @@
-import { type UserRepository } from "#/application/ports/rbac";
+import {
+  type UserRepository,
+  type UserTypeFilter,
+} from "#/application/ports/rbac";
 import { paginate } from "#/application/use-cases/shared/pagination";
 import { filterUsers, sortUsers } from "./shared";
 
@@ -10,6 +13,7 @@ export class ListUsersUseCase {
     pageSize?: number;
     q?: string;
     roleId?: string;
+    userType?: UserTypeFilter;
     sortBy?: "name" | "email" | "lastSeenAt";
     sortDirection?: "asc" | "desc";
   }) {
@@ -26,6 +30,7 @@ export class ListUsersUseCase {
         limit: pageSize,
         q: input?.q,
         roleId: input?.roleId,
+        userType: input?.userType,
         sortBy: input?.sortBy,
         sortDirection: input?.sortDirection,
       });
@@ -38,6 +43,9 @@ export class ListUsersUseCase {
     }
 
     const all = await this.deps.userRepository.list();
-    return paginate(sortUsers(filterUsers(all, input?.q), input), input);
+    return paginate(
+      sortUsers(filterUsers(all, input?.q, input?.userType), input),
+      input,
+    );
   }
 }

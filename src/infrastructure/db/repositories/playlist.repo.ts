@@ -181,6 +181,16 @@ export class PlaylistDbRepository implements PlaylistRepository {
     return this.findByIdsInternal(ids, ownerId);
   }
 
+  async listByContentId(contentId: string): Promise<PlaylistRecord[]> {
+    const rows = await db
+      .selectDistinct({ playlist: playlists })
+      .from(playlists)
+      .innerJoin(playlistItems, eq(playlistItems.playlistId, playlists.id))
+      .where(eq(playlistItems.contentId, contentId))
+      .orderBy(desc(playlists.createdAt));
+    return rows.map((row) => mapPlaylistRowToRecord(row.playlist));
+  }
+
   private async findByIdsInternal(
     ids: string[],
     ownerId?: string,

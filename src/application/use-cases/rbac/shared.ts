@@ -1,4 +1,4 @@
-import { type UserRecord } from "#/application/ports/rbac";
+import { type UserRecord, type UserTypeFilter } from "#/application/ports/rbac";
 import { normalizeQuery } from "#/shared/string-utils";
 
 export { normalizeQuery };
@@ -6,13 +6,21 @@ export { normalizeQuery };
 export const filterUsers = (
   users: readonly UserRecord[],
   query: string | undefined,
+  userType?: UserTypeFilter,
 ): UserRecord[] => {
   const normalized = normalizeQuery(query);
-  if (!normalized) {
-    return [...users];
-  }
+  const filteredByType = userType
+    ? users.filter((user) => {
+        const isBanned = user.bannedAt != null || !user.isActive;
+        if (userType === "banned") return isBanned;
+        if (userType === "invited") return !isBanned && user.invitedAt != null;
+        return !isBanned && user.invitedAt == null;
+      })
+    : [...users];
 
-  return users.filter((user) => {
+  if (!normalized) return filteredByType;
+
+  return filteredByType.filter((user) => {
     return (
       user.name.toLowerCase().includes(normalized) ||
       user.username.toLowerCase().includes(normalized) ||

@@ -13,6 +13,8 @@ export interface UserRecord {
   bannedAt?: string | null;
 }
 
+export type UserTypeFilter = "dcism" | "invited" | "banned";
+
 export interface RoleRecord {
   id: string;
   name: string;
@@ -39,6 +41,7 @@ export interface UserRepository {
     limit: number;
     q?: string;
     roleId?: string;
+    userType?: UserTypeFilter;
     sortBy?: "name" | "email" | "lastSeenAt";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: UserRecord[]; total: number }>;

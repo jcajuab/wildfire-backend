@@ -4,6 +4,7 @@ import {
   AuthenticateUserUseCase,
   ChangeCurrentUserPasswordUseCase,
   CreateInvitationUseCase,
+  DeleteInvitationUseCase,
   ListInvitationsUseCase,
   RefreshSessionUseCase,
   ResendInvitationUseCase,
@@ -103,6 +104,9 @@ export const createAuthHttpModule = (
         graceWindowSeconds: routerDeps.graceWindowSeconds,
       }),
       createInvitation,
+      deleteInvitation: new DeleteInvitationUseCase({
+        invitationRepository: routerDeps.invitationRepository,
+      }),
       acceptInvitation: new AcceptInvitationUseCase({
         invitationRepository: routerDeps.invitationRepository,
         userRepository: routerDeps.userRepository,

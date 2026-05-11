@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  like,
+  or,
+  sql,
+} from "drizzle-orm";
 import { type UserRecord, type UserRepository } from "#/application/ports/rbac";
 import { db } from "#/infrastructure/db/client";
 import { userRoles, users } from "#/infrastructure/db/schema/rbac.sql";
@@ -53,6 +64,7 @@ export class UserDbRepository implements UserRepository {
     limit: number;
     q?: string;
     roleId?: string;
+    userType?: "dcism" | "invited" | "banned";
     sortBy?: "name" | "email" | "lastSeenAt";
     sortDirection?: "asc" | "desc";
   }): Promise<{ items: UserRecord[]; total: number }> {
@@ -65,6 +77,22 @@ export class UserDbRepository implements UserRepository {
         )
       : undefined;
     const roleClause = input.roleId ? eq(userRoles.roleId, input.roleId) : null;
+    const userTypeClause =
+      input.userType === "banned"
+        ? or(isNotNull(users.bannedAt), eq(users.isActive, false))
+        : input.userType === "invited"
+          ? and(
+              isNull(users.bannedAt),
+              eq(users.isActive, true),
+              isNotNull(users.invitedAt),
+            )
+          : input.userType === "dcism"
+            ? and(
+                isNull(users.bannedAt),
+                eq(users.isActive, true),
+                isNull(users.invitedAt),
+              )
+            : undefined;
     const orderBy =
       input.sortBy === "lastSeenAt"
         ? ([
@@ -91,9 +119,11 @@ export class UserDbRepository implements UserRepository {
             ] as const);
 
     if (roleClause) {
-      const whereClause = searchClause
-        ? and(searchClause, roleClause)
-        : roleClause;
+      const whereClause = and(
+        ...[searchClause, roleClause, userTypeClause].filter(
+          (clause) => clause !== undefined && clause !== null,
+        ),
+      );
       const rows = await db
         .select({ user: users })
         .from(users)
@@ -115,19 +145,28 @@ export class UserDbRepository implements UserRepository {
       };
     }
 
+    const whereClause =
+      searchClause == null && userTypeClause == null
+        ? undefined
+        : and(
+            ...[searchClause, userTypeClause].filter(
+              (clause) => clause !== undefined && clause !== null,
+            ),
+          );
+
     const rows = await db
       .select()
       .from(users)
-      .where(searchClause)
+      .where(whereClause)
       .orderBy(...orderBy)
       .limit(input.limit)
       .offset(input.offset);
 
     const totalQuery = db.select({ value: sql<number>`count(*)` }).from(users);
     const totalResult =
-      searchClause == null
+      whereClause == null
         ? await totalQuery
-        : await totalQuery.where(searchClause);
+        : await totalQuery.where(whereClause);
 
     return {
       items: rows.map(mapUserRowToRecord),

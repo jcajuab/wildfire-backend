@@ -23,6 +23,7 @@ export interface ScheduleRepository {
   listByDisplay(displayId: string): Promise<ScheduleRecord[]>;
   listByDisplayIds?(displayIds: string[]): Promise<ScheduleRecord[]>;
   listByPlaylistId(playlistId: string): Promise<ScheduleRecord[]>;
+  listByCreator?(userId: string): Promise<ScheduleRecord[]>;
   listWindow?(input: {
     from: string;
     to: string;

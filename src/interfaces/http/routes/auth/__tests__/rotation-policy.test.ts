@@ -169,6 +169,7 @@ const buildSpyApp = (opts?: { avatarStorage?: ContentStorage }) => {
     listPage: async () => [],
     revokeActiveByEmail: async () => {},
     markAccepted: async () => {},
+    deleteById: async () => false,
     deleteExpired: async () => {},
   };
 

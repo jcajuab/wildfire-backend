@@ -85,6 +85,13 @@
       "when": 1779100000004,
       "tag": "0011_clamp_video_playlist_item_durations",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1779100000005,
+      "tag": "0012_backfill_banned_users",
+      "breakpoints": true
     }
   ]
 }

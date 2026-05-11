@@ -3,6 +3,7 @@ export type { AuthResult } from "#/application/use-cases/auth/authenticate-user.
 export { AuthenticateUserUseCase } from "#/application/use-cases/auth/authenticate-user.use-case";
 export { ChangeCurrentUserPasswordUseCase } from "#/application/use-cases/auth/change-current-user-password.use-case";
 export { CreateInvitationUseCase } from "#/application/use-cases/auth/create-invitation.use-case";
+export { DeleteInvitationUseCase } from "#/application/use-cases/auth/delete-invitation.use-case";
 export { InvalidCredentialsError } from "#/application/use-cases/auth/errors";
 export { ListInvitationsUseCase } from "#/application/use-cases/auth/list-invitations.use-case";
 export type { RefreshSessionResult } from "#/application/use-cases/auth/refresh-session.use-case";

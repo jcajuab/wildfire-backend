@@ -283,6 +283,11 @@ export class InvitationDbRepository implements InvitationRepository {
       .where(eq(invitations.id, id));
   }
 
+  async deleteById(id: string): Promise<boolean> {
+    const result = await db.delete(invitations).where(eq(invitations.id, id));
+    return (result[0]?.affectedRows ?? 0) > 0;
+  }
+
   async deleteExpired(now: Date): Promise<void> {
     await db.delete(invitations).where(lte(invitations.expiresAt, now));
   }

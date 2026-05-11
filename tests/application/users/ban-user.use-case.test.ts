@@ -11,6 +11,31 @@ const baseUser = {
   isActive: true,
 };
 
+const cleanupDeps = {
+  contentRepository: {
+    listForOwner: async () => ({ items: [], total: 0 }),
+  } as never,
+  playlistRepository: {
+    listForOwner: async () => [],
+    listByContentId: async () => [],
+  } as never,
+  scheduleRepository: {
+    list: async () => [],
+    listByCreator: async () => [],
+    listByPlaylistId: async () => [],
+    listByContentId: async () => [],
+  } as never,
+  deleteContent: {
+    execute: async () => {},
+  },
+  deletePlaylist: {
+    execute: async () => {},
+  },
+  deleteSchedule: {
+    execute: async () => {},
+  },
+} as const;
+
 function makeUseCase(overrides: {
   isAdminUser?: (id: string) => Promise<boolean>;
   findById?: (id: string) => Promise<typeof baseUser | null>;
@@ -33,6 +58,7 @@ function makeUseCase(overrides: {
       isAdminUser: overrides.isAdminUser ?? (async () => true),
       findPermissionsForUser: async () => [],
     } as never,
+    ...cleanupDeps,
   });
 }
 
@@ -68,6 +94,7 @@ describe("BanUserUseCase — self-ban guard", () => {
         isAdminUser: async () => true,
         findPermissionsForUser: async () => [],
       } as never,
+      ...cleanupDeps,
     });
 
     await useCase.execute({ id: "user-2", callerUserId: "admin-1" });

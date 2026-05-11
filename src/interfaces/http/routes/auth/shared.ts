@@ -20,6 +20,7 @@ import {
   type AuthenticateUserUseCase,
   type ChangeCurrentUserPasswordUseCase,
   type CreateInvitationUseCase,
+  type DeleteInvitationUseCase,
   type ListInvitationsUseCase,
   type RefreshSessionUseCase,
   type ResendInvitationUseCase,
@@ -79,6 +80,7 @@ export interface AuthRouterUseCases {
   authenticateUser: AuthenticateUserUseCase;
   refreshSession: RefreshSessionUseCase;
   createInvitation: CreateInvitationUseCase;
+  deleteInvitation: DeleteInvitationUseCase;
   acceptInvitation: AcceptInvitationUseCase;
   listInvitations: ListInvitationsUseCase;
   resendInvitation: ResendInvitationUseCase;

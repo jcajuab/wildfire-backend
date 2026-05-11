@@ -6,7 +6,16 @@ import {
   type InvitationRepository,
   type PasswordHasher,
 } from "#/application/ports/auth";
-import { type ContentStorage } from "#/application/ports/content";
+import {
+  type ContentRepository,
+  type ContentStorage,
+} from "#/application/ports/content";
+import {
+  type AdminDisplayLifecycleEventPublisher,
+  type DisplayStreamEventPublisher,
+} from "#/application/ports/display-stream-events";
+import { type DisplayRepository } from "#/application/ports/displays";
+import { type PlaylistRepository } from "#/application/ports/playlists";
 import {
   type AuthorizationRepository,
   type PermissionRepository,
@@ -15,6 +24,7 @@ import {
   type UserRepository,
   type UserRoleRepository,
 } from "#/application/ports/rbac";
+import { type ScheduleRepository } from "#/application/ports/schedules";
 import {
   type CheckPermissionUseCase,
   type CreateRoleUseCase,
@@ -61,7 +71,14 @@ export interface RbacRouterDeps {
     userRoleRepository: UserRoleRepository;
     rolePermissionRepository: RolePermissionRepository;
     authorizationRepository: AuthorizationRepository;
+    contentRepository?: ContentRepository;
+    playlistRepository?: PlaylistRepository;
+    scheduleRepository?: ScheduleRepository;
+    displayRepository?: DisplayRepository;
   };
+  contentStorage?: ContentStorage;
+  displayEventPublisher?: DisplayStreamEventPublisher;
+  adminLifecycleEventPublisher?: AdminDisplayLifecycleEventPublisher;
   avatarStorage?: ContentStorage;
   avatarUrlExpiresInSeconds?: number;
   checkPermissionUseCase: CheckPermissionUseCase;

@@ -139,5 +139,6 @@ export interface InvitationRepository {
   >;
   revokeActiveByEmail(email: string, now: Date): Promise<void>;
   markAccepted(id: string, acceptedAt: Date): Promise<void>;
+  deleteById(id: string): Promise<boolean>;
   deleteExpired(now: Date): Promise<void>;
 }

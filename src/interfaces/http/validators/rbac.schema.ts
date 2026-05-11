@@ -50,6 +50,7 @@ export const userIdParamSchema = z.object({
 export const userListQuerySchema = baseListQuerySchema.extend({
   q: z.string().trim().min(1).max(255).optional(),
   roleId: z.string().uuid().optional(),
+  userType: z.enum(["dcism", "invited", "banned"]).optional(),
   sortBy: z.enum(["name", "email", "lastSeenAt"]).optional(),
   sortDirection: z.enum(["asc", "desc"]).optional(),
 });
@@ -60,6 +61,10 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional().nullable(),
   name: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
+});
+
+export const setUserStatusSchema = z.object({
+  banned: z.boolean(),
 });
 
 export const setUserRolesSchema = z.object({

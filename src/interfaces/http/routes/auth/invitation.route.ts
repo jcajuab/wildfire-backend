@@ -258,6 +258,34 @@ export const registerAuthInvitationRoutes = (args: {
     ),
   );
 
+  router.delete(
+    "/invitations/:id",
+    setAction("auth.invitation.delete", {
+      route: "/auth/invitations/:id",
+      resourceType: "invitation",
+    }),
+    ...authorize("users:create"),
+    validateParams(invitationIdParamSchema),
+    describeRoute({
+      description: "Delete an invitation record",
+      tags: authTags,
+      responses: {
+        204: { description: "Invitation deleted" },
+        404: { ...notFoundResponse },
+        ...authValidationErrorResponses,
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        const params = c.req.valid("param");
+        await useCases.deleteInvitation.execute({ id: params.id });
+        c.set("resourceId", params.id);
+        return c.body(null, 204);
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
   router.post(
     "/invitations/accept",
     setAction("auth.invitation.accept", {

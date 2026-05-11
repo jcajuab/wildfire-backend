@@ -3,6 +3,7 @@ import { ValidationError } from "#/application/errors/validation";
 import {
   AcceptInvitationUseCase,
   CreateInvitationUseCase,
+  DeleteInvitationUseCase,
   ListInvitationsUseCase,
   ResendInvitationUseCase,
 } from "#/application/use-cases/auth";
@@ -27,6 +28,7 @@ const noopInvitationRepository = {
   listPage: async () => [],
   revokeActiveByEmail: async () => {},
   markAccepted: async () => {},
+  deleteById: async () => false,
   deleteExpired: async () => {},
 };
 
@@ -246,5 +248,22 @@ describe("Invitation use cases", () => {
 
     expect(result.id).toEqual(expect.any(String));
     expect(result.expiresAt).toEqual(expect.any(String));
+  });
+
+  test("DeleteInvitationUseCase deletes an existing invitation", async () => {
+    const deletedIds: string[] = [];
+    const useCase = new DeleteInvitationUseCase({
+      invitationRepository: {
+        ...noopInvitationRepository,
+        deleteById: async (id) => {
+          deletedIds.push(id);
+          return true;
+        },
+      },
+    });
+
+    await useCase.execute({ id: "invite-1" });
+
+    expect(deletedIds).toEqual(["invite-1"]);
   });
 });

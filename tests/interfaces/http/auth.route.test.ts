@@ -293,6 +293,15 @@ const buildApp = (opts?: {
         }
       }
     },
+    deleteById: async (id) => {
+      for (const [hashedToken, invitation] of invitations.entries()) {
+        if (invitation.id === id) {
+          invitations.delete(hashedToken);
+          return true;
+        }
+      }
+      return false;
+    },
     deleteExpired: async (now) => {
       for (const [hashedToken, invitation] of invitations.entries()) {
         if (invitation.expiresAt.getTime() <= now.getTime()) {
@@ -949,6 +958,60 @@ describe("Auth routes", () => {
       const revealBody =
         await parseJson<ApiData<{ inviteUrl: string }>>(revealRes);
       expect(revealBody.data.inviteUrl).toContain("token=");
+    });
+
+    test("DELETE /auth/invitations/:id deletes an invitation", async () => {
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+
+      const createResponse = await app.request("/auth/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: "delete.invite@example.com" }),
+      });
+      expect(createResponse.status).toBe(201);
+      const created = await parseJson<ApiData<{ id: string }>>(createResponse);
+
+      const deleteResponse = await app.request(
+        `/auth/invitations/${created.data.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      expect(deleteResponse.status).toBe(204);
+      const listResponse = await app.request("/auth/invitations", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const listBody = await parseJson<{ data: { id: string }[] }>(
+        listResponse,
+      );
+      expect(
+        listBody.data.some((invitation) => invitation.id === created.data.id),
+      ).toBe(false);
+    });
+
+    test("DELETE /auth/invitations/:id returns 404 for missing invitation", async () => {
+      const { app } = buildApp({
+        permissions: [new Permission("users", "create")],
+      });
+      const token = await issueToken();
+
+      const response = await app.request(
+        "/auth/invitations/00000000-0000-4000-8000-000000000000",
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      expect(response.status).toBe(404);
     });
 
     test("POST /auth/invitations/accept accepts a valid invitation", async () => {

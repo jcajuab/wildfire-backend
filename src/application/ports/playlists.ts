@@ -58,6 +58,7 @@ export interface PlaylistRepository {
   }): Promise<{ items: PlaylistRecord[]; total: number }>;
   findByIds(ids: string[]): Promise<PlaylistRecord[]>;
   findByIdsForOwner(ids: string[], ownerId: string): Promise<PlaylistRecord[]>;
+  listByContentId?(contentId: string): Promise<PlaylistRecord[]>;
   findById(id: string): Promise<PlaylistRecord | null>;
   findByIdForOwner(id: string, ownerId: string): Promise<PlaylistRecord | null>;
   create(input: {
