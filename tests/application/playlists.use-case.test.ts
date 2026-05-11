@@ -20,6 +20,7 @@ import {
   NotFoundError,
   PlaylistInUseError,
   ReplacePlaylistItemsAtomicUseCase,
+  UpdatePlaylistItemUseCase,
 } from "#/application/use-cases/playlists";
 
 const makeDeps = () => {
@@ -38,6 +39,22 @@ const makeDeps = () => {
       width: 10,
       height: 10,
       duration: null,
+      ownerId: "user-1",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    },
+    {
+      id: "content-video-1",
+      title: "Campus Tour",
+      type: "VIDEO",
+      status: "READY",
+      fileKey: "content/videos/tour.mp4",
+      checksum: "video-checksum",
+      mimeType: "video/mp4",
+      fileSize: 1000,
+      width: 1920,
+      height: 1080,
+      duration: 8,
       ownerId: "user-1",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
@@ -140,7 +157,20 @@ const makeDeps = () => {
       items.push(record);
       return record;
     },
-    updateItem: async () => null,
+    updateItem: async (id, input) => {
+      const index = items.findIndex((item) => item.id === id);
+      if (index === -1) return null;
+      const existing = items[index];
+      if (!existing) return null;
+      const updated = {
+        ...existing,
+        sequence: input.sequence ?? existing.sequence,
+        duration: input.duration ?? existing.duration,
+        loop: input.loop ?? existing.loop,
+      };
+      items[index] = updated;
+      return updated;
+    },
     reorderItems: async () => true,
     replaceItemsAtomic: async (input) => {
       items.splice(
@@ -573,6 +603,40 @@ describe("Playlists use cases", () => {
     ).rejects.toThrow(ValidationError);
   });
 
+  test("AddPlaylistItemUseCase loops videos and rejects durations above source video duration", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const useCase = new AddPlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        contentId: "content-video-1",
+        sequence: 10,
+        duration: 9,
+      }),
+    ).rejects.toThrow(ValidationError);
+
+    const item = await useCase.execute({
+      playlistId: playlist.id,
+      contentId: "content-video-1",
+      sequence: 10,
+      duration: 8,
+      loop: false,
+    });
+
+    expect(item.loop).toBe(true);
+    expect(item.content.duration).toBe(8);
+  });
+
   test("ReplacePlaylistItemsAtomicUseCase rejects new flash content", async () => {
     const deps = makeDeps();
     deps.contents.push({
@@ -630,6 +694,74 @@ describe("Playlists use cases", () => {
         items: [],
       }),
     ).rejects.toThrow(ValidationError);
+  });
+
+  test("ReplacePlaylistItemsAtomicUseCase normalizes video loop and validates video duration", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const useCase = new ReplacePlaylistItemsAtomicUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        items: [{ kind: "new", contentId: "content-video-1", duration: 9 }],
+      }),
+    ).rejects.toThrow(ValidationError);
+
+    const items = await useCase.execute({
+      playlistId: playlist.id,
+      items: [{ kind: "new", contentId: "content-video-1", duration: 8 }],
+    });
+
+    expect(items[0]?.loop).toBe(true);
+    expect(items[0]?.content.duration).toBe(8);
+  });
+
+  test("UpdatePlaylistItemUseCase normalizes video loop and validates video duration", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const item = await deps.playlistRepository.addItem({
+      playlistId: playlist.id,
+      contentId: "content-video-1",
+      sequence: 10,
+      duration: 5,
+      loop: false,
+    });
+    const useCase = new UpdatePlaylistItemUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+    });
+
+    await expect(
+      useCase.execute({
+        playlistId: playlist.id,
+        id: item.id,
+        duration: 9,
+      }),
+    ).rejects.toThrow(ValidationError);
+
+    const updated = await useCase.execute({
+      playlistId: playlist.id,
+      id: item.id,
+      duration: 8,
+      loop: false,
+    });
+
+    expect(updated.loop).toBe(true);
+    expect(updated.content.duration).toBe(8);
   });
 
   test("ReplacePlaylistItemsAtomicUseCase rejects existing flash content", async () => {

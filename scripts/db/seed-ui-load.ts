@@ -83,6 +83,7 @@ type ContentItem = {
   title: string;
   type: ContentType;
   status: ContentStatus;
+  duration: number | null;
 };
 type ContentJob = {
   id: string;
@@ -317,7 +318,7 @@ function cyclicValue<T>(values: readonly T[], index: number): T {
   return value;
 }
 
-function buildPlaylistDurations(itemCount: number): number[] {
+export function buildPlaylistDurations(itemCount: number): number[] {
   if (itemCount > MAX_PLAYLIST_DURATION_SECONDS) {
     throw new Error(
       `SEED_PLAYLIST_ITEM_COUNT cannot exceed ${MAX_PLAYLIST_DURATION_SECONDS}; playlist item durations must be positive and total no more than ${MAX_PLAYLIST_DURATION_SECONDS} seconds.`,
@@ -334,6 +335,26 @@ function buildPlaylistDurations(itemCount: number): number[] {
     { length: itemCount },
     (_, index) => baseDuration + (index < remainder ? 1 : 0),
   );
+}
+
+export function buildPlaylistItemInput(
+  content: Pick<ContentItem, "id" | "type" | "duration">,
+  baseDuration: number,
+): PlaylistItemInput {
+  const sourceDuration =
+    content.type === "VIDEO" && content.duration != null && content.duration > 0
+      ? content.duration
+      : null;
+  const duration =
+    sourceDuration != null
+      ? Math.min(baseDuration, sourceDuration)
+      : baseDuration;
+
+  return {
+    contentId: content.id,
+    duration: Math.max(1, duration),
+    loop: content.type === "VIDEO",
+  };
 }
 
 async function mapWithConcurrency<T, R>(
@@ -930,13 +951,10 @@ async function createPlaylists(
           playableContent,
           (index - 1) * PLAYLIST_ITEMS_PER_PLAYLIST + itemIndex,
         );
-        return {
-          contentId: content.id,
-          duration: cyclicValue(durations, itemIndex),
-          loop:
-            content.type === "VIDEO" &&
-            itemIndex === PLAYLIST_ITEMS_PER_PLAYLIST - 1,
-        };
+        return buildPlaylistItemInput(
+          content,
+          cyclicValue(durations, itemIndex),
+        );
       },
     );
     return client.post<Playlist>("/playlists", {

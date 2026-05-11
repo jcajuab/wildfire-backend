@@ -95,6 +95,7 @@ export const toPlaylistItemView = (
     title: content.title,
     type: content.type,
     checksum: content.checksum,
+    duration: content.duration,
     thumbnailUrl: input?.thumbnailUrl ?? null,
     ...(content.type === "TEXT"
       ? { textPreviewText: getTextPreviewText(content.textHtmlContent) }

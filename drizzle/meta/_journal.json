@@ -71,6 +71,20 @@
       "when": 1779100000002,
       "tag": "0009_delete_empty_playlists",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1779100000003,
+      "tag": "0010_loop_video_playlist_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1779100000004,
+      "tag": "0011_clamp_video_playlist_item_durations",
+      "breakpoints": true
     }
   ]
 }

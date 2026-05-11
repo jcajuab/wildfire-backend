@@ -11,7 +11,9 @@ import {
 import { NotFoundError } from "./errors";
 import { toPlaylistItemView } from "./playlist-view";
 import {
+  assertPlaylistItemDurationWithinContent,
   findPlaylistByIdForOwner,
+  resolvePlaylistItemLoop,
   runPlaylistPostMutationEffects,
 } from "./shared";
 
@@ -53,20 +55,23 @@ export class UpdatePlaylistItemUseCase {
     const existingItem = existingItems.find((item) => item.id === input.id);
     if (!existingItem) throw new NotFoundError("Playlist item not found");
 
-    if (input.loop !== undefined) {
-      const content =
-        input.ownerId && this.deps.contentRepository.findByIdForOwner
-          ? await this.deps.contentRepository.findByIdForOwner(
-              existingItem.contentId,
-              input.ownerId,
-            )
-          : await this.deps.contentRepository.findById(existingItem.contentId);
-      if (!content) throw new NotFoundError("Content not found");
-      if (input.loop && content.type !== "VIDEO") {
-        throw new ValidationError(
-          "Loop is only supported for video playlist items.",
-        );
-      }
+    const content =
+      input.ownerId && this.deps.contentRepository.findByIdForOwner
+        ? await this.deps.contentRepository.findByIdForOwner(
+            existingItem.contentId,
+            input.ownerId,
+          )
+        : await this.deps.contentRepository.findById(existingItem.contentId);
+    if (!content) throw new NotFoundError("Content not found");
+
+    if (input.loop && content.type !== "VIDEO") {
+      throw new ValidationError(
+        "Loop is only supported for video playlist items.",
+      );
+    }
+
+    if (input.duration !== undefined) {
+      assertPlaylistItemDurationWithinContent(content, input.duration);
     }
 
     if (input.duration !== undefined) {
@@ -86,18 +91,9 @@ export class UpdatePlaylistItemUseCase {
     const item = await this.deps.playlistRepository.updateItem(input.id, {
       sequence: input.sequence,
       duration: input.duration,
-      loop: input.loop,
+      loop: resolvePlaylistItemLoop(content),
     });
     if (!item) throw new NotFoundError("Playlist item not found");
-
-    const content =
-      input.ownerId && this.deps.contentRepository.findByIdForOwner
-        ? await this.deps.contentRepository.findByIdForOwner(
-            item.contentId,
-            input.ownerId,
-          )
-        : await this.deps.contentRepository.findById(item.contentId);
-    if (!content) throw new NotFoundError("Content not found");
     await runPlaylistPostMutationEffects(
       this.deps,
       item.playlistId,

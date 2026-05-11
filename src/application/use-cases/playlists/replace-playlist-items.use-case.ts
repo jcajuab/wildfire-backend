@@ -18,7 +18,9 @@ import { NotFoundError } from "./errors";
 import { toPlaylistItemView } from "./playlist-view";
 import {
   assertPlaylistEligibleContent,
+  assertPlaylistItemDurationWithinContent,
   findPlaylistByIdForOwner,
+  resolvePlaylistItemLoop,
   runPlaylistPostMutationEffects,
 } from "./shared";
 
@@ -175,17 +177,27 @@ export class ReplacePlaylistItemsAtomicUseCase {
       if (!content) {
         continue;
       }
-      const loop = item.loop ?? false;
-      if (loop && content.type !== "VIDEO") {
+      assertPlaylistItemDurationWithinContent(content, item.duration);
+      if (item.loop && content.type !== "VIDEO") {
         throw new ValidationError(
           "Loop is only supported for video playlist items.",
         );
       }
     }
 
+    const normalizedItems = input.items.map((item) => {
+      const contentId =
+        item.kind === "existing"
+          ? (existingById.get(item.itemId)?.contentId ?? null)
+          : item.contentId;
+      const content = contentId ? contentById.get(contentId) : null;
+      const loop = content ? resolvePlaylistItemLoop(content) : false;
+      return { ...item, loop };
+    });
+
     const replaced = await this.deps.playlistRepository.replaceItemsAtomic({
       playlistId: input.playlistId,
-      items: input.items,
+      items: normalizedItems,
     });
     await runPlaylistPostMutationEffects(
       this.deps,

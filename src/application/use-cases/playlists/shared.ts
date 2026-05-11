@@ -18,6 +18,25 @@ export const assertPlaylistEligibleContent = (content: ContentRecord) => {
   }
 };
 
+export const resolvePlaylistItemLoop = (content: ContentRecord): boolean =>
+  content.type === "VIDEO";
+
+export const assertPlaylistItemDurationWithinContent = (
+  content: ContentRecord,
+  duration: number,
+) => {
+  if (
+    content.type === "VIDEO" &&
+    content.duration != null &&
+    content.duration > 0 &&
+    duration > content.duration
+  ) {
+    throw new ValidationError(
+      "Video playlist item duration cannot exceed the source video duration.",
+    );
+  }
+};
+
 export const publishPlaylistUpdateEvents = async (
   deps: {
     scheduleRepository?: ScheduleRepository;

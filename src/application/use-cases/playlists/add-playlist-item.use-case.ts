@@ -12,7 +12,9 @@ import { NotFoundError } from "./errors";
 import { toPlaylistItemView } from "./playlist-view";
 import {
   assertPlaylistEligibleContent,
+  assertPlaylistItemDurationWithinContent,
   findPlaylistByIdForOwner,
+  resolvePlaylistItemLoop,
   runPlaylistPostMutationEffects,
 } from "./shared";
 
@@ -62,13 +64,14 @@ export class AddPlaylistItemUseCase {
       );
     }
     assertPlaylistEligibleContent(content);
+    assertPlaylistItemDurationWithinContent(content, input.duration);
 
-    const loop = input.loop ?? false;
-    if (loop && content.type !== "VIDEO") {
+    if (input.loop && content.type !== "VIDEO") {
       throw new ValidationError(
         "Loop is only supported for video playlist items.",
       );
     }
+    const loop = resolvePlaylistItemLoop(content);
 
     const existingItems = await this.deps.playlistRepository.listItems(
       input.playlistId,

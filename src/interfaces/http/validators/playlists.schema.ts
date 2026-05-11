@@ -28,6 +28,7 @@ export const playlistItemSchema = z.object({
     title: z.string(),
     type: z.enum(["IMAGE", "VIDEO", "TEXT"]),
     checksum: z.string(),
+    duration: z.number().int().nullable(),
     thumbnailUrl: z.string().url().nullable(),
     textPreviewText: z.string().nullable().optional(),
   }),
