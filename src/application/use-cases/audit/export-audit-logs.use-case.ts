@@ -36,6 +36,7 @@ export class ExportAuditLogsUseCase {
     to?: string;
     actorId?: string;
     actorType?: string;
+    author?: string;
     action?: string;
     resourceType?: string;
     resourceId?: string;

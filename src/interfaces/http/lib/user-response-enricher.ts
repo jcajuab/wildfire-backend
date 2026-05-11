@@ -24,6 +24,17 @@ export const removeAvatarKey = <T extends { avatarKey?: string | null }>(
   return rest;
 };
 
+export const addInvitedUserFlag = <T extends { invitedAt?: string | null }>(
+  user: T,
+): T & { isInvitedUser: boolean } => ({
+  ...user,
+  isInvitedUser: user.invitedAt != null,
+});
+
+export const addInvitedUserFlags = <T extends { invitedAt?: string | null }>(
+  users: T[],
+): Array<T & { isInvitedUser: boolean }> => users.map(addInvitedUserFlag);
+
 export const maybeEnrichUserForResponse = async <
   T extends { avatarKey?: string | null },
 >(

@@ -8,6 +8,8 @@ import {
   jsonWithServerCache,
 } from "#/interfaces/http/cache/server-cache";
 import {
+  addInvitedUserFlag,
+  addInvitedUserFlags,
   addRoleSummariesToUsers,
   maybeEnrichUserForResponse,
   maybeEnrichUsersForResponse,
@@ -33,6 +35,7 @@ import {
   updateUserSchema,
   userIdParamSchema,
   userListQuerySchema,
+  userOptionsPageQuerySchema,
   userOptionsQuerySchema,
 } from "#/interfaces/http/validators/rbac.schema";
 import {
@@ -92,7 +95,63 @@ export const registerRbacUserRoutes = (args: {
               deps,
             );
             return toApiListResponse({
-              items: enrichedItems,
+              items: addInvitedUserFlags(enrichedItems),
+              total: result.total,
+              page: result.page,
+              pageSize: result.pageSize,
+              requestUrl: c.req.url,
+            });
+          },
+        );
+      },
+      ...applicationErrorMappers,
+    ),
+  );
+
+  router.get(
+    "/users/options/search",
+    setAction("rbac.user.options", {
+      route: "/users/options/search",
+      resourceType: "user",
+    }),
+    ...authorize("users:read"),
+    validateQuery(userOptionsPageQuerySchema),
+    describeRoute({
+      description: "Search user options",
+      tags: userTags,
+      responses: {
+        200: { description: "Paginated user options" },
+        ...authValidationErrorResponses,
+      },
+    }),
+    withRouteErrorHandling(
+      async (c) => {
+        return jsonWithServerCache(
+          c,
+          { domains: ["users"], ttl: "reference" },
+          async () => {
+            const query = c.req.valid("query");
+            const result = await useCases.listUserOptions.executePage({
+              q: query.q,
+              page: query.page,
+              pageSize: query.pageSize,
+            });
+            const enriched = await maybeEnrichUsersForResponse(
+              result.items,
+              deps,
+            );
+            const options = enriched.map((user) => ({
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              name: user.name,
+              ...(typeof user.avatarUrl === "string" &&
+              user.avatarUrl.length > 0
+                ? { avatarUrl: user.avatarUrl }
+                : {}),
+            }));
+            return toApiListResponse({
+              items: options,
               total: result.total,
               page: result.page,
               pageSize: result.pageSize,
@@ -175,7 +234,7 @@ export const registerRbacUserRoutes = (args: {
         c.set("resourceId", user.id);
         c.header("Location", `${c.req.path}/${encodeURIComponent(user.id)}`);
         await invalidateServerCache(["users", "roles", "permissions"]);
-        return c.json({ data: user }, 201);
+        return c.json({ data: addInvitedUserFlag(user) }, 201);
       },
       ...applicationErrorMappers,
       mapErrorToResponse(DuplicateEmailError, conflict),
@@ -210,7 +269,7 @@ export const registerRbacUserRoutes = (args: {
           async () => {
             const user = await useCases.getUser.execute({ id: params.id });
             const enriched = await maybeEnrichUserForResponse(user, deps);
-            return { data: enriched };
+            return { data: addInvitedUserFlag(enriched) };
           },
         );
       },
@@ -249,7 +308,7 @@ export const registerRbacUserRoutes = (args: {
           callerUserId: c.get("userId"),
         });
         await invalidateServerCache(["users", "roles", "permissions"]);
-        return c.json({ data: user });
+        return c.json({ data: addInvitedUserFlag(user) });
       },
       ...applicationErrorMappers,
     ),

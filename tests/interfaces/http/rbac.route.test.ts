@@ -666,6 +666,38 @@ describe("RBAC routes", () => {
     ]);
   });
 
+  test("GET /users/options/search returns paginated user options", async () => {
+    const { app, issueToken } = buildApp(["users:read"]);
+    const token = await issueToken();
+
+    const response = await app.request(
+      "/users/options/search?q=adm&page=1&pageSize=1",
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{
+      data: Array<{
+        id: string;
+        username: string;
+        email: string | null;
+        name: string;
+      }>;
+      meta: { total: number; page: number; pageSize: number };
+    }>(response);
+    expect(body.data).toEqual([
+      {
+        id: rootUserId,
+        username: "admin",
+        email: "admin@example.com",
+        name: "Admin",
+      },
+    ]);
+    expect(body.meta).toMatchObject({ total: 1, page: 1, pageSize: 1 });
+  });
+
   test("GET /users/options includes avatarUrl when avatar storage is configured", async () => {
     const presigned =
       "https://example.com/avatar-presigned?key=user-avatars%2Fadmin.png";

@@ -55,6 +55,9 @@ export const userListQuerySchema = baseListQuerySchema.extend({
   sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 export const userOptionsQuerySchema = optionsQuerySchema;
+export const userOptionsPageQuerySchema = baseListQuerySchema.extend({
+  q: z.string().trim().min(1).max(255).optional(),
+});
 
 export const updateUserSchema = z.object({
   username: z.string().trim().min(1).max(120).optional(),

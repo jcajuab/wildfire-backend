@@ -36,6 +36,11 @@ export interface PermissionRecord {
 export interface UserRepository {
   list(): Promise<UserRecord[]>;
   listOptions?(input: { q?: string; limit?: number }): Promise<UserRecord[]>;
+  listOptionsPage?(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+  }): Promise<{ items: UserRecord[]; total: number }>;
   listPage?(input: {
     offset: number;
     limit: number;

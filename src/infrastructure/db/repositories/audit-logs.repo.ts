@@ -68,6 +68,19 @@ const buildWhere = (query: ListAuditLogsQuery): SQL | undefined => {
   if (query.actorType) {
     predicates.push(eq(auditLogs.actorType, query.actorType));
   }
+  if (query.author) {
+    const pattern = buildLikeContainsPattern(query.author);
+    const combined = or(
+      like(users.name, pattern),
+      like(users.username, pattern),
+      like(users.email, pattern),
+      like(displays.name, pattern),
+      like(displays.slug, pattern),
+    );
+    if (combined) {
+      predicates.push(combined);
+    }
+  }
   if (query.action) {
     predicates.push(
       like(auditLogs.action, buildLikeContainsPattern(query.action)),

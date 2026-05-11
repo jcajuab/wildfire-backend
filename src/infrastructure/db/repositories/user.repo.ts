@@ -59,6 +59,40 @@ export class UserDbRepository implements UserRepository {
     return rows.map(mapUserRowToRecord);
   }
 
+  async listOptionsPage(input: {
+    offset: number;
+    limit: number;
+    q?: string;
+  }): Promise<{ items: UserRecord[]; total: number }> {
+    const normalizedQuery = input.q?.trim();
+    const whereClause = normalizedQuery
+      ? or(
+          like(users.name, buildLikeContainsPattern(normalizedQuery)),
+          like(users.username, buildLikeContainsPattern(normalizedQuery)),
+          like(users.email, buildLikeContainsPattern(normalizedQuery)),
+        )
+      : undefined;
+
+    const rows = await db
+      .select()
+      .from(users)
+      .where(whereClause)
+      .orderBy(asc(users.username), asc(users.name))
+      .limit(input.limit)
+      .offset(input.offset);
+
+    const totalQuery = db.select({ value: sql<number>`count(*)` }).from(users);
+    const totalResult =
+      whereClause == null
+        ? await totalQuery
+        : await totalQuery.where(whereClause);
+
+    return {
+      items: rows.map(mapUserRowToRecord),
+      total: Number(totalResult[0]?.value ?? 0),
+    };
+  }
+
   async listPage(input: {
     offset: number;
     limit: number;

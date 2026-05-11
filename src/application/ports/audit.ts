@@ -45,6 +45,7 @@ export interface ListAuditLogsQuery {
   to?: string;
   actorId?: string;
   actorType?: AuditActorType;
+  author?: string;
   action?: string;
   resourceType?: string;
   resourceId?: string;

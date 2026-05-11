@@ -19,6 +19,7 @@ export class ListAuditLogsUseCase {
     to?: string;
     actorId?: string;
     actorType?: string;
+    author?: string;
     action?: string;
     resourceType?: string;
     resourceId?: string;

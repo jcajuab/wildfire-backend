@@ -35,6 +35,7 @@ export const auditLogListQuerySchema = z.object({
   to: z.string().datetime().optional(),
   actorId: z.string().min(1).optional(),
   actorType: auditActorTypeSchema.optional(),
+  author: z.string().min(1).optional(),
   action: z.string().min(1).optional(),
   resourceType: z.string().min(1).optional(),
   resourceId: z.string().min(1).optional(),

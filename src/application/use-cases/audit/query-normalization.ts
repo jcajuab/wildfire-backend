@@ -50,6 +50,7 @@ export interface NormalizedAuditFilters {
   to?: string;
   actorId?: string;
   actorType?: AuditActorType;
+  author?: string;
   action?: string;
   resourceType?: string;
   resourceId?: string;
@@ -63,6 +64,7 @@ export const normalizeAuditFilters = (input: {
   to?: string;
   actorId?: string;
   actorType?: string;
+  author?: string;
   action?: string;
   resourceType?: string;
   resourceId?: string;
@@ -81,6 +83,7 @@ export const normalizeAuditFilters = (input: {
     to: toDate?.toISOString(),
     actorId: trimToUndefined(input.actorId),
     actorType: parseActorType(trimToUndefined(input.actorType)),
+    author: trimToUndefined(input.author),
     action: trimToUndefined(input.action),
     resourceType: trimToUndefined(input.resourceType),
     resourceId: trimToUndefined(input.resourceId),
@@ -111,6 +114,7 @@ export const buildPaginatedAuditQuery = (
     to: input.to,
     actorId: input.actorId,
     actorType: input.actorType,
+    author: input.author,
     action: input.action,
     resourceType: input.resourceType,
     resourceId: input.resourceId,
