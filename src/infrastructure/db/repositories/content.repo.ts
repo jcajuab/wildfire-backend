@@ -266,8 +266,12 @@ export class ContentDbRepository implements ContentRepository {
 
     const orderBy =
       sortDirection === "asc"
-        ? [asc(orderColumn), asc(content.createdAt)]
-        : [desc(orderColumn), desc(content.createdAt)];
+        ? sortBy === "createdAt"
+          ? [asc(content.createdAt), asc(content.id)]
+          : [asc(orderColumn), asc(content.createdAt), asc(content.id)]
+        : sortBy === "createdAt"
+          ? [desc(content.createdAt), desc(content.id)]
+          : [desc(orderColumn), desc(content.createdAt), desc(content.id)];
 
     const dataQuery = buildBaseContentQuery()
       .where(whereClause)
