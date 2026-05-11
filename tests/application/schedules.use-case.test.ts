@@ -515,6 +515,83 @@ describe("Schedules use cases", () => {
     ).resolves.toBeDefined();
   });
 
+  test("UpdateScheduleUseCase rejects start times earlier than the current minute", async () => {
+    const deps = makeDeps();
+    deps.schedules.push({
+      id: "schedule-1",
+      name: "Existing",
+      kind: "PLAYLIST",
+      playlistId: "playlist-1",
+      contentId: null,
+      displayId: "display-1",
+      startDate: "2026-05-06",
+      endDate: "2026-05-06",
+      startTime: "01:30",
+      endTime: "02:00",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const useCase = new UpdateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      displayRepository: deps.displayRepository,
+      contentRepository: deps.contentRepository,
+      timezone: "UTC",
+    });
+
+    await expect(
+      useCase.execute({
+        id: "schedule-1",
+        startTime: "01:29",
+        now: new Date("2026-05-06T01:30:00.000Z"),
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("UpdateScheduleUseCase allows the current minute and future dates", async () => {
+    const deps = makeDeps();
+    deps.schedules.push({
+      id: "schedule-1",
+      name: "Existing",
+      kind: "PLAYLIST",
+      playlistId: "playlist-1",
+      contentId: null,
+      displayId: "display-1",
+      startDate: "2026-05-06",
+      endDate: "2026-05-06",
+      startTime: "01:29",
+      endTime: "02:00",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+    const useCase = new UpdateScheduleUseCase({
+      scheduleRepository: deps.scheduleRepository,
+      playlistRepository: deps.playlistRepository,
+      displayRepository: deps.displayRepository,
+      contentRepository: deps.contentRepository,
+      timezone: "UTC",
+    });
+
+    await expect(
+      useCase.execute({
+        id: "schedule-1",
+        startTime: "01:30",
+        now: new Date("2026-05-06T01:30:00.000Z"),
+      }),
+    ).resolves.toBeDefined();
+
+    await expect(
+      useCase.execute({
+        id: "schedule-1",
+        startDate: "2026-05-07",
+        endDate: "2026-05-07",
+        startTime: "00:01",
+        endTime: "01:00",
+        now: new Date("2026-05-06T23:59:00.000Z"),
+      }),
+    ).resolves.toBeDefined();
+  });
+
   test("CreateScheduleUseCase allows PLAYLIST overlaps (virtual merge)", async () => {
     const deps = makeDeps();
     deps.schedules.push({
@@ -606,8 +683,8 @@ describe("Schedules use cases", () => {
         playlistId: "playlist-1",
         contentId: null,
         displayId: "display-1",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
+        startDate: FUTURE_START_DATE,
+        endDate: FUTURE_END_DATE,
         startTime: "08:00",
         endTime: "09:00",
 
@@ -621,8 +698,8 @@ describe("Schedules use cases", () => {
         playlistId: "playlist-1",
         contentId: null,
         displayId: "display-1",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
+        startDate: FUTURE_START_DATE,
+        endDate: FUTURE_END_DATE,
         startTime: "10:00",
         endTime: "11:00",
 

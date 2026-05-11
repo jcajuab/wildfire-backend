@@ -71,6 +71,7 @@ export const createSchedulesHttpModule = (
         contentRepository: routerDeps.repositories.contentRepository,
         displayEventPublisher: routerDeps.displayEventPublisher,
         adminLifecycleEventPublisher: routerDeps.adminLifecycleEventPublisher,
+        timezone: routerDeps.timezone,
       }),
       deleteSchedule: new DeleteScheduleUseCase({
         scheduleRepository: routerDeps.repositories.scheduleRepository,

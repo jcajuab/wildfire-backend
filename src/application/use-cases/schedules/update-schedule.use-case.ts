@@ -9,8 +9,10 @@ import { NotFoundError } from "./errors";
 import { toScheduleView } from "./schedule-view";
 import {
   computeWindowDurationSeconds,
+  DEFAULT_SCHEDULE_TIMEZONE,
   ensureFlashContentIsSchedulable,
   ensureNoScheduleConflicts,
+  ensureScheduleStartIsNotInPast,
   ensureScheduleVisibleToOwner,
   getValidatedWindow,
   type ScheduleMutationDeps,
@@ -37,6 +39,7 @@ export class UpdateScheduleUseCase {
     endDate?: string;
     startTime?: string;
     endTime?: string;
+    now?: Date;
   }) {
     const existing = await this.deps.scheduleRepository.findById(input.id);
     if (!existing) throw new NotFoundError("Schedule not found");
@@ -56,6 +59,12 @@ export class UpdateScheduleUseCase {
     });
     const nextStartTime = input.startTime ?? existing.startTime;
     const nextEndTime = input.endTime ?? existing.endTime;
+    ensureScheduleStartIsNotInPast({
+      startDate: nextWindow.startDate,
+      startTime: nextStartTime,
+      timezone: this.deps.timezone ?? DEFAULT_SCHEDULE_TIMEZONE,
+      now: input.now,
+    });
     if (nextEndTime <= nextStartTime) {
       throw new ValidationError("End time must be later than start time.");
     }

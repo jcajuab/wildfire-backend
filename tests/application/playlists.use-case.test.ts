@@ -21,6 +21,7 @@ import {
   PlaylistInUseError,
   ReplacePlaylistItemsAtomicUseCase,
   UpdatePlaylistItemUseCase,
+  UpdatePlaylistUseCase,
 } from "#/application/use-cases/playlists";
 
 const makeDeps = () => {
@@ -98,8 +99,44 @@ const makeDeps = () => {
       playlists.push(record);
       return record;
     },
-    update: async () => null,
-    updateForOwner: async () => null,
+    update: async (id, input) => {
+      const index = playlists.findIndex((playlist) => playlist.id === id);
+      if (index === -1) return null;
+      const existing = playlists[index];
+      if (!existing) return null;
+      const updated = {
+        ...existing,
+        name: input.name ?? existing.name,
+        description:
+          input.description === undefined
+            ? existing.description
+            : input.description,
+        showCounter: input.showCounter ?? existing.showCounter,
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      };
+      playlists[index] = updated;
+      return updated;
+    },
+    updateForOwner: async (id, ownerId, input) => {
+      const index = playlists.findIndex(
+        (playlist) => playlist.id === id && playlist.ownerId === ownerId,
+      );
+      if (index === -1) return null;
+      const existing = playlists[index];
+      if (!existing) return null;
+      const updated = {
+        ...existing,
+        name: input.name ?? existing.name,
+        description:
+          input.description === undefined
+            ? existing.description
+            : input.description,
+        showCounter: input.showCounter ?? existing.showCounter,
+        updatedAt: "2025-01-01T00:00:00.000Z",
+      };
+      playlists[index] = updated;
+      return updated;
+    },
     updateStatus: async () => undefined,
     delete: async (id: string) => {
       const index = playlists.findIndex((playlist) => playlist.id === id);
@@ -360,6 +397,80 @@ describe("Playlists use cases", () => {
     expect(result.owner.username).toBe("user");
     expect(result.itemsCount).toBe(1);
     expect(result.totalDuration).toBe(5);
+  });
+
+  test("UpdatePlaylistUseCase publishes runtime events for scheduled displays when counter changes", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Morning",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const published: Array<{
+      type: string;
+      displayId: string;
+      reason?: string;
+    }> = [];
+    const scheduleRepository = {
+      listByPlaylistId: async (playlistId: string) =>
+        playlistId === playlist.id
+          ? [
+              {
+                id: "schedule-1",
+                name: "Lobby",
+                kind: "PLAYLIST" as const,
+                playlistId,
+                contentId: null,
+                displayId: "display-1",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                startTime: "08:00",
+                endTime: "17:00",
+                createdAt: "2025-01-01T00:00:00.000Z",
+                updatedAt: "2025-01-01T00:00:00.000Z",
+              },
+              {
+                id: "schedule-2",
+                name: "Lobby Duplicate",
+                kind: "PLAYLIST" as const,
+                playlistId,
+                contentId: null,
+                displayId: "display-1",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                startTime: "18:00",
+                endTime: "19:00",
+                createdAt: "2025-01-01T00:00:00.000Z",
+                updatedAt: "2025-01-01T00:00:00.000Z",
+              },
+            ]
+          : [],
+    } as Pick<ScheduleRepository, "listByPlaylistId"> as ScheduleRepository;
+    const useCase = new UpdatePlaylistUseCase({
+      playlistRepository: deps.playlistRepository,
+      userRepository: deps.userRepository,
+      scheduleRepository,
+      displayEventPublisher: {
+        publish: (event) => {
+          published.push(event);
+        },
+      },
+    });
+
+    const result = await useCase.execute({
+      id: playlist.id,
+      showCounter: true,
+    });
+
+    expect(result.showCounter).toBe(true);
+    expect(published).toEqual([
+      {
+        type: "playlist_updated",
+        displayId: "display-1",
+        reason: "playlist_metadata_updated",
+      },
+    ]);
   });
 
   test("CreatePlaylistUseCase throws when owner is missing", async () => {
