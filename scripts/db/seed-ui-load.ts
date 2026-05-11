@@ -1117,7 +1117,7 @@ async function setEmergencySlots(
   );
   if (eligibleContent.length < 5) {
     throw new Error(
-      `Expected at least 5 READY image, video, or text assets for emergency slots, found ${eligibleContent.length}.`,
+      `Expected at least 5 eligible image, video, or text assets for emergency slots, found ${eligibleContent.length}.`,
     );
   }
 

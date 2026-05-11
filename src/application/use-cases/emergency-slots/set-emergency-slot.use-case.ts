@@ -32,7 +32,7 @@ export class SetEmergencySlotUseCase {
     const asset = await this.deps.contentRepository.findById(input.contentId);
     if (!asset || !isRenderableEmergencyAsset(asset)) {
       throw new ValidationError(
-        "contentId must reference a READY IMAGE, VIDEO, or TEXT asset",
+        "contentId must reference an eligible image, video, or text asset",
       );
     }
 

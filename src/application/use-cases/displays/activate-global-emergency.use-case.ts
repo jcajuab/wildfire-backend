@@ -40,7 +40,7 @@ export class ActivateGlobalEmergencyUseCase {
     const asset = await this.deps.contentRepository.findById(slot.contentId);
     if (!asset || !isRenderableEmergencyAsset(asset)) {
       throw new ValidationError(
-        "Emergency slot content must be a READY IMAGE, VIDEO, or TEXT asset",
+        "Emergency slot content must be an eligible image, video, or text asset",
       );
     }
 
