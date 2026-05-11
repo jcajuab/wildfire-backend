@@ -73,6 +73,7 @@ export interface DisplaysRouterDeps {
   authSessionRepository: AuthSessionRepository;
   authSessionCookieName: string;
   downloadUrlExpiresInSeconds: number;
+  thumbnailUrlExpiresInSeconds?: number;
   scheduleTimeZone?: string;
   repositories: {
     displayRepository: DisplayRepository;

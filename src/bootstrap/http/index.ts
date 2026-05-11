@@ -469,6 +469,7 @@ const displaysModule = createDisplaysHttpModule({
   authSessionRepository: container.repositories.authSessionRepository,
   authSessionCookieName: env.AUTH_SESSION_COOKIE_NAME,
   downloadUrlExpiresInSeconds: env.PRESIGNED_URL_TTL_SECONDS,
+  thumbnailUrlExpiresInSeconds: contentThumbnailUrlExpiresInSeconds,
   scheduleTimeZone: env.SCHEDULE_TIMEZONE,
   repositories: {
     displayRepository: container.repositories.displayRepository,

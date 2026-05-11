@@ -25,6 +25,9 @@ export const emergencySlotContentSchema = z
     type: z.enum(["IMAGE", "VIDEO", "FLASH", "TEXT"]),
     status: z.enum(["PROCESSING", "READY", "FAILED"]),
     thumbnailKey: z.string().nullable(),
+    thumbnailUrl: z.string().url().nullable(),
+    textPreviewText: z.string().nullable(),
+    textHtmlContent: z.string().nullable(),
   })
   .nullable();
 

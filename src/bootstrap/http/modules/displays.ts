@@ -194,6 +194,8 @@ export const createDisplaysHttpModule = (
       listEmergencySlots: new ListEmergencySlotsUseCase({
         emergencySlotRepository: deps.repositories.emergencySlotRepository,
         contentRepository: deps.repositories.contentRepository,
+        contentStorage: deps.storage,
+        thumbnailUrlExpiresInSeconds: deps.thumbnailUrlExpiresInSeconds,
       }),
       setEmergencySlot: new SetEmergencySlotUseCase({
         emergencySlotRepository: deps.repositories.emergencySlotRepository,
