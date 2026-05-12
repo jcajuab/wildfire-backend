@@ -66,17 +66,22 @@ const makeDeps = () => {
     list: async () => [...playlists],
     listForOwner: async (ownerId: string) =>
       playlists.filter((p) => p.ownerId === ownerId),
-    listPageForOwner: async ({ ownerId, offset, limit }) => {
-      const owned = playlists.filter((p) => p.ownerId === ownerId);
+    listPageForOwner: async ({ ownerId, offset, limit, status }) => {
+      const owned = playlists.filter(
+        (p) => p.ownerId === ownerId && (!status || p.status === status),
+      );
       return {
         items: owned.slice(offset, offset + limit),
         total: owned.length,
       };
     },
-    listPage: async ({ offset, limit }) => ({
-      items: playlists.slice(offset, offset + limit),
-      total: playlists.length,
-    }),
+    listPage: async ({ offset, limit, status }) => {
+      const filtered = playlists.filter((p) => !status || p.status === status);
+      return {
+        items: filtered.slice(offset, offset + limit),
+        total: filtered.length,
+      };
+    },
     findByIds: async (ids: string[]) =>
       playlists.filter((playlist) => ids.includes(playlist.id)),
     findByIdsForOwner: async (ids: string[], ownerId: string) =>
@@ -137,7 +142,12 @@ const makeDeps = () => {
       playlists[index] = updated;
       return updated;
     },
-    updateStatus: async () => undefined,
+    updateStatus: async (id, status) => {
+      const playlist = playlists.find((item) => item.id === id);
+      if (playlist) {
+        playlist.status = status;
+      }
+    },
     delete: async (id: string) => {
       const index = playlists.findIndex((playlist) => playlist.id === id);
       if (index === -1) return false;
@@ -338,6 +348,55 @@ describe("Playlists use cases", () => {
     const result = await useCase.execute();
     expect(result.items[0]?.owner.name).toBe("User");
     expect(result.items[0]?.owner.username).toBe("user");
+  });
+
+  test("ListPlaylistsUseCase preserves persisted in-use status", async () => {
+    const deps = makeDeps();
+    const playlist = await deps.playlistRepository.create({
+      name: "Referenced",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    await deps.playlistRepository.updateStatus(playlist.id, "IN_USE");
+
+    const useCase = new ListPlaylistsUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+      userRepository: deps.userRepository,
+    });
+
+    const result = await useCase.execute();
+    expect(result.items[0]?.status).toBe("IN_USE");
+  });
+
+  test("ListPlaylistsUseCase filters by persisted playlist status", async () => {
+    const deps = makeDeps();
+    const draft = await deps.playlistRepository.create({
+      name: "Draft",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    const referenced = await deps.playlistRepository.create({
+      name: "Referenced",
+      description: null,
+      showCounter: false,
+      ownerId: "user-1",
+    });
+    await deps.playlistRepository.updateStatus(referenced.id, "IN_USE");
+
+    const useCase = new ListPlaylistsUseCase({
+      playlistRepository: deps.playlistRepository,
+      contentRepository: deps.contentRepository,
+      userRepository: deps.userRepository,
+    });
+
+    const inUseResult = await useCase.execute({ status: "IN_USE" });
+    const draftResult = await useCase.execute({ status: "DRAFT" });
+
+    expect(inUseResult.items.map((item) => item.id)).toEqual([referenced.id]);
+    expect(draftResult.items.map((item) => item.id)).toEqual([draft.id]);
   });
 
   test("ListPlaylistsUseCase uses batched stats while loading preview items", async () => {

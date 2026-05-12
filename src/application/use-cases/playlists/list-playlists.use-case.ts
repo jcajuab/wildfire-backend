@@ -9,9 +9,7 @@ import {
   type PlaylistRepository,
 } from "#/application/ports/playlists";
 import { type UserRepository } from "#/application/ports/rbac";
-import { type ScheduleRepository } from "#/application/ports/schedules";
 import { type PlaylistStatus } from "#/domain/playlists/playlist";
-import { selectActiveSchedule } from "#/domain/schedules/schedule";
 import { toPlaylistItemView, toPlaylistView } from "./playlist-view";
 import { listPlaylistPageForOwner } from "./shared";
 
@@ -23,8 +21,6 @@ export class ListPlaylistsUseCase {
       userRepository: UserRepository;
       contentStorage?: ContentStorage;
       thumbnailUrlExpiresInSeconds?: number;
-      scheduleRepository?: ScheduleRepository;
-      timezone?: string;
     },
   ) {}
 
@@ -94,40 +90,29 @@ export class ListPlaylistsUseCase {
     const creatorIds = Array.from(
       new Set(playlists.map((item) => item.ownerId)),
     );
-    const [
-      creators,
-      statsByPlaylistId,
-      previewItemsByPlaylistId,
-      activePlaylistIds,
-    ] = await Promise.all([
-      this.deps.userRepository.findByIds(creatorIds),
-      this.deps.playlistRepository.listItemStatsByPlaylistIds
-        ? this.deps.playlistRepository.listItemStatsByPlaylistIds(playlistIds)
-        : this.buildStatsByPlaylistId(playlistIds),
-      this.buildPreviewItemsByPlaylistId({
-        playlistIds,
-        ownerId: input?.ownerId,
-      }),
-      this.computeActivePlaylistIds(playlistIds),
-    ]);
+    const [creators, statsByPlaylistId, previewItemsByPlaylistId] =
+      await Promise.all([
+        this.deps.userRepository.findByIds(creatorIds),
+        this.deps.playlistRepository.listItemStatsByPlaylistIds
+          ? this.deps.playlistRepository.listItemStatsByPlaylistIds(playlistIds)
+          : this.buildStatsByPlaylistId(playlistIds),
+        this.buildPreviewItemsByPlaylistId({
+          playlistIds,
+          ownerId: input?.ownerId,
+        }),
+      ]);
     const creatorsById = new Map(creators.map((user) => [user.id, user]));
 
-    const items = playlists.map((playlist) => {
-      const view = toPlaylistView(
+    const items = playlists.map((playlist) =>
+      toPlaylistView(
         playlist,
         creatorsById.get(playlist.ownerId) ?? null,
         statsByPlaylistId.get(playlist.id),
         {
           previewItems: previewItemsByPlaylistId.get(playlist.id) ?? [],
         },
-      );
-      return {
-        ...view,
-        status: activePlaylistIds.has(playlist.id)
-          ? ("IN_USE" as const)
-          : ("DRAFT" as const),
-      };
-    });
+      ),
+    );
 
     return {
       items,
@@ -232,29 +217,6 @@ export class ListPlaylistsUseCase {
     }
 
     return previewItemsByPlaylistId;
-  }
-
-  private async computeActivePlaylistIds(
-    playlistIds: string[],
-  ): Promise<Set<string>> {
-    if (!this.deps.scheduleRepository || playlistIds.length === 0) {
-      return new Set();
-    }
-    const now = new Date();
-    const tz = this.deps.timezone ?? "Asia/Manila";
-    const activeIds = new Set<string>();
-    await Promise.all(
-      playlistIds.map(async (playlistId) => {
-        const schedules =
-          (await this.deps.scheduleRepository?.listByPlaylistId(playlistId)) ??
-          [];
-        const active = selectActiveSchedule(schedules, now, tz);
-        if (active) {
-          activeIds.add(playlistId);
-        }
-      }),
-    );
-    return activeIds;
   }
 
   private async buildStatsByPlaylistId(playlistIds: string[]) {
