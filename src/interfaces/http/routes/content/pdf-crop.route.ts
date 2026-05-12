@@ -5,6 +5,7 @@ import {
   type InitPdfCropUseCase,
   type SubmitPdfCropUseCase,
 } from "#/application/use-cases/content";
+import { invalidateServerCache } from "#/interfaces/http/cache/server-cache";
 import { setAction } from "#/interfaces/http/middleware/observability";
 import {
   apiResponseSchema,
@@ -150,6 +151,7 @@ export const registerPdfCropRoutes = (args: {
           contentName: body.contentName,
           ownerId: c.get("userId"),
         });
+        await invalidateServerCache(["content"]);
         return c.json({ data: result }, 201);
       },
       ...applicationErrorMappers,
