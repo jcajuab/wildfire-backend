@@ -8,6 +8,10 @@ import { type AuthSecurityStore } from "#/interfaces/http/security/redis-auth-se
 import { aiChatRequestSchema } from "#/interfaces/http/validators/ai.schema";
 import { validateJson } from "#/interfaces/http/validators/standard-validator";
 import {
+  getAIStreamErrorMessage,
+  sanitizeAIStreamResponse,
+} from "./ai-stream-response";
+import {
   type AIRouter,
   type AIRouterUseCases,
   type AuthorizePermission,
@@ -64,7 +68,11 @@ export const registerAIChatRoutes = (args: {
           userId,
         });
 
-        return result.toUIMessageStreamResponse();
+        return sanitizeAIStreamResponse(
+          result.toUIMessageStreamResponse({
+            onError: getAIStreamErrorMessage,
+          }),
+        );
       },
       ...applicationErrorMappers,
     ),

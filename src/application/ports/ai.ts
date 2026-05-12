@@ -14,6 +14,7 @@ export interface AIToolCall {
 
 export interface AIToolResult {
   success: boolean;
+  message?: string;
   data?: unknown;
   error?: string;
 }
@@ -22,6 +23,7 @@ export interface AIToolResult {
 export interface AIStreamResponse {
   toUIMessageStreamResponse(options?: {
     headers?: Record<string, string>;
+    onError?: (error: unknown) => string;
   }): Response;
 }
 

@@ -1,11 +1,21 @@
 import { z } from "zod";
 import { FLASH_MESSAGE_MAX_LENGTH } from "#/domain/content/content";
+import { TEXT_CONTENT_MAX_CHARS } from "#/domain/content/text-content";
+import { MAX_PLAYLIST_BASE_DURATION_SECONDS } from "#/domain/playlists/playlist";
 
 export interface AIToolDefinition {
   description: string;
   inputSchema: z.ZodTypeAny;
   requiresConfirmation: boolean;
 }
+
+const requiredNameSchema = (label: string) =>
+  z.string().trim().min(1).max(255).describe(label);
+
+const timeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+  .describe("Time in 24-hour HH:MM format");
 
 const playlistItemInputSchema = z.object({
   contentId: z
@@ -16,19 +26,29 @@ const playlistItemInputSchema = z.object({
     .number()
     .int()
     .positive()
-    .describe("Duration of this content item in seconds"),
+    .max(MAX_PLAYLIST_BASE_DURATION_SECONDS)
+    .describe(
+      `Duration of this content item in seconds. The full playlist cannot exceed ${MAX_PLAYLIST_BASE_DURATION_SECONDS} seconds, and video items cannot exceed their source video duration.`,
+    ),
 });
+
+const displayIdsSchema = z
+  .array(z.string().uuid())
+  .min(1)
+  .describe("Target display IDs. One schedule will be created per display.");
 
 export const AI_TOOLS = {
   create_text_content: {
-    description: "Create text-based content from plain text",
+    description: "Create text content from a plain text message",
     inputSchema: z.object({
-      title: z.string().min(1).describe("Content title"),
+      title: requiredNameSchema("Text content title"),
       text: z
         .string()
+        .trim()
         .min(1)
+        .max(TEXT_CONTENT_MAX_CHARS)
         .describe(
-          "Plain text content to display. The system handles formatting automatically.",
+          `Plain text message to display. Maximum ${TEXT_CONTENT_MAX_CHARS} characters. The system handles formatting automatically.`,
         ),
     }),
     requiresConfirmation: false,
@@ -37,44 +57,51 @@ export const AI_TOOLS = {
   create_playlist: {
     description: "Create a new playlist for organizing content",
     inputSchema: z.object({
-      name: z.string().min(1).describe("Playlist name"),
-      description: z.string().optional().describe("Playlist description"),
+      name: requiredNameSchema("Playlist name"),
+      description: z
+        .string()
+        .trim()
+        .optional()
+        .nullable()
+        .describe("Playlist description"),
+      showCounter: z
+        .boolean()
+        .optional()
+        .describe("Whether to show the runtime counter overlay"),
       items: z
         .array(playlistItemInputSchema)
         .min(1)
         .describe(
-          "Playlist items in playback order. Each item needs contentId and duration.",
+          `Playlist items in playback order. Each item needs contentId and duration. Total base duration cannot exceed ${MAX_PLAYLIST_BASE_DURATION_SECONDS} seconds.`,
         ),
     }),
     requiresConfirmation: false,
   },
 
   create_schedule: {
-    description:
-      "Create a schedule to display a playlist on a specific display",
+    description: "Create playlist schedules for one or more displays",
     inputSchema: z.object({
       playlistId: z.string().uuid().describe("Playlist ID to schedule"),
-      name: z.string().min(1).describe("Schedule name"),
-      displayId: z.string().uuid().describe("Target display ID"),
-      startDate: z.string().describe("Start date (YYYY-MM-DD)"),
-      endDate: z.string().describe("End date (YYYY-MM-DD)"),
-      startTime: z.string().describe("Start time (HH:MM)"),
-      endTime: z.string().describe("End time (HH:MM)"),
+      name: requiredNameSchema("Schedule name"),
+      displayIds: displayIdsSchema,
+      startDate: z.string().date().describe("Start date (YYYY-MM-DD)"),
+      endDate: z.string().date().describe("End date (YYYY-MM-DD)"),
+      startTime: timeSchema,
+      endTime: timeSchema,
     }),
     requiresConfirmation: false,
   },
 
   create_flash_schedule: {
-    description:
-      "Create a schedule to display flash content on a specific display",
+    description: "Create flash content schedules for one or more displays",
     inputSchema: z.object({
       contentId: z.string().uuid().describe("Flash content ID to schedule"),
-      name: z.string().min(1).describe("Schedule name"),
-      displayId: z.string().uuid().describe("Target display ID"),
-      startDate: z.string().describe("Start date (YYYY-MM-DD)"),
-      endDate: z.string().describe("End date (YYYY-MM-DD)"),
-      startTime: z.string().describe("Start time (HH:MM)"),
-      endTime: z.string().describe("End time (HH:MM)"),
+      name: requiredNameSchema("Schedule name"),
+      displayIds: displayIdsSchema,
+      startDate: z.string().date().describe("Start date (YYYY-MM-DD)"),
+      endDate: z.string().date().describe("End date (YYYY-MM-DD)"),
+      startTime: timeSchema,
+      endTime: timeSchema,
     }),
     requiresConfirmation: false,
   },
@@ -83,13 +110,14 @@ export const AI_TOOLS = {
     description:
       "Create a flash alert message for digital signage displays. Flash messages are short, attention-grabbing alerts.",
     inputSchema: z.object({
-      title: z.string().min(1).describe("Content title"),
-      text: z
+      title: requiredNameSchema("Flash content title"),
+      message: z
         .string()
+        .trim()
         .min(1)
         .max(FLASH_MESSAGE_MAX_LENGTH)
         .describe(
-          `Flash message text (max ${FLASH_MESSAGE_MAX_LENGTH} characters). Keep it short and impactful.`,
+          `Flash message (max ${FLASH_MESSAGE_MAX_LENGTH} characters). Keep it short and impactful.`,
         ),
       tone: z
         .enum(["INFO", "WARNING", "CRITICAL"])
@@ -102,17 +130,58 @@ export const AI_TOOLS = {
   },
 
   edit_content: {
-    description: "Edit existing content",
-    inputSchema: z.object({
-      contentId: z.string().uuid().describe("Content ID to edit"),
-      title: z.string().optional().describe("New content title"),
-      text: z
-        .string()
-        .optional()
-        .describe(
-          "New plain text content. The system handles formatting automatically.",
-        ),
-    }),
+    description:
+      "Edit existing non-flash content. Use edit_flash_content for flash message or tone changes.",
+    inputSchema: z
+      .object({
+        contentId: z.string().uuid().describe("Content ID to edit"),
+        title: requiredNameSchema("New content title").optional(),
+        text: z
+          .string()
+          .trim()
+          .min(1)
+          .max(TEXT_CONTENT_MAX_CHARS)
+          .optional()
+          .describe(
+            `New plain text message. Maximum ${TEXT_CONTENT_MAX_CHARS} characters. The system handles formatting automatically.`,
+          ),
+      })
+      .refine(
+        (value) => value.title !== undefined || value.text !== undefined,
+        {
+          message: "At least one field must be provided",
+        },
+      ),
+    requiresConfirmation: true,
+  },
+
+  edit_flash_content: {
+    description: "Edit existing flash content title, message, or tone",
+    inputSchema: z
+      .object({
+        contentId: z.string().uuid().describe("Flash content ID to edit"),
+        title: requiredNameSchema("New flash content title").optional(),
+        message: z
+          .string()
+          .trim()
+          .min(1)
+          .max(FLASH_MESSAGE_MAX_LENGTH)
+          .optional()
+          .describe(
+            `New flash message. Maximum ${FLASH_MESSAGE_MAX_LENGTH} characters.`,
+          ),
+        tone: z
+          .enum(["INFO", "WARNING", "CRITICAL"])
+          .optional()
+          .describe("New flash tone"),
+      })
+      .refine(
+        (value) =>
+          value.title !== undefined ||
+          value.message !== undefined ||
+          value.tone !== undefined,
+        { message: "At least one field must be provided" },
+      ),
     requiresConfirmation: true,
   },
 
@@ -128,8 +197,17 @@ export const AI_TOOLS = {
     description: "Edit existing playlist",
     inputSchema: z.object({
       playlistId: z.string().uuid().describe("Playlist ID to edit"),
-      name: z.string().optional().describe("New playlist name"),
-      description: z.string().optional().describe("New playlist description"),
+      name: requiredNameSchema("New playlist name").optional(),
+      description: z
+        .string()
+        .trim()
+        .optional()
+        .nullable()
+        .describe("New playlist description"),
+      showCounter: z
+        .boolean()
+        .optional()
+        .describe("Whether to show the runtime counter overlay"),
       items: z
         .array(playlistItemInputSchema)
         .min(1)
@@ -153,13 +231,21 @@ export const AI_TOOLS = {
     description: "Edit an existing playlist schedule",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to edit"),
-      name: z.string().optional().describe("New schedule name"),
+      name: requiredNameSchema("New schedule name").optional(),
       playlistId: z.string().uuid().optional().describe("New playlist ID"),
       displayId: z.string().uuid().optional().describe("New target display ID"),
-      startDate: z.string().optional().describe("New start date (YYYY-MM-DD)"),
-      endDate: z.string().optional().describe("New end date (YYYY-MM-DD)"),
-      startTime: z.string().optional().describe("New start time (HH:MM)"),
-      endTime: z.string().optional().describe("New end time (HH:MM)"),
+      startDate: z
+        .string()
+        .date()
+        .optional()
+        .describe("New start date (YYYY-MM-DD)"),
+      endDate: z
+        .string()
+        .date()
+        .optional()
+        .describe("New end date (YYYY-MM-DD)"),
+      startTime: timeSchema.optional().describe("New start time (HH:MM)"),
+      endTime: timeSchema.optional().describe("New end time (HH:MM)"),
     }),
     requiresConfirmation: true,
   },
@@ -168,13 +254,21 @@ export const AI_TOOLS = {
     description: "Edit an existing flash content schedule",
     inputSchema: z.object({
       scheduleId: z.string().uuid().describe("Schedule ID to edit"),
-      name: z.string().optional().describe("New schedule name"),
+      name: requiredNameSchema("New schedule name").optional(),
       contentId: z.string().uuid().optional().describe("New flash content ID"),
       displayId: z.string().uuid().optional().describe("New target display ID"),
-      startDate: z.string().optional().describe("New start date (YYYY-MM-DD)"),
-      endDate: z.string().optional().describe("New end date (YYYY-MM-DD)"),
-      startTime: z.string().optional().describe("New start time (HH:MM)"),
-      endTime: z.string().optional().describe("New end time (HH:MM)"),
+      startDate: z
+        .string()
+        .date()
+        .optional()
+        .describe("New start date (YYYY-MM-DD)"),
+      endDate: z
+        .string()
+        .date()
+        .optional()
+        .describe("New end date (YYYY-MM-DD)"),
+      startTime: timeSchema.optional().describe("New start time (HH:MM)"),
+      endTime: timeSchema.optional().describe("New end time (HH:MM)"),
     }),
     requiresConfirmation: true,
   },
@@ -197,10 +291,11 @@ export const AI_TOOLS = {
 
   list_displays: {
     description:
-      "List all available displays with their details (id, name, status, groups, output). Use this to find display IDs before scheduling content.",
+      "List all available displays with compact details (id, name, slug, status, output). Use this to find display IDs before scheduling content.",
     inputSchema: z.object({
       search: z
         .string()
+        .trim()
         .optional()
         .describe("Optional search term to filter displays by name"),
     }),
@@ -209,10 +304,11 @@ export const AI_TOOLS = {
 
   list_content: {
     description:
-      "List non-flash content owned by the current user with full details. Returns TEXT, IMAGE, and VIDEO content only. Use this to find existing content before adding to playlists.",
+      "List non-flash content owned by the current user with compact details. Returns TEXT, IMAGE, and VIDEO content only. Use this to find existing content before adding to playlists.",
     inputSchema: z.object({
       search: z
         .string()
+        .trim()
         .optional()
         .describe("Optional search term to filter content by title"),
     }),
@@ -221,10 +317,11 @@ export const AI_TOOLS = {
 
   list_flash_content: {
     description:
-      "List flash content owned by the current user with full details. Use this to find flash alert IDs before creating or editing flash schedules.",
+      "List flash content owned by the current user with compact details. Use this to find flash alert IDs before creating or editing flash schedules.",
     inputSchema: z.object({
       search: z
         .string()
+        .trim()
         .optional()
         .describe("Optional search term to filter flash content by title"),
     }),
@@ -233,10 +330,11 @@ export const AI_TOOLS = {
 
   list_playlists: {
     description:
-      "List playlists owned by the current user with full details. Use this to find existing playlists before scheduling or adding content.",
+      "List playlists owned by the current user with compact details. Use this to find existing playlists before scheduling or adding content.",
     inputSchema: z.object({
       search: z
         .string()
+        .trim()
         .optional()
         .describe("Optional search term to filter playlists by name"),
     }),
@@ -245,10 +343,11 @@ export const AI_TOOLS = {
 
   list_schedules: {
     description:
-      "List schedules owned by the current user with full details. Use this to find existing schedules before editing or deleting.",
+      "List schedules owned by the current user with compact details. Use this to find existing schedules before editing or deleting.",
     inputSchema: z.object({
       search: z
         .string()
+        .trim()
         .optional()
         .describe("Optional search term to filter schedules by name"),
     }),

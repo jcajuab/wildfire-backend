@@ -19,6 +19,17 @@ import { type CreateScheduleUseCase } from "#/application/use-cases/schedules/cr
 import { type DeleteScheduleUseCase } from "#/application/use-cases/schedules/delete-schedule.use-case";
 import { type ListSchedulesUseCase } from "#/application/use-cases/schedules/list-schedules.use-case";
 import { type UpdateScheduleUseCase } from "#/application/use-cases/schedules/update-schedule.use-case";
+import {
+  aiSuccess,
+  summarizeContentForAI,
+  summarizeCreated,
+  summarizeDeleted,
+  summarizeDisplayForAI,
+  summarizeList,
+  summarizePlaylistForAI,
+  summarizeScheduleForAI,
+  summarizeUpdated,
+} from "./ai-tool-output";
 import { AI_TOOLS } from "./ai-tool-registry";
 import { convertPlainTextToTipTap } from "./tiptap-convert";
 
@@ -51,6 +62,9 @@ type CreateFlashContentArgs = z.infer<
 type ListPlaylistsArgs = z.infer<typeof AI_TOOLS.list_playlists.inputSchema>;
 type ListSchedulesArgs = z.infer<typeof AI_TOOLS.list_schedules.inputSchema>;
 type EditContentArgs = z.infer<typeof AI_TOOLS.edit_content.inputSchema>;
+type EditFlashContentArgs = z.infer<
+  typeof AI_TOOLS.edit_flash_content.inputSchema
+>;
 type DeleteContentArgs = z.infer<typeof AI_TOOLS.delete_content.inputSchema>;
 type EditPlaylistArgs = z.infer<typeof AI_TOOLS.edit_playlist.inputSchema>;
 type DeletePlaylistArgs = z.infer<typeof AI_TOOLS.delete_playlist.inputSchema>;
@@ -150,18 +164,26 @@ export class AIToolExecutor {
           htmlContent,
           ownerId: context.userId,
         });
-        return { success: true, data: result };
+        return summarizeCreated(
+          "text content",
+          result.title,
+          summarizeContentForAI(result),
+        );
       }
 
       case "create_flash_content": {
         const typedArgs = args as CreateFlashContentArgs;
         const result = await this.deps.createFlashContentUseCase.execute({
           title: typedArgs.title,
-          message: typedArgs.text,
+          message: typedArgs.message,
           tone: typedArgs.tone,
           ownerId: context.userId,
         });
-        return { success: true, data: result };
+        return summarizeCreated(
+          "flash content",
+          result.title,
+          summarizeContentForAI(result),
+        );
       }
 
       case "create_playlist": {
@@ -169,47 +191,74 @@ export class AIToolExecutor {
         const result = await this.deps.createPlaylistUseCase.execute({
           name: typedArgs.name,
           description: typedArgs.description,
+          showCounter: typedArgs.showCounter,
           ownerId: context.userId,
           items: typedArgs.items.map((item) => ({
             contentId: item.contentId,
             duration: item.duration,
           })),
         });
-        return { success: true, data: result };
+        return summarizeCreated(
+          "playlist",
+          result.name,
+          summarizePlaylistForAI(result),
+        );
       }
 
       case "create_schedule": {
         const typedArgs = args as CreateScheduleArgs;
-        const result = await this.deps.createScheduleUseCase.execute({
-          name: typedArgs.name,
-          kind: "PLAYLIST",
-          playlistId: typedArgs.playlistId,
-          contentId: null,
-          displayId: typedArgs.displayId,
-          startDate: typedArgs.startDate,
-          endDate: typedArgs.endDate,
-          startTime: typedArgs.startTime,
-          endTime: typedArgs.endTime,
-          ownerId: context.userId,
-        });
-        return { success: true, data: result };
+        const created = await Promise.all(
+          typedArgs.displayIds.map((displayId) =>
+            this.deps.createScheduleUseCase.execute({
+              name: typedArgs.name,
+              kind: "PLAYLIST",
+              playlistId: typedArgs.playlistId,
+              contentId: null,
+              displayId,
+              startDate: typedArgs.startDate,
+              endDate: typedArgs.endDate,
+              startTime: typedArgs.startTime,
+              endTime: typedArgs.endTime,
+              ownerId: context.userId,
+            }),
+          ),
+        );
+        return {
+          ...aiSuccess(
+            `Created ${created.length === 1 ? "schedule" : `${created.length} schedules`}.`,
+            created.length === 1
+              ? summarizeScheduleForAI(created[0])
+              : created.map(summarizeScheduleForAI),
+          ),
+        };
       }
 
       case "create_flash_schedule": {
         const typedArgs = args as CreateFlashScheduleArgs;
-        const result = await this.deps.createScheduleUseCase.execute({
-          name: typedArgs.name,
-          kind: "FLASH",
-          playlistId: null,
-          contentId: typedArgs.contentId,
-          displayId: typedArgs.displayId,
-          startDate: typedArgs.startDate,
-          endDate: typedArgs.endDate,
-          startTime: typedArgs.startTime,
-          endTime: typedArgs.endTime,
-          ownerId: context.userId,
-        });
-        return { success: true, data: result };
+        const created = await Promise.all(
+          typedArgs.displayIds.map((displayId) =>
+            this.deps.createScheduleUseCase.execute({
+              name: typedArgs.name,
+              kind: "FLASH",
+              playlistId: null,
+              contentId: typedArgs.contentId,
+              displayId,
+              startDate: typedArgs.startDate,
+              endDate: typedArgs.endDate,
+              startTime: typedArgs.startTime,
+              endTime: typedArgs.endTime,
+              ownerId: context.userId,
+            }),
+          ),
+        );
+        return {
+          ...aiSuccess(
+            `Created ${created.length === 1 ? "flash schedule" : `${created.length} flash schedules`}.`,
+            created.length === 1
+              ? summarizeScheduleForAI(created[0])
+              : created.map(summarizeScheduleForAI),
+          ),
+        };
       }
 
       // Displays are shared infrastructure (not user-owned resources),
@@ -224,7 +273,7 @@ export class AIToolExecutor {
               fuzzyMatch(d.name, typedArgs.search ?? ""),
             )
           : result.items;
-        return { success: true, data: items };
+        return summarizeList(items, "display", summarizeDisplayForAI);
       }
 
       case "list_content": {
@@ -232,6 +281,7 @@ export class AIToolExecutor {
         const result = await this.deps.listContentUseCase.execute({
           ownerId: context.userId,
           pageSize: 100,
+          status: "READY",
           excludeType: "FLASH",
         });
         const items = typedArgs.search
@@ -239,7 +289,7 @@ export class AIToolExecutor {
               fuzzyMatch(c.title, typedArgs.search ?? ""),
             )
           : result.items;
-        return { success: true, data: items };
+        return summarizeList(items, "content item", summarizeContentForAI);
       }
 
       case "list_flash_content": {
@@ -247,6 +297,7 @@ export class AIToolExecutor {
         const result = await this.deps.listContentUseCase.execute({
           ownerId: context.userId,
           pageSize: 100,
+          status: "READY",
           type: "FLASH",
         });
         const items = typedArgs.search
@@ -254,7 +305,11 @@ export class AIToolExecutor {
               fuzzyMatch(c.title, typedArgs.search ?? ""),
             )
           : result.items;
-        return { success: true, data: items };
+        return summarizeList(
+          items,
+          "flash content item",
+          summarizeContentForAI,
+        );
       }
 
       case "list_playlists": {
@@ -268,7 +323,7 @@ export class AIToolExecutor {
               fuzzyMatch(p.name, typedArgs.search ?? ""),
             )
           : result.items;
-        return { success: true, data: items };
+        return summarizeList(items, "playlist", summarizePlaylistForAI);
       }
 
       case "list_schedules": {
@@ -282,7 +337,7 @@ export class AIToolExecutor {
               fuzzyMatch(s.name, typedArgs.search ?? ""),
             )
           : result.items;
-        return { success: true, data: items };
+        return summarizeList(items, "schedule", summarizeScheduleForAI);
       }
 
       case "edit_content": {
@@ -297,7 +352,27 @@ export class AIToolExecutor {
           textJsonContent: converted?.jsonContent,
           textHtmlContent: converted?.htmlContent,
         });
-        return { success: true, data: updated };
+        return summarizeUpdated(
+          "content",
+          updated.title,
+          summarizeContentForAI(updated),
+        );
+      }
+
+      case "edit_flash_content": {
+        const typedArgs = args as EditFlashContentArgs;
+        const updated = await this.deps.updateContentUseCase.execute({
+          id: typedArgs.contentId,
+          ownerId: context.userId,
+          title: typedArgs.title,
+          flashMessage: typedArgs.message,
+          flashTone: typedArgs.tone,
+        });
+        return summarizeUpdated(
+          "flash content",
+          updated.title,
+          summarizeContentForAI(updated),
+        );
       }
 
       case "delete_content": {
@@ -306,7 +381,7 @@ export class AIToolExecutor {
           id: typedArgs.contentId,
           ownerId: context.userId,
         });
-        return { success: true, data: { deleted: true } };
+        return summarizeDeleted("content", typedArgs.contentId);
       }
 
       case "edit_playlist": {
@@ -316,6 +391,7 @@ export class AIToolExecutor {
           ownerId: context.userId,
           name: typedArgs.name,
           description: typedArgs.description,
+          showCounter: typedArgs.showCounter,
         });
 
         if (typedArgs.items?.length) {
@@ -330,7 +406,11 @@ export class AIToolExecutor {
           });
         }
 
-        return { success: true, data: updated };
+        return summarizeUpdated(
+          "playlist",
+          updated.name,
+          summarizePlaylistForAI(updated),
+        );
       }
 
       case "delete_playlist": {
@@ -339,7 +419,7 @@ export class AIToolExecutor {
           id: typedArgs.playlistId,
           ownerId: context.userId,
         });
-        return { success: true, data: { deleted: true } };
+        return summarizeDeleted("playlist", typedArgs.playlistId);
       }
 
       case "edit_schedule": {
@@ -355,7 +435,11 @@ export class AIToolExecutor {
           startTime: typedArgs.startTime,
           endTime: typedArgs.endTime,
         });
-        return { success: true, data: updated };
+        return summarizeUpdated(
+          "schedule",
+          updated.name,
+          summarizeScheduleForAI(updated),
+        );
       }
 
       case "delete_schedule": {
@@ -364,7 +448,7 @@ export class AIToolExecutor {
           id: typedArgs.scheduleId,
           ownerId: context.userId,
         });
-        return { success: true, data: { deleted: true } };
+        return summarizeDeleted("schedule", typedArgs.scheduleId);
       }
 
       case "edit_flash_schedule": {
@@ -380,7 +464,11 @@ export class AIToolExecutor {
           startTime: typedArgs.startTime,
           endTime: typedArgs.endTime,
         });
-        return { success: true, data: updated };
+        return summarizeUpdated(
+          "flash schedule",
+          updated.name,
+          summarizeScheduleForAI(updated),
+        );
       }
 
       case "delete_flash_schedule": {
@@ -389,7 +477,7 @@ export class AIToolExecutor {
           id: typedArgs.scheduleId,
           ownerId: context.userId,
         });
-        return { success: true, data: { deleted: true } };
+        return summarizeDeleted("flash schedule", typedArgs.scheduleId);
       }
 
       default:

@@ -38,7 +38,9 @@ const baseContentView = {
   flashMessage: null,
   flashTone: null,
   textJsonContent: null,
-  textHtmlContent: null,
+  textHtmlContent: "<p>Do not leak raw HTML</p>",
+  textPreviewText: "Do not leak raw HTML",
+  isUsedInPlaylist: false,
   createdAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
 };
@@ -98,6 +100,16 @@ const makeDeps = () => {
     },
   };
 
+  const createFlashContent = makeSpyUseCase<
+    Record<string, unknown>,
+    typeof flashContentView
+  >(flashContentView);
+
+  const createPlaylist = makeSpyUseCase<
+    Record<string, unknown>,
+    typeof basePlaylistView
+  >(basePlaylistView);
+
   const updatePlaylist = makeSpyUseCase<
     Record<string, unknown>,
     typeof basePlaylistView
@@ -114,6 +126,20 @@ const makeDeps = () => {
     Record<string, unknown>,
     typeof baseScheduleView
   >(baseScheduleView);
+
+  const createdSchedules: Record<string, unknown>[] = [];
+  const createSchedule = {
+    lastInput: null as Record<string, unknown> | null,
+    execute: async (input: Record<string, unknown>) => {
+      createSchedule.lastInput = input;
+      createdSchedules.push(input);
+      return {
+        ...baseScheduleView,
+        id: `schedule-${createdSchedules.length}`,
+        displayId: String(input.displayId),
+      };
+    },
+  };
 
   const deleteSchedule = {
     lastInput: null as { id: string; ownerId: string } | null,
@@ -135,15 +161,15 @@ const makeDeps = () => {
   });
 
   const executor = new AIToolExecutor({
-    createFlashContentUseCase: noopUseCase as never,
+    createFlashContentUseCase: createFlashContent as never,
     createTextContentUseCase: noopUseCase as never,
     updateContentUseCase: updateContent as never,
     deleteContentUseCase: deleteContent as never,
-    createPlaylistUseCase: noopUseCase as never,
+    createPlaylistUseCase: createPlaylist as never,
     updatePlaylistUseCase: updatePlaylist as never,
     deletePlaylistUseCase: deletePlaylist as never,
     replacePlaylistItemsAtomicUseCase: noopUseCase as never,
-    createScheduleUseCase: noopUseCase as never,
+    createScheduleUseCase: createSchedule as never,
     updateScheduleUseCase: updateSchedule as never,
     deleteScheduleUseCase: deleteSchedule as never,
     listDisplaysUseCase: {
@@ -161,10 +187,14 @@ const makeDeps = () => {
 
   return {
     executor,
+    createFlashContent,
     updateContent,
     deleteContent,
+    createPlaylist,
     updatePlaylist,
     deletePlaylist,
+    createSchedule,
+    createdSchedules,
     updateSchedule,
     deleteSchedule,
     listContent,
@@ -176,10 +206,38 @@ const CONTENT_ID = "550e8400-e29b-41d4-a716-446655440001";
 const PLAYLIST_ID = "550e8400-e29b-41d4-a716-446655440002";
 const SCHEDULE_ID = "550e8400-e29b-41d4-a716-446655440003";
 const SCHEDULE_ID_2 = "550e8400-e29b-41d4-a716-446655440004";
+const DISPLAY_ID = "550e8400-e29b-41d4-a716-446655440005";
+const DISPLAY_ID_2 = "550e8400-e29b-41d4-a716-446655440006";
 
 const ctx = { userId: "user-42", conversationId: "conv-1" };
 
 describe("AIToolExecutor – edit/delete ownership routing", () => {
+  describe("create_flash_content", () => {
+    test("maps message to the flash content use case", async () => {
+      const { executor, createFlashContent } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-create-flash",
+          toolName: "create_flash_content",
+          args: {
+            title: "Weather Alert",
+            message: "Heavy rain expected.",
+            tone: "WARNING",
+          },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(createFlashContent.lastInput).toMatchObject({
+        title: "Weather Alert",
+        message: "Heavy rain expected.",
+        tone: "WARNING",
+        ownerId: "user-42",
+      });
+    });
+  });
+
   describe("edit_content", () => {
     test("passes ownerId from context to updateContentUseCase", async () => {
       const { executor, updateContent } = makeDeps();
@@ -212,6 +270,34 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
     });
   });
 
+  describe("edit_flash_content", () => {
+    test("passes flash fields to updateContentUseCase", async () => {
+      const { executor, updateContent } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-edit-flash",
+          toolName: "edit_flash_content",
+          args: {
+            contentId: CONTENT_ID,
+            title: "Updated Alert",
+            message: "Use the main exit.",
+            tone: "CRITICAL",
+          },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(updateContent.lastInput).toMatchObject({
+        id: CONTENT_ID,
+        ownerId: "user-42",
+        title: "Updated Alert",
+        flashMessage: "Use the main exit.",
+        flashTone: "CRITICAL",
+      });
+    });
+  });
+
   describe("delete_content", () => {
     test("passes ownerId from context to deleteContentUseCase", async () => {
       const { executor, deleteContent } = makeDeps();
@@ -224,6 +310,34 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       expect(result.success).toBe(true);
       expect(deleteContent.lastInput?.id).toBe(CONTENT_ID);
       expect(deleteContent.lastInput?.ownerId).toBe("user-42");
+    });
+  });
+
+  describe("create_playlist", () => {
+    test("passes showCounter and playlist items to createPlaylistUseCase", async () => {
+      const { executor, createPlaylist } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-create-playlist",
+          toolName: "create_playlist",
+          args: {
+            name: "Lobby Loop",
+            description: "Morning notices",
+            showCounter: true,
+            items: [{ contentId: CONTENT_ID, duration: 10 }],
+          },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(createPlaylist.lastInput).toMatchObject({
+        name: "Lobby Loop",
+        description: "Morning notices",
+        showCounter: true,
+        ownerId: "user-42",
+        items: [{ contentId: CONTENT_ID, duration: 10 }],
+      });
     });
   });
 
@@ -241,6 +355,25 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       expect(input.id).toBe(PLAYLIST_ID);
       expect(input.ownerId).toBe("user-42");
     });
+
+    test("passes showCounter to updatePlaylistUseCase", async () => {
+      const { executor, updatePlaylist } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-edit-playlist-counter",
+          toolName: "edit_playlist",
+          args: { playlistId: PLAYLIST_ID, showCounter: true },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(updatePlaylist.lastInput).toMatchObject({
+        id: PLAYLIST_ID,
+        ownerId: "user-42",
+        showCounter: true,
+      });
+    });
   });
 
   describe("delete_playlist", () => {
@@ -255,6 +388,46 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       expect(result.success).toBe(true);
       expect(deletePlaylist.lastInput?.id).toBe(PLAYLIST_ID);
       expect(deletePlaylist.lastInput?.ownerId).toBe("user-42");
+    });
+  });
+
+  describe("create_schedule", () => {
+    test("creates one playlist schedule per target display", async () => {
+      const { executor, createdSchedules } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-create-schedule",
+          toolName: "create_schedule",
+          args: {
+            playlistId: PLAYLIST_ID,
+            name: "Morning Loop",
+            displayIds: [DISPLAY_ID, DISPLAY_ID_2],
+            startDate: "2027-01-01",
+            endDate: "2027-01-01",
+            startTime: "08:00",
+            endTime: "08:30",
+          },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(createdSchedules).toHaveLength(2);
+      expect(createdSchedules[0]).toMatchObject({
+        kind: "PLAYLIST",
+        playlistId: PLAYLIST_ID,
+        contentId: null,
+        displayId: DISPLAY_ID,
+        ownerId: "user-42",
+      });
+      expect(createdSchedules[1]).toMatchObject({
+        kind: "PLAYLIST",
+        displayId: DISPLAY_ID_2,
+      });
+      expect(result.data).toEqual([
+        expect.objectContaining({ displayId: DISPLAY_ID }),
+        expect.objectContaining({ displayId: DISPLAY_ID_2 }),
+      ]);
     });
   });
 
@@ -286,6 +459,46 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       expect(result.success).toBe(true);
       expect(deleteSchedule.lastInput?.id).toBe(SCHEDULE_ID);
       expect(deleteSchedule.lastInput?.ownerId).toBe("user-42");
+    });
+  });
+
+  describe("create_flash_schedule", () => {
+    test("creates one flash schedule per target display", async () => {
+      const { executor, createdSchedules } = makeDeps();
+      const result = await executor.execute(
+        {
+          id: "tc-create-flash-schedule",
+          toolName: "create_flash_schedule",
+          args: {
+            contentId: CONTENT_ID,
+            name: "Emergency Alert",
+            displayIds: [DISPLAY_ID, DISPLAY_ID_2],
+            startDate: "2027-01-01",
+            endDate: "2027-01-01",
+            startTime: "09:00",
+            endTime: "09:05",
+          },
+        },
+        ctx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(createdSchedules).toHaveLength(2);
+      expect(createdSchedules[0]).toMatchObject({
+        kind: "FLASH",
+        playlistId: null,
+        contentId: CONTENT_ID,
+        displayId: DISPLAY_ID,
+        ownerId: "user-42",
+      });
+      expect(createdSchedules[1]).toMatchObject({
+        kind: "FLASH",
+        displayId: DISPLAY_ID_2,
+      });
+      expect(result.data).toEqual([
+        expect.objectContaining({ displayId: DISPLAY_ID }),
+        expect.objectContaining({ displayId: DISPLAY_ID_2 }),
+      ]);
     });
   });
 
@@ -352,6 +565,7 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       expect(listContent.lastInput).toMatchObject({
         ownerId: "user-42",
         pageSize: 100,
+        status: "READY",
         excludeType: "FLASH",
       });
     });
@@ -368,7 +582,19 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual([baseContentView]);
+      expect(result.message).toBe("Found 1 content item.");
+      expect(result.data).toEqual([
+        {
+          id: "content-1",
+          title: "Test",
+          type: "TEXT",
+          status: "READY",
+          statusLabel: "Draft",
+          preview: "Do not leak raw HTML",
+        },
+      ]);
+      expect(JSON.stringify(result.data)).not.toContain("textHtmlContent");
+      expect(JSON.stringify(result.data)).not.toContain("checksum");
     });
   });
 
@@ -384,6 +610,7 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       expect(listContent.lastInput).toMatchObject({
         ownerId: "user-42",
         pageSize: 100,
+        status: "READY",
         type: "FLASH",
       });
     });
@@ -400,7 +627,18 @@ describe("AIToolExecutor – edit/delete ownership routing", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual([flashContentView]);
+      expect(result.message).toBe("Found 1 flash content item.");
+      expect(result.data).toEqual([
+        {
+          id: "content-2",
+          title: "Flash Alert",
+          type: "FLASH",
+          status: "READY",
+          statusLabel: "Draft",
+          message: "Alert",
+          tone: "WARNING",
+        },
+      ]);
     });
   });
 });
