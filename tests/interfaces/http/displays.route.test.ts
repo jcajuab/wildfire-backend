@@ -112,6 +112,7 @@ const makeApp = async (
     status?: string;
     output?: string;
     groupIds?: readonly string[];
+    excludeGroupIds?: readonly string[];
     membership?: "ungrouped" | "any";
     sortBy?: string;
     sortDirection?: string;
@@ -211,6 +212,7 @@ const makeApp = async (
       status?: "PROCESSING" | "READY" | "LIVE" | "DOWN";
       output?: string;
       groupIds?: readonly string[];
+      excludeGroupIds?: readonly string[];
       membership?: "ungrouped" | "any";
       sortBy?: "name" | "status" | "groupCount";
       sortDirection?: "asc" | "desc";
@@ -238,6 +240,16 @@ const makeApp = async (
               group.displayIds.includes(display.id),
           );
           if (!matchesGroup) {
+            return false;
+          }
+        }
+        if (input.excludeGroupIds && input.excludeGroupIds.length > 0) {
+          const matchesExcludedGroup = displayGroups.some(
+            (group) =>
+              input.excludeGroupIds?.includes(group.id) &&
+              group.displayIds.includes(display.id),
+          );
+          if (matchesExcludedGroup) {
             return false;
           }
         }
@@ -1760,6 +1772,67 @@ describe("Displays routes", () => {
       "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     ]);
     expect(searchPageCalls.at(-1)?.membership).toBe("ungrouped");
+  });
+
+  test("GET /displays?excludeGroupIds excludes only displays in those groups", async () => {
+    const selectedGroupId = "11111111-1111-4111-8111-111111111111";
+    const otherGroupId = "22222222-2222-4222-8222-222222222222";
+    const { app, issueToken, searchPageCalls } = await makeApp(
+      ["displays:read"],
+      {
+        displays: [
+          makeDisplay({
+            id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            name: "Selected Group Member",
+            slug: "selected-member",
+          }),
+          makeDisplay({
+            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            name: "Other Group Member",
+            slug: "other-member",
+          }),
+          makeDisplay({
+            id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+            name: "Ungrouped",
+            slug: "ungrouped",
+          }),
+        ],
+        displayGroups: [
+          {
+            id: selectedGroupId,
+            name: "Selected",
+            colorIndex: 0,
+            displayIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: otherGroupId,
+            name: "Other",
+            colorIndex: 1,
+            displayIds: ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    );
+    const token = await issueToken();
+
+    const response = await app.request(
+      `/displays?excludeGroupIds=${selectedGroupId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await parseJson<{ data: Array<{ id: string }> }>(response);
+    expect(body.data.map((display) => display.id)).toEqual([
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    ]);
+    expect(searchPageCalls.at(-1)?.excludeGroupIds).toEqual([selectedGroupId]);
   });
 
   test("GET /displays passes sortBy=groupCount to searchPage", async () => {

@@ -76,6 +76,7 @@ interface ManifestRenderableItem {
   sequence: number;
   duration: number;
   loop: boolean;
+  showCounter: boolean;
   content: ManifestRenderableContent;
 }
 
@@ -125,6 +126,7 @@ type ManifestSourceItem = {
   sequence: number;
   duration: number;
   loop: boolean;
+  showCounter: boolean;
   content: ContentRecord & {
     type: ManifestRenderableType;
   };
@@ -265,6 +267,7 @@ export class GetDisplayManifestUseCase {
             sequence: 1,
             duration: emergencyDuration,
             loop: false,
+            showCounter: false,
             content: {
               id: emergency.content.id,
               checksum: emergency.content.checksum,
@@ -300,6 +303,7 @@ export class GetDisplayManifestUseCase {
           sequence: 1,
           duration: emergencyDuration,
           loop: false,
+          showCounter: false,
           content: emergencyContent,
         },
       ];
@@ -402,6 +406,10 @@ export class GetDisplayManifestUseCase {
     if (!playlist) {
       throw new NotFoundError("Playlist not found");
     }
+    const showCounterByPlaylistId = new Map(
+      playlists.map((item) => [item.id, item.showCounter]),
+    );
+    const anyPlaylistShowsCounter = playlists.some((item) => item.showCounter);
 
     const allPlaylistItems = this.deps.playlistRepository.listItemsByPlaylistIds
       ? await this.deps.playlistRepository.listItemsByPlaylistIds(playlistIds)
@@ -438,6 +446,7 @@ export class GetDisplayManifestUseCase {
           sequence: index + 1,
           duration: item.duration,
           loop: item.loop,
+          showCounter: showCounterByPlaylistId.get(item.playlistId) ?? false,
           content: content as ContentRecord & {
             type: ManifestRenderableType;
           },
@@ -447,7 +456,7 @@ export class GetDisplayManifestUseCase {
 
     const playlistVersion = await this.computePlaylistVersion({
       playlistId: playlist.id,
-      showCounter: playlist.showCounter,
+      showCounter: anyPlaylistShowsCounter,
       refreshNonce: display.refreshNonce ?? 0,
       playback: versionPlayback,
       items: manifestItemSources.map((item) => ({
@@ -455,6 +464,7 @@ export class GetDisplayManifestUseCase {
         sequence: item.sequence,
         duration: item.duration,
         loop: item.loop,
+        showCounter: item.showCounter,
         content: {
           id: item.content.id,
           checksum: item.content.checksum,
@@ -467,7 +477,7 @@ export class GetDisplayManifestUseCase {
       return {
         notModified: true,
         playlistId: playlist.id,
-        showCounter: playlist.showCounter,
+        showCounter: anyPlaylistShowsCounter,
         playlistVersion,
         generatedAt: input.now.toISOString(),
         playback: {
@@ -488,6 +498,7 @@ export class GetDisplayManifestUseCase {
         sequence: item.sequence,
         duration: item.duration,
         loop: item.loop,
+        showCounter: item.showCounter,
         content: await this.materializeRenderableContent(item.content),
       }),
     );
@@ -501,7 +512,7 @@ export class GetDisplayManifestUseCase {
     return {
       notModified: false,
       playlistId: playlist.id,
-      showCounter: playlist.showCounter,
+      showCounter: anyPlaylistShowsCounter,
       playlistVersion,
       generatedAt: input.now.toISOString(),
       playback,
@@ -643,6 +654,7 @@ export class GetDisplayManifestUseCase {
       sequence: number;
       duration: number;
       loop: boolean;
+      showCounter: boolean;
       content: {
         id: string;
         checksum: string;
@@ -681,6 +693,7 @@ export class GetDisplayManifestUseCase {
         sequence: item.sequence,
         duration: item.duration,
         loop: item.loop,
+        showCounter: item.showCounter,
         contentId: item.content.id,
         checksum: item.content.checksum,
       })),

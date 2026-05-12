@@ -30,6 +30,7 @@ export interface DisplayRepository {
     status?: DisplayStatus;
     output?: string;
     groupIds?: readonly string[];
+    excludeGroupIds?: readonly string[];
     membership?: "ungrouped" | "any";
     sortBy?: "name" | "status" | "groupCount";
     sortDirection?: "asc" | "desc";

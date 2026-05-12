@@ -5,6 +5,7 @@ import {
   eq,
   inArray,
   like,
+  notInArray,
   or,
   type SQL,
   sql,
@@ -180,6 +181,7 @@ export class DisplayDbRepository implements DisplayRepository {
     status?: DisplayStatus;
     output?: string;
     groupIds?: readonly string[];
+    excludeGroupIds?: readonly string[];
     membership?: "ungrouped" | "any";
     sortBy?: "name" | "status" | "groupCount";
     sortDirection?: "asc" | "desc";
@@ -201,6 +203,17 @@ export class DisplayDbRepository implements DisplayRepository {
       }
     }
 
+    let excludedDisplayIds: string[] | undefined;
+    if (input.excludeGroupIds && input.excludeGroupIds.length > 0) {
+      const rows = await db
+        .select({ displayId: displayGroupMembers.displayId })
+        .from(displayGroupMembers)
+        .where(
+          inArray(displayGroupMembers.groupId, [...input.excludeGroupIds]),
+        );
+      excludedDisplayIds = [...new Set(rows.map((row) => row.displayId))];
+    }
+
     const normalizedQuery = input.q?.trim();
     const normalizedOutput = input.output?.trim();
     const conditions = [
@@ -209,6 +222,9 @@ export class DisplayDbRepository implements DisplayRepository {
         ? buildOutputFilterCondition(normalizedOutput)
         : undefined,
       filteredDisplayIds ? inArray(displays.id, filteredDisplayIds) : undefined,
+      excludedDisplayIds && excludedDisplayIds.length > 0
+        ? notInArray(displays.id, excludedDisplayIds)
+        : undefined,
       input.membership === "ungrouped"
         ? sql`NOT EXISTS (SELECT 1 FROM ${displayGroupMembers} WHERE ${displayGroupMembers.displayId} = ${displays.id})`
         : undefined,

@@ -28,6 +28,13 @@ export const displayListQuerySchema = z.object({
       if (value === undefined) return undefined;
       return Array.isArray(value) ? value : [value];
     }),
+  excludeGroupIds: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      return Array.isArray(value) ? value : [value];
+    }),
   groupNames: z
     .union([
       z.string().trim().min(1).max(120),
@@ -220,6 +227,7 @@ export const displayManifestItemSchema = z.object({
   sequence: z.number().int(),
   duration: z.number().int(),
   loop: z.boolean(),
+  showCounter: z.boolean(),
   content: z.object({
     id: z.string(),
     type: z.enum(["IMAGE", "VIDEO", "TEXT"]),

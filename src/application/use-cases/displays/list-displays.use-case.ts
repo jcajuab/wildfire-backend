@@ -21,6 +21,7 @@ export class ListDisplaysUseCase {
     status?: DisplayStatus;
     output?: string;
     groupIds?: string[];
+    excludeGroupIds?: string[];
     membership?: "ungrouped" | "any";
     sortBy?: "name" | "status" | "groupCount";
     sortDirection?: "asc" | "desc";
@@ -36,6 +37,7 @@ export class ListDisplaysUseCase {
       status: input?.status,
       output: input?.output,
       groupIds: input?.groupIds,
+      excludeGroupIds: input?.excludeGroupIds,
       membership: input?.membership,
       sortBy: input?.sortBy,
       sortDirection: input?.sortDirection,

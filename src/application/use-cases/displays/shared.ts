@@ -24,6 +24,7 @@ export const listDisplaysWithFallback = (input: {
   status?: DisplayStatus;
   output?: string;
   groupIds?: string[];
+  excludeGroupIds?: string[];
   membership?: "ungrouped" | "any";
   sortBy?: "name" | "status" | "groupCount";
   sortDirection?: "asc" | "desc";
@@ -35,6 +36,7 @@ export const listDisplaysWithFallback = (input: {
     status: input.status,
     output: input.output,
     groupIds: input.groupIds,
+    excludeGroupIds: input.excludeGroupIds,
     membership: input.membership,
     sortBy: input.sortBy,
     sortDirection: input.sortDirection,

@@ -701,6 +701,175 @@ describe("Displays use cases", () => {
     expect(result.items).toHaveLength(0);
   });
 
+  test("GetDisplayManifestUseCase preserves item counters across merged playlists", async () => {
+    const { repo } = makeRepository();
+    const created = await repo.create({
+      name: "Lobby",
+      slug: "AA:BB",
+    });
+    let secondPlaylistShowsCounter = false;
+
+    const useCase = new GetDisplayManifestUseCase({
+      scheduleRepository: {
+        listByDisplay: async () => [
+          {
+            id: "schedule-1",
+            name: "Counter playlist",
+            kind: "PLAYLIST" as const,
+            playlistId: "playlist-1",
+            contentId: null,
+            displayId: created.id,
+            startTime: "00:00",
+            endTime: "23:59",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "schedule-2",
+            name: "Plain playlist",
+            kind: "PLAYLIST" as const,
+            playlistId: "playlist-2",
+            contentId: null,
+            displayId: created.id,
+            startTime: "00:00",
+            endTime: "23:59",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        list: async () => [],
+        findById: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        delete: async () => false,
+        countByPlaylistId: async () => 0,
+        countByContentId: async () => 0,
+        listByContentId: async () => [],
+        listByPlaylistId: async () => [],
+      },
+      playlistRepository: {
+        list: async () => [],
+        listForOwner: async () => [],
+        listPageForOwner: async () => ({ items: [], total: 0 }),
+        listPage: async () => ({ items: [], total: 0 }),
+        findByIds: async () => [
+          {
+            id: "playlist-1",
+            name: "Counter playlist",
+            description: null,
+            showCounter: true,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          {
+            id: "playlist-2",
+            name: "Plain playlist",
+            description: null,
+            showCounter: secondPlaylistShowsCounter,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        ],
+        findByIdsForOwner: async () => [],
+        findById: async () => null,
+        findByIdForOwner: async () => null,
+        create: async () => {
+          throw new Error("not used");
+        },
+        update: async () => null,
+        updateForOwner: async () => null,
+        updateStatus: async () => undefined,
+        delete: async () => false,
+        deleteForOwner: async () => false,
+        listItems: async () => [],
+        listItemsByPlaylistIds: async () => [
+          {
+            id: "item-1",
+            playlistId: "playlist-1",
+            contentId: "content-1",
+            sequence: 1,
+            duration: 5,
+            loop: false,
+          },
+          {
+            id: "item-2",
+            playlistId: "playlist-2",
+            contentId: "content-2",
+            sequence: 1,
+            duration: 5,
+            loop: false,
+          },
+        ],
+        findItemById: async () => null,
+        countItemsByContentId: async () => 0,
+        addItem: async () => {
+          throw new Error("not used");
+        },
+        updateItem: async () => null,
+        reorderItems: async () => true,
+        deleteItem: async () => false,
+      },
+      contentRepository: {
+        findById: async () => null,
+        findByIdForOwner: async () => null,
+        findByIds: async (ids: string[]) =>
+          ids.map((id) => ({
+            id,
+            title: id,
+            type: "IMAGE" as const,
+            status: "READY" as const,
+            fileKey: `content/images/${id}.png`,
+            checksum: `checksum-${id}`,
+            mimeType: "image/png",
+            fileSize: 10,
+            width: 10,
+            height: 10,
+            duration: null,
+            ownerId: "user-1",
+            createdAt: "2025-01-01T00:00:00.000Z",
+          })),
+        findByIdsForOwner: async () => [],
+        create: async () => {
+          throw new Error("not used");
+        },
+        list: async () => ({ items: [], total: 0 }),
+        listForOwner: async () => ({ items: [], total: 0 }),
+        delete: async () => false,
+        deleteForOwner: async () => false,
+        update: async () => null,
+        updateForOwner: async () => null,
+      },
+      contentStorage: {
+        ensureBucketExists: async () => {},
+        upload: async () => {},
+        delete: async () => {},
+        getPresignedDownloadUrl: async () => "https://example.com/file",
+        checkConnectivity: async () => ({ ok: true }),
+      },
+      displayRepository: repo,
+      downloadUrlExpiresInSeconds: 3600,
+    });
+
+    const before = await useCase.execute({
+      displayId: created.id,
+      now: new Date("2025-01-01T00:00:00.000Z"),
+    });
+    secondPlaylistShowsCounter = true;
+    const after = await useCase.execute({
+      displayId: created.id,
+      now: new Date("2025-01-01T00:00:00.000Z"),
+    });
+
+    expect(before.showCounter).toBe(true);
+    expect(before.items.map((item) => item.showCounter)).toEqual([true, false]);
+    expect(after.items.map((item) => item.showCounter)).toEqual([true, true]);
+    expect(before.playlistVersion).not.toBe(after.playlistVersion);
+  });
+
   test("GetDisplayManifestUseCase version changes after refresh request", async () => {
     const { repo } = makeRepository();
     const created = await repo.create({
@@ -1256,5 +1425,42 @@ describe("Displays use cases", () => {
     expect(searchPageInputs).toHaveLength(1);
     expect(searchPageInputs[0]?.sortBy).toBe("groupCount");
     expect(searchPageInputs[0]?.sortDirection).toBe("desc");
+  });
+
+  test("ListDisplaysUseCase passes excludeGroupIds to searchPage", async () => {
+    const searchPageInputs: Array<{
+      excludeGroupIds?: readonly string[];
+    }> = [];
+    const repo: DisplayRepository = {
+      list: async () => [],
+      listForReconciliation: async () => [],
+      listPage: async () => ({ items: [], total: 0 }),
+      findByIds: async () => [],
+      findById: async () => null,
+      findBySlug: async () => null,
+      findByFingerprint: async () => null,
+      findByFingerprintAndOutput: async () => null,
+      create: async () => {
+        throw new Error("not used");
+      },
+      createRegisteredDisplay: async () => {
+        throw new Error("not used");
+      },
+      update: async () => null,
+      setStatus: async () => {},
+      touchSeen: async () => {},
+      bumpRefreshNonce: async () => false,
+      searchPage: async (input) => {
+        searchPageInputs.push(input);
+        return { items: [], total: 0 };
+      },
+      delete: async () => false,
+    };
+
+    const useCase = new ListDisplaysUseCase({ displayRepository: repo });
+    await useCase.execute({ excludeGroupIds: ["group-1"] });
+
+    expect(searchPageInputs).toHaveLength(1);
+    expect(searchPageInputs[0]?.excludeGroupIds).toEqual(["group-1"]);
   });
 });
